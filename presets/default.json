@@ -1,0 +1,68 @@
+{
+  "world": {
+    "gravity": 16,
+    "terminalSpeed": 26
+  },
+  "ground": {
+    "gripFlat": 0.8,
+    "gripEdge": 14,
+    "carveYaw": 2.6,
+    "speedFactorKnee": 6,
+    "pivotSpeed": 2.5,
+    "drag": 0.0016,
+    "edgeDrag": 0.35,
+    "normalSmoothing": 12,
+    "edgeResponse": 9
+  },
+  "pop": {
+    "chargeTime": 0.35,
+    "decay": 0.4,
+    "base": 2,
+    "charged": 5,
+    "stanceBias": 0.3
+  },
+  "air": {
+    "detachClearance": 0.12,
+    "authority": 0.35,
+    "tuckMultiplier": 1.25,
+    "extendMultiplier": 0.85,
+    "spinMax": 9,
+    "axisTiltMax": 1.1
+  },
+  "land": {
+    "clean": 0.44,
+    "sketchy": 0.87,
+    "rollClean": 0.35,
+    "sketchySpeedLoss": 0.25,
+    "absorbTime": 0.22
+  },
+  "rail": {
+    "captureRadius": 0.35,
+    "captureAngle": 0.6,
+    "friction": 0.4,
+    "driftBase": 0.9,
+    "balanceMax": 1,
+    "correctionGain": 2.2
+  },
+  "wall": {
+    "minAngle": 1.13,
+    "minSpeed": 8,
+    "gravityScale": 0.35,
+    "drag": 3
+  },
+  "butter": {
+    "threshold": 0.65,
+    "maxSpeed": 12,
+    "grip": 0.3,
+    "yawAuthority": 3.2
+  },
+  "camera": {
+    "springStiffness": 9,
+    "distance": 5.5,
+    "height": 1.8,
+    "lookAhead": 6,
+    "fovBase": 62,
+    "fovSpeedGain": 0.5,
+    "rollGain": 0.18
+  }
+}
