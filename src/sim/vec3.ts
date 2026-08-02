@@ -33,6 +33,22 @@ export function dot(a: Vec3, b: Vec3): number {
   return a.x * b.x + a.y * b.y + a.z * b.z;
 }
 
+export function cross(out: Vec3, a: Vec3, b: Vec3): Vec3 {
+  const x = a.y * b.z - a.z * b.y;
+  const y = a.z * b.x - a.x * b.z;
+  const z = a.x * b.y - a.y * b.x;
+  out.x = x;
+  out.y = y;
+  out.z = z;
+  return out;
+}
+
+/** Fold to −π..π so heading doesn't drift into float ranges that lose precision. */
+export function wrapAngle(a: number): number {
+  const wrapped = (a + Math.PI) % (Math.PI * 2);
+  return (wrapped < 0 ? wrapped + Math.PI * 2 : wrapped) - Math.PI;
+}
+
 export function length(a: Vec3): number {
   return Math.sqrt(a.x * a.x + a.y * a.y + a.z * a.z);
 }

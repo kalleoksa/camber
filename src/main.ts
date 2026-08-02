@@ -9,7 +9,9 @@ import {
   type Take,
 } from './input/recorder.ts';
 import { neutralInput, quantizeInput } from './input/snapshot.ts';
+import { createAudioLayers } from './audio/layers.ts';
 import { createChaseCamera } from './render/camera.ts';
+import { createSpray } from './render/effects.ts';
 import { createScene, interpolateRider } from './render/scene.ts';
 import { hashState } from './sim/hash.ts';
 import { applyParams, cloneParams, params, type Params } from './sim/params.ts';
@@ -49,6 +51,14 @@ const chase = createChaseCamera(params);
 const view = createScene(slopeConfig, terrain, chase.camera);
 addEventListener('resize', view.resize);
 
+const spray = createSpray();
+view.scene.add(spray.object);
+
+// AudioContext can only start from a gesture, and the pad alone doesn't count as one.
+const audio = createAudioLayers();
+addEventListener('pointerdown', () => audio.start(), { once: true });
+addEventListener('keydown', () => audio.start(), { once: true });
+
 const liveInput = neutralInput();
 const tickInput = neutralInput();
 
@@ -81,7 +91,9 @@ function render(alpha: number): void {
 
   const rider = interpolateRider(previous, state, alpha);
   view.updateRider(rider);
+  spray.update(rider, params, dt);
   chase.update(rider, params, dt);
+  if (audio.running) audio.update(rider, params);
   view.renderer.render(view.scene, chase.camera);
 
   if (++refreshCounter % 6 === 0) {

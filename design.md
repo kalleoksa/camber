@@ -97,6 +97,10 @@ Per tick, grounded:
    `speedFactor` rises fast then plateaus, and is ~0 near standstill: **you cannot turn
    without speed.** Below `ground.pivotSpeed`, a separate low-authority skid-pivot is
    allowed so the player isn't stuck.
+   Because `yawRate` plateaus, turn radius grows with speed and lateral load grows with
+   it — at the originally proposed `carveYaw` of 2.6 a 25 m/s carve implies about 6 g and
+   the rider simply stalls, averaging 3 m/s through linked turns. Measured down to 1.0,
+   which holds 15–20 m/s through full-edge turns. See open question 10.
 6. **Speed loss.** Base drag `-drag * v²`, plus edge drag proportional to `|edge| * |vl|`
    from step 4 — hard carves cost speed, which is what makes line choice matter.
 7. **Stance effects.** `stance` shifts the effective pivot point along the board
@@ -434,7 +438,7 @@ export const params = {
   ground: {
     gripFlat: 0.8,          // 1/s lateral damping, flat base — skiddy
     gripEdge: 14.0,         // 1/s lateral damping, full edge — locked carve
-    carveYaw: 2.6,          // rad/s at full edge, at plateau speed
+    carveYaw: 1.0,          // rad/s at full edge, at plateau speed (was 2.6, see §4)
     speedFactorKnee: 6.0,   // m/s where yaw authority reaches ~80%
     pivotSpeed: 2.5,        // m/s below which skid-pivot is allowed
     drag: 0.0016,           // quadratic, 1/m
@@ -509,6 +513,27 @@ export const params = {
     absorbImpulse: 0.35,    // m of hip drop per unit of landing impact
     chatterGain: 0.012,     // m of hip noise per m/s over rough snow
   },
+  spray: {
+    rate: 900,              // particles/s at full scrub
+    scrubRef: 18.0,         // m/s² of edge scrub that saturates emission
+    life: 0.5,              // s
+    launch: 3.4,            // m/s away from the edge
+    spread: 2.2,            // m/s random scatter
+    rise: 1.6,              // m/s upward bias
+    size: 0.16,             // m
+    gravity: 6.0,           // m/s²
+  },
+  audio: {
+    master: 0.55,
+    edgeGain: 0.5,          // edge bite at full scrub
+    edgeFilterBase: 380,    // Hz at a standstill
+    edgeFilterGain: 95,     // Hz per m/s
+    edgeQ: 4.0,
+    baseGain: 0.22,         // base chatter on snow
+    baseFilter: 700,        // Hz lowpass
+    windGain: 0.4,
+    windSpeedRef: 22.0,     // m/s where wind is full
+  },
   camera: {
     springStiffness: 9.0,
     distance: 5.5,          // m
@@ -548,3 +573,9 @@ because `tweakOffset` reaches the landing test.
 9. Does the shoulder/head lead in §7.7 survive at 120 Hz without looking like the head
    is on a spring? If it reads as wobble rather than intent, raise `rig.spineStiffness`
    before cutting the feature.
+10. The carve has no **grip limit**. `ground.gripEdge` is a damping rate, not a maximum
+    lateral force, so a set edge holds regardless of how much lateral acceleration the
+    turn implies; speed is lost by stalling into the fall line rather than by washing
+    out. Real edges let go. If hard carves feel like rails right up until they stop,
+    the fix is a lateral-force cap that degrades grip once exceeded — not lowering
+    `gripEdge` everywhere, which would make gentle turns skid too.

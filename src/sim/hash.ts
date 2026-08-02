@@ -56,6 +56,7 @@ export function hashState(state: RiderState, into: Hasher = shared): string {
   into.push(state.groundNormal.x);
   into.push(state.groundNormal.y);
   into.push(state.groundNormal.z);
+  into.push(state.scrub);
   into.push(state.clearance);
   into.push(state.airTime);
   return into.digest();

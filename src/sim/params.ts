@@ -10,11 +10,18 @@ export const params = {
   ground: {
     gripFlat: 0.8, // 1/s lateral damping, flat base — skiddy
     gripEdge: 14.0, // 1/s lateral damping, full edge — locked carve
-    carveYaw: 2.6, // rad/s at full edge, at plateau speed
+    gripCurve: 1.6, // exponent on |edge| between the two — the carve curve, tune first
+    carveHold: 0.85, // 0..1 of scrubbed lateral speed handed back to forward
+    carveYaw: 1.0, // rad/s at full edge, at plateau speed — design said 2.6, but see below
     speedFactorKnee: 6.0, // m/s where yaw authority reaches ~80%
     pivotSpeed: 2.5, // m/s below which skid-pivot is allowed
+    pivotYaw: 1.1, // rad/s, low-authority skid pivot at a standstill
     drag: 0.0016, // quadratic, 1/m
-    edgeDrag: 0.35, // speed loss coefficient from carving
+    edgeDrag: 0.35, // fraction of scrubbed speed lost outright at full edge
+    stanceYawGain: 0.55, // extra yaw authority at full nose/tail press
+    stanceGripLoss: 0.35, // grip lost at full press
+    brakeDecel: 9.0, // m/s² at full LT
+    brakeGripLoss: 0.7, // grip lost at full LT — the scrub half of brake/scrub
     normalSmoothing: 12.0, // 1/s, board-to-terrain alignment rate
     edgeResponse: 9.0, // 1/s, stick-to-edge-angle rate
   },
@@ -59,6 +66,27 @@ export const params = {
     maxSpeed: 12.0, // m/s
     grip: 0.3, // multiplier on gripEdge
     yawAuthority: 3.2, // rad/s
+  },
+  spray: {
+    rate: 900, // particles/s at full scrub
+    scrubRef: 18.0, // m/s² of edge scrub that saturates emission — measured carve range is 3..23
+    life: 0.5, // s
+    launch: 3.4, // m/s away from the edge
+    spread: 2.2, // m/s random scatter
+    rise: 1.6, // m/s upward bias
+    size: 0.16, // m
+    gravity: 6.0, // m/s²
+  },
+  audio: {
+    master: 0.55,
+    edgeGain: 0.5, // edge bite at full scrub
+    edgeFilterBase: 380, // Hz at a standstill
+    edgeFilterGain: 95, // Hz per m/s
+    edgeQ: 4.0,
+    baseGain: 0.22, // base chatter on snow
+    baseFilter: 700, // Hz lowpass
+    windGain: 0.4,
+    windSpeedRef: 22.0, // m/s where wind is full
   },
   camera: {
     springStiffness: 9.0,

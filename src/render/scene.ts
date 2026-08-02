@@ -4,7 +4,7 @@ import type { SlopeConfig, Terrain } from '../sim/terrain.ts';
 import { createContact } from '../sim/terrain.ts';
 import { lerp, length, type Vec3 } from '../sim/vec3.ts';
 
-/** Board tip angle at full edge. Purely visual until the carve model lands. */
+/** Board tip angle at full edge. */
 const MAX_EDGE_ROLL = 0.55;
 const MAX_CROUCH = 0.28; // m of knee bend at full compress
 
@@ -15,6 +15,7 @@ export type RiderView = {
   edge: number;
   stance: number;
   compress: number;
+  scrub: number;
   speed: number;
   mode: RiderMode;
 };
@@ -35,6 +36,7 @@ export function interpolateRider(prev: RiderState, cur: RiderState, alpha: numbe
     edge: prev.edge + (cur.edge - prev.edge) * alpha,
     stance: prev.stance + (cur.stance - prev.stance) * alpha,
     compress: prev.compress + (cur.compress - prev.compress) * alpha,
+    scrub: cur.scrub,
     speed: length(cur.velocity),
     mode: cur.mode,
   };
@@ -99,7 +101,7 @@ function slopeMesh(cfg: SlopeConfig, terrain: Terrain): THREE.Mesh {
   return mesh;
 }
 
-/** Side markers every 20 m. The only reliable speed read before the effects layer exists. */
+/** Side markers every 20 m — a fixed reference for reading speed and turn shape. */
 function slopeMarkers(cfg: SlopeConfig, terrain: Terrain): THREE.Group {
   const group = new THREE.Group();
   const geometry = new THREE.CylinderGeometry(0.06, 0.06, 1.6, 6);

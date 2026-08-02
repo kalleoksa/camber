@@ -21,6 +21,7 @@ export type RiderState = {
   compress: number; // 0..1, knee bend
 
   groundNormal: Vec3; // smoothed, what the board is slaved to
+  scrub: number; // m/s² the edge is removing from lateral velocity — drives spray and edge bite
   clearance: number; // m above the contact point
   airTime: number; // s since leaving the ground
 
@@ -39,6 +40,7 @@ export function createRiderState(spawn: Spawn): RiderState {
     stance: 0,
     compress: 0,
     groundNormal: vec3(0, 1, 0),
+    scrub: 0,
     clearance: 0,
     airTime: 0,
     resetLatch: false,
@@ -54,6 +56,7 @@ export function resetRiderState(state: RiderState): void {
   copyInto(state.position, spawn.position);
   setXYZ(state.velocity, 0, 0, 0);
   setXYZ(state.groundNormal, 0, 1, 0);
+  state.scrub = 0;
   state.heading = spawn.heading;
   state.edge = 0;
   state.stance = 0;
@@ -73,6 +76,7 @@ export function copyRiderState(dst: RiderState, src: RiderState): void {
   dst.edge = src.edge;
   dst.stance = src.stance;
   dst.compress = src.compress;
+  dst.scrub = src.scrub;
   dst.clearance = src.clearance;
   dst.airTime = src.airTime;
   dst.resetLatch = src.resetLatch;

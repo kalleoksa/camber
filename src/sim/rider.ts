@@ -32,7 +32,7 @@ export function tick(
 
   switch (state.mode) {
     case 'grounded':
-      stepGrounded(state, params, terrain, dt);
+      stepGrounded(state, input, params, terrain, dt);
       break;
     case 'airborne':
       stepAirborne(state, params, terrain, dt);

@@ -13,6 +13,7 @@ export function stepAirborne(state: RiderState, params: Params, terrain: Terrain
   const p = state.position;
   const v = state.velocity;
 
+  state.scrub = 0;
   v.y -= params.world.gravity * dt;
   clampLength(v, params.world.terminalSpeed);
   addScaled(p, v, dt);

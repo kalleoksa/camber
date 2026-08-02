@@ -6,11 +6,18 @@
   "ground": {
     "gripFlat": 0.8,
     "gripEdge": 14,
-    "carveYaw": 2.6,
+    "gripCurve": 1.6,
+    "carveHold": 0.85,
+    "carveYaw": 1,
     "speedFactorKnee": 6,
     "pivotSpeed": 2.5,
+    "pivotYaw": 1.1,
     "drag": 0.0016,
     "edgeDrag": 0.35,
+    "stanceYawGain": 0.55,
+    "stanceGripLoss": 0.35,
+    "brakeDecel": 9,
+    "brakeGripLoss": 0.7,
     "normalSmoothing": 12,
     "edgeResponse": 9
   },
@@ -55,6 +62,27 @@
     "maxSpeed": 12,
     "grip": 0.3,
     "yawAuthority": 3.2
+  },
+  "spray": {
+    "rate": 900,
+    "scrubRef": 18,
+    "life": 0.5,
+    "launch": 3.4,
+    "spread": 2.2,
+    "rise": 1.6,
+    "size": 0.16,
+    "gravity": 6
+  },
+  "audio": {
+    "master": 0.55,
+    "edgeGain": 0.5,
+    "edgeFilterBase": 380,
+    "edgeFilterGain": 95,
+    "edgeQ": 4,
+    "baseGain": 0.22,
+    "baseFilter": 700,
+    "windGain": 0.4,
+    "windSpeedRef": 22
   },
   "camera": {
     "springStiffness": 9,
