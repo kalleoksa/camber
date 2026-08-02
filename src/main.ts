@@ -9,12 +9,23 @@ import {
   type Take,
 } from './input/recorder.ts';
 import { neutralInput, quantizeInput } from './input/snapshot.ts';
+import { createAudioLayers } from './audio/layers.ts';
 import { createChaseCamera } from './render/camera.ts';
+import { createSpray } from './render/effects.ts';
+import { ANCHORS } from './render/poses.ts';
+import { copyDrivers, neutralDrivers, type RigDrivers } from './render/rig.ts';
 import { createScene, interpolateRider } from './render/scene.ts';
+import { createPoseOrbit } from './render/orbit.ts';
 import { hashState } from './sim/hash.ts';
 import { applyParams, cloneParams, params, type Params } from './sim/params.ts';
 import { tick } from './sim/rider.ts';
-import { cloneRiderState, copyRiderState, createRiderState, resetRiderState } from './sim/state.ts';
+import {
+  cloneRiderState,
+  copyRiderState,
+  createRiderState,
+  resetRiderState,
+  type RiderState,
+} from './sim/state.ts';
 import { createContact, createSlope, type SlopeConfig } from './sim/terrain.ts';
 import { length } from './sim/vec3.ts';
 import { createPanel, download, type Readout } from './tuning/panel.ts';
@@ -42,6 +53,11 @@ const readout: Readout = {
   speed: 0,
   tick: 0,
   clearance: 0,
+  air: 0,
+  reach: '—',
+  spin: 0,
+  rotated: 0,
+  landing: 'none',
   determinism: '—',
 };
 
@@ -49,12 +65,26 @@ const chase = createChaseCamera(params);
 const view = createScene(slopeConfig, terrain, chase.camera);
 addEventListener('resize', view.resize);
 
+const spray = createSpray();
+view.scene.add(spray.object);
+
+// AudioContext can only start from a gesture, and the pad alone doesn't count as one.
+const audio = createAudioLayers();
+addEventListener('pointerdown', () => audio.start(), { once: true });
+addEventListener('keydown', () => audio.start(), { once: true });
+
 const liveInput = neutralInput();
+const tickInput = neutralInput();
+
+let poseMode = false;
 
 function step(): void {
+  // Pose mode disconnects gameplay entirely — the rider is frozen and the drivers are
+  // the only thing moving (design §7.8, build order step 2).
+  if (poseMode) return;
   copyRiderState(previous, state);
 
-  let input = quantizeInput(pollGamepad(0, liveInput));
+  let input = quantizeInput(pollGamepad(0, liveInput), tickInput);
   if (cursor) {
     const frame = cursor.next();
     if (!frame) {
@@ -70,6 +100,7 @@ function step(): void {
   if (recorder.recording) liveHashes.push(hashState(state));
 }
 
+let lastLanding: RiderState['landing'] = 'none';
 let lastRender = performance.now();
 let refreshCounter = 0;
 
@@ -79,8 +110,23 @@ function render(alpha: number): void {
   lastRender = now;
 
   const rider = interpolateRider(previous, state, alpha);
-  view.updateRider(rider);
-  chase.update(rider, params, dt);
+  view.updateRider(rider, params, poseMode);
+  if (poseMode) {
+    orbit.update(rider);
+  } else {
+    spray.update(rider, params, dt);
+    chase.update(rider, params, dt);
+  }
+  if (audio.running) {
+    audio.update(rider, params);
+    // Fire once per touchdown, on the tick the sim reports one.
+    if (state.landing !== lastLanding) {
+      if (state.landing === 'clean' || state.landing === 'sketchy') audio.thump(state.impact, params);
+      lastLanding = state.landing;
+    }
+  } else {
+    lastLanding = state.landing;
+  }
   view.renderer.render(view.scene, chase.camera);
 
   if (++refreshCounter % 6 === 0) {
@@ -88,6 +134,17 @@ function render(alpha: number): void {
     readout.speed = length(state.velocity);
     readout.tick = state.tick;
     readout.clearance = state.clearance;
+    readout.air = state.mode === 'airborne' ? state.airTime : 0;
+    const st = view.strain;
+    readout.reach =
+      st.front === 0 && st.back === 0
+        ? 'no grab'
+        : `front ${st.front ? st.front.toFixed(2) : '—'}  back ${st.back ? st.back.toFixed(2) : '—'}${
+            Math.max(st.front, st.back) > 1 ? '  SHORT' : ''
+          }`;
+    readout.spin = state.spinRate;
+    readout.rotated = (state.airYaw * 180) / Math.PI;
+    readout.landing = state.landing;
     panel.refresh();
   }
 }
@@ -121,7 +178,28 @@ function finishRecording(): void {
       : `live diverged @ ${diverged}`;
 }
 
-const panel = createPanel(params, readout, {
+const orbit = createPoseOrbit(chase.camera, view.renderer.domElement);
+
+const panel = createPanel(params, readout, view.drivers, {
+  onPoseMode: (on) => {
+    poseMode = on;
+    orbit.setEnabled(on);
+    readout.session = on ? 'pose mode — gameplay disconnected' : 'live';
+    if (!on) chase.snap(interpolateRider(previous, state, 1), params);
+  },
+  onAnchor: (name) => {
+    const anchor = ANCHORS[name];
+    if (anchor) {
+      copyDrivers(view.drivers, anchor);
+      panel.refresh();
+    }
+  },
+  onSavePose: () => download('pose.json', JSON.stringify(view.drivers, null, 2)),
+  onLoadPose: (json) => {
+    const loaded = { ...neutralDrivers(), ...(JSON.parse(json) as Partial<RigDrivers>) };
+    copyDrivers(view.drivers, loaded);
+    panel.refresh();
+  },
   onReset: () => {
     resetRiderState(state);
     copyRiderState(previous, state);

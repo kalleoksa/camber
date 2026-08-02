@@ -1,22 +1,36 @@
 import * as THREE from 'three';
-import type { RiderMode, RiderState } from '../sim/state.ts';
+import { quat, slerp, type Quat } from '../sim/quat.ts';
+import type { Params } from '../sim/params.ts';
+import type { LandingRead, RiderMode, RiderState } from '../sim/state.ts';
 import type { SlopeConfig, Terrain } from '../sim/terrain.ts';
 import { createContact } from '../sim/terrain.ts';
-import { lerp, length, type Vec3 } from '../sim/vec3.ts';
+import { length, vec3, type Vec3 } from '../sim/vec3.ts';
+import { createRig, neutralDrivers, type RigDrivers } from './rig.ts';
 
-/** Board tip angle at full edge. Purely visual until the carve model lands. */
+/** Board tip angle at full edge. */
 const MAX_EDGE_ROLL = 0.55;
 const MAX_CROUCH = 0.28; // m of knee bend at full compress
+/** Extra hip drop per m/s of landing impact. A placeholder until the rig lands in M4. */
+const ABSORB_PER_IMPACT = 0.022;
+const TUMBLE_RATE = 8.0; // rad/s at full slide speed
+const TICK = 1 / 60; // s, nominal frame for the render-side springs
 
 export type RiderView = {
   position: Vec3;
   groundNormal: Vec3;
+  spinFrame: Quat;
   heading: number;
+  course: number; // heading of horizontal velocity — what the camera follows in the air
   edge: number;
   stance: number;
   compress: number;
+  scrub: number;
   speed: number;
   mode: RiderMode;
+  landing: LandingRead;
+  impact: number;
+  absorb: number;
+  bailTime: number;
 };
 
 function shortestAngleLerp(a: number, b: number, t: number): number {
@@ -26,25 +40,65 @@ function shortestAngleLerp(a: number, b: number, t: number): number {
   return a + d * t;
 }
 
-/** Render reads two sim states and draws between them. It never writes to either. */
+const view: RiderView = {
+  position: vec3(),
+  groundNormal: vec3(0, 1, 0),
+  spinFrame: quat(),
+  heading: 0,
+  course: 0,
+  edge: 0,
+  stance: 0,
+  compress: 0,
+  scrub: 0,
+  speed: 0,
+  mode: 'airborne',
+  landing: 'none',
+  impact: 0,
+  absorb: 0,
+  bailTime: 0,
+};
+
+function lerpInto(out: Vec3, a: Vec3, b: Vec3, t: number): void {
+  out.x = a.x + (b.x - a.x) * t;
+  out.y = a.y + (b.y - a.y) * t;
+  out.z = a.z + (b.z - a.z) * t;
+}
+
+/**
+ * Render reads two sim states and draws between them. It never writes to either, and it
+ * reuses one view buffer — consume it before the next call.
+ */
 export function interpolateRider(prev: RiderState, cur: RiderState, alpha: number): RiderView {
-  return {
-    position: lerp(prev.position, cur.position, alpha),
-    groundNormal: lerp(prev.groundNormal, cur.groundNormal, alpha),
-    heading: shortestAngleLerp(prev.heading, cur.heading, alpha),
-    edge: prev.edge + (cur.edge - prev.edge) * alpha,
-    stance: prev.stance + (cur.stance - prev.stance) * alpha,
-    compress: prev.compress + (cur.compress - prev.compress) * alpha,
-    speed: length(cur.velocity),
-    mode: cur.mode,
-  };
+  lerpInto(view.position, prev.position, cur.position, alpha);
+  lerpInto(view.groundNormal, prev.groundNormal, cur.groundNormal, alpha);
+  slerp(view.spinFrame, prev.spinFrame, cur.spinFrame, alpha);
+  view.heading = shortestAngleLerp(prev.heading, cur.heading, alpha);
+  view.edge = prev.edge + (cur.edge - prev.edge) * alpha;
+  view.stance = prev.stance + (cur.stance - prev.stance) * alpha;
+  view.compress = prev.compress + (cur.compress - prev.compress) * alpha;
+  view.scrub = cur.scrub;
+  view.speed = length(cur.velocity);
+  view.mode = cur.mode;
+  view.landing = cur.landing;
+  view.impact = cur.impact;
+  view.absorb = cur.absorb;
+  view.bailTime = cur.bailTime;
+  view.course =
+    Math.abs(cur.velocity.x) + Math.abs(cur.velocity.z) > 1e-4
+      ? Math.atan2(cur.velocity.x, cur.velocity.z)
+      : view.heading;
+  return view;
 }
 
 export type SceneView = {
   renderer: THREE.WebGLRenderer;
   scene: THREE.Scene;
   rider: THREE.Group;
-  updateRider(view: RiderView): void;
+  /** Drivers the rig is currently posed with. Pose mode writes here directly. */
+  drivers: RigDrivers;
+  /** Per-hand shoulder-to-hand distance over arm reach; above 1 the grab is out of reach. */
+  strain: { front: number; back: number };
+  updateRider(view: RiderView, params: Params, poseMode: boolean): void;
   resize(): void;
 };
 
@@ -99,7 +153,7 @@ function slopeMesh(cfg: SlopeConfig, terrain: Terrain): THREE.Mesh {
   return mesh;
 }
 
-/** Side markers every 20 m. The only reliable speed read before the effects layer exists. */
+/** Side markers every 20 m — a fixed reference for reading speed and turn shape. */
 function slopeMarkers(cfg: SlopeConfig, terrain: Terrain): THREE.Group {
   const group = new THREE.Group();
   const geometry = new THREE.CylinderGeometry(0.06, 0.06, 1.6, 6);
@@ -114,35 +168,6 @@ function slopeMarkers(cfg: SlopeConfig, terrain: Terrain): THREE.Group {
     }
   }
   return group;
-}
-
-function riderRig(): { group: THREE.Group; board: THREE.Group; body: THREE.Mesh } {
-  const group = new THREE.Group();
-
-  const board = new THREE.Group();
-  const deck = new THREE.Mesh(
-    new THREE.BoxGeometry(0.26, 0.02, 1.55),
-    new THREE.MeshStandardMaterial({ color: 0x1b1f24, roughness: 0.4 }),
-  );
-  deck.position.y = 0.02;
-  board.add(deck);
-  const nose = new THREE.Mesh(
-    new THREE.BoxGeometry(0.2, 0.02, 0.12),
-    new THREE.MeshStandardMaterial({ color: 0xe2582f, roughness: 0.4 }),
-  );
-  nose.position.set(0, 0.02, 0.8);
-  board.add(nose);
-  group.add(board);
-
-  // Placeholder capsule. Milestone 4 replaces it with the procedural rig.
-  const body = new THREE.Mesh(
-    new THREE.CapsuleGeometry(0.24, 0.9, 6, 12),
-    new THREE.MeshStandardMaterial({ color: 0x2f6ee2, roughness: 0.6 }),
-  );
-  body.castShadow = true;
-  group.add(body);
-
-  return { group, board, body };
 }
 
 export function createScene(cfg: SlopeConfig, terrain: Terrain, camera: THREE.PerspectiveCamera): SceneView {
@@ -163,38 +188,64 @@ export function createScene(cfg: SlopeConfig, terrain: Terrain, camera: THREE.Pe
   scene.add(slopeMesh(cfg, terrain));
   scene.add(slopeMarkers(cfg, terrain));
 
-  const rig = riderRig();
-  scene.add(rig.group);
+  const rig = createRig();
+  scene.add(rig.root);
+  const drivers = neutralDrivers();
+  let hipVel = 0;
 
-  const up = new THREE.Vector3();
-  const forward = new THREE.Vector3();
-  const right = new THREE.Vector3();
-  const basis = new THREE.Matrix4();
   const roll = new THREE.Quaternion();
+  const tumble = new THREE.Quaternion();
   const zAxis = new THREE.Vector3(0, 0, 1);
+  const tumbleAxis = new THREE.Vector3(1, 0.3, 0).normalize();
+  let tumbleAngle = 0;
 
   return {
     renderer,
     scene,
-    rider: rig.group,
+    rider: rig.root,
+    drivers,
+    strain: rig.strain,
 
-    updateRider(view) {
-      rig.group.position.set(view.position.x, view.position.y, view.position.z);
+    updateRider(view, params, poseMode) {
+      rig.root.position.set(view.position.x, view.position.y, view.position.z);
+      // Tumble winds down with the slide rather than spinning at a fixed rate forever.
+      tumbleAngle =
+        view.mode === 'bailed' ? tumbleAngle + Math.min(view.speed / 8, 1) * TUMBLE_RATE * 0.016 : 0;
 
-      up.set(view.groundNormal.x, view.groundNormal.y, view.groundNormal.z).normalize();
-      forward.set(Math.sin(view.heading), 0, Math.cos(view.heading));
-      forward.addScaledVector(up, -forward.dot(up)).normalize();
-      right.crossVectors(up, forward);
+      // The sim owns board orientation — grounded it is slaved to the terrain, airborne
+      // it carries angular momentum. Render just reads it.
+      const q = view.spinFrame;
+      rig.root.quaternion.set(q.x, q.y, q.z, q.w);
 
-      basis.makeBasis(right, up, forward);
-      rig.group.quaternion.setFromRotationMatrix(basis);
-      // Toe edge tips the board toward +X down, so the roll is negative in board space.
-      roll.setFromAxisAngle(zAxis, -view.edge * MAX_EDGE_ROLL);
-      rig.group.quaternion.multiply(roll);
+      // Edge roll is cosmetic and only means anything on snow.
+      if (view.mode === 'grounded') {
+        // Local +X is the heel side (design §1), so a toe edge tips −X down.
+        roll.setFromAxisAngle(zAxis, view.edge * MAX_EDGE_ROLL);
+        rig.root.quaternion.multiply(roll);
+      }
+      if (view.mode === 'bailed') {
+        tumble.setFromAxisAngle(tumbleAxis, tumbleAngle);
+        rig.root.quaternion.multiply(tumble);
+      }
 
-      const stand = 0.75 - view.compress * MAX_CROUCH;
-      rig.body.position.set(0, stand, view.stance * 0.12);
-      rig.body.rotation.x = -view.stance * 0.25;
+      // Pose mode leaves the drivers alone — they are the thing being authored. In play,
+      // only the ones the sim already owns are mapped; grabs and tweak stay unwired until
+      // the gate passes (§7.8, step 2 before step 3).
+      if (!poseMode) {
+        const absorb = view.absorb > 0 ? view.impact * ABSORB_PER_IMPACT : 0;
+        const target = -view.compress * MAX_CROUCH - absorb;
+        // One critically-damped spring rather than assigning hip height (§7.6).
+        const k = params.rig.hipStiffness;
+        const acc = k * (target - drivers.hipY) - 2 * params.rig.hipDamping * Math.sqrt(k) * hipVel;
+        hipVel += acc * TICK;
+        drivers.hipY += hipVel * TICK;
+        drivers.hipX = view.edge * 0.1;
+        drivers.hipZ = view.stance * 0.14;
+        drivers.spineSide = view.stance * 0.3;
+        drivers.spineBend = 0.18 + view.compress * 0.25;
+      }
+
+      rig.apply(drivers, params);
     },
 
     resize() {

@@ -6,11 +6,18 @@
   "ground": {
     "gripFlat": 0.8,
     "gripEdge": 14,
-    "carveYaw": 2.6,
+    "gripCurve": 1.6,
+    "carveHold": 0.85,
+    "carveYaw": 1,
     "speedFactorKnee": 6,
     "pivotSpeed": 2.5,
+    "pivotYaw": 1.1,
     "drag": 0.0016,
     "edgeDrag": 0.35,
+    "stanceYawGain": 0.55,
+    "stanceGripLoss": 0.35,
+    "brakeDecel": 9,
+    "brakeGripLoss": 0.7,
     "normalSmoothing": 12,
     "edgeResponse": 9
   },
@@ -19,22 +26,31 @@
     "decay": 0.4,
     "base": 2,
     "charged": 5,
-    "stanceBias": 0.3
+    "stanceBias": 0.3,
+    "trigger": 0.15
   },
   "air": {
     "detachClearance": 0.12,
-    "authority": 0.35,
+    "authority": 1.2,
     "tuckMultiplier": 1.25,
     "extendMultiplier": 0.85,
     "spinMax": 9,
-    "axisTiltMax": 1.1
+    "axisTiltMax": 1.1,
+    "spinTakeoff": 7
   },
   "land": {
     "clean": 0.44,
     "sketchy": 0.87,
     "rollClean": 0.35,
     "sketchySpeedLoss": 0.25,
-    "absorbTime": 0.22
+    "absorbTime": 0.22,
+    "headingSnap": 18
+  },
+  "bail": {
+    "drag": 16,
+    "recoverSpeed": 2.5,
+    "minTime": 0.9,
+    "tumbleRate": 8
   },
   "rail": {
     "captureRadius": 0.35,
@@ -55,6 +71,45 @@
     "maxSpeed": 12,
     "grip": 0.3,
     "yawAuthority": 3.2
+  },
+  "rig": {
+    "thigh": 0.44,
+    "shin": 0.44,
+    "upperArm": 0.33,
+    "forearm": 0.33,
+    "hipWidth": 0.18,
+    "shoulderWidth": 0.36,
+    "stanceWidth": 0.52,
+    "hipHeight": 0.86,
+    "spine": 0.52,
+    "neck": 0.16,
+    "hipStiffness": 90,
+    "hipDamping": 1
+  },
+  "spray": {
+    "rate": 900,
+    "scrubRef": 18,
+    "life": 0.5,
+    "launch": 3.4,
+    "spread": 2.2,
+    "rise": 1.6,
+    "size": 0.16,
+    "gravity": 6
+  },
+  "audio": {
+    "master": 0.55,
+    "edgeGain": 0.5,
+    "edgeFilterBase": 380,
+    "edgeFilterGain": 95,
+    "edgeQ": 4,
+    "baseGain": 0.22,
+    "baseFilter": 700,
+    "windGain": 0.4,
+    "windSpeedRef": 22,
+    "thumpGain": 0.7,
+    "thumpRef": 12,
+    "thumpFilter": 220,
+    "thumpDecay": 0.28
   },
   "camera": {
     "springStiffness": 9,

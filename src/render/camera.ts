@@ -18,7 +18,9 @@ export function createChaseCamera(params: Params): ChaseCamera {
   const desired = (view: RiderView, p: Params): void => {
     // Rise along the contact normal, not world up, so the slope stays in frame.
     up.set(view.groundNormal.x, view.groundNormal.y, view.groundNormal.z).normalize();
-    forward.set(Math.sin(view.heading), 0, Math.cos(view.heading));
+    // In the air the board spins but the camera shouldn't — follow the flight path.
+    const aim = view.mode === 'grounded' ? view.heading : view.course;
+    forward.set(Math.sin(aim), 0, Math.cos(aim));
     forward.addScaledVector(up, -forward.dot(up)).normalize();
 
     target
@@ -33,7 +35,9 @@ export function createChaseCamera(params: Params): ChaseCamera {
 
   const frame = (view: RiderView, p: Params): void => {
     camera.lookAt(look);
-    camera.rotateZ(view.edge * p.camera.rollGain);
+    // Roll with the rider, into the turn: a toe-edge carve banks right, so the horizon
+    // lifts on the right. rotateZ is counter-clockwise from behind, hence the negation.
+    if (view.mode === 'grounded') camera.rotateZ(-view.edge * p.camera.rollGain);
     const fov = p.camera.fovBase + view.speed * p.camera.fovSpeedGain;
     if (Math.abs(camera.fov - fov) > 0.01) {
       camera.fov = fov;
