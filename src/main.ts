@@ -50,11 +50,12 @@ const view = createScene(slopeConfig, terrain, chase.camera);
 addEventListener('resize', view.resize);
 
 const liveInput = neutralInput();
+const tickInput = neutralInput();
 
 function step(): void {
   copyRiderState(previous, state);
 
-  let input = quantizeInput(pollGamepad(0, liveInput));
+  let input = quantizeInput(pollGamepad(0, liveInput), tickInput);
   if (cursor) {
     const frame = cursor.next();
     if (!frame) {

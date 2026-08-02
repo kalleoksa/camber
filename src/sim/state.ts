@@ -46,17 +46,18 @@ export function createRiderState(spawn: Spawn): RiderState {
   };
 }
 
+/** Reachable from `tick()` via the reset button, so it writes in place (invariant 7). */
 export function resetRiderState(state: RiderState): void {
   const spawn = state.spawn;
   state.tick = 0;
   state.mode = 'airborne';
-  state.position = copy(spawn.position);
-  state.velocity = vec3();
+  copyInto(state.position, spawn.position);
+  setXYZ(state.velocity, 0, 0, 0);
+  setXYZ(state.groundNormal, 0, 1, 0);
   state.heading = spawn.heading;
   state.edge = 0;
   state.stance = 0;
   state.compress = 0;
-  state.groundNormal = vec3(0, 1, 0);
   state.clearance = 0;
   state.airTime = 0;
 }
@@ -65,9 +66,9 @@ export function resetRiderState(state: RiderState): void {
 export function copyRiderState(dst: RiderState, src: RiderState): void {
   dst.tick = src.tick;
   dst.mode = src.mode;
-  set(dst.position, src.position);
-  set(dst.velocity, src.velocity);
-  set(dst.groundNormal, src.groundNormal);
+  copyInto(dst.position, src.position);
+  copyInto(dst.velocity, src.velocity);
+  copyInto(dst.groundNormal, src.groundNormal);
   dst.heading = src.heading;
   dst.edge = src.edge;
   dst.stance = src.stance;
@@ -77,10 +78,16 @@ export function copyRiderState(dst: RiderState, src: RiderState): void {
   dst.resetLatch = src.resetLatch;
 }
 
-function set(dst: Vec3, src: Vec3): void {
+function copyInto(dst: Vec3, src: Vec3): void {
   dst.x = src.x;
   dst.y = src.y;
   dst.z = src.z;
+}
+
+function setXYZ(dst: Vec3, x: number, y: number, z: number): void {
+  dst.x = x;
+  dst.y = y;
+  dst.z = z;
 }
 
 export function cloneRiderState(state: RiderState): RiderState {

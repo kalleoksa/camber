@@ -262,7 +262,14 @@ Two consequences that are easy to get wrong:
   rather than by a tuned maximum. Clamp `tweakOffset` to whatever keeps both feet
   reachable and let the anatomy be the limit.
 
-### 7.5 Two-bone IK, analytic
+**Recovery is automatic.** Release the right stick and `tweakOffset` springs to zero at
+`grab.tweakRecover`, roughly 70 ms at the starting value. Decided, not open: requiring a
+deliberate pull-back through centre is more expressive but makes a dropped stick a bail,
+which reads as unfair on a pad. So the wager the landing test creates (§6) is *did you
+let go in time*, not *can you fly it back by hand*. That still bites on a late grab —
+70 ms of spring plus reaction time is real airtime — while a panic release always saves
+you. If it turns out to be free, `grab.tweakRecover` is the number to lower, and scaling
+recovery rate with depth is the fallback if a flat rate can't be made to bite.
 
 Legs and arms are 2-bone chains. Law of cosines, roughly twenty lines. Do not reach for
 CCD or FABRIK on a 2-bone chain.
@@ -534,9 +541,10 @@ because `tweakOffset` reaches the landing test.
    nose grab and pushing a tail grab should not swing the board the same way. Likely
    perpendicular to the line from grab point to the pushing foot, but settle it in
    pose mode with sliders, not on paper.
-8. `grab.tweakRecover` at 14 is a guess and it sets how forgiving the wager in §6 is.
-   Too fast and depth is free; too slow and it's a coin flip. This is probably the
-   single most important number in milestone 4.
+8. `grab.tweakRecover` at 14 is a guess, and given that recovery is automatic (§7.4) it
+   is the *only* thing setting how forgiving the wager in §6 is. Too fast and tweak
+   depth is free; too slow and a late grab is a coin flip. Probably the single most
+   important number in milestone 4.
 9. Does the shoulder/head lead in §7.7 survive at 120 Hz without looking like the head
    is on a spring? If it reads as wobble rather than intent, raise `rig.spineStiffness`
    before cutting the feature.

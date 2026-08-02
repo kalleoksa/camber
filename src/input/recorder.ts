@@ -3,7 +3,7 @@ import { cloneParams, type Params } from '../sim/params.ts';
 import { tick } from '../sim/rider.ts';
 import { createRiderState, type RiderState, type Spawn } from '../sim/state.ts';
 import { createSlope, type SlopeConfig } from '../sim/terrain.ts';
-import { cloneInput, quantizeInput, type InputSnapshot } from './snapshot.ts';
+import { copyInput, neutralInput, quantizeInput, type InputSnapshot } from './snapshot.ts';
 
 export const TAKE_VERSION = 1;
 
@@ -56,8 +56,10 @@ export type ReplayCursor = {
   next(): InputSnapshot | null;
 };
 
+/** `next()` returns a reused buffer — consume it within the tick, never retain it. */
 export function createReplayCursor(frames: InputSnapshot[]): ReplayCursor {
   let index = 0;
+  const out = neutralInput();
   return {
     get done() {
       return index >= frames.length;
@@ -72,7 +74,7 @@ export function createReplayCursor(frames: InputSnapshot[]): ReplayCursor {
       const frame = frames[index];
       if (!frame) return null;
       index++;
-      return cloneInput(frame);
+      return copyInput(out, frame);
     },
   };
 }
@@ -92,7 +94,7 @@ export function buildTake(opts: {
     spawn: opts.spawn,
     terrain: opts.terrain,
     params: cloneParams(opts.params),
-    frames: opts.frames.map(quantizeInput),
+    frames: opts.frames.map((frame) => quantizeInput(frame)),
     hashes: [],
   };
   take.hashes = simulateTake(take).hashes;
