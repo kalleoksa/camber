@@ -1,19 +1,57 @@
+import type { InputSnapshot } from '../../input/snapshot.ts';
 import type { Params } from '../params.ts';
+import { axisY, axisZ, multiply, normalizeQuat, quat, setFromAxisAngle } from '../quat.ts';
 import type { RiderState } from '../state.ts';
 import { createContact, type Terrain } from '../terrain.ts';
-import { addScaled, clampLength, damp, projectOntoPlane } from '../vec3.ts';
+import {
+  addScaled,
+  clampLength,
+  copyInto,
+  damp,
+  dampScalar,
+  dot,
+  length,
+  normalize,
+  projectOntoPlane,
+  scale,
+  vec3,
+  wrapAngle,
+  type Vec3,
+} from '../vec3.ts';
 
 const contact = createContact();
+const spin = quat();
+const boardForward = vec3();
+const boardUp = vec3();
+const course = vec3();
 
-/**
- * Milestone 1: ballistic flight and a bare touchdown. Rotation, grabs and the landing
- * test come in milestones 3 and 4 — landing here is unconditional.
- */
-export function stepAirborne(state: RiderState, params: Params, terrain: Terrain, dt: number): void {
+export function stepAirborne(
+  state: RiderState,
+  input: InputSnapshot,
+  params: Params,
+  terrain: Terrain,
+  dt: number,
+): void {
   const p = state.position;
   const v = state.velocity;
 
   state.scrub = 0;
+  state.compress = dampScalar(state.compress, input.rt, params.ground.edgeResponse, dt);
+
+  // In-flight the stick eases the spin rate toward what a full takeoff would have set,
+  // but only at `air.authority`. Centred stick leaves it alone — momentum is momentum.
+  if (input.lx !== 0) {
+    const target = -input.lx * params.air.spinMax;
+    state.spinRate += (target - state.spinRate) * params.air.authority * dt;
+  }
+  if (state.spinRate > params.air.spinMax) state.spinRate = params.air.spinMax;
+  if (state.spinRate < -params.air.spinMax) state.spinRate = -params.air.spinMax;
+
+  // Body-fixed axis, so this is a local-space rotation. Never snapped, never quantized.
+  setFromAxisAngle(spin, state.spinAxis, state.spinRate * dt);
+  multiply(state.spinFrame, state.spinFrame, spin);
+  normalizeQuat(state.spinFrame);
+
   v.y -= params.world.gravity * dt;
   clampLength(v, params.world.terminalSpeed);
   addScaled(p, v, dt);
@@ -27,7 +65,61 @@ export function stepAirborne(state: RiderState, params: Params, terrain: Terrain
 
   p.y = contact.height;
   state.clearance = 0;
+  land(state, params, contact.normal);
+}
+
+/**
+ * Design §6. The whole thing turns on two angles, and it is deliberately the only place
+ * rotation is ever corrected. Resist adding a rotation-count check — the angle contains it.
+ */
+function land(state: RiderState, params: Params, n: Vec3): void {
+  const v = state.velocity;
+
+  state.impact = Math.abs(dot(v, n));
+
+  axisZ(boardForward, state.spinFrame);
+  axisY(boardUp, state.spinFrame);
+  projectOntoPlane(boardForward, n);
+  normalize(boardForward);
+
+  copyInto(course, v);
+  projectOntoPlane(course, n);
+  const courseSpeed = length(course);
+
+  // Below walking pace the velocity direction is noise, so only the roll angle matters.
+  let theta = 0;
+  if (courseSpeed > params.ground.pivotSpeed) {
+    normalize(course);
+    const cos = Math.min(1, Math.max(-1, dot(boardForward, course)));
+    theta = Math.acos(cos);
+    if (theta > Math.PI / 2) theta = Math.PI - theta; // fold: switch landings are legal
+  }
+  const phi = Math.acos(Math.min(1, Math.max(-1, dot(boardUp, n))));
+
+  if (theta < params.land.clean && phi < params.land.rollClean) {
+    state.landing = 'clean';
+  } else if (theta < params.land.sketchy) {
+    state.landing = 'sketchy';
+  } else {
+    state.mode = 'bailed';
+    state.landing = 'bail';
+    state.bailTime = 0;
+    state.spinRate = 0;
+    return;
+  }
+
+  // Snap heading onto the direction of travel, keeping switch if that is the near side.
+  if (courseSpeed > params.ground.pivotSpeed) {
+    const courseHeading = Math.atan2(course.x, course.z);
+    const delta = wrapAngle(courseHeading - state.heading);
+    state.heading = wrapAngle(Math.abs(delta) > Math.PI / 2 ? courseHeading + Math.PI : courseHeading);
+  }
+
+  projectOntoPlane(v, n);
+  if (state.landing === 'sketchy') scale(v, 1 - params.land.sketchySpeedLoss);
+
   state.mode = 'grounded';
   state.airTime = 0;
-  projectOntoPlane(v, contact.normal);
+  state.spinRate = 0;
+  state.absorb = params.land.absorbTime;
 }

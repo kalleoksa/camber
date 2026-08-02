@@ -456,6 +456,7 @@ export const params = {
     base: 2.0,              // m/s uncharged
     charged: 5.0,           // m/s added at full charge
     stanceBias: 0.3,        // ollie/nollie pop multiplier range
+    trigger: 0.15,          // RT above this counts as held; below it releases
   },
   air: {
     detachClearance: 0.12,  // m
@@ -464,6 +465,7 @@ export const params = {
     extendMultiplier: 0.85, // spin rate while stretched
     spinMax: 9.0,           // rad/s cap
     axisTiltMax: 1.1,       // rad, max cork axis lerp
+    spinTakeoff: 7.0,       // rad/s at full stick on takeoff
   },
   land: {
     clean: 0.44,            // rad ≈ 25°
@@ -471,6 +473,12 @@ export const params = {
     rollClean: 0.35,        // rad, board-up vs contact normal
     sketchySpeedLoss: 0.25, // fraction
     absorbTime: 0.22,       // s
+  },
+  bail: {
+    drag: 7.0,              // m/s² while tumbling
+    recoverSpeed: 2.5,      // m/s below which the rider gets back up
+    minTime: 0.9,           // s before recovery is allowed
+    tumbleRate: 8.0,        // rad/s, visual tumble
   },
   rail: {
     captureRadius: 0.35,    // m
@@ -537,6 +545,10 @@ export const params = {
     baseFilter: 700,        // Hz lowpass
     windGain: 0.4,
     windSpeedRef: 22.0,     // m/s where wind is full
+    thumpGain: 0.7,         // landing thump at full impact
+    thumpRef: 12.0,         // m/s of normal impact that saturates it
+    thumpFilter: 220,       // Hz lowpass — a thud, not a crack
+    thumpDecay: 0.28,       // s
   },
   camera: {
     springStiffness: 9.0,

@@ -26,7 +26,8 @@
     "decay": 0.4,
     "base": 2,
     "charged": 5,
-    "stanceBias": 0.3
+    "stanceBias": 0.3,
+    "trigger": 0.15
   },
   "air": {
     "detachClearance": 0.12,
@@ -34,7 +35,8 @@
     "tuckMultiplier": 1.25,
     "extendMultiplier": 0.85,
     "spinMax": 9,
-    "axisTiltMax": 1.1
+    "axisTiltMax": 1.1,
+    "spinTakeoff": 7
   },
   "land": {
     "clean": 0.44,
@@ -42,6 +44,12 @@
     "rollClean": 0.35,
     "sketchySpeedLoss": 0.25,
     "absorbTime": 0.22
+  },
+  "bail": {
+    "drag": 7,
+    "recoverSpeed": 2.5,
+    "minTime": 0.9,
+    "tumbleRate": 8
   },
   "rail": {
     "captureRadius": 0.35,
@@ -82,7 +90,11 @@
     "baseGain": 0.22,
     "baseFilter": 700,
     "windGain": 0.4,
-    "windSpeedRef": 22
+    "windSpeedRef": 22,
+    "thumpGain": 0.7,
+    "thumpRef": 12,
+    "thumpFilter": 220,
+    "thumpDecay": 0.28
   },
   "camera": {
     "springStiffness": 9,

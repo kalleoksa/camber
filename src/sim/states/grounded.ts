@@ -1,5 +1,6 @@
 import type { InputSnapshot } from '../../input/snapshot.ts';
 import type { Params } from '../params.ts';
+import { setFromBasis } from '../quat.ts';
 import type { RiderState } from '../state.ts';
 import { createContact, type Terrain } from '../terrain.ts';
 import {
@@ -7,6 +8,7 @@ import {
   clampLength,
   cross,
   damp,
+  dampScalar,
   dot,
   normalize,
   projectOntoPlane,
@@ -18,6 +20,7 @@ import {
 const contact = createContact();
 const forward = vec3();
 const toeSide = vec3();
+const heelSide = vec3();
 
 /**
  * ln 5, so `speedFactor` reaches 0.8 exactly at `ground.speedFactorKnee` — that is what
@@ -59,6 +62,13 @@ export function stepGrounded(
   projectOntoPlane(forward, n);
   normalize(forward);
   cross(toeSide, forward, n);
+
+  // Grounded, the board is slaved to the terrain, so the spin frame is rebuilt rather
+  // than integrated. Local X is the heel side (design §1), Y is up, Z is the nose.
+  heelSide.x = -toeSide.x;
+  heelSide.y = -toeSide.y;
+  heelSide.z = -toeSide.z;
+  setFromBasis(state.spinFrame, heelSide, n, forward);
 
   let vf = dot(v, forward);
   let vl = dot(v, toeSide);
@@ -110,17 +120,60 @@ export function stepGrounded(
   // A toe-edge carve goes the other way, so positive edge subtracts.
   state.heading = wrapAngle(state.heading - yaw * dt);
 
+  if (state.absorb > 0) state.absorb = Math.max(0, state.absorb - dt);
+
+  // Pop: charge while RT is held, bleed once full, fire the impulse on release.
+  const held = input.rt > params.pop.trigger;
+  if (held) {
+    state.popLatch = true;
+    state.charge += dt;
+    state.compress =
+      state.charge <= params.pop.chargeTime
+        ? state.charge / params.pop.chargeTime
+        : Math.max(0, 1 - (state.charge - params.pop.chargeTime) * params.pop.decay);
+  } else if (state.popLatch) {
+    state.popLatch = false;
+    // Along the contact normal, not world up — ramp geometry then needs no special case.
+    const bias = 1 - state.stance * params.pop.stanceBias;
+    addScaled(v, n, (params.pop.base + params.pop.charged * state.compress) * bias);
+    state.charge = 0;
+    takeoff(state, input, params);
+    addScaled(p, v, dt);
+    return;
+  } else {
+    state.charge = 0;
+    state.compress = dampScalar(state.compress, 0, params.ground.edgeResponse, dt);
+  }
+
   addScaled(p, v, dt);
 
   terrain.sample(p.x, p.z, contact);
   state.clearance = p.y - contact.height;
   if (state.clearance > params.air.detachClearance) {
-    state.mode = 'airborne';
-    state.airTime = 0;
+    takeoff(state, input, params);
     return;
   }
 
   p.y = contact.height;
   state.clearance = 0;
   projectOntoPlane(v, contact.normal);
+}
+
+/**
+ * Rotation is set here and only here (§5). The axis is board-local and lerped by stick Y,
+ * so cork, rodeo and misty all fall out of one number instead of being special-cased.
+ */
+export function takeoff(state: RiderState, input: InputSnapshot, params: Params): void {
+  state.mode = 'airborne';
+  state.airTime = 0;
+  state.landing = 'none';
+
+  const tilt = Math.min(1, Math.max(-1, input.ly)) * params.air.axisTiltMax;
+  state.spinAxis.x = 0;
+  state.spinAxis.y = Math.cos(tilt);
+  state.spinAxis.z = Math.sin(tilt);
+
+  // Negative because a positive rotation about board up swings the nose to the heel side.
+  const rate = -input.lx * params.air.spinTakeoff;
+  state.spinRate = Math.min(params.air.spinMax, Math.max(-params.air.spinMax, rate));
 }

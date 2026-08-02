@@ -70,6 +70,7 @@ export function createSpray(): Spray {
 
   let cursor = 0;
   let pending = 0;
+  let burstFired = false;
 
   const spawn = (view: RiderView, p: Params, edgeSign: number): void => {
     const i = cursor;
@@ -99,6 +100,16 @@ export function createSpray(): Spray {
       forward.set(Math.sin(view.heading), 0, Math.cos(view.heading));
       forward.addScaledVector(up, -forward.dot(up)).normalize();
       right.crossVectors(up, forward);
+
+      // One burst on touchdown, scaled by how hard it was. Reads the landing before the
+      // rider does anything about it, which is the point of the feedback.
+      if (view.absorb > 0 && view.impact > 1 && !burstFired) {
+        burstFired = true;
+        const burst = Math.min(Math.round(view.impact * 12), 260);
+        for (let i = 0; i < burst; i++) spawn(view, params, i % 2 === 0 ? 1 : -1);
+      } else if (view.absorb <= 0) {
+        burstFired = false;
+      }
 
       if (view.mode === 'grounded' && view.scrub > 0) {
         const intensity = Math.min(view.scrub / params.spray.scrubRef, 1);

@@ -8,6 +8,14 @@ export function copy(a: Vec3): Vec3 {
   return { x: a.x, y: a.y, z: a.z };
 }
 
+/** Allocation-free copy for anything on the tick path. */
+export function copyInto(out: Vec3, a: Vec3): Vec3 {
+  out.x = a.x;
+  out.y = a.y;
+  out.z = a.z;
+  return out;
+}
+
 export function set(out: Vec3, x: number, y: number, z: number): Vec3 {
   out.x = x;
   out.y = y;

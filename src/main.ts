@@ -16,7 +16,13 @@ import { createScene, interpolateRider } from './render/scene.ts';
 import { hashState } from './sim/hash.ts';
 import { applyParams, cloneParams, params, type Params } from './sim/params.ts';
 import { tick } from './sim/rider.ts';
-import { cloneRiderState, copyRiderState, createRiderState, resetRiderState } from './sim/state.ts';
+import {
+  cloneRiderState,
+  copyRiderState,
+  createRiderState,
+  resetRiderState,
+  type RiderState,
+} from './sim/state.ts';
 import { createContact, createSlope, type SlopeConfig } from './sim/terrain.ts';
 import { length } from './sim/vec3.ts';
 import { createPanel, download, type Readout } from './tuning/panel.ts';
@@ -44,6 +50,8 @@ const readout: Readout = {
   speed: 0,
   tick: 0,
   clearance: 0,
+  air: 0,
+  landing: 'none',
   determinism: '—',
 };
 
@@ -81,6 +89,7 @@ function step(): void {
   if (recorder.recording) liveHashes.push(hashState(state));
 }
 
+let lastLanding: RiderState['landing'] = 'none';
 let lastRender = performance.now();
 let refreshCounter = 0;
 
@@ -93,7 +102,16 @@ function render(alpha: number): void {
   view.updateRider(rider);
   spray.update(rider, params, dt);
   chase.update(rider, params, dt);
-  if (audio.running) audio.update(rider, params);
+  if (audio.running) {
+    audio.update(rider, params);
+    // Fire once per touchdown, on the tick the sim reports one.
+    if (state.landing !== lastLanding) {
+      if (state.landing === 'clean' || state.landing === 'sketchy') audio.thump(state.impact, params);
+      lastLanding = state.landing;
+    }
+  } else {
+    lastLanding = state.landing;
+  }
   view.renderer.render(view.scene, chase.camera);
 
   if (++refreshCounter % 6 === 0) {
@@ -101,6 +119,8 @@ function render(alpha: number): void {
     readout.speed = length(state.velocity);
     readout.tick = state.tick;
     readout.clearance = state.clearance;
+    readout.air = state.mode === 'airborne' ? state.airTime : 0;
+    readout.landing = state.landing;
     panel.refresh();
   }
 }

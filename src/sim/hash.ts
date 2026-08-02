@@ -1,6 +1,7 @@
-import type { RiderMode, RiderState } from './state.ts';
+import type { LandingRead, RiderMode, RiderState } from './state.ts';
 
 const MODES: RiderMode[] = ['grounded', 'airborne', 'railed', 'walled', 'bailed'];
+const LANDINGS: LandingRead[] = ['none', 'clean', 'sketchy', 'bail'];
 
 const scratch = new ArrayBuffer(8);
 const asFloat = new Float64Array(scratch);
@@ -53,6 +54,19 @@ export function hashState(state: RiderState, into: Hasher = shared): string {
   into.push(state.edge);
   into.push(state.stance);
   into.push(state.compress);
+  into.push(state.charge);
+  into.push(state.spinFrame.x);
+  into.push(state.spinFrame.y);
+  into.push(state.spinFrame.z);
+  into.push(state.spinFrame.w);
+  into.push(state.spinAxis.x);
+  into.push(state.spinAxis.y);
+  into.push(state.spinAxis.z);
+  into.push(state.spinRate);
+  into.push(LANDINGS.indexOf(state.landing));
+  into.push(state.impact);
+  into.push(state.absorb);
+  into.push(state.bailTime);
   into.push(state.groundNormal.x);
   into.push(state.groundNormal.y);
   into.push(state.groundNormal.z);
