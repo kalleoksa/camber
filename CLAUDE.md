@@ -103,11 +103,15 @@ features from a later milestone "while we're in here."
 | 1 | Harness: slope, capsule, gamepad, Tweakpane, record/replay | A recorded take replays frame-identically after a param change |
 | 2 | Carving: gravity, edge grip, speed, spray, sound | Carving an empty hill is satisfying with nothing else in the scene |
 | 3 | Air: pop, rotation, landing tolerance, bail | Straight airs and a 360 land cleanly and read correctly |
-| 4 | Grabs + procedural rig | Indy/melon/method are distinguishable at a glance while tweaked |
+| 4 | Grabs + procedural rig | A method you'd be happy with is reachable from sliders alone, in pose mode, before any gameplay code is wired to the rig |
 | 5 | Rails: attach, slide variants, balance, exits | 50-50, boardslide, tailslide all feel distinct; balance is winnable but not free |
 | 6 | Wallrides + butters | Both chain into and out of other states without a hitch |
 | 7 | Park as JSON data | A new line can be built by editing park.json only |
 | 8 | Feedback layer: replay cam, audio mix, clean/sketchy read | The game communicates style without a number |
+
+Milestone 4's gate is a slider test on purpose: if a good method isn't reachable by hand,
+no amount of gameplay code will generate one. Use video reference, including your own
+footage, to set the anchor poses.
 
 ---
 

@@ -24,24 +24,16 @@ Xbox-layout gamepad. Analog everywhere it matters.
 | Left stick Y | Stance: nose / tail press | Spin axis tilt → cork / off-axis | Nose / tail press shift |
 | RT (analog) | Compress; **release = pop** | Absorb (prepare landing) | Compress; release = pop off |
 | LT | Brake / heel scrub | — | — |
-| Right stick | — | Grab select by direction; **hold = tweak** | — |
+| Right stick | — | Grab: position on the board (§7.3); **push past the grab = tweak** | — |
 | LB / RB | Board pivot (revert, switch) | Shifty (board yaw independent of body) | Rotate slide angle |
 | A | — | Bail / eject (manual) | — |
 | Y | Reset to last drop-in | Reset | Reset |
 
-**Grab directions on the right stick** (8-way, magnitude = tweak depth):
-
-```
-        nose (mute/nosegrab)
-   \        |        /
- melon      |     indy
-  (heel) ---+--- (toe)
-   /        |        \
-      tail (tail/stalefish)
-```
-
-Grab identity is a *hand target on the board* plus a *body pose bias*, not a clip.
-Method = heel-edge grab + full tail stance + back arch. Emergent, not enumerated.
+The right stick is a *continuous coordinate on the board*, not an 8-way selector — see
+§7.3. Stick direction picks a point along the toe or heel edge; pushing past the point
+where the hand catches starts tweaking. Grab identity is a hand target plus a body pose
+bias, never a clip. Method = heel grab near mid-board + full tail stance + back arch +
+deep tweak. Emergent, not enumerated.
 
 **Design note:** don't put trick names in the input layer. The player composes
 edge + pop + spin axis + grab + stance. Naming happens in the feedback layer, if at all.
@@ -109,7 +101,7 @@ Per tick, grounded:
    from step 4 — hard carves cost speed, which is what makes line choice matter.
 7. **Stance effects.** `stance` shifts the effective pivot point along the board
    (nose press = pivot forward = tighter, twitchier turn), reduces grip, and above
-   `butter.threshold` enters a butter press (§8).
+   `butter.threshold` enters a butter press (§9).
 
 ---
 
@@ -125,7 +117,10 @@ free, so kickers need no special case.
 `stance` at release biases it: tail → ollie (more pop, nose-up rotation bias),
 nose → nollie.
 
-**Rotation.** Set at takeoff, modulated in air.
+**Rotation.** Set at takeoff, modulated in air. Rotation lives on `spinFrame`, which
+carries angular momentum and is the *clean* board orientation. What gets drawn is
+`spinFrame ∘ tweakOffset` (§7.4) — the two are not the same thing and must never be
+welded together.
 
 - Spin axis in board-local space, lerped by left stick Y at takeoff:
   stick centred → board up (flat spin); stick pushed → tilted toward board forward/right
@@ -142,7 +137,8 @@ Never snap rotation mid-flight. Correction happens only at the landing test.
 
 ## 6. Landing test — the most important rule in the game
 
-On contact from AIRBORNE, compute:
+On contact from AIRBORNE, compute — from the **composed** board orientation
+`spinFrame ∘ tweakOffset`, not from `spinFrame` alone:
 
 - `θ` = angle between board heading and velocity heading, both projected onto the contact
   plane, folded to nearest 180° (so switch landings are legal).
@@ -162,9 +158,187 @@ This one rule generates, with no extra code: switch landings, revert saves, wash
 over-rotation punishment, and the reason to spot your landing. Resist adding a separate
 "rotation count" check — the angle test already contains it.
 
+Reading the composed orientation is what turns tweak depth into a real wager: a method
+still hanging 60° off axis at contact fails both `θ` and `φ` and catches an edge. Hold
+it for style, pull it back in time, or eat it. That is the scoreless feedback problem
+from §11 solved in the physics instead of in a UI element — do not also stamp it on
+screen.
+
 ---
 
-## 7. Rails
+## 7. The rider rig
+
+### 7.1 Inverted from the standard character rig
+
+Normal character animation: hips drive, feet IK to the ground. Here it is backwards.
+**The feet are bolted to the bindings and are the constraint. The hips are the only
+thing that moves.** Everything else falls out of that.
+
+Almost the entire vocabulary is *where the hips sit relative to the board*:
+
+| Hip offset | Reads as |
+|---|---|
+| Down along board normal | Crouch / compression |
+| Lateral toward toe or heel | Edge lean |
+| Forward / back along board length | Nose or tail press |
+| Yaw relative to board | Counter-rotation, spin wind-up |
+
+### 7.2 The driver vector
+
+The whole rider is about twenty numbers. Small enough to bind every one to Tweakpane,
+which is the point — see §7.8.
+
+| # | Driver | Space / range |
+|---|---|---|
+| 1–3 | Hip offset | board-local metres (x toe+, y board-up, z nose+) |
+| 4–6 | Hip rotation: yaw, pitch, roll | rad, relative to board |
+| 7–9 | Spine: bend, side-bend, twist | rad |
+| 10–11 | Front hand target: `edge`, `t` | −1..1, 0..1 |
+| 12–13 | Back hand target: `edge`, `t` | −1..1, 0..1 |
+| 14–15 | Hand attachment, per hand | 0 = rest pose, 1 = locked to board |
+| 16 | Tweak depth | 0..1 |
+| 17–18 | Head look-at: yaw, pitch | rad, world-relative |
+| 19 | Knee pole splay | rad |
+| 20 | Stance width scale | multiplier on binding separation |
+
+**Sim owns**, because it feeds the landing test or the physics: `spinFrame`,
+`tweakOffset`, the active grab (`edge`, `t`, which hand, attached), `compress`, `stance`,
+`edge`. **Render owns** everything else — hip springs, spine, arms, head, all IK. The
+rig is a pure function of sim state plus its own spring memory, and it stays on the
+render side of invariant 5.
+
+### 7.3 Grabs are a 2D coordinate, not eight buttons
+
+This supersedes the 8-way diagram that used to be in §2.
+
+Two splines run along the board, one per edge, parameterised `t` from tail (0) to nose
+(1). A grab is `(edge, t, whichHand)`. The right stick maps continuously into that
+space: stick X → edge, stick Y → `t`.
+
+| Grab | Hand | Edge | `t` |
+|---|---|---|---|
+| Indy | back | toe | ≈0.35 |
+| Mute | front | toe | ≈0.55 |
+| Melon | front | heel | ≈0.50 |
+| Stalefish | back | heel | ≈0.30 |
+| Nose | front | either | ≈0.90 |
+| Tail | back | either | ≈0.05 |
+
+The player can sit *between* named grabs, which is true to riding — nobody thinks "I'll
+do a mute", they reach for a spot on the board and someone names it afterward. Names go
+in the replay layer if anywhere, never in the input layer.
+
+**Hand selection falls out of `t`**, it is not a separate input: whichever hand can
+reach. Take the midpoint between the bindings as the split — `t` below it is the back
+hand, above it the front hand. Indy and mute are then the same edge and the same stick
+direction at different depths, which is exactly right. Crossed grabs (crail, roast beef)
+need the *other* hand and have no natural mapping yet — see §13.
+
+### 7.4 The tweak: board visual ≠ board physics
+
+This is the part most implementations get wrong.
+
+A tweak is not the hand moving. The hand is **locked** to the board. A tweak is the
+rider shoving the board away with their legs while holding on, so the board rotates
+*about the grabbed point*.
+
+```
+boardOrientation = spinFrame ∘ tweakOffset
+```
+
+`spinFrame` carries angular momentum and is what rotation tracking reads. `tweakOffset`
+is a player-driven rotation about the active grab point. A method air is the board
+yanked 60°+ off axis behind the rider, and that is simply not expressible if the two are
+welded together.
+
+Two consequences that are easy to get wrong:
+
+- **The hips hang off `spinFrame`, not off the drawn board.** If the hips are parented
+  to the tweaked board, the whole rider rotates with it and the tweak becomes invisible.
+  The hip target is expressed in the *clean* frame; the feet follow the *tweaked* board;
+  the legs stretch across the difference. That is what a tweak physically is.
+- **Leg reach clamps tweak depth for free.** The two-bone IK cannot exceed
+  `thigh + shin`, so how far the board can be shoved out is limited by the geometry
+  rather than by a tuned maximum. Clamp `tweakOffset` to whatever keeps both feet
+  reachable and let the anatomy be the limit.
+
+### 7.5 Two-bone IK, analytic
+
+Legs and arms are 2-bone chains. Law of cosines, roughly twenty lines. Do not reach for
+CCD or FABRIK on a 2-bone chain.
+
+```
+d      = clamp(|target − hip|, |thigh − shin| + ε, thigh + shin − ε)
+kneeθ  = acos((thigh² + shin² − d²) / (2·thigh·shin))
+hipθ   = acos((thigh² + d²    − shin²) / (2·thigh·d))
+```
+
+Knee bend **emerges**. You never author a knee angle — crouch is a hip offset and the
+knee is a consequence. Point the knee pole vector forward-and-outward: a snowboard
+stance splays the knees, it does not squat straight.
+
+### 7.6 Springs everywhere, targets never assigned directly
+
+Every driver is a critically-damped spring toward a target. Never a direct write. One
+mechanism then generates:
+
+- **Landing absorb** — shove hip height down hard on impact, let it recover
+- **Pop** — release the spring upward
+- **Terrain chatter** — inject small noise into the same spring
+- **Weight in turns** — lateral hip spring lags the edge input
+- **Counter-rotation unwind** — see §7.7
+
+Four tunables total per driver group, and really only two that matter: `ω` (stiffness)
+and `ζ` (damping ratio, default 1.0 — go below it only where you want an overshoot you
+can name). Highest feel-per-line-of-code in the whole rig.
+
+Semi-implicit integration, stable at 120 Hz:
+
+```
+a = ω² · (target − x) − 2·ζ·ω·v
+v += a · dt
+x += v · dt
+```
+
+Any spring that feeds `tweakOffset` runs in the sim at the fixed tick, because the
+landing test reads it. The rest run render-side.
+
+### 7.7 Counter-rotation is the biggest realism cue
+
+Riders wind up before spinning: shoulders and hips rotate *against* the intended
+direction during compression, then unwind at pop.
+
+- During RT charge with the stick pushed toward a spin, wind spine twist opposite.
+- At release, unwind — this is what visually explains where the rotation came from.
+- In air, shoulders lead the board by a small phase offset.
+- The head snaps toward the landing **before** the body does.
+
+Head look-at is wildly underrated and nearly free. The rider watches the lip, then the
+landing, then the fall line.
+
+### 7.8 Build order
+
+1. **Box rider first.** Capsules and boxes, no mesh. The rig is joint transforms; the
+   skin is a separate problem, solved later by swapping in a humanoid and writing bone
+   quaternions directly. Never touch `AnimationMixer`.
+2. **Pose mode before gameplay mode.** Tweakpane sliders on all twenty drivers with
+   gameplay disconnected. Pose the rider by hand.
+3. **Author anchor poses in driver space.** A good method, a good indy, a deep crouch —
+   named presets of those twenty numbers, which gameplay then interpolates.
+
+Step 3 is not smuggling keyframes back in past invariant 3. A keyframed trick clip is a
+skeleton animation selected by button combo; this is a twenty-value driver vector that
+stays fully composable — you can be 60% of the way to the method anchor while spinning
+and pressing tail, and it still resolves. If an anchor ever needs a *timeline*, that is
+the invariant breaking and it should be caught in review.
+
+**Per-frame order matters:** board visual transform (with tweak) → feet → hips → spine →
+arms → legs. Legs solve last because the feet follow the tweaked board and the hips do
+not.
+
+---
+
+## 8. Rails
 
 - Rails are catmull-rom splines in `park.json`, with a `width` and `type` (round/flat/tube).
 - On attach, position is constrained to the spline; velocity keeps only its tangential
@@ -181,7 +355,7 @@ over-rotation punishment, and the reason to spot your landing. Resist adding a s
 
 ---
 
-## 8. Wallrides and butters
+## 9. Wallrides and butters
 
 **Wallride.** Contact normal steeper than `wall.minAngle` (~65°) and speed above
 `wall.minSpeed` (~8 m/s). While WALLED, gravity is scaled to `wall.gravityScale` (~0.35)
@@ -196,7 +370,7 @@ pop is the entry to a nollie; keep those two systems composable.
 
 ---
 
-## 9. Park format
+## 10. Park format
 
 ```json
 {
@@ -220,7 +394,7 @@ function, not an asset.
 
 ---
 
-## 10. Feedback layer (the score replacement)
+## 11. Feedback layer (the score replacement)
 
 No numbers. Style is communicated through:
 
@@ -240,7 +414,7 @@ Otherwise the game never tells the player they did something well.
 
 ---
 
-## 11. Initial parameters
+## 12. Initial parameters
 
 Starting values, not correct values. Every one is a Tweakpane binding.
 
@@ -303,6 +477,31 @@ export const params = {
     grip: 0.3,              // multiplier on gripEdge
     yawAuthority: 3.2,      // rad/s
   },
+  grab: {
+    reachTime: 0.12,        // s, hand travel to the board once the stick commits
+    releaseTime: 0.09,      // s, hand back to rest
+    tweakEnter: 0.55,       // stick magnitude past which the tweak starts
+    tweakDepthMax: 1.0,     // rad of board rotation about the grab point at full push
+    tweakRecover: 14.0,     // 1/s, board springs back to spinFrame on release
+  },
+  rig: {
+    thigh: 0.44,            // m
+    shin: 0.44,             // m
+    upperArm: 0.30,         // m
+    forearm: 0.28,          // m
+    stanceWidth: 0.52,      // m between bindings
+    hipHeight: 0.86,        // m above the deck, uncompressed
+    kneeSplay: 0.5,         // rad, pole vector out from forward
+    hipStiffness: 90.0,     // ω, vertical and lateral hip spring
+    hipDamping: 1.0,        // ζ, 1.0 = critically damped
+    spineStiffness: 55.0,   // ω
+    spineDamping: 1.0,      // ζ
+    counterRotation: 0.7,   // rad of spine twist against a wound-up spin at full charge
+    shoulderLead: 0.25,     // rad, shoulders ahead of the board in flight
+    headLead: 0.18,         // s, head reaches the landing before the body
+    absorbImpulse: 0.35,    // m of hip drop per unit of landing impact
+    chatterGain: 0.012,     // m of hip noise per m/s over rough snow
+  },
   camera: {
     springStiffness: 9.0,
     distance: 5.5,          // m
@@ -314,9 +513,12 @@ export const params = {
 };
 ```
 
+`rig.*` are render-side and do not affect the sim hash — except `grab.*`, which does,
+because `tweakOffset` reaches the landing test.
+
 ---
 
-## 12. Open questions — resolve by playing, not by discussing
+## 13. Open questions — resolve by playing, not by discussing
 
 1. Is `air.authority` at 0.35 too punishing for a pad player? (Suspect 0.35–0.5.)
 2. Should switch riding invert the edge mapping, or is heading-relative enough?
@@ -325,3 +527,16 @@ export const params = {
    more learnable; noise is more tense. Try deterministic first.
 5. Does a scoreless game need a "clean/sketchy" stamp at all, or is the physical read
    enough? Build without it, add only if the game feels mute.
+6. Crossed grabs (crail, roast beef) need the hand that §7.3's reach rule would not
+   pick. LB/RB are already shifty in the air. Modifier, or just accept that the rig
+   does not do crossed grabs?
+7. What rotates a tweak? Depth is one scalar but the axis is not obvious — pushing a
+   nose grab and pushing a tail grab should not swing the board the same way. Likely
+   perpendicular to the line from grab point to the pushing foot, but settle it in
+   pose mode with sliders, not on paper.
+8. `grab.tweakRecover` at 14 is a guess and it sets how forgiving the wager in §6 is.
+   Too fast and depth is free; too slow and it's a coin flip. This is probably the
+   single most important number in milestone 4.
+9. Does the shoulder/head lead in §7.7 survive at 120 Hz without looking like the head
+   is on a spring? If it reads as wobble rather than intent, raise `rig.spineStiffness`
+   before cutting the feature.
