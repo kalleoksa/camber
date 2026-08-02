@@ -76,6 +76,20 @@ export const params = {
     grip: 0.3, // multiplier on gripEdge
     yawAuthority: 3.2, // rad/s
   },
+  rig: {
+    thigh: 0.44, // m
+    shin: 0.44, // m
+    upperArm: 0.33, // m
+    forearm: 0.33, // m, to the grip rather than the wrist
+    hipWidth: 0.18, // m between leg roots
+    shoulderWidth: 0.36, // m between arm roots, along the board
+    stanceWidth: 0.52, // m between bindings
+    hipHeight: 0.86, // m above the deck, uncompressed
+    spine: 0.52, // m hips to shoulders
+    neck: 0.16, // m shoulders to head
+    hipStiffness: 90.0, // ω for the hip spring
+    hipDamping: 1.0, // ζ — 1.0 is critically damped
+  },
   spray: {
     rate: 900, // particles/s at full scrub
     scrubRef: 18.0, // m/s² of edge scrub that saturates emission — measured carve range is 3..23

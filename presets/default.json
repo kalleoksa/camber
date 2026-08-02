@@ -72,6 +72,20 @@
     "grip": 0.3,
     "yawAuthority": 3.2
   },
+  "rig": {
+    "thigh": 0.44,
+    "shin": 0.44,
+    "upperArm": 0.33,
+    "forearm": 0.33,
+    "hipWidth": 0.18,
+    "shoulderWidth": 0.36,
+    "stanceWidth": 0.52,
+    "hipHeight": 0.86,
+    "spine": 0.52,
+    "neck": 0.16,
+    "hipStiffness": 90,
+    "hipDamping": 1
+  },
   "spray": {
     "rate": 900,
     "scrubRef": 18,

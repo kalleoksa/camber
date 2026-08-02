@@ -524,8 +524,8 @@ export const params = {
   rig: {
     thigh: 0.44,            // m
     shin: 0.44,             // m
-    upperArm: 0.30,         // m
-    forearm: 0.28,          // m
+    upperArm: 0.33,         // m
+    forearm: 0.33,          // m, to the grip rather than the wrist
     stanceWidth: 0.52,      // m between bindings
     hipHeight: 0.86,        // m above the deck, uncompressed
     kneeSplay: 0.5,         // rad, pole vector out from forward
