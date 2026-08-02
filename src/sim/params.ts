@@ -35,7 +35,7 @@ export const params = {
   },
   air: {
     detachClearance: 0.12, // m
-    authority: 0.35, // 0..1 in-flight torque vs takeoff-set rotation
+    authority: 1.2, // 1/s, how fast in-air stick pulls spin toward its target
     tuckMultiplier: 1.25, // spin rate while grabbed
     extendMultiplier: 0.85, // spin rate while stretched
     spinMax: 9.0, // rad/s cap
@@ -48,9 +48,10 @@ export const params = {
     rollClean: 0.35, // rad, board-up vs contact normal
     sketchySpeedLoss: 0.25, // fraction
     absorbTime: 0.22, // s
+    headingSnap: 18.0, // 1/s, heading correction onto velocity — fast, but not a teleport
   },
   bail: {
-    drag: 7.0, // m/s² while tumbling
+    drag: 16.0, // m/s² while tumbling
     recoverSpeed: 2.5, // m/s below which the rider gets back up
     minTime: 0.9, // s before recovery is allowed at all
     tumbleRate: 8.0, // rad/s, visual tumble while down

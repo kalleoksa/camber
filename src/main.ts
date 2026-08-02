@@ -51,6 +51,8 @@ const readout: Readout = {
   tick: 0,
   clearance: 0,
   air: 0,
+  spin: 0,
+  rotated: 0,
   landing: 'none',
   determinism: '—',
 };
@@ -120,6 +122,8 @@ function render(alpha: number): void {
     readout.tick = state.tick;
     readout.clearance = state.clearance;
     readout.air = state.mode === 'airborne' ? state.airTime : 0;
+    readout.spin = state.spinRate;
+    readout.rotated = (state.airYaw * 180) / Math.PI;
     readout.landing = state.landing;
     panel.refresh();
   }

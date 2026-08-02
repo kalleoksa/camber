@@ -10,6 +10,7 @@ const MAX_EDGE_ROLL = 0.55;
 const MAX_CROUCH = 0.28; // m of knee bend at full compress
 /** Extra hip drop per m/s of landing impact. A placeholder until the rig lands in M4. */
 const ABSORB_PER_IMPACT = 0.022;
+const TUMBLE_RATE = 8.0; // rad/s at full slide speed
 
 export type RiderView = {
   position: Vec3;
@@ -216,6 +217,7 @@ export function createScene(cfg: SlopeConfig, terrain: Terrain, camera: THREE.Pe
   const tumble = new THREE.Quaternion();
   const zAxis = new THREE.Vector3(0, 0, 1);
   const tumbleAxis = new THREE.Vector3(1, 0.3, 0).normalize();
+  let tumbleAngle = 0;
 
   return {
     renderer,
@@ -224,6 +226,9 @@ export function createScene(cfg: SlopeConfig, terrain: Terrain, camera: THREE.Pe
 
     updateRider(view) {
       rig.group.position.set(view.position.x, view.position.y, view.position.z);
+      // Tumble winds down with the slide rather than spinning at a fixed rate forever.
+      tumbleAngle =
+        view.mode === 'bailed' ? tumbleAngle + Math.min(view.speed / 8, 1) * TUMBLE_RATE * 0.016 : 0;
 
       // The sim owns board orientation now — grounded it is slaved to the terrain,
       // airborne it carries angular momentum. Render just reads it.
@@ -237,7 +242,7 @@ export function createScene(cfg: SlopeConfig, terrain: Terrain, camera: THREE.Pe
         rig.group.quaternion.multiply(roll);
       }
       if (view.mode === 'bailed') {
-        tumble.setFromAxisAngle(tumbleAxis, view.bailTime * 8.0);
+        tumble.setFromAxisAngle(tumbleAxis, tumbleAngle);
         rig.group.quaternion.multiply(tumble);
       }
 

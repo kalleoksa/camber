@@ -8,6 +8,8 @@ export type Readout = {
   tick: number;
   clearance: number;
   air: number;
+  spin: number;
+  rotated: number;
   landing: string;
   determinism: string;
 };
@@ -61,6 +63,8 @@ export function createPanel(params: Params, readout: Readout, handlers: PanelHan
   status.addBinding(readout, 'tick', { readonly: true, format: (v: number) => v.toFixed(0) });
   status.addBinding(readout, 'clearance', { readonly: true, format: (v: number) => v.toFixed(2) });
   status.addBinding(readout, 'air', { readonly: true, format: (v: number) => v.toFixed(2) });
+  status.addBinding(readout, 'spin', { readonly: true, format: (v: number) => v.toFixed(2) });
+  status.addBinding(readout, 'rotated', { readonly: true, format: (v: number) => `${v.toFixed(0)}°` });
   status.addBinding(readout, 'landing', { readonly: true });
   status.addBinding(readout, 'determinism', { readonly: true });
 

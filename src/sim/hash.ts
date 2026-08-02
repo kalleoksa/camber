@@ -51,6 +51,7 @@ export function hashState(state: RiderState, into: Hasher = shared): string {
   into.push(state.velocity.y);
   into.push(state.velocity.z);
   into.push(state.heading);
+  into.push(state.headingTarget);
   into.push(state.edge);
   into.push(state.stance);
   into.push(state.compress);
@@ -63,6 +64,7 @@ export function hashState(state: RiderState, into: Hasher = shared): string {
   into.push(state.spinAxis.y);
   into.push(state.spinAxis.z);
   into.push(state.spinRate);
+  into.push(state.airYaw);
   into.push(LANDINGS.indexOf(state.landing));
   into.push(state.impact);
   into.push(state.absorb);

@@ -42,5 +42,6 @@ export function stepBailed(state: RiderState, params: Params, terrain: Terrain, 
     state.bailTime = 0;
     state.compress = 0;
     state.absorb = 0;
+    state.headingTarget = state.heading;
   }
 }

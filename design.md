@@ -134,8 +134,16 @@ welded together.
   stick centred → board up (flat spin); stick pushed → tilted toward board forward/right
   (cork, rodeo, misty come out of the same axis lerp — do not special-case them).
 - `angularVelocity` set from stick X magnitude at takeoff.
-- In flight, stick input applies torque at only `air.authority` (start at **0.35**) of
-  ground-set magnitude. Enough to save a rotation, not enough to make takeoff irrelevant.
+- In flight, **stick position means the same thing it did at takeoff: spin speed.** It
+  pulls the rate toward `stickX * air.spinTakeoff` at `air.authority` per second, so a
+  short air cannot fully retarget and takeoff still decides where you start. A centred
+  stick coasts — that is how you hold a rotation you already have.
+  This resolves open question 1, by play: `air.authority` as a 0..1 fraction of a
+  *different* scale (`spinMax`) made spin uncontrollable. Every landing came out at
+  whatever the stick happened to be at on release, and since full stick saturated near
+  360° that was the only repeatable trick — a 180 needed the stick inside a ~6% band you
+  cannot see. One consistent scale plus a real response rate makes the whole range
+  reachable: half stick is a 180, full stick is a 360, and mid-air stick moves it.
 - Grab held → `air.tuckMultiplier` (~1.25) faster spin. Extended → slower. This is real
   and it's the main mid-air expression tool.
 
@@ -156,11 +164,16 @@ Then:
 
 | Condition | Result |
 |---|---|
-| `θ < land.clean` AND `φ < land.rollClean` | **Clean.** Heading snapped to velocity. Full speed retained. |
+| `θ < land.clean` AND `φ < land.rollClean` | **Clean.** Heading pulled onto velocity. Full speed retained. |
 | `θ < land.sketchy` | **Sketchy.** Heading snapped, speed penalty, hard absorb, rider wobble, audio scrape. |
 | otherwise | **Bail.** Edge catch, ragdoll. |
 
 Start with `land.clean = 25°`, `land.sketchy = 50°`.
+
+The heading correction is *converged* at `land.headingSnap` over the absorb window, not
+teleported. An instant snap of up to `land.sketchy` makes every landing come out at an
+exact multiple of 180°, which reads as the game rounding your trick off for you rather
+than as you riding out of it.
 
 This one rule generates, with no extra code: switch landings, revert saves, wash-outs,
 over-rotation punishment, and the reason to spot your landing. Resist adding a separate
@@ -460,7 +473,7 @@ export const params = {
   },
   air: {
     detachClearance: 0.12,  // m
-    authority: 0.35,        // 0..1 in-flight torque vs takeoff-set rotation
+    authority: 1.2,         // 1/s, how fast in-air stick pulls spin toward its target
     tuckMultiplier: 1.25,   // spin rate while grabbed
     extendMultiplier: 0.85, // spin rate while stretched
     spinMax: 9.0,           // rad/s cap
@@ -473,9 +486,10 @@ export const params = {
     rollClean: 0.35,        // rad, board-up vs contact normal
     sketchySpeedLoss: 0.25, // fraction
     absorbTime: 0.22,       // s
+    headingSnap: 18.0,      // 1/s, heading correction onto velocity
   },
   bail: {
-    drag: 7.0,              // m/s² while tumbling
+    drag: 16.0,             // m/s² while tumbling
     recoverSpeed: 2.5,      // m/s below which the rider gets back up
     minTime: 0.9,           // s before recovery is allowed
     tumbleRate: 8.0,        // rad/s, visual tumble
@@ -568,7 +582,9 @@ because `tweakOffset` reaches the landing test.
 
 ## 13. Open questions — resolve by playing, not by discussing
 
-1. Is `air.authority` at 0.35 too punishing for a pad player? (Suspect 0.35–0.5.)
+1. ~~Is `air.authority` at 0.35 too punishing for a pad player?~~ **Resolved by play:**
+   yes, and the units were wrong too. See §5 — it is now a rate in 1/s against the same
+   scale takeoff uses.
 2. Should switch riding invert the edge mapping, or is heading-relative enough?
 3. Does `speedFactorKnee` at 6 m/s make slow-speed riding feel dead?
 4. Rail balance: noise-driven, or fully deterministic from entry angle? Deterministic is

@@ -38,11 +38,13 @@ export function stepAirborne(
   state.scrub = 0;
   state.compress = dampScalar(state.compress, input.rt, params.ground.edgeResponse, dt);
 
-  // In-flight the stick eases the spin rate toward what a full takeoff would have set,
-  // but only at `air.authority`. Centred stick leaves it alone — momentum is momentum.
+  // Stick position means the same thing in the air as it did at takeoff: spin speed.
+  // `air.authority` is how fast the board answers a stick change, so takeoff still sets
+  // where you start and a short air can't fully retarget. Centred stick coasts — that is
+  // how you hold a rotation you already have.
   if (input.lx !== 0) {
-    const target = -input.lx * params.air.spinMax;
-    state.spinRate += (target - state.spinRate) * params.air.authority * dt;
+    const target = -input.lx * params.air.spinTakeoff;
+    state.spinRate += (target - state.spinRate) * (1 - Math.exp(-params.air.authority * dt));
   }
   if (state.spinRate > params.air.spinMax) state.spinRate = params.air.spinMax;
   if (state.spinRate < -params.air.spinMax) state.spinRate = -params.air.spinMax;
@@ -51,6 +53,7 @@ export function stepAirborne(
   setFromAxisAngle(spin, state.spinAxis, state.spinRate * dt);
   multiply(state.spinFrame, state.spinFrame, spin);
   normalizeQuat(state.spinFrame);
+  state.airYaw += Math.abs(state.spinRate) * dt;
 
   v.y -= params.world.gravity * dt;
   clampLength(v, params.world.terminalSpeed);
@@ -108,11 +111,15 @@ function land(state: RiderState, params: Params, n: Vec3): void {
     return;
   }
 
-  // Snap heading onto the direction of travel, keeping switch if that is the near side.
+  // Aim heading at the direction of travel, keeping switch if that is the near side.
+  // Converged over the absorb window rather than teleported — an instant snap of up to
+  // land.sketchy reads as the game rounding your trick off for you.
   if (courseSpeed > params.ground.pivotSpeed) {
     const courseHeading = Math.atan2(course.x, course.z);
     const delta = wrapAngle(courseHeading - state.heading);
-    state.heading = wrapAngle(Math.abs(delta) > Math.PI / 2 ? courseHeading + Math.PI : courseHeading);
+    state.headingTarget = wrapAngle(Math.abs(delta) > Math.PI / 2 ? courseHeading + Math.PI : courseHeading);
+  } else {
+    state.headingTarget = state.heading;
   }
 
   projectOntoPlane(v, n);

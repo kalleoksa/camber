@@ -49,6 +49,12 @@ export function stepGrounded(
   damp(state.groundNormal, contact.normal, g.normalSmoothing, dt);
   const n = contact.normal;
 
+  // Finish off a landing correction, if one is pending, before the carve reads heading.
+  if (state.absorb > 0) {
+    const delta = wrapAngle(state.headingTarget - state.heading);
+    state.heading = wrapAngle(state.heading + delta * (1 - Math.exp(-params.land.headingSnap * dt)));
+  }
+
   // Tangential component of gravity on the contact plane: g*(down − n*(down·n)).
   const gravity = params.world.gravity;
   v.x += gravity * (n.x * n.y) * dt;
@@ -166,6 +172,7 @@ export function stepGrounded(
 export function takeoff(state: RiderState, input: InputSnapshot, params: Params): void {
   state.mode = 'airborne';
   state.airTime = 0;
+  state.airYaw = 0;
   state.landing = 'none';
 
   const tilt = Math.min(1, Math.max(-1, input.ly)) * params.air.axisTiltMax;

@@ -20,6 +20,7 @@ export type RiderState = {
   velocity: Vec3;
 
   heading: number; // rad, board yaw about the terrain normal
+  headingTarget: number; // rad, where a landing wants heading — converged, not teleported
   edge: number; // -1..1, negative = heel
   stance: number; // -1..1, negative = tail
   compress: number; // 0..1, pop charge
@@ -33,6 +34,7 @@ export type RiderState = {
   spinFrame: Quat;
   spinAxis: Vec3; // board-local, set at takeoff
   spinRate: number; // rad/s about spinAxis
+  airYaw: number; // rad of board yaw accumulated this air
 
   groundNormal: Vec3; // smoothed, what the board is slaved to
   scrub: number; // m/s² the edge is removing from lateral velocity — drives spray and edge bite
@@ -56,6 +58,7 @@ export function createRiderState(spawn: Spawn): RiderState {
     position: copy(spawn.position),
     velocity: vec3(),
     heading: spawn.heading,
+    headingTarget: spawn.heading,
     edge: 0,
     stance: 0,
     compress: 0,
@@ -63,6 +66,7 @@ export function createRiderState(spawn: Spawn): RiderState {
     spinFrame: quat(),
     spinAxis: vec3(0, 1, 0),
     spinRate: 0,
+    airYaw: 0,
     groundNormal: vec3(0, 1, 0),
     scrub: 0,
     clearance: 0,
@@ -88,8 +92,10 @@ export function resetRiderState(state: RiderState): void {
   setIdentity(state.spinFrame);
   setXYZ(state.spinAxis, 0, 1, 0);
   state.spinRate = 0;
+  state.airYaw = 0;
   state.scrub = 0;
   state.heading = spawn.heading;
+  state.headingTarget = spawn.heading;
   state.edge = 0;
   state.stance = 0;
   state.compress = 0;
@@ -113,7 +119,9 @@ export function copyRiderState(dst: RiderState, src: RiderState): void {
   copyQuat(dst.spinFrame, src.spinFrame);
   copyInto(dst.spinAxis, src.spinAxis);
   dst.spinRate = src.spinRate;
+  dst.airYaw = src.airYaw;
   dst.heading = src.heading;
+  dst.headingTarget = src.headingTarget;
   dst.edge = src.edge;
   dst.stance = src.stance;
   dst.compress = src.compress;

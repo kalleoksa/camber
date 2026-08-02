@@ -31,7 +31,7 @@
   },
   "air": {
     "detachClearance": 0.12,
-    "authority": 0.35,
+    "authority": 1.2,
     "tuckMultiplier": 1.25,
     "extendMultiplier": 0.85,
     "spinMax": 9,
@@ -43,10 +43,11 @@
     "sketchy": 0.87,
     "rollClean": 0.35,
     "sketchySpeedLoss": 0.25,
-    "absorbTime": 0.22
+    "absorbTime": 0.22,
+    "headingSnap": 18
   },
   "bail": {
-    "drag": 7,
+    "drag": 16,
     "recoverSpeed": 2.5,
     "minTime": 0.9,
     "tumbleRate": 8
