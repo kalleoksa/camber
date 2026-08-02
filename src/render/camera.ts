@@ -33,7 +33,9 @@ export function createChaseCamera(params: Params): ChaseCamera {
 
   const frame = (view: RiderView, p: Params): void => {
     camera.lookAt(look);
-    camera.rotateZ(view.edge * p.camera.rollGain);
+    // Roll with the rider, into the turn: a toe-edge carve banks right, so the horizon
+    // lifts on the right. rotateZ is counter-clockwise from behind, hence the negation.
+    camera.rotateZ(-view.edge * p.camera.rollGain);
     const fov = p.camera.fovBase + view.speed * p.camera.fovSpeedGain;
     if (Math.abs(camera.fov - fov) > 0.01) {
       camera.fov = fov;

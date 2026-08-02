@@ -17,7 +17,7 @@ import {
 
 const contact = createContact();
 const forward = vec3();
-const right = vec3();
+const toeSide = vec3();
 
 /**
  * ln 5, so `speedFactor` reaches 0.8 exactly at `ground.speedFactorKnee` — that is what
@@ -53,14 +53,15 @@ export function stepGrounded(
   v.z += gravity * (n.z * n.y) * dt;
   projectOntoPlane(v, n);
 
-  // Board basis in the contact plane. right is board +X, the toe side.
+  // Board basis in the contact plane. For a regular rider travelling nose-first the toe
+  // side is to the right of travel, which is `forward × n`, not `n × forward`.
   set(forward, Math.sin(state.heading), 0, Math.cos(state.heading));
   projectOntoPlane(forward, n);
   normalize(forward);
-  cross(right, n, forward);
+  cross(toeSide, forward, n);
 
   let vf = dot(v, forward);
-  let vl = dot(v, right);
+  let vl = dot(v, toeSide);
 
   const edgeMag = Math.min(Math.abs(state.edge), 1);
   const stanceMag = Math.min(Math.abs(state.stance), 1);
@@ -93,9 +94,9 @@ export function stepGrounded(
     speed *= keep;
   }
 
-  v.x = forward.x * vf + right.x * vl;
-  v.y = forward.y * vf + right.y * vl;
-  v.z = forward.z * vf + right.z * vl;
+  v.x = forward.x * vf + toeSide.x * vl;
+  v.y = forward.y * vf + toeSide.y * vl;
+  v.z = forward.z * vf + toeSide.z * vl;
   clampLength(v, params.world.terminalSpeed);
 
   // Carve rotation. Nose or tail press moves the effective pivot along the board, which
@@ -105,7 +106,9 @@ export function stepGrounded(
     // Low-authority skid pivot so a stopped rider isn't stuck facing the wrong way.
     yaw += state.edge * g.pivotYaw * (1 - speed / g.pivotSpeed);
   }
-  state.heading = wrapAngle(state.heading + yaw * dt);
+  // Increasing `heading` swings the nose toward `n × forward`, which is the heel side.
+  // A toe-edge carve goes the other way, so positive edge subtracts.
+  state.heading = wrapAngle(state.heading - yaw * dt);
 
   addScaled(p, v, dt);
 

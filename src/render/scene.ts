@@ -190,8 +190,8 @@ export function createScene(cfg: SlopeConfig, terrain: Terrain, camera: THREE.Pe
 
       basis.makeBasis(right, up, forward);
       rig.group.quaternion.setFromRotationMatrix(basis);
-      // Toe edge tips the board toward +X down, so the roll is negative in board space.
-      roll.setFromAxisAngle(zAxis, -view.edge * MAX_EDGE_ROLL);
+      // Local +X is the heel side (it is n × forward), so a toe edge tips −X down.
+      roll.setFromAxisAngle(zAxis, view.edge * MAX_EDGE_ROLL);
       rig.group.quaternion.multiply(roll);
 
       const stand = 0.75 - view.compress * MAX_CROUCH;

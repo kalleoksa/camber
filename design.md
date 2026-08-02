@@ -6,7 +6,11 @@ Reference document for the sim model. Read with `CLAUDE.md`.
 
 ## 1. Conventions
 
-- Units: metres, seconds, radians. Y is up. Board local: +Z nose, +X toe-side, +Y board up.
+- Units: metres, seconds, radians. Y is up. Board local: +Z nose, +Y board up, and +X is
+  therefore `up × nose` — the **left** side of travel, which for a regular rider is the
+  **heel** side. The toe side is −X. (This corrects an earlier line here that called +X
+  the toe side: a right-handed frame with +Z nose and +Y up puts +X on the left of
+  travel, which is a goofy rider, contradicting the regular stance assumed below.)
 - `heading` = board yaw about terrain normal, radians.
 - `edge` = signed −1..1. Negative = heel edge, positive = toe edge. 0 = flat base.
 - `stance` = signed −1..1 weight along board. −1 = full tail, +1 = full nose.
