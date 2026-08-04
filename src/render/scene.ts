@@ -9,8 +9,8 @@ import { createRig, neutralDrivers, type RigDrivers } from './rig.ts';
 
 /** Board tip angle at full edge. */
 const MAX_EDGE_ROLL = 0.55;
-/** Extra hip drop per m/s of landing impact. A placeholder until the rig lands in M4. */
-const ABSORB_PER_IMPACT = 0.022;
+/** Extra knee flexion, rad per m/s of landing impact. */
+const ABSORB_PER_IMPACT = 0.05;
 const TUMBLE_RATE = 8.0; // rad/s at full slide speed
 /**
  * The render springs are explicit-Euler and go unstable past ω·dt ≈ 2, so a long frame
@@ -195,7 +195,8 @@ export function createScene(cfg: SlopeConfig, terrain: Terrain, camera: THREE.Pe
   const rig = createRig();
   scene.add(rig.root);
   const drivers = neutralDrivers();
-  let hipVel = 0;
+  let knee = 0.45;
+  let kneeVel = 0;
 
   const roll = new THREE.Quaternion();
   const tumble = new THREE.Quaternion();
@@ -237,17 +238,24 @@ export function createScene(cfg: SlopeConfig, terrain: Terrain, camera: THREE.Pe
       // only the ones the sim already owns are mapped; grabs and tweak stay unwired until
       // the gate passes (§7.8, step 2 before step 3).
       if (!poseMode) {
+        // The crouch is knee flexion, not a hip offset. With the board derived from the feet
+        // a pelvis offset moves the whole rigid chain and changes nothing — measured at
+        // exactly 0.000 joint movement — so the old hipY spring was driving a dead number and
+        // the crouch had silently stopped happening in play.
         const absorb = view.absorb > 0 ? view.impact * ABSORB_PER_IMPACT : 0;
-        const target = -view.compress * params.rig.crouchDepth - absorb;
-        // One critically-damped spring rather than assigning hip height (§7.6). Stepped by
-        // the real frame time — a fixed nominal step made the crouch as fast as the display,
-        // which is a bug you only see by changing machines.
+        const target = params.rig.kneeNeutral + view.compress * params.rig.crouchKnee + absorb;
+        // One critically-damped spring rather than assigning the angle (§7.6). Stepped by the
+        // real frame time — a fixed nominal step made the crouch as fast as the display.
         const k = params.rig.hipStiffness;
-        const acc = k * (target - drivers.hipY) - 2 * params.rig.hipDamping * Math.sqrt(k) * hipVel;
-        hipVel += acc * springDt;
-        drivers.hipY += hipVel * springDt;
-        drivers.hipX = view.edge * 0.1;
-        drivers.hipZ = view.stance * 0.14;
+        const acc = k * (target - knee) - 2 * params.rig.hipDamping * Math.sqrt(k) * kneeVel;
+        kneeVel += acc * springDt;
+        knee += kneeVel * springDt;
+        drivers.kneeFront = knee;
+        drivers.kneeBack = knee;
+        // Edge lean is a pelvis roll and weight fore/aft is a thigh swing, both of which do
+        // move the body against the board now.
+        drivers.hipRoll = view.edge * 0.22;
+        drivers.hipFlex = 0.25 - view.stance * 0.2;
         drivers.spineSide = view.stance * 0.3;
         drivers.spineBend = 0.18 + view.compress * 0.25;
       }

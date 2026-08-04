@@ -11,10 +11,17 @@ import type { Params } from '../sim/params.ts';
 
 /** The whole rider, in about twenty numbers (§7.2). Everything else is a consequence. */
 export type RigDrivers = {
-  hipX: number; // m, board-local. + is toward the heel edge
-  hipY: number; // m, along the board normal. − is crouch
-  hipZ: number; // m, + is toward the nose
-  hipYaw: number; // rad, about board up — counter-rotation
+  /**
+   * rad, about board up — counter-rotation.
+   *
+   * There is no hip *translation* driver, deliberately. With the legs rigid and the board
+   * bolted to the feet, pelvis position and knee flexion are the same degree of freedom:
+   * offsetting the pelvis slides the whole chain, board included, and changes nothing about
+   * the pose. hipX/hipY/hipZ measured exactly 0.000 joint movement once the rig anchored on
+   * the board. Use hipFlex and the knees. (`grabs.md`'s remedy of "translate the pelvis" on
+   * an invalid reach means the joint angles, in this rig.)
+   */
+  hipYaw: number;
   /**
    * rad of pelvis pitch in the rider's sagittal plane; positive leans the pelvis *back*
    * toward the heel side. This is what tweak depth mostly moves. The board's world pitch is
@@ -75,9 +82,6 @@ export type RigDrivers = {
 
 export function neutralDrivers(): RigDrivers {
   return {
-    hipX: 0,
-    hipY: 0,
-    hipZ: 0,
     hipYaw: 0,
     pelvisPitch: 0,
     hipRoll: 0,
@@ -282,6 +286,16 @@ export function createRig(): Rig {
     new THREE.BoxGeometry(0.19, 0.22, 0.19),
     new THREE.MeshStandardMaterial({ color: 0xf0d9b5, roughness: 0.7 }),
   );
+  // A visor on the toe side, which is the way the rider faces. Without it the head is a
+  // symmetric box and headYaw/headPitch are invisible however correctly they rotate it —
+  // they measured 0.000 movement not because they were broken but because nothing about a
+  // rotating cube reads.
+  const visor = new THREE.Mesh(
+    new THREE.BoxGeometry(0.04, 0.07, 0.16),
+    new THREE.MeshStandardMaterial({ color: DARK, roughness: 0.35 }),
+  );
+  visor.position.set(-0.1, 0.02, 0);
+  head.add(visor);
 
   const thighL = bone(SKIN, 0.11);
   const shinL = bone(SKIN, 0.1);
@@ -354,6 +368,7 @@ export function createRig(): Rig {
   const boardUp = new THREE.Vector3();
   const boardSide = new THREE.Vector3();
   const basis = new THREE.Matrix4();
+  const anchor = new THREE.Vector3();
   let effectiveStance = 0;
 
   return {
@@ -379,7 +394,7 @@ export function createRig(): Rig {
 
       // 1. Pelvis. Sagittal pitch is about Z because the rider faces −X, so Z is their
       // left-right axis. Negated so positive `pelvisPitch` leans back toward the heel side.
-      hipCentre.set(d.hipX, r.hipHeight + d.hipY, d.hipZ);
+      hipCentre.set(0, r.hipHeight, 0);
       hipQuat.setFromAxisAngle(yAxis, d.hipYaw);
       tmpQuat.setFromAxisAngle(zAxis, -d.pelvisPitch);
       hipQuat.multiply(tmpQuat);
@@ -479,6 +494,19 @@ export function createRig(): Rig {
       placeBone(shinL, kneeF, footF);
       placeBone(thighR, hipR, kneeB);
       placeBone(shinR, kneeB, footB);
+
+      // 8. Re-anchor on the board. Everything above hangs off the pelvis and the board is
+      // derived from it, so a hip driver translated the entire assembly — body *and* board
+      // together — which makes hipX/Y/Z useless for posing: they slide the whole rider
+      // across the screen without changing anything about the pose. Shifting so the board
+      // sits at the root preserves every relative distance and leaves the hips moving the
+      // rider against a stationary board.
+      //
+      // It also matters in play: the sim's position is the board's contact point, so a board
+      // floating at whatever offset the legs implied would have decoupled the drawn board
+      // from where the sim thinks the rider is.
+      anchor.copy(board.position).negate();
+      for (const child of root.children) child.position.add(anchor);
     },
   };
 }

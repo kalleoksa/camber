@@ -5,9 +5,6 @@ import type { Params, ParamGroup } from '../sim/params.ts';
 
 /** Slider ranges for the driver vector, so posing by hand is actually workable. */
 const DRIVER_RANGE: Record<keyof RigDrivers, { min: number; max: number }> = {
-  hipX: { min: -0.35, max: 0.35 },
-  hipY: { min: -0.8, max: 0.2 },
-  hipZ: { min: -0.45, max: 0.45 },
   hipYaw: { min: -1.2, max: 1.2 },
   pelvisPitch: { min: -0.6, max: 1.2 }, // positive leans the pelvis back; drives board pitch
   hipRoll: { min: -0.8, max: 0.8 },
