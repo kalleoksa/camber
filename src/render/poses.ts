@@ -53,7 +53,7 @@ export const ANCHORS: Record<string, RigDrivers> = {
   /** Back hand, toe edge, t ≈ 0.38. Authored. The easiest grab — the toe edge comes up to it. */
   indy: pose({
     hipX: 0.21,
-    hipY: -0.54,
+    hipY: -0.6, // the 6 cm that closed the reach
     hipZ: -0.13,
     hipYaw: 0.23,
     pelvisPitch: 0.08,
@@ -66,7 +66,7 @@ export const ANCHORS: Record<string, RigDrivers> = {
     backGrip: 1,
     frontHandEdge: -0.04,
     frontHandT: 0.33,
-    boardPitch: -0.18,
+    boardPitch: -0.16,
     headYaw: 0.18,
     headPitch: -0.07,
     frontShoulderSwing: 0,
@@ -87,7 +87,7 @@ export const ANCHORS: Record<string, RigDrivers> = {
    */
   mute: pose({
     hipX: 0.12,
-    hipY: -0.58,
+    hipY: -0.6, // 2 cm lower than the second pass, which is all the reach needed
     hipZ: -0.13,
     hipYaw: -0.16,
     pelvisPitch: -0.17,
@@ -181,12 +181,12 @@ export const ANCHORS: Record<string, RigDrivers> = {
     backGrip: 1,
     frontHandEdge: -0.46,
     frontHandT: 0.29,
-    boardPitch: 0.05,
+    boardPitch: -0.18, // flipped sign from the second pass: tail down, not nose down
     tweakRoll: 1,
     headPitch: 0.02,
-    kneeSplay: 0.29,
+    kneeSplay: 0.53,
     frontShoulderSwing: 0.57,
-    frontShoulderOut: -0.35,
+    frontShoulderOut: -0.48,
     frontElbow: 0.85,
     frontElbowPole: -2.49, // free arm routed the other way round from the first pass
     backShoulderSwing: 0.89,
@@ -218,8 +218,8 @@ export const ANCHORS: Record<string, RigDrivers> = {
     headPitch: -0.07,
     kneeSplay: 0.5,
     frontElbowPole: -0.2,
-    backShoulderSwing: 0.93,
-    backShoulderOut: -1,
+    backShoulderSwing: 0.53, // free arm brought down and in from the first pass
+    backShoulderOut: -0.09,
     backElbow: 0.42,
     backElbowPole: 0.13,
   }),
@@ -259,19 +259,22 @@ export const ANCHORS: Record<string, RigDrivers> = {
   /** Front hand, toe edge, t ≈ 0.54. Authored. Toe-side cousin of the method. */
   japan: pose({
     hipX: -0.04,
-    hipY: -0.52,
-    hipZ: -0.15,
-    pelvisPitch: 0.01,
+    hipY: -0.62,
+    hipZ: -0.29,
+    hipYaw: 0.05,
+    pelvisPitch: 0.12,
     hipRoll: 0.66,
-    spineBend: 0,
-    spineSide: -0.14,
-    spineTwist: -1.02, // the most twist of any anchor, and more than the first pass needed
+    spineBend: 0.07,
+    spineSide: -0.24,
+    // Twist flipped sign between passes: −1.02 to +0.47. The earlier value wound the
+    // shoulders away from the grabbing hand, which is what put it 10% out of reach.
+    spineTwist: 0.47,
     frontHandEdge: 1,
-    frontHandT: 0.54,
+    frontHandT: 0.55,
     frontGrip: 1,
-    backHandEdge: -0.13,
+    backHandEdge: -0.39,
     backHandT: 0.29,
-    boardPitch: 0.68,
+    boardPitch: 0.73,
     tweakRoll: 1,
     headYaw: 0.79,
     headPitch: -0.09,
