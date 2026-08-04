@@ -249,7 +249,13 @@ function render(alpha: number): void {
     // Centimetres short, not just the ratio: while you are dragging a slider what you need to
     // know is how much further to go, and "8 cm SHORT" answers that where "1.12" doesn't.
     const hand = (reach: number, miss: number) =>
-      reach === 0 ? '—' : miss > 0.0001 ? `${reach.toFixed(2)} ${(miss * 100).toFixed(0)}cm SHORT` : reach.toFixed(2);
+      reach === 0
+        ? '—'
+        : miss > 0.0001
+          ? `${reach.toFixed(2)} ${(miss * 100).toFixed(0)}cm SHORT`
+          : reach > params.grab.reachWarn
+            ? `${reach.toFixed(3)} SNUG`
+            : reach.toFixed(2);
     readout.reach =
       st.front === 0 && st.back === 0
         ? 'no grab'

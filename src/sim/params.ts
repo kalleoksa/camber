@@ -104,6 +104,22 @@ export const params = {
      * single grab is invalid somewhere in the middle.
      */
     gripDelay: 0.75,
+    /**
+     * Reach above this tints the arm amber in pose mode; above 1.0 it goes red.
+     *
+     * The red-only overlay was a cliff, and it turned out to *teach* posing at the limit: you
+     * push a slider until the red just disappears and stop, which lands you on the boundary.
+     * Six of the eight authored grabs came back between 0.97 and 1.00, one at 0.9994. That is
+     * the worst place to be — at full extension the elbow is confined to a few centimetres and
+     * the arm cannot route around anything. Amber marks "valid but no margin left".
+     *
+     * 0.90 lights every current anchor amber, and that is the honest answer rather than a
+     * broken threshold: the eight run 0.934 to 0.999, so the whole set really is at full
+     * extension. Do not raise this to make the indicator look discriminating — that is fitting
+     * the instrument to the data. Real elbow freedom wants 0.85 or below (17 cm of pole radius
+     * against 12 cm at 0.93), so if the amber ever goes away it means the poses improved.
+     */
+    reachWarn: 0.9,
   },
   rig: {
     thigh: 0.44, // m

@@ -163,6 +163,8 @@
         // and sailed through the validity test without ever being checked.
         reachFront: rig.strain.front.toFixed(2),
         reachBack: rig.strain.back.toFixed(2),
+        reachFrontExact: rig.strain.front.toFixed(4),
+        reachBackExact: rig.strain.back.toFixed(4),
         elbowF: [rig.elbowAt.front.x.toFixed(3), rig.elbowAt.front.y.toFixed(3), rig.elbowAt.front.z.toFixed(3)].join(','),
         elbowB: [rig.elbowAt.back.x.toFixed(3), rig.elbowAt.back.y.toFixed(3), rig.elbowAt.back.z.toFixed(3)].join(','),
         kneeFront: kneeFlexion(rig.legSpan.front),

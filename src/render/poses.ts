@@ -86,14 +86,16 @@ export const ANCHORS: Record<string, RigDrivers> = {
    * placement control, which was not what it was built for but is a fair use of it.
    */
   mute: pose({
-    hipX: 0.12,
-    hipY: -0.6, // 2 cm lower than the second pass, which is all the reach needed
-    hipZ: -0.13,
+    hipX: 0.1,
+    hipY: -0.62,
+    hipZ: -0.12,
     hipYaw: -0.16,
-    pelvisPitch: -0.17,
-    hipRoll: -0.19,
-    spineBend: 0.17,
-    spineSide: 0.35, // leaning further toward the nose than the first pass, to close the reach
+    pelvisPitch: -0.31,
+    hipRoll: -0.35,
+    spineBend: 0.38,
+    // Flipped from +0.35: the earlier lean toward the nose was buying reach the long way
+    // round, and this pass gets it from the pelvis and the shoulder instead.
+    spineSide: -0.1,
     spineTwist: -0.52, // toward the tail, which is what grabs.md asks a mute for
     frontHandEdge: 1,
     frontHandT: 0.54,
@@ -101,15 +103,17 @@ export const ANCHORS: Record<string, RigDrivers> = {
     backHandEdge: -0.24,
     backHandT: 0.16,
     backGrip: 0.25,
-    boardPitch: 0.23,
-    tweakRoll: 0.11,
+    boardPitch: 0.34,
+    tweakRoll: 0.17,
     headYaw: 0.37,
     headPitch: -0.07,
-    kneeSplay: 0.5,
+    kneeSplay: 0.48,
     stanceScale: 1.01,
-    frontShoulderSwing: 1.01,
-    frontShoulderOut: 0.57,
-    frontElbow: 0.5,
+    // Front arm authored through the shoulder rather than left where the hand target put it.
+    frontShoulderSwing: -0.12,
+    frontShoulderOut: -0.48,
+    frontElbow: 0.73,
+    frontElbowPole: -0.2,
     backShoulderSwing: 0.93,
     backShoulderOut: -0.71,
     backElbow: 1.87,

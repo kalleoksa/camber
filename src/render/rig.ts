@@ -379,6 +379,8 @@ const DARK = 0x1b1f24;
 const MITT = 0x1b3f8f;
 /** The one colour that means "this pose is not physically possible". */
 const SHORT = 0xff2d2d;
+/** Valid, but at full extension — no elbow room left, so no arm routing. */
+const SNUG = 0xffa524;
 
 export function createRig(): Rig {
   const root = new THREE.Group();
@@ -670,14 +672,17 @@ export function createRig(): Rig {
           .copy(elbow)
           .addScaledVector(dir.subVectors(hand, elbow).normalize(), Math.min(hand.distanceTo(elbow), r.forearm));
 
-        // Overlay: bar the mitt to the grab point it could not make, and redden the arm.
+        // Overlay: bar the mitt to the grab point it could not make, and colour the arm.
+        // Two bands, not one. Red alone made 1.0 a target rather than a limit.
         const short = reachOverlay && missing > 1e-4;
+        const snug = reachOverlay && !short && g > 0 && need > params.grab.reachWarn;
         const gapBar = front ? gapF : gapB;
         gapBar.visible = short;
         if (short) placeBone(gapBar, mitt.position, grab, span);
-        tint(front ? armLU : armRU, short ? SHORT : SKIN);
-        tint(front ? armLL : armRL, short ? SHORT : SKIN);
-        tint(mitt, short ? SHORT : MITT);
+        const armColour = short ? SHORT : snug ? SNUG : SKIN;
+        tint(front ? armLU : armRU, armColour);
+        tint(front ? armLL : armRL, armColour);
+        tint(mitt, short ? SHORT : snug ? SNUG : MITT);
       }
 
       // 6. Legs last, hips to the bolted feet. Knee bend emerges from where the pelvis ended
