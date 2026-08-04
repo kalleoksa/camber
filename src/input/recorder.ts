@@ -1,5 +1,5 @@
 import { hashState } from '../sim/hash.ts';
-import { cloneParams, type Params } from '../sim/params.ts';
+import { applyParams, cloneParams, params, type Params } from '../sim/params.ts';
 import { tick } from '../sim/rider.ts';
 import { createRiderState, type RiderState, type Spawn } from '../sim/state.ts';
 import { createSlope, type SlopeConfig } from '../sim/terrain.ts';
@@ -101,13 +101,22 @@ export function buildTake(opts: {
   return take;
 }
 
-/** Headless replay. Used by the determinism check and by the in-browser verify button. */
+/**
+ * Headless replay. Used by the determinism check and by the in-browser verify button.
+ *
+ * The take's params are layered over the current defaults rather than used directly: a
+ * take recorded before a param existed has no value for it, and reading that straight out
+ * of the JSON puts `undefined` into the sim, where it turns the whole run to NaN instead
+ * of failing loudly. Defaults fill the gaps; every key the take does carry still wins.
+ */
 export function simulateTake(take: Take): { hashes: string[]; state: RiderState } {
   const terrain = createSlope(take.terrain);
   const state = createRiderState(take.spawn);
+  const takeParams = cloneParams(params);
+  applyParams(takeParams, take.params);
   const hashes: string[] = [];
   for (const frame of take.frames) {
-    tick(state, frame, take.params, terrain, take.dt);
+    tick(state, frame, takeParams, terrain, take.dt);
     hashes.push(hashState(state));
   }
   return { hashes, state };

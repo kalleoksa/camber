@@ -7,7 +7,8 @@
     "build": "tsc --noEmit && vite build",
     "typecheck": "tsc --noEmit",
     "take": "node scripts/make-take.ts",
-    "determinism": "node scripts/determinism.ts"
+    "determinism": "node scripts/determinism.ts",
+    "spin": "node scripts/spin-probe.ts"
   },
   "dependencies": {
     "three": "^0.180.0",

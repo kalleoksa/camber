@@ -133,7 +133,18 @@ welded together.
 - Spin axis in board-local space, lerped by left stick Y at takeoff:
   stick centred → board up (flat spin); stick pushed → tilted toward board forward/right
   (cork, rodeo, misty come out of the same axis lerp — do not special-case them).
-- `angularVelocity` set from stick X magnitude at takeoff.
+- `angularVelocity` set at takeoff from **how far stick X has been whipped past the carve
+  already being held**, not from its absolute position. Left stick X is the edge stick
+  grounded and the spin stick airborne, and the pop is the seam between the two — read the
+  position raw and a hard carve *is* a request for a 360 whether the rider wanted one or
+  not, which is exactly what it did. `state.spinRef` follows the stick at
+  `air.spinRefRate` and takeoff measures against that, so a steady thumb pops straight and
+  a deliberate whip spins. `air.spinCarveReject` at 0 restores the raw-position read.
+  Two consequences worth knowing, both symmetric and both intended: how long you hold the
+  whip before releasing RT meters the rotation down (full whip → 360 released immediately,
+  ~180 after 150 ms, ~0 after 500 ms), and relaxing the stick to centre out of a hard carve
+  and popping *immediately* is itself a full whip, so it spins you the other way. Settle
+  for `spinRefRate`'s time constant first if you want the straight air.
 - In flight, **stick position means the same thing it did at takeoff: spin speed.** It
   pulls the rate toward `stickX * air.spinTakeoff` at `air.authority` per second, so a
   short air cannot fully retarget and takeoff still decides where you start. A centred
@@ -143,7 +154,12 @@ welded together.
   whatever the stick happened to be at on release, and since full stick saturated near
   360° that was the only repeatable trick — a 180 needed the stick inside a ~6% band you
   cannot see. One consistent scale plus a real response rate makes the whole range
-  reachable: half stick is a 180, full stick is a 360, and mid-air stick moves it.
+  reachable: half whip is a 180, full whip is a 360, and mid-air stick moves it.
+  In-air spin control is **disarmed until the stick comes back inside `air.spinArmBand`**.
+  Leaving the ground mid-carve the thumb is still buried where the carve put it, and
+  without the latch the air controller spends the whole air dragging the rate up to the
+  carve's value — measured at 146° of unrequested rotation off an otherwise straight pop,
+  enough to undo the takeoff fix on its own. Once armed, the law above applies unchanged.
 - Grab held → `air.tuckMultiplier` (~1.25) faster spin. Extended → slower. This is real
   and it's the main mid-air expression tool.
 

@@ -40,7 +40,15 @@ export const params = {
     extendMultiplier: 0.85, // spin rate while stretched
     spinMax: 9.0, // rad/s cap
     axisTiltMax: 1.1, // rad, max cork axis lerp
-    spinTakeoff: 7.0, // rad/s at full stick on takeoff
+    spinTakeoff: 7.0, // rad/s at full whip on takeoff
+    /**
+     * 0..1, how much of a held carve is discounted from the takeoff stick read. At 0 the
+     * stick position sets spin, which means a hard carve *is* a request for a 360 whether
+     * or not you wanted one. At 1 only a whip beyond the carve counts.
+     */
+    spinCarveReject: 1.0,
+    spinRefRate: 5.0, // 1/s the carve baseline follows the stick — lower widens the whip window
+    spinArmBand: 0.25, // |stick| below this arms in-air spin control after takeoff
   },
   land: {
     clean: 0.44, // rad ≈ 25°
