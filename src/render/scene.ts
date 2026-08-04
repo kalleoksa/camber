@@ -9,11 +9,15 @@ import { createRig, neutralDrivers, type RigDrivers } from './rig.ts';
 
 /** Board tip angle at full edge. */
 const MAX_EDGE_ROLL = 0.55;
-const MAX_CROUCH = 0.28; // m of knee bend at full compress
 /** Extra hip drop per m/s of landing impact. A placeholder until the rig lands in M4. */
 const ABSORB_PER_IMPACT = 0.022;
 const TUMBLE_RATE = 8.0; // rad/s at full slide speed
-const TICK = 1 / 60; // s, nominal frame for the render-side springs
+/**
+ * The render springs are explicit-Euler and go unstable past ω·dt ≈ 2, so a long frame
+ * has to be clamped rather than integrated: a hitch should make the hips lag, never
+ * launch them. 1/30 s leaves headroom up to ω ≈ 60 (`rig.hipStiffness` ≈ 3600).
+ */
+const MAX_SPRING_DT = 1 / 30;
 
 export type RiderView = {
   position: Vec3;
@@ -98,7 +102,7 @@ export type SceneView = {
   drivers: RigDrivers;
   /** Per-hand shoulder-to-hand distance over arm reach; above 1 the grab is out of reach. */
   strain: { front: number; back: number };
-  updateRider(view: RiderView, params: Params, poseMode: boolean): void;
+  updateRider(view: RiderView, params: Params, poseMode: boolean, dt: number): void;
   resize(): void;
 };
 
@@ -206,11 +210,12 @@ export function createScene(cfg: SlopeConfig, terrain: Terrain, camera: THREE.Pe
     drivers,
     strain: rig.strain,
 
-    updateRider(view, params, poseMode) {
+    updateRider(view, params, poseMode, dt) {
+      const springDt = Math.min(dt, MAX_SPRING_DT);
       rig.root.position.set(view.position.x, view.position.y, view.position.z);
       // Tumble winds down with the slide rather than spinning at a fixed rate forever.
       tumbleAngle =
-        view.mode === 'bailed' ? tumbleAngle + Math.min(view.speed / 8, 1) * TUMBLE_RATE * 0.016 : 0;
+        view.mode === 'bailed' ? tumbleAngle + Math.min(view.speed / 8, 1) * TUMBLE_RATE * springDt : 0;
 
       // The sim owns board orientation — grounded it is slaved to the terrain, airborne
       // it carries angular momentum. Render just reads it.
@@ -233,12 +238,14 @@ export function createScene(cfg: SlopeConfig, terrain: Terrain, camera: THREE.Pe
       // the gate passes (§7.8, step 2 before step 3).
       if (!poseMode) {
         const absorb = view.absorb > 0 ? view.impact * ABSORB_PER_IMPACT : 0;
-        const target = -view.compress * MAX_CROUCH - absorb;
-        // One critically-damped spring rather than assigning hip height (§7.6).
+        const target = -view.compress * params.rig.crouchDepth - absorb;
+        // One critically-damped spring rather than assigning hip height (§7.6). Stepped by
+        // the real frame time — a fixed nominal step made the crouch as fast as the display,
+        // which is a bug you only see by changing machines.
         const k = params.rig.hipStiffness;
         const acc = k * (target - drivers.hipY) - 2 * params.rig.hipDamping * Math.sqrt(k) * hipVel;
-        hipVel += acc * TICK;
-        drivers.hipY += hipVel * TICK;
+        hipVel += acc * springDt;
+        drivers.hipY += hipVel * springDt;
         drivers.hipX = view.edge * 0.1;
         drivers.hipZ = view.stance * 0.14;
         drivers.spineSide = view.stance * 0.3;

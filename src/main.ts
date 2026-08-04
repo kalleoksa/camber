@@ -124,7 +124,7 @@ function render(alpha: number): void {
   lastRender = now;
 
   const rider = interpolateRider(previous, state, alpha);
-  view.updateRider(rider, params, poseMode);
+  view.updateRider(rider, params, poseMode, dt);
   if (poseMode) {
     orbit.update(rider);
   } else {

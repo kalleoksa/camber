@@ -95,7 +95,8 @@ export const params = {
     hipHeight: 0.86, // m above the deck, uncompressed
     spine: 0.52, // m hips to shoulders
     neck: 0.16, // m shoulders to head
-    hipStiffness: 90.0, // ω for the hip spring
+    crouchDepth: 0.28, // m the hips drop at full compress
+    hipStiffness: 250.0, // ω² for the hip spring — ω = sqrt of this, so 250 is ~15.8 rad/s
     hipDamping: 1.0, // ζ — 1.0 is critically damped
   },
   spray: {
