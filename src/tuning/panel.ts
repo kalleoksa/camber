@@ -97,10 +97,14 @@ function stepFor(value: number): number {
   return Math.max(10 ** (Math.floor(Math.log10(Math.abs(value))) - 2), 1e-5);
 }
 
+/** Grab transition preview state, owned by the bootstrap and bound here. */
+export type PreviewState = { play: boolean; loop: boolean; phase: number };
+
 export function createPanel(
   params: Params,
   readout: Readout,
   drivers: RigDrivers,
+  preview: PreviewState,
   handlers: PanelHandlers,
 ): { refresh(): void } {
   const pane = new Pane({ title: 'camber' });
@@ -148,6 +152,14 @@ export function createPanel(
   pose.addButton({ title: 'next anchor  ]' }).on('click', () => handlers.onStepAnchor(1));
   pose.addButton({ title: 'save pose' }).on('click', handlers.onSavePose);
   pose.addButton({ title: 'load pose' }).on('click', () => pickFile(handlers.onLoadPose));
+
+  // Transition preview. A pose arrived at reads differently from one held still, so the
+  // pose being edited can be played crouch -> grab -> crouch on the `grab` timing params.
+  // `phase` doubles as a scrub: with play off, drag it to hold any point of the transition.
+  const play = pose.addFolder({ title: 'transition', expanded: true });
+  play.addBinding(preview, 'play', { label: 'play' });
+  play.addBinding(preview, 'loop');
+  play.addBinding(preview, 'phase', { min: 0, max: 1, step: 0.005, label: 'phase / scrub' });
 
   const driverFolder = pose.addFolder({ title: 'drivers', expanded: true });
   for (const key of Object.keys(drivers) as (keyof RigDrivers)[]) {

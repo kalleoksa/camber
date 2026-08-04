@@ -84,6 +84,27 @@ export const params = {
     grip: 0.3, // multiplier on gripEdge
     yawAuthority: 3.2, // rad/s
   },
+  /**
+   * Grab timing. `reach` and `release` are the real feel numbers — the rate the rider blends
+   * toward an anchor and back — and gameplay will use them unchanged once grabs are wired.
+   * `hold` only exists for the pose-mode preview, where nothing is holding a button.
+   */
+  grab: {
+    reachTime: 0.18, // s, crouch to full grab
+    holdTime: 0.4, // s at full grab — preview envelope only, gameplay holds while held
+    releaseTime: 0.14, // s, grab back to crouch. Quicker than the reach: you snap back to land
+    /**
+     * 0..1 of the body blend completed before the hand starts closing on the board. Without
+     * it every grab passes through an unreachable pose mid-transition, because crouch is a
+     * shallower crouch than any grab and the halfway body is further from the board than
+     * either end. Raise it if an arm still snaps on the way in.
+     *
+     * 0.75 is measured, not guessed: it is the lowest value at which all eight grabs stay
+     * under reach 1.0 across the whole path. At 0.65 melon still peaks at 1.01, and at 0 every
+     * single grab is invalid somewhere in the middle.
+     */
+    gripDelay: 0.75,
+  },
   rig: {
     thigh: 0.44, // m
     shin: 0.44, // m

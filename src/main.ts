@@ -13,7 +13,14 @@ import { createAudioLayers } from './audio/layers.ts';
 import { createChaseCamera } from './render/camera.ts';
 import { createSpray } from './render/effects.ts';
 import { ANCHORS } from './render/poses.ts';
-import { copyDrivers, neutralDrivers, type RigDrivers } from './render/rig.ts';
+import {
+  blendToGrab,
+  copyDrivers,
+  gripWeight,
+  neutralDrivers,
+  smoothstep,
+  type RigDrivers,
+} from './render/rig.ts';
 import { createScene, interpolateRider } from './render/scene.ts';
 import { createPoseOrbit } from './render/orbit.ts';
 import { hashState } from './sim/hash.ts';
@@ -94,6 +101,81 @@ addEventListener('gamepaddisconnected', ({ gamepad: pad }) => {
 let poseMode = false;
 let anchorIndex = 0;
 
+/**
+ * Grab transition preview. A pose held still and a pose arrived at read differently, and the
+ * milestone 4 gate is a judgement about the pose, so it has to be judgeable in motion.
+ *
+ * Plays crouch → the pose you are editing → crouch on the reach/hold/release envelope. Still
+ * authoring, not gameplay: nothing here reads input or touches the sim, and the envelope is
+ * shared by every anchor rather than authored per grab (invariant 3).
+ *
+ * `target` is the whole reason this is safe. Pose mode's contract is that the drivers *are*
+ * the document, so playing a blend into them would overwrite what you were editing. The pose
+ * is snapshotted on play and restored on stop.
+ */
+const preview = { play: false, loop: true, phase: 0 };
+const previewTarget = neutralDrivers();
+const previewBase = neutralDrivers();
+let previewing = false;
+
+function previewTotal(): number {
+  const g = params.grab;
+  return Math.max(g.reachTime + g.holdTime + g.releaseTime, 1e-3);
+}
+
+/** Envelope position → body blend weight. Ramp in, flat, ramp out. */
+function previewWeight(phase: number): number {
+  const g = params.grab;
+  const t = phase * previewTotal();
+  if (t < g.reachTime) return smoothstep(t / Math.max(g.reachTime, 1e-3));
+  if (t < g.reachTime + g.holdTime) return 1;
+  return 1 - smoothstep((t - g.reachTime - g.holdTime) / Math.max(g.releaseTime, 1e-3));
+}
+
+function applyPreview(): void {
+  const body = previewWeight(preview.phase);
+  blendToGrab(view.drivers, previewBase, previewTarget, body, gripWeight(body, params.grab.gripDelay));
+}
+
+function startPreview(): void {
+  if (previewing) return;
+  previewing = true;
+  copyDrivers(previewTarget, view.drivers);
+  const crouch = ANCHORS.crouch;
+  copyDrivers(previewBase, crouch ?? neutralDrivers());
+}
+
+function stopPreview(): void {
+  if (!previewing) return;
+  previewing = false;
+  copyDrivers(view.drivers, previewTarget);
+  panel.refresh();
+}
+
+function updatePreview(dt: number): void {
+  if (!preview.play) {
+    // Scrubbing: hold any point of the transition still, which is how you catch the frame
+    // where a pose passes through something it should not.
+    if (preview.phase > 0) {
+      startPreview();
+      applyPreview();
+    } else {
+      stopPreview();
+    }
+    return;
+  }
+  startPreview();
+  preview.phase += dt / previewTotal();
+  if (preview.phase >= 1) {
+    if (preview.loop) preview.phase -= 1;
+    else {
+      preview.phase = 0;
+      preview.play = false;
+    }
+  }
+  applyPreview();
+}
+
 // [ and ] step through the anchors without reaching for the panel, which is the whole
 // workflow when you are comparing one grab against another.
 addEventListener('keydown', (ev) => {
@@ -134,6 +216,7 @@ function render(alpha: number): void {
   lastRender = now;
 
   const rider = interpolateRider(previous, state, alpha);
+  if (poseMode) updatePreview(dt);
   view.updateRider(rider, params, poseMode, dt);
   if (poseMode) {
     orbit.update(rider);
@@ -192,6 +275,7 @@ function stepAnchor(delta: number): void {
   const name = names[anchorIndex];
   const anchor = name ? ANCHORS[name] : undefined;
   if (!name || !anchor) return;
+  stopPreview();
   copyDrivers(view.drivers, anchor);
   readout.session = `pose mode — ${name}`;
   panel.refresh();
@@ -228,8 +312,14 @@ function finishRecording(): void {
 
 const orbit = createPoseOrbit(chase.camera, view.renderer.domElement);
 
-const panel = createPanel(params, readout, view.drivers, {
+const panel = createPanel(params, readout, view.drivers, preview, {
   onPoseMode: (on) => {
+    // Leaving pose mode mid-preview would leave a half-blended pose in the document.
+    if (!on) {
+      preview.play = false;
+      preview.phase = 0;
+      stopPreview();
+    }
     poseMode = on;
     orbit.setEnabled(on);
     view.setStage(on);
@@ -239,13 +329,19 @@ const panel = createPanel(params, readout, view.drivers, {
   onAnchor: (name) => {
     const anchor = ANCHORS[name];
     if (anchor) {
+      stopPreview(); // so the snapshot is retaken against the anchor being switched to
       copyDrivers(view.drivers, anchor);
       panel.refresh();
     }
   },
   onStepAnchor: stepAnchor,
-  onSavePose: () => download('pose.json', JSON.stringify(view.drivers, null, 2)),
+  // Save the authored pose, never a half-blended preview frame.
+  onSavePose: () => {
+    stopPreview();
+    download('pose.json', JSON.stringify(view.drivers, null, 2));
+  },
   onLoadPose: (json) => {
+    stopPreview();
     const loaded = { ...neutralDrivers(), ...(JSON.parse(json) as Partial<RigDrivers>) };
     copyDrivers(view.drivers, loaded);
     panel.refresh();

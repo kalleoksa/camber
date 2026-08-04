@@ -30,7 +30,7 @@
     -->
     <script type="module">
       import * as THREE from 'three';
-      import { createRig } from './src/render/rig.ts';
+      import { blendToGrab, createRig, gripWeight, smoothstep } from './src/render/rig.ts';
       import { ANCHORS } from './src/render/poses.ts';
       import { params } from './src/sim/params.ts';
 
@@ -65,6 +65,16 @@
           if (name in params.rig) params.rig[name] = Number(value);
         }
       }
+      // blend=0..1 mixes crouch -> this anchor, the same interpolation the transition preview
+      // and (later) gameplay use. Sweeping it is how you check the whole path into a grab is
+      // valid, not just the held pose at the end.
+      const blend = q.get('blend');
+      if (blend !== null) {
+        const body = smoothstep(Number(blend));
+        const delay = q.has('gripDelay') ? Number(q.get('gripDelay')) : params.grab.gripDelay;
+        blendToGrab(drivers, ANCHORS.crouch, { ...drivers }, body, gripWeight(body, delay));
+      }
+
       // The reach overlay is an authoring aid, so show it in the coloured views and keep it
       // out of the silhouette — a red bar would just be another black shape in there.
       rig.showReach(!silhouette);

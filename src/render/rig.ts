@@ -133,6 +133,60 @@ export function copyDrivers(dst: RigDrivers, src: RigDrivers): void {
   for (const key of Object.keys(dst) as (keyof RigDrivers)[]) dst[key] = src[key];
 }
 
+/**
+ * Interpolate the whole driver vector between two anchors.
+ *
+ * This is what invariant 3 means by gameplay interpolating *toward* an anchor. The timeline
+ * belongs to the caller and is the same for every anchor — reach, hold, release — so no
+ * anchor carries motion data of its own. The moment a specific grab needs its own timing
+ * curve, it has stopped being an anchor and this is a clip.
+ *
+ * Every driver blends the same way. Angles are small enough here that lerping them rather
+ * than slerping a rotation reads fine, and it keeps the pose a plain weighted average of two
+ * poses, which is what makes it composable.
+ */
+export function blendDrivers(out: RigDrivers, from: RigDrivers, to: RigDrivers, t: number): void {
+  for (const key of Object.keys(out) as (keyof RigDrivers)[]) {
+    out[key] = from[key] + (to[key] - from[key]) * t;
+  }
+}
+
+/** Ease so the extremes settle instead of arriving at full speed. */
+export function smoothstep(t: number): number {
+  const x = Math.min(Math.max(t, 0), 1);
+  return x * x * (3 - 2 * x);
+}
+
+/**
+ * Blend toward a grab with the **body leading and the hand committing later**.
+ *
+ * Ramping everything together is wrong, and measurably so: `crouch` is a shallower crouch
+ * than any grab anchor, so halfway between them the rider is *higher* than at either end
+ * while the grip is already dragging the hand to the board. Every one of the eight grabs
+ * peaked at reach 1.05–1.11 mid-path — valid at both ends, impossible in between, which is a
+ * stretched or short arm at exactly the moment the arm is the thing you are looking at.
+ *
+ * Delaying the grip fixes it because it is also what actually happens: you get your body
+ * where it needs to be, and only then does the hand close on the board.
+ */
+export function blendToGrab(
+  out: RigDrivers,
+  from: RigDrivers,
+  to: RigDrivers,
+  body: number,
+  grip: number,
+): void {
+  blendDrivers(out, from, to, body);
+  out.frontGrip = from.frontGrip + (to.frontGrip - from.frontGrip) * grip;
+  out.backGrip = from.backGrip + (to.backGrip - from.backGrip) * grip;
+}
+
+/** Grip weight given body weight: nothing until `delay`, then eased to full. */
+export function gripWeight(body: number, delay: number): number {
+  const d = Math.min(Math.max(delay, 0), 0.95);
+  return smoothstep((body - d) / (1 - d));
+}
+
 const BOARD_LENGTH = 1.55;
 const BOARD_HALF = BOARD_LENGTH / 2;
 const EDGE_X = 0.145; // m, just outside the deck so the hand wraps the edge
