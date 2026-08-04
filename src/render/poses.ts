@@ -66,7 +66,8 @@ export const ANCHORS: Record<string, RigDrivers> = {
    * Order of cause, because the naive version gets it backwards. The arm is a tension
    * member, not an actuator — it never lifts the board:
    *   1. front hand anchors to the heel edge, elbow near straight (that is what "boned" is)
-   *   2. knees flex, heels toward glutes — this is what brings the board up and behind
+   *   2. knees flex, heels toward glutes — this is what brings the board up and *behind the
+   *      rider's back*, which is `boardBack`, not just `boardLift`
    *   3. hips extend, driving forward and up as the board goes back
    *   4. lumbar and thoracic spine extend — the arch, chest opening to the sky
    *   5. trailing arm extends up and forward as a counterweight
@@ -83,11 +84,15 @@ export const ANCHORS: Record<string, RigDrivers> = {
     hipX: -0.1,
     hipY: 0.0,
     hipZ: 0.06,
-    hipRoll: -0.2,
-    boardLift: 0.34,
-    // ~49° of spine extension, lumbar plus thoracic. Negative is toward the heel side,
-    // which for a rider facing the toe edge is backwards — an arch, not a fold.
-    spineBend: -1.0, // their +0.92 in the grab reference — that doc's sign is inverted
+    hipRoll: -0.2, // ~11° of hip *extension*. The hips stay near straight — the arch is
+    // spine, not hip, and folding forward at the hip is the thing that made this read wrong.
+    boardLift: 0.48,
+    boardBack: 0.2, // the board goes behind the rider's back, which is what melon does not do
+    // ~43° of spine extension, lumbar plus thoracic. Negative is toward the heel side,
+    // which for a rider facing the toe edge is backwards — an arch, not a fold. It used to
+    // need 57° here, but that was the torso leaning over to *reach* a board that had no way
+    // to come behind the rider; with boardBack carrying that, the arch is back in its band.
+    spineBend: -0.75, // the grab reference's +0.92 — that doc's spineBend sign is inverted
     spineSide: -0.12,
     spineTwist: 0.35, // ~20° of counter-rotation against the board, which *is* the arch
     frontHandEdge: -1, // heel edge

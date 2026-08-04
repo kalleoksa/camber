@@ -87,6 +87,7 @@
     "spine": 0.52,
     "neck": 0.16,
     "crouchDepth": 0.28,
+    "tweakMax": 1.75,
     "hipStiffness": 250,
     "hipDamping": 1
   },

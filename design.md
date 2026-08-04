@@ -223,8 +223,17 @@ Almost the entire vocabulary is *where the hips sit relative to the board*:
 ### 7.2 The driver vector
 
 The whole rider is about twenty numbers. Small enough to bind every one to Tweakpane,
-which is the point — see §7.8. It is twenty-two now: 21 and 22 below were both added
+which is the point — see §7.8. It is twenty-three now: 21–23 below were each added
 because a pose the rig was supposed to reach turned out to be unreachable without them.
+Every one was found the same way: by measuring a pose against `grabs.md` and finding no
+value of the existing drivers that satisfied it.
+
+`boardBack` is the one worth learning from. Its absence looked like a *proportions* problem
+— the arm measured 4% too short to make a method at anatomically correct knee flexion, and
+lengthening it did fix the numbers. But the real cause was that the board could not go
+behind the rider, so the torso had to lean over to reach it. Once `boardBack` existed the
+arm went back to 0.66 m and the pose came out inside every band. A missing degree of
+freedom impersonates a wrong constant.
 
 | # | Driver | Space / range |
 |---|---|---|
@@ -239,7 +248,8 @@ because a pose the rig was supposed to reach turned out to be unreachable withou
 | 19 | Knee pole splay | rad, swept from the toe side. **Past π/2 the knees break backward** — a method needs that, and the slider used to stop at 1.4 so it was unreachable |
 | 20 | Stance width scale | multiplier on binding separation |
 | 21 | Board lift | m the board rises toward the rider along its own normal — the leg tuck. Without it a grab is only reachable by folding the torso double |
-| 22 | Free arm raise | 0 at the side, 1 at ~155° shoulder flexion. A method's trailing arm is a counterweight thrown skyward and the rest pose pinned it down |
+| 22 | Board back | m the board travels toward the heel side, **behind the rider's back**. Lift alone could only raise it, so the only way onto the heel edge was to lean the torso 57° over to meet it — which is a fold, not a method. It is also the melon/method discriminator: board under the rider versus behind them |
+| 23 | Free arm raise | 0 at the side, 1 at ~155° shoulder flexion. A method's trailing arm is a counterweight thrown skyward and the rest pose pinned it down |
 
 **Head pitch is about board Z, not board X.** The rider faces −X, so X is their *facing*
 axis and a rotation about it rolls the head ear-to-shoulder. Neck extension — looking up

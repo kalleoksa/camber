@@ -87,10 +87,8 @@ export const params = {
   rig: {
     thigh: 0.44, // m
     shin: 0.44, // m
-    upperArm: 0.35, // m
-    forearm: 0.35, // m, to the grip rather than the wrist — 0.70 total, top of the adult
-    // shoulder-to-grip band. At 0.66 a method could not be reached with the knees inside
-    // their 95..115° flexion band at all: measured 0.99 reach against 120° of knee.
+    upperArm: 0.33, // m
+    forearm: 0.33, // m, to the grip rather than the wrist — 0.66 total, adult shoulder-to-grip
     hipWidth: 0.18, // m between leg roots
     shoulderWidth: 0.36, // m between arm roots, along the board
     stanceWidth: 0.52, // m between bindings

@@ -50,6 +50,15 @@ export type RigDrivers = {
    */
   boardLift: number;
   /**
+   * m the board travels toward the heel side — *behind* the rider's back, since they face
+   * −X. `boardLift` only ever moved it up along the normal, so the only way to get a hand
+   * onto the heel edge was to lean the torso over to meet it, which is not what a method
+   * does: the knees put the board behind the back and the hips stay near straight.
+   * It is also the melon/method discriminator — board under the rider versus behind them —
+   * which was not expressible at all before this.
+   */
+  boardBack: number;
+  /**
    * 0 = the ungripped hand hangs at the side, 1 = shoulder flexed ~155°, up and toe-ward.
    * A method's trailing arm is a counterweight thrown skyward, and with only a rest pose to
    * fall back on there was no way to express it — the arm stayed pinned down no matter what
@@ -81,6 +90,7 @@ export function neutralDrivers(): RigDrivers {
     kneeSplay: 0.5,
     stanceScale: 1,
     boardLift: 0,
+    boardBack: 0,
     freeArmRaise: 0,
   };
 }
@@ -313,6 +323,7 @@ export function createRig(): Rig {
         board.position.set(0, 0, 0);
       }
       board.position.y += lift;
+      board.position.x += d.boardBack;
 
       // 2. Feet, which follow the tweaked board.
       footF.set(0, 0.09, halfStance);
