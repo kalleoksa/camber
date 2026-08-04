@@ -110,16 +110,55 @@ export const ANCHORS: Record<string, RigDrivers> = {
     backElbow: 1.87,
   }),
 
-  /** Front hand, heel edge, t ≈ 0.5. Board under the rider rather than behind. */
-  melon: pose({ frontHandEdge: -1, frontHandT: 0.5, frontGrip: 1 }),
+  /** Front hand, heel edge, t ≈ 0.5. Authored. Board under the rider rather than behind. */
+  melon: pose({
+    hipX: 0.05,
+    hipY: -0.71,
+    hipZ: -0.21,
+    hipYaw: 0.03,
+    pelvisPitch: 0.24,
+    spineBend: 0.17,
+    spineTwist: 0.23,
+    frontHandEdge: -1,
+    frontHandT: 0.5,
+    frontGrip: 1,
+    backHandEdge: -0.35,
+    backHandT: 0.26,
+    boardPitch: 0.31,
+    tweakRoll: 0.35,
+    backShoulderSwing: 0.36,
+    backShoulderOut: -0.32,
+  }),
 
   /**
-   * Front hand, heel edge, t ≈ 0.5 — the *identical coordinate to melon*. Everything that
-   * separates them is body pose: spine extension and the board behind rather than under.
-   * That is the whole argument for grab and tweak being separate systems, and it is why
-   * this entry can be a copy of melon without being a duplicate.
+   * Front hand, heel edge. Authored — and note the author put `t` at 0.83, well toward the
+   * nose, not the 0.5 the reference predicted and not melon's coordinate either. So the
+   * "method and melon are the same grab" claim does not survive contact with the sliders:
+   * this method reaches much further forward. Worth reconciling in `grabs.md` rather than
+   * assuming the doc was right and the pose wrong.
    */
-  method: pose({ frontHandEdge: -1, frontHandT: 0.5, frontGrip: 1 }),
+  method: pose({
+    hipX: -0.2,
+    hipY: -0.52,
+    hipYaw: 1.17,
+    pelvisPitch: 0.28,
+    hipRoll: 0.21,
+    spineBend: 0.76,
+    spineSide: 0.33,
+    spineTwist: 0.21,
+    frontHandEdge: -1,
+    frontHandT: 0.83,
+    frontGrip: 1,
+    boardPitch: 0.55,
+    tweakRoll: 0.72,
+    headYaw: 0.21,
+    headPitch: -0.16,
+    kneeSplay: 0.34,
+    backShoulderSwing: 2.62, // the trailing arm up, which is what a method's counterweight is
+    backShoulderOut: -0.58,
+    backElbow: 0.28,
+    backElbowPole: -0.27,
+  }),
 
   /** Back hand, heel edge, t ≈ 0.4, arm behind the back leg. Authored. */
   stalefish: pose({
@@ -153,8 +192,31 @@ export const ANCHORS: Record<string, RigDrivers> = {
   /** Back hand, t ≈ 0.05. Geometrically nosegrab's mirror, but the spine extends. */
   tailgrab: pose({ backHandEdge: 1, backHandT: 0.05, backGrip: 1 }),
 
-  /** Front hand, toe edge, t ≈ 0.65, ahead of the front binding. Toe-side cousin of method. */
-  japan: pose({ frontHandEdge: 1, frontHandT: 0.65, frontGrip: 1 }),
+  /** Front hand, toe edge, t ≈ 0.54. Authored. Toe-side cousin of the method. */
+  japan: pose({
+    hipY: -0.53,
+    hipZ: -0.16,
+    pelvisPitch: 0.01,
+    hipRoll: 0.43,
+    spineBend: 0.18,
+    spineSide: -0.14,
+    spineTwist: -0.73, // the most twist of any anchor so far
+    frontHandEdge: 1,
+    frontHandT: 0.54,
+    frontGrip: 1,
+    backHandEdge: -0.13,
+    backHandT: 0.29,
+    boardPitch: 0.55,
+    tweakRoll: 1,
+    headYaw: 0.79,
+    headPitch: -0.09,
+    kneeSplay: 0.44,
+    frontShoulderSwing: 0.2,
+    backShoulderSwing: 0.61,
+    backShoulderOut: -0.14,
+    backElbow: 0.68,
+    backElbowPole: -0.27,
+  }),
 };
 
 export const ANCHOR_NAMES = Object.keys(ANCHORS);

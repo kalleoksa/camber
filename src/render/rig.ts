@@ -137,13 +137,27 @@ const BOARD_LENGTH = 1.55;
 const BOARD_HALF = BOARD_LENGTH / 2;
 const EDGE_X = 0.145; // m, just outside the deck so the hand wraps the edge
 
+/** Fraction of `t` at each end over which the two edge splines converge on the tip. */
+const TIP_TAPER = 0.15;
+
 /**
  * A grab is a coordinate on the board, not one of eight buttons (§7.3). `edge` picks
  * which rail continuously, `t` runs tail (0) to nose (1).
+ *
+ * The two splines **converge at the tips**, because a board's edges meet there. Without
+ * that, `edge` only ever interpolated between the two side rails at full width all the way
+ * to the end, so a nose or tail grab had no coordinate: those are grabbed at the tip on the
+ * centre line, not on either edge. Now any `edge` value collapses to the centre line as `t`
+ * approaches 0 or 1, which is what makes a tailgrab and a nosegrab expressible at all.
+ *
+ * The taper only bites over the outer 15%, so every grab between the bindings — indy, mute,
+ * melon, method, stalefish, japan — sits at exactly the width it did before.
  */
 export function edgePoint(out: THREE.Vector3, edge: number, t: number): THREE.Vector3 {
+  const fromTip = Math.min(t, 1 - t);
+  const taper = Math.min(Math.max(fromTip / TIP_TAPER, 0), 1);
   // state.edge is + for toe, and the toe side is board-local −X.
-  out.set(-edge * EDGE_X, 0.035, (t * 2 - 1) * (BOARD_HALF - 0.06));
+  out.set(-edge * EDGE_X * taper, 0.035, (t * 2 - 1) * (BOARD_HALF - 0.06));
   return out;
 }
 
