@@ -25,7 +25,14 @@ const DRIVER_RANGE: Record<keyof RigDrivers, { min: number; max: number }> = {
   headPitch: { min: -0.8, max: 0.8 },
   kneeSplay: { min: -1.2, max: 3.1 }, // past pi/2 the knees break back — a method needs it
   stanceScale: { min: 0.7, max: 1.4 },
-  freeArmRaise: { min: 0, max: 1 },
+  frontShoulderSwing: { min: -0.6, max: 3.1 }, // 0 at the side, pi/2 out toward the toes, pi overhead
+  frontShoulderOut: { min: -1.0, max: 1.4 },
+  frontElbow: { min: 0, max: 2.6 },
+  frontElbowPole: { min: -3.1, max: 3.1 },
+  backShoulderSwing: { min: -0.6, max: 3.1 },
+  backShoulderOut: { min: -1.0, max: 1.4 },
+  backElbow: { min: 0, max: 2.6 },
+  backElbowPole: { min: -3.1, max: 3.1 },
 };
 
 export type Readout = {

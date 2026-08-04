@@ -60,12 +60,27 @@ export type RigDrivers = {
   kneeSplay: number;
   stanceScale: number; // multiplier on binding separation
   /**
-   * 0 = the ungripped hand hangs at the side, 1 = shoulder flexed ~155°, up and toe-ward.
-   * A method's trailing arm is a counterweight thrown skyward, and with only a rest pose to
-   * fall back on there was no way to express it — the arm stayed pinned down no matter what
-   * the rest of the pose did.
+   * Arms, per side, joint by joint. Forward-kinematic from the shoulder, so a hand goes
+   * wherever the joints put it — there is no shared rest pose any more, and the two hands
+   * are independent.
+   *
+   * `Swing` is shoulder flexion in the rider's sagittal plane: 0 hangs at the side, π/2 is
+   * straight out toward the toes, π is overhead. `Out` is abduction along the board, toward
+   * the nose on the front arm and the tail on the back. `Elbow` is flexion. `Pole` sweeps
+   * which way the elbow breaks, and it is also what `armRouting` will need — outside,
+   * between the legs and crossed differ only in where the elbow goes.
+   *
+   * When the matching grip is above 0 the hand is pulled to the grab point and the elbow
+   * solves by IK instead, with `Pole` still choosing the break direction.
    */
-  freeArmRaise: number;
+  frontShoulderSwing: number;
+  frontShoulderOut: number;
+  frontElbow: number;
+  frontElbowPole: number;
+  backShoulderSwing: number;
+  backShoulderOut: number;
+  backElbow: number;
+  backElbowPole: number;
 };
 
 export function neutralDrivers(): RigDrivers {
@@ -90,7 +105,14 @@ export function neutralDrivers(): RigDrivers {
     headPitch: 0,
     kneeSplay: 0.5,
     stanceScale: 1,
-    freeArmRaise: 0,
+    frontShoulderSwing: 0.35,
+    frontShoulderOut: 0.25,
+    frontElbow: 0.5,
+    frontElbowPole: 0,
+    backShoulderSwing: 0.35,
+    backShoulderOut: 0.25,
+    backElbow: 0.5,
+    backElbowPole: 0,
   };
 }
 
@@ -145,6 +167,55 @@ function placeBone(mesh: THREE.Mesh, from: THREE.Vector3, to: THREE.Vector3): vo
 
 const toTarget = new THREE.Vector3();
 const poleFlat = new THREE.Vector3();
+const upperDir = new THREE.Vector3();
+const foreDir = new THREE.Vector3();
+const bendAxis = new THREE.Vector3();
+const armRef = new THREE.Vector3();
+const armQuat = new THREE.Quaternion();
+const armZ = new THREE.Vector3(0, 0, 1);
+const armX = new THREE.Vector3(1, 0, 0);
+
+/**
+ * Forward kinematics down one arm, in torso space: shoulder swing and abduction aim the
+ * upper arm, then the elbow bends the forearm about an axis `pole` sweeps around it.
+ *
+ * The hand is wherever the joints put it. That is the point — a single shared rest pose
+ * could not place two hands independently, and every joint being a driver is what makes a
+ * hand poseable rather than only reachable.
+ */
+function solveArmFK(
+  outElbow: THREE.Vector3,
+  outHand: THREE.Vector3,
+  shoulderPos: THREE.Vector3,
+  torsoQuat: THREE.Quaternion,
+  swing: number,
+  out: number,
+  flex: number,
+  pole: number,
+  side: number,
+  r: { upperArm: number; forearm: number },
+): void {
+  // Hanging down, swung forward toward the toes, then abducted along the board.
+  upperDir.set(0, -1, 0);
+  armQuat.setFromAxisAngle(armZ, -swing);
+  upperDir.applyQuaternion(armQuat);
+  armQuat.setFromAxisAngle(armX, side * out);
+  upperDir.applyQuaternion(armQuat);
+  upperDir.applyQuaternion(torsoQuat).normalize();
+  outElbow.copy(shoulderPos).addScaledVector(upperDir, r.upperArm);
+
+  // A reference perpendicular to the upper arm, swept by `pole`, is the bend axis.
+  armRef.set(0, 0, side).applyQuaternion(torsoQuat);
+  armRef.addScaledVector(upperDir, -armRef.dot(upperDir));
+  if (armRef.lengthSq() < 1e-8) armRef.set(1, 0, 0).addScaledVector(upperDir, -upperDir.x);
+  armRef.normalize();
+  armQuat.setFromAxisAngle(upperDir, pole);
+  bendAxis.copy(armRef).applyQuaternion(armQuat).normalize();
+
+  armQuat.setFromAxisAngle(bendAxis, flex);
+  foreDir.copy(upperDir).applyQuaternion(armQuat).normalize();
+  outHand.copy(outElbow).addScaledVector(foreDir, r.forearm);
+}
 
 
 /**
@@ -252,13 +323,21 @@ export function createRig(): Rig {
   const armLL = bone(SKIN, 0.08);
   const armRU = bone(SKIN, 0.085);
   const armRL = bone(SKIN, 0.08);
+  // Hands. There were none — the arm chain just ended, so the thing being placed was
+  // invisible and any driver that only moved the hand looked like it did nothing.
+  const mittF = new THREE.Mesh(
+    new THREE.BoxGeometry(0.085, 0.09, 0.075),
+    new THREE.MeshStandardMaterial({ color: 0x1b3f8f, roughness: 0.6 }),
+  );
+  const mittB = mittF.clone();
+
   const bootF = new THREE.Mesh(
     new THREE.BoxGeometry(0.15, 0.12, 0.28),
     new THREE.MeshStandardMaterial({ color: DARK, roughness: 0.7 }),
   );
   const bootB = bootF.clone();
 
-  for (const part of [pelvis, torso, head, thighL, shinL, thighR, shinR, armLU, armLL, armRU, armRL]) {
+  for (const part of [pelvis, torso, head, thighL, shinL, thighR, shinR, armLU, armLL, armRU, armRL, mittF, mittB]) {
     part.castShadow = true;
     root.add(part);
   }
@@ -289,22 +368,6 @@ export function createRig(): Rig {
    * the side through to roughly 155° of flexion, up and toe-ward. Kept at 0.95 of reach so
    * the arm reads as extended rather than locked.
    */
-  const restDir = new THREE.Vector3();
-  const restHand = (
-    out: THREE.Vector3,
-    shoulderPos: THREE.Vector3,
-    reach: number,
-    raise: number,
-    torsoQuat: THREE.Quaternion,
-  ): void => {
-    // Built in TORSO space, then rotated by the spine. Shoulder flexion of 150–170° roughly
-    // continues the torso axis, so a torso leaned 49° back puts the arm 49° off vertical
-    // rather than straight up. Authored in world it pointed at the sky whatever the torso
-    // did, which is where the 1.88 m tall outline came from.
-    restDir.set(-0.36 - raise * 0.1, -0.93 + raise * 1.86, 0).normalize();
-    restDir.applyQuaternion(torsoQuat);
-    out.copy(shoulderPos).addScaledVector(restDir, reach * 0.95);
-  };
 
   const strain = { front: 0, back: 0 };
   const legSpan = { front: 0, back: 0 };
@@ -410,21 +473,31 @@ export function createRig(): Rig {
           .set(0, r.spine, (front ? 1 : -1) * (r.shoulderWidth / 2))
           .applyQuaternion(spineQuat)
           .add(hipCentre);
-        restHand(hand, shoulder, armReach, d.freeArmRaise, spineQuat);
+        const swing = front ? d.frontShoulderSwing : d.backShoulderSwing;
+        const outward = front ? d.frontShoulderOut : d.backShoulderOut;
+        const flex = front ? d.frontElbow : d.backElbow;
+        const poleAngle = front ? d.frontElbowPole : d.backElbowPole;
+
+        // Free arm: pure FK, so both hands are placeable joint by joint and independently.
+        solveArmFK(elbow, hand, shoulder, spineQuat, swing, outward, flex, poleAngle, side, r);
+
         const g = front ? d.frontGrip : d.backGrip;
         if (g > 0) {
+          // Gripping: the hand is pulled to the grab point and the elbow solves to suit, with
+          // `pole` still choosing which way it breaks.
           edgePoint(grab, front ? d.frontHandEdge : d.backHandEdge, front ? d.frontHandT : d.backHandT);
           grab.applyQuaternion(board.quaternion).add(board.position);
           hand.lerp(grab, Math.min(g, 1));
+          pole.set(Math.cos(poleAngle), -0.2, side * Math.sin(poleAngle)).applyQuaternion(spineQuat);
+          solveTwoBone(elbow, shoulder, hand, r.upperArm, r.forearm, pole);
         }
         const need = shoulder.distanceTo(hand) / armReach;
         if (front) strain.front = g > 0 ? need : 0;
         else strain.back = g > 0 ? need : 0;
 
-        pole.set(-1, -0.2, 0).applyQuaternion(spineQuat);
-        solveTwoBone(elbow, shoulder, hand, r.upperArm, r.forearm, pole);
         placeBone(front ? armLU : armRU, shoulder, elbow);
         placeBone(front ? armLL : armRL, elbow, hand);
+        (front ? mittF : mittB).position.copy(hand);
       }
 
       // 6. Legs last, hips to the bolted feet. Knee bend emerges from where the pelvis ended
