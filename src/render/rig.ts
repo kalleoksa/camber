@@ -152,8 +152,15 @@ const up = new THREE.Vector3(0, 1, 0);
 const dir = new THREE.Vector3();
 const quat = new THREE.Quaternion();
 
-/** Stretch and aim a bone mesh from one joint to another. */
-function placeBone(mesh: THREE.Mesh, from: THREE.Vector3, to: THREE.Vector3): void {
+/**
+ * Aim a bone mesh from one joint to another, drawn at no more than `maxLen`.
+ *
+ * The clamp matters. Without it the mesh scaled to whatever gap it was given, so a target
+ * the limb could not reach came out as a *stretched* bone rather than a short one — which
+ * is invisible, and meant `reach` above 1.0 looked fine on screen. An unreachable grab now
+ * leaves a gap between the hand and the board, which is what it physically is.
+ */
+function placeBone(mesh: THREE.Mesh, from: THREE.Vector3, to: THREE.Vector3, maxLen: number): void {
   dir.subVectors(to, from);
   const len = dir.length();
   mesh.position.copy(from);
@@ -162,7 +169,7 @@ function placeBone(mesh: THREE.Mesh, from: THREE.Vector3, to: THREE.Vector3): vo
     quat.setFromUnitVectors(up, dir);
     mesh.quaternion.copy(quat);
   }
-  mesh.scale.set(1, Math.max(len, 1e-4), 1);
+  mesh.scale.set(1, Math.max(Math.min(len, maxLen), 1e-4), 1);
 }
 
 const toTarget = new THREE.Vector3();
@@ -495,9 +502,13 @@ export function createRig(): Rig {
         if (front) strain.front = g > 0 ? need : 0;
         else strain.back = g > 0 ? need : 0;
 
-        placeBone(front ? armLU : armRU, shoulder, elbow);
-        placeBone(front ? armLL : armRL, elbow, hand);
-        (front ? mittF : mittB).position.copy(hand);
+        placeBone(front ? armLU : armRU, shoulder, elbow, r.upperArm);
+        placeBone(front ? armLL : armRL, elbow, hand, r.forearm);
+        // The mitt rides the end of the forearm, not the target, so a hand that cannot
+        // reach visibly falls short instead of the arm quietly stretching to it.
+        (front ? mittF : mittB).position
+          .copy(elbow)
+          .addScaledVector(dir.subVectors(hand, elbow).normalize(), Math.min(hand.distanceTo(elbow), r.forearm));
       }
 
       // 6. Legs last, hips to the bolted feet. Knee bend emerges from where the pelvis ended
@@ -507,12 +518,12 @@ export function createRig(): Rig {
       legSpan.back = hipR.distanceTo(footB);
       pole.set(-Math.cos(d.kneeSplay), 0, Math.sin(d.kneeSplay));
       solveTwoBone(kneeF, hipL, footF, r.thigh, r.shin, pole);
-      placeBone(thighL, hipL, kneeF);
-      placeBone(shinL, kneeF, footF);
+      placeBone(thighL, hipL, kneeF, r.thigh);
+      placeBone(shinL, kneeF, footF, r.shin);
       pole.set(-Math.cos(d.kneeSplay), 0, -Math.sin(d.kneeSplay));
       solveTwoBone(kneeB, hipR, footB, r.thigh, r.shin, pole);
-      placeBone(thighR, hipR, kneeB);
-      placeBone(shinR, kneeB, footB);
+      placeBone(thighR, hipR, kneeB, r.thigh);
+      placeBone(shinR, kneeB, footB, r.shin);
       effectiveStance = halfStance * 2;
     },
   };

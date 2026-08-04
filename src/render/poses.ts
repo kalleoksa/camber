@@ -34,8 +34,41 @@ export const ANCHORS: Record<string, RigDrivers> = {
   /** Back hand, toe edge, t ≈ 0.35. The easiest grab — the toe edge comes to the hand. */
   indy: pose({ backHandEdge: 1, backHandT: 0.35, backGrip: 1 }),
 
-  /** Front hand, toe edge, t ≈ 0.55. Same edge as indy, opposite hand, compact and square. */
-  mute: pose({ frontHandEdge: 1, frontHandT: 0.55, frontGrip: 1 }),
+  /**
+   * Front hand, toe edge, t ≈ 0.54. **Authored on the sliders, not derived** — these are the
+   * author's numbers, saved out of pose mode, and they are the record. The first anchor in
+   * here that is a pose rather than a reconstruction of what one should measure.
+   *
+   * Note `backGrip` at 0.25: the free hand is drawn a quarter of the way toward a point near
+   * the tail rather than left where the arm joints put it. Partial grip works as a hand
+   * placement control, which was not what it was built for but is a fair use of it.
+   */
+  mute: pose({
+    hipX: 0.07,
+    hipY: -0.5,
+    hipZ: -0.09,
+    pelvisPitch: -0.17,
+    hipRoll: -0.17,
+    spineBend: 0.21,
+    spineSide: 0.18,
+    spineTwist: -0.52, // toward the tail, which is what grabs.md asks a mute for
+    frontHandEdge: 1,
+    frontHandT: 0.54,
+    frontGrip: 1,
+    backHandEdge: -0.24,
+    backHandT: 0.16,
+    backGrip: 0.25,
+    headYaw: 0.37,
+    headPitch: -0.07,
+    kneeSplay: 0.5,
+    stanceScale: 1.01,
+    frontShoulderSwing: 1.01,
+    frontShoulderOut: 0.57,
+    frontElbow: 0.5,
+    backShoulderSwing: 0.93,
+    backShoulderOut: -0.71,
+    backElbow: 1.87,
+  }),
 
   /** Front hand, heel edge, t ≈ 0.5. Board under the rider rather than behind. */
   melon: pose({ frontHandEdge: -1, frontHandT: 0.5, frontGrip: 1 }),
