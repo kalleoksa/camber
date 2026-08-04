@@ -74,7 +74,7 @@ export const ANCHORS: Record<string, RigDrivers> = {
     tweak: 0.85,
     headYaw: 0.3,
     headPitch: 0.1,
-    kneeSplay: 0.45,
+    kneeSplay: 2.4, // past pi/2: knees break back toward the heel edge, not forward
     stanceScale: 1.0,
   }),
 

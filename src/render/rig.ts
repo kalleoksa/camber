@@ -29,7 +29,13 @@ export type RigDrivers = {
   tweak: number; // 0..1, how hard the legs shove the board away from the grab
   headYaw: number; // rad
   headPitch: number; // rad
-  kneeSplay: number; // rad, pole vector out from forward — a stance splays, it doesn't squat
+  /**
+   * rad, the knee pole swept from forward. 0 points the knees straight at the toe side —
+   * a stance splays, it doesn't squat — π/2 points them along the board, and past π/2 the
+   * pole's X goes positive and the knees break *backward*, toward the heel side. A method
+   * needs that back break, so the range has to run past π/2 or the pose is unreachable.
+   */
+  kneeSplay: number;
   stanceScale: number; // multiplier on binding separation
   /**
    * m the board rises toward the rider along its own normal — the leg tuck. In the air
@@ -344,7 +350,9 @@ export function createRig(): Rig {
       }
 
       // 6. Legs last, because the feet moved with the board and the hips did not (§7.8).
-      // Knee bend is never authored — it falls out of where the hips ended up.
+      // Knee bend is never authored — it falls out of where the hips ended up. The pole
+      // only picks which way it breaks: −cos is toe-side (forward) below kneeSplay π/2 and
+      // heel-side (backward) above it, which is the half the slider used to cut off.
       pole.set(-Math.cos(d.kneeSplay), 0, Math.sin(d.kneeSplay));
       solveTwoBone(knee, hipL, footF, r.thigh, r.shin, pole);
       placeBone(thighL, hipL, knee);
