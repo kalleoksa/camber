@@ -28,13 +28,13 @@ export const ANCHORS: Record<string, RigDrivers> = {
   indy: pose({
     hipY: -0.18,
     hipX: -0.05,
-    boardLift: 0.5,
     spineBend: 0.4,
     spineTwist: -0.22,
     backHandEdge: 1,
     backHandT: 0.35,
     backGrip: 1,
-    tweak: 0.25,
+    kneeFront: 1.75,
+    kneeBack: 1.92,
     headPitch: -0.15,
     kneeSplay: 0.6,
   }),
@@ -44,14 +44,14 @@ export const ANCHORS: Record<string, RigDrivers> = {
     hipY: -0.15,
     hipX: 0.08,
     hipZ: -0.1,
-    boardLift: 0.5,
     spineBend: -0.4,
     spineSide: 0.14,
     spineTwist: 0.2,
     frontHandEdge: -1,
     frontHandT: 0.5,
     frontGrip: 1,
-    tweak: 0.4,
+    kneeFront: 1.85,
+    kneeBack: 1.85,
     kneeSplay: 0.55,
   }),
 
@@ -86,8 +86,6 @@ export const ANCHORS: Record<string, RigDrivers> = {
     hipZ: 0.06,
     hipRoll: -0.2, // ~11° of hip *extension*. The hips stay near straight — the arch is
     // spine, not hip, and folding forward at the hip is the thing that made this read wrong.
-    boardLift: 0.48,
-    boardBack: 0.2, // the board goes behind the rider's back, which is what melon does not do
     // ~43° of spine extension, lumbar plus thoracic. Negative is toward the heel side,
     // which for a rider facing the toe edge is backwards — an arch, not a fold. It used to
     // need 57° here, but that was the torso leaning over to *reach* a board that had no way
@@ -98,11 +96,12 @@ export const ANCHORS: Record<string, RigDrivers> = {
     frontHandEdge: -1, // heel edge
     frontHandT: 0.5, // between the bindings — identical to melon
     frontGrip: 1,
-    // Measured, not asked for: board 42° above horizontal (band 40–55) and 69° to the torso
-    // axis (band 70–90, 1° under). The old 0.85 gave 85° above horizontal — a vertical board,
-    // which came from reading the reference's 70–100° as world-relative when it was
-    // torso-relative. Change of frame, not of constant.
-    tweak: 0.42,
+    // Board attitude is not authored — it is inherited from the pelvis and translated by
+    // knee flexion. pelvisPitch is what tweak depth moves.
+    pelvisPitch: 0.78,
+    kneeFront: 1.95, // 112 deg
+    kneeBack: 1.83, // 105 deg — the <=10 deg front bias a real method has
+    hipFlex: 0.35,
     tweakRoll: 0.5, // the lesser roll, so the base turns toward the camera
     freeArmRaise: 1, // trailing arm thrown skyward
     headYaw: 0.35, // gaze back over the lead shoulder
@@ -115,7 +114,7 @@ export const ANCHORS: Record<string, RigDrivers> = {
   tailPress: pose({
     hipZ: -0.3,
     hipY: -0.1,
-    hipPitch: -0.2,
+    pelvisPitch: 0.2,
     spineBend: 0.2,
     spineSide: -0.3,
   }),
