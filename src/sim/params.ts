@@ -26,7 +26,7 @@ export const params = {
     edgeResponse: 9.0, // 1/s, stick-to-edge-angle rate
   },
   pop: {
-    chargeTime: 0.35, // s to full compress
+    chargeTime: 0.25, // s to full compress
     decay: 0.4, // 1/s bleed after full
     base: 2.0, // m/s uncharged
     charged: 5.0, // m/s added at full charge
