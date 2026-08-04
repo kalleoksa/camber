@@ -266,20 +266,25 @@ export const ANCHORS: Record<string, RigDrivers> = {
     hipRoll: 0.66,
     spineBend: 0.07,
     spineSide: -0.24,
-    // Twist flipped sign between passes: −1.02 to +0.47. The earlier value wound the
-    // shoulders away from the grabbing hand, which is what put it 10% out of reach.
-    spineTwist: 0.47,
+    // Twist went −1.02, then +0.47, and settled near square. The −1.02 wound the shoulders
+    // away from the grabbing hand, which is what had it 10% out of reach.
+    spineTwist: -0.1,
     frontHandEdge: 1,
     frontHandT: 0.55,
     frontGrip: 1,
     backHandEdge: -0.39,
     backHandT: 0.29,
-    boardPitch: 0.73,
+    boardPitch: 0.91,
     tweakRoll: 1,
     headYaw: 0.79,
     headPitch: -0.09,
     kneeSplay: 0.44,
-    frontShoulderSwing: 0.2,
+    // The front arm authored through the shoulder, which only became possible once these
+    // stopped being dead while gripping. This is the routing over the front leg.
+    frontShoulderSwing: 1.37,
+    frontShoulderOut: -1,
+    frontElbow: 0.34,
+    frontElbowPole: -0.74,
     backShoulderSwing: 1.93,
     backShoulderOut: -0.14,
     backElbow: 0.68,
