@@ -115,7 +115,11 @@ export const ANCHORS: Record<string, RigDrivers> = {
     backElbow: 1.87,
   }),
 
-  /** Front hand, heel edge, t ≈ 0.5. Authored. Board under the rider rather than behind. */
+  /**
+   * Front hand, heel edge, t ≈ 0.55. Authored. Board under the rider rather than behind.
+   * Re-authored: the front arm is now steered through its own shoulder rather than left to
+   * fall out of the hand target, and the trailing arm is up and out as the counterweight.
+   */
   melon: pose({
     hipX: 0.05,
     hipY: -0.71,
@@ -125,14 +129,18 @@ export const ANCHORS: Record<string, RigDrivers> = {
     spineBend: 0.17,
     spineTwist: 0.23,
     frontHandEdge: -1,
-    frontHandT: 0.5,
+    frontHandT: 0.55,
     frontGrip: 1,
     backHandEdge: -0.35,
     backHandT: 0.26,
     boardPitch: 0.31,
     tweakRoll: 0.35,
-    backShoulderSwing: 0.36,
-    backShoulderOut: -0.32,
+    frontShoulderSwing: -0.6,
+    frontShoulderOut: -1,
+    frontElbow: 0.65,
+    frontElbowPole: -0.47,
+    backShoulderSwing: 1.25,
+    backShoulderOut: -0.58,
   }),
 
   /**
