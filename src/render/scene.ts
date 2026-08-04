@@ -105,6 +105,12 @@ export type SceneView = {
   /** Hip-to-foot distance per leg. The knee angle it implies is what boardPitch tunes. */
   legSpan: { front: number; back: number };
   updateRider(view: RiderView, params: Params, poseMode: boolean, dt: number): void;
+  /**
+   * Strip the world back to the rider alone — no terrain, no markers, no fog, flat
+   * background. Posing against a slope makes the board's attitude hard to read against a
+   * moving horizon and invites reading a flat board as resting on the ground.
+   */
+  setStage(clean: boolean): void;
   resize(): void;
 };
 
@@ -191,8 +197,13 @@ export function createScene(cfg: SlopeConfig, terrain: Terrain, camera: THREE.Pe
   scene.add(sun);
   scene.add(new THREE.HemisphereLight(0xbcd7f0, 0xe8eef4, 1.1));
 
-  scene.add(slopeMesh(cfg, terrain));
-  scene.add(slopeMarkers(cfg, terrain));
+  const slope = slopeMesh(cfg, terrain);
+  const markers = slopeMarkers(cfg, terrain);
+  scene.add(slope);
+  scene.add(markers);
+  const skyColour = new THREE.Color(0x9db6cc);
+  const stageColour = new THREE.Color(0xeef2f6);
+  const fog = scene.fog;
 
   const rig = createRig();
   scene.add(rig.root);
@@ -255,6 +266,13 @@ export function createScene(cfg: SlopeConfig, terrain: Terrain, camera: THREE.Pe
       }
 
       rig.apply(drivers, params);
+    },
+
+    setStage(clean) {
+      slope.visible = !clean;
+      markers.visible = !clean;
+      scene.fog = clean ? null : fog;
+      scene.background = clean ? stageColour : skyColour;
     },
 
     resize() {

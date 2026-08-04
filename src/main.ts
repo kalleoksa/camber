@@ -92,6 +92,15 @@ addEventListener('gamepaddisconnected', ({ gamepad: pad }) => {
 });
 
 let poseMode = false;
+let anchorIndex = 0;
+
+// [ and ] step through the anchors without reaching for the panel, which is the whole
+// workflow when you are comparing one grab against another.
+addEventListener('keydown', (ev) => {
+  if (!poseMode) return;
+  if (ev.key === '[') stepAnchor(-1);
+  else if (ev.key === ']') stepAnchor(1);
+});
 
 function step(): void {
   // Pose mode disconnects gameplay entirely — the rider is frozen and the drivers are
@@ -174,6 +183,17 @@ function render(alpha: number): void {
   }
 }
 
+function stepAnchor(delta: number): void {
+  const names = Object.keys(ANCHORS);
+  anchorIndex = (anchorIndex + delta + names.length) % names.length;
+  const name = names[anchorIndex];
+  const anchor = name ? ANCHORS[name] : undefined;
+  if (!name || !anchor) return;
+  copyDrivers(view.drivers, anchor);
+  readout.session = `pose mode — ${name}`;
+  panel.refresh();
+}
+
 function startReplay(): void {
   if (!currentTake) return;
   resetRiderState(state);
@@ -209,6 +229,7 @@ const panel = createPanel(params, readout, view.drivers, {
   onPoseMode: (on) => {
     poseMode = on;
     orbit.setEnabled(on);
+    view.setStage(on);
     readout.session = on ? 'pose mode — gameplay disconnected' : 'live';
     if (!on) chase.snap(interpolateRider(previous, state, 1), params);
   },
@@ -219,6 +240,7 @@ const panel = createPanel(params, readout, view.drivers, {
       panel.refresh();
     }
   },
+  onStepAnchor: stepAnchor,
   onSavePose: () => download('pose.json', JSON.stringify(view.drivers, null, 2)),
   onLoadPose: (json) => {
     const loaded = { ...neutralDrivers(), ...(JSON.parse(json) as Partial<RigDrivers>) };

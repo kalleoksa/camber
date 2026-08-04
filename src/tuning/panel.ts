@@ -56,6 +56,7 @@ export type Readout = {
 export type PanelHandlers = {
   onPoseMode(on: boolean): void;
   onAnchor(name: string): void;
+  onStepAnchor(delta: number): void;
   onSavePose(): void;
   onLoadPose(json: string): void;
   onReset(): void;
@@ -141,6 +142,10 @@ export function createPanel(
       options: Object.fromEntries(ANCHOR_NAMES.map((n) => [n, n])),
     })
     .on('change', (ev) => handlers.onAnchor(String(ev.value)));
+  // Stepping is the real workflow, and the dropdown only fires on *change* — re-picking the
+  // anchor you are already on will not reload it. Also bound to [ and ] below.
+  pose.addButton({ title: 'prev anchor  [' }).on('click', () => handlers.onStepAnchor(-1));
+  pose.addButton({ title: 'next anchor  ]' }).on('click', () => handlers.onStepAnchor(1));
   pose.addButton({ title: 'save pose' }).on('click', handlers.onSavePose);
   pose.addButton({ title: 'load pose' }).on('click', () => pickFile(handlers.onLoadPose));
 
