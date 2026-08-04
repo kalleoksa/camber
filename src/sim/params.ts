@@ -87,8 +87,10 @@ export const params = {
   rig: {
     thigh: 0.44, // m
     shin: 0.44, // m
-    upperArm: 0.33, // m
-    forearm: 0.33, // m, to the grip rather than the wrist
+    upperArm: 0.35, // m
+    forearm: 0.35, // m, to the grip rather than the wrist — 0.70 total, top of the adult
+    // shoulder-to-grip band. At 0.66 a method could not be reached with the knees inside
+    // their 95..115° flexion band at all: measured 0.99 reach against 120° of knee.
     hipWidth: 0.18, // m between leg roots
     shoulderWidth: 0.36, // m between arm roots, along the board
     stanceWidth: 0.52, // m between bindings
@@ -96,6 +98,12 @@ export const params = {
     spine: 0.52, // m hips to shoulders
     neck: 0.16, // m shoulders to head
     crouchDepth: 0.28, // m the hips drop at full compress
+    /**
+     * rad of board-vs-clean-frame at full tweak. A method wants 70–100°; at the old 1.15
+     * (66°) the board could not physically reach the angle that makes one, so tweak looked
+     * like a weak lean however far you pushed it. Anatomy still clamps below this.
+     */
+    tweakMax: 1.75,
     hipStiffness: 250.0, // ω² for the hip spring — ω = sqrt of this, so 250 is ~15.8 rad/s
     hipDamping: 1.0, // ζ — 1.0 is critically damped
   },

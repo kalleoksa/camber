@@ -56,24 +56,47 @@ export const ANCHORS: Record<string, RigDrivers> = {
   }),
 
   /**
-   * Heel grab near mid-board, full tail stance, back arched, board yanked out behind.
-   * The pose the gate is about.
+   * The pose the gate is about, built from the causal chain rather than from a silhouette.
+   *
+   * A method and a melon are the *same grab* — front hand, heel edge, between the bindings,
+   * an identical `(edge, t, hand)` coordinate. Everything that makes it a method happens
+   * after the hand lands, which is exactly why the grab spline and the driver vector are
+   * separate systems. Compare with `melon` below: only the pose drivers differ.
+   *
+   * Order of cause, because the naive version gets it backwards. The arm is a tension
+   * member, not an actuator — it never lifts the board:
+   *   1. front hand anchors to the heel edge, elbow near straight (that is what "boned" is)
+   *   2. knees flex, heels toward glutes — this is what brings the board up and behind
+   *   3. hips extend, driving forward and up as the board goes back
+   *   4. lumbar and thoracic spine extend — the arch, chest opening to the sky
+   *   5. trailing arm extends up and forward as a counterweight
+   *   6. head extends, gaze back over the lead shoulder
+   *
+   * The board's angle is the *effect* of 2–4, never the input. And the composite centre of
+   * mass has to stay put: the board swinging to the heel side is why the hips go the other
+   * way. Hips drifting with the board is what makes a rider look like they are falling
+   * over backwards rather than poking a method.
    */
   method: pose({
-    hipX: 0.14,
-    hipY: -0.14,
-    hipZ: -0.11,
+    // Hips forward off the heel side and up along the normal — the counterweight to a
+    // board swinging back, so the centre of mass stays on its parabola.
+    hipX: -0.1,
+    hipY: 0.0,
+    hipZ: 0.06,
     hipRoll: -0.2,
-    boardLift: 0.56,
-    spineBend: -0.45, // toward the heel side — the arch, not a fold over the toes
-    spineSide: -0.22,
-    spineTwist: 0.3,
-    frontHandEdge: -1,
-    frontHandT: 0.52,
+    boardLift: 0.34,
+    // ~49° of spine extension, lumbar plus thoracic. Negative is toward the heel side,
+    // which for a rider facing the toe edge is backwards — an arch, not a fold.
+    spineBend: -1.0, // their +0.92 in the grab reference — that doc's sign is inverted
+    spineSide: -0.12,
+    spineTwist: 0.35, // ~20° of counter-rotation against the board, which *is* the arch
+    frontHandEdge: -1, // heel edge
+    frontHandT: 0.5, // between the bindings — identical to melon
     frontGrip: 1,
-    tweak: 0.85,
-    headYaw: 0.3,
-    headPitch: 0.1,
+    tweak: 0.85, // ~85° of board vs clean frame at tweakMax 1.75
+    freeArmRaise: 1, // trailing arm thrown skyward
+    headYaw: 0.35, // gaze back over the lead shoulder
+    headPitch: 0.38, // ~22° of neck extension
     kneeSplay: 2.4, // past pi/2: knees break back toward the heel edge, not forward
     stanceScale: 1.0,
   }),

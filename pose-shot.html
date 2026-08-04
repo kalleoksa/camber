@@ -51,6 +51,12 @@
       const drivers = { ...ANCHORS[poseName] };
       for (const [key, value] of q.entries()) {
         if (key in drivers) drivers[key] = Number(value);
+        // rig.<name> overrides a proportion, e.g. &rig.upperArm=0.35 — limb lengths decide
+        // what is reachable at all, so they have to be sweepable alongside the drivers.
+        if (key.startsWith('rig.')) {
+          const name = key.slice(4);
+          if (name in params.rig) params.rig[name] = Number(value);
+        }
       }
       rig.apply(drivers, params);
 
@@ -91,16 +97,23 @@
       camera.lookAt(0, 0.75, 0);
       renderer.render(scene, camera);
 
-      // The two numbers that decide whether a grab is makeable at all.
-      const hipY = params.rig.hipHeight + drivers.hipY;
-      const footY = drivers.boardLift + 0.09;
+      // The numbers a pose has to be checked against, since none of them are visible.
+      // Knee flexion comes straight out of the law of cosines on the leg chain: boot
+      // stiffness caps a real one around 95–115°, and well past that is the crumpled tuck
+      // that reads as a rider folding up rather than boning a grab out.
+      const thigh = params.rig.thigh;
+      const shin = params.rig.shin;
+      const kneeFlexion = (d) => {
+        const clamped = Math.min(Math.max(d, 1e-3), thigh + shin - 1e-3);
+        const cos = (thigh * thigh + shin * shin - clamped * clamped) / (2 * thigh * shin);
+        return (180 - (Math.acos(Math.min(1, Math.max(-1, cos))) * 180) / Math.PI).toFixed(0);
+      };
       window.__geom = {
-        hip: hipY.toFixed(2),
-        foot: footY.toFixed(2),
-        vertical: (hipY - footY).toFixed(2),
-        legSpan: (params.rig.thigh + params.rig.shin).toFixed(2),
         reachFront: rig.strain.front.toFixed(2),
         reachBack: rig.strain.back.toFixed(2),
+        kneeFront: kneeFlexion(rig.legSpan.front),
+        kneeBack: kneeFlexion(rig.legSpan.back),
+        boardAngle: ((drivers.tweak * params.rig.tweakMax * 180) / Math.PI).toFixed(0),
       };
 
       const overrides = [...q.entries()]
@@ -110,8 +123,9 @@
       const g = window.__geom;
       document.getElementById('label').textContent =
         `${poseName} ${overrides}\n${axisNote}\n` +
-        `hip y ${g.hip}  foot y ${g.foot}  gap ${g.vertical} across ${g.legSpan} of leg\n` +
-        `reach front ${g.reachFront} back ${g.reachBack}  (>1.00 = arm cannot make the grab)`;
+        `reach front ${g.reachFront} back ${g.reachBack}  (want ~0.95-1.00: near-straight = boned)\n` +
+        `knee flexion front ${g.kneeFront}deg back ${g.kneeBack}deg  (want 95-115)\n` +
+        `board vs clean frame ${g.boardAngle}deg  (a method wants 70-100)`;
       document.getElementById('label').style.whiteSpace = 'pre';
       window.__ready = true;
     </script>

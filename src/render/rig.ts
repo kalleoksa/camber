@@ -28,7 +28,12 @@ export type RigDrivers = {
   backGrip: number;
   tweak: number; // 0..1, how hard the legs shove the board away from the grab
   headYaw: number; // rad
-  headPitch: number; // rad
+  /**
+   * rad of neck extension — a nod. About board Z, the rider's left-right axis, because the
+   * rider faces −X: rotating about X would roll the head ear-to-shoulder, which is what
+   * this used to do and is not a thing anyone wants to author. Positive looks up and back.
+   */
+  headPitch: number;
   /**
    * rad, the knee pole swept from forward. 0 points the knees straight at the toe side —
    * a stance splays, it doesn't squat — π/2 points them along the board, and past π/2 the
@@ -44,6 +49,13 @@ export type RigDrivers = {
    * looks like. Zero on snow, where the board is on the ground and the hips do the work.
    */
   boardLift: number;
+  /**
+   * 0 = the ungripped hand hangs at the side, 1 = shoulder flexed ~155°, up and toe-ward.
+   * A method's trailing arm is a counterweight thrown skyward, and with only a rest pose to
+   * fall back on there was no way to express it — the arm stayed pinned down no matter what
+   * the rest of the pose did.
+   */
+  freeArmRaise: number;
 };
 
 export function neutralDrivers(): RigDrivers {
@@ -69,6 +81,7 @@ export function neutralDrivers(): RigDrivers {
     kneeSplay: 0.5,
     stanceScale: 1,
     boardLift: 0,
+    freeArmRaise: 0,
   };
 }
 
@@ -76,8 +89,6 @@ export function copyDrivers(dst: RigDrivers, src: RigDrivers): void {
   for (const key of Object.keys(dst) as (keyof RigDrivers)[]) dst[key] = src[key];
 }
 
-/** Max board rotation about the grab point at full tweak. Anatomy clamps it below this. */
-const TWEAK_MAX = 1.15; // rad
 const BOARD_LENGTH = 1.55;
 const BOARD_HALF = BOARD_LENGTH / 2;
 const EDGE_X = 0.145; // m, just outside the deck so the hand wraps the edge
@@ -166,6 +177,8 @@ export type Rig = {
   board: THREE.Group;
   /** Shoulder-to-hand distance over arm reach. Above 1 means the arm is coming up short. */
   strain: { front: number; back: number };
+  /** Hip-to-foot distance per leg, m. The knee angle it implies is what reads as a tuck. */
+  legSpan: { front: number; back: number };
   apply(drivers: RigDrivers, params: Params): void;
 };
 
@@ -249,17 +262,35 @@ export function createRig(): Rig {
   const yAxis = new THREE.Vector3(0, 1, 0);
   const zAxis = new THREE.Vector3(0, 0, 1);
 
-  /** Rest position for a hand that isn't grabbing: hanging down, slightly toe-ward. */
-  const restHand = (out: THREE.Vector3, shoulderPos: THREE.Vector3, reach: number): void => {
-    out.set(shoulderPos.x - reach * 0.35, shoulderPos.y - reach * 0.9, shoulderPos.z);
+  /**
+   * Where a hand sits when it isn't gripping. `raise` sweeps the shoulder from hanging at
+   * the side through to roughly 155° of flexion, up and toe-ward. Kept at 0.95 of reach so
+   * the arm reads as extended rather than locked.
+   */
+  const restHand = (
+    out: THREE.Vector3,
+    shoulderPos: THREE.Vector3,
+    reach: number,
+    raise: number,
+  ): void => {
+    const x = -0.36 - raise * 0.1;
+    const y = -0.93 + raise * 1.86;
+    const len = Math.hypot(x, y);
+    out.set(
+      shoulderPos.x + (reach * 0.95 * x) / len,
+      shoulderPos.y + (reach * 0.95 * y) / len,
+      shoulderPos.z,
+    );
   };
 
   const strain = { front: 0, back: 0 };
+  const legSpan = { front: 0, back: 0 };
 
   return {
     root,
     board,
     strain,
+    legSpan,
 
     apply(d, params) {
       const r = params.rig;
@@ -270,7 +301,7 @@ export function createRig(): Rig {
       const useFront = d.frontGrip >= d.backGrip;
       edgePoint(grab, useFront ? d.frontHandEdge : d.backHandEdge, useFront ? d.frontHandT : d.backHandT);
       const lift = Math.max(0, d.boardLift);
-      const tweakAngle = d.tweak * grip * TWEAK_MAX;
+      const tweakAngle = d.tweak * grip * r.tweakMax;
       if (tweakAngle > 1e-4) {
         // Shove is about the axis through the grab point, perpendicular to the board's
         // length and to the direction the legs push.
@@ -321,7 +352,7 @@ export function createRig(): Rig {
       head.quaternion.copy(spineQuat);
       tmpQuat.setFromAxisAngle(yAxis, d.headYaw);
       head.quaternion.multiply(tmpQuat);
-      tmpQuat.setFromAxisAngle(xAxis, d.headPitch);
+      tmpQuat.setFromAxisAngle(zAxis, d.headPitch);
       head.quaternion.multiply(tmpQuat);
 
       // 5. Arms. Hand target lerps from rest toward the point on the board it grips.
@@ -332,7 +363,7 @@ export function createRig(): Rig {
           .set(0, r.spine, (front ? 1 : -1) * (r.shoulderWidth / 2))
           .applyQuaternion(spineQuat)
           .add(hipCentre);
-        restHand(hand, shoulder, armReach);
+        restHand(hand, shoulder, armReach, d.freeArmRaise);
         const g = front ? d.frontGrip : d.backGrip;
         if (g > 0) {
           edgePoint(grab, front ? d.frontHandEdge : d.backHandEdge, front ? d.frontHandT : d.backHandT);
@@ -354,11 +385,13 @@ export function createRig(): Rig {
       // only picks which way it breaks: −cos is toe-side (forward) below kneeSplay π/2 and
       // heel-side (backward) above it, which is the half the slider used to cut off.
       pole.set(-Math.cos(d.kneeSplay), 0, Math.sin(d.kneeSplay));
+      legSpan.front = hipL.distanceTo(footF);
       solveTwoBone(knee, hipL, footF, r.thigh, r.shin, pole);
       placeBone(thighL, hipL, knee);
       placeBone(shinL, knee, footF);
 
       pole.set(-Math.cos(d.kneeSplay), 0, -Math.sin(d.kneeSplay));
+      legSpan.back = hipR.distanceTo(footB);
       solveTwoBone(knee, hipR, footB, r.thigh, r.shin, pole);
       placeBone(thighR, hipR, knee);
       placeBone(shinR, knee, footB);

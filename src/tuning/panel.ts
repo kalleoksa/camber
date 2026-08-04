@@ -26,6 +26,7 @@ const DRIVER_RANGE: Record<keyof RigDrivers, { min: number; max: number }> = {
   kneeSplay: { min: -1.2, max: 3.1 }, // past pi/2 the knees break back — a method needs it
   stanceScale: { min: 0.7, max: 1.4 },
   boardLift: { min: 0, max: 0.7 },
+  freeArmRaise: { min: 0, max: 1 },
 };
 
 export type Readout = {
