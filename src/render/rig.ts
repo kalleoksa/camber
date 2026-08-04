@@ -313,9 +313,25 @@ export function createRig(): Rig {
       const lift = Math.max(0, d.boardLift);
       const tweakAngle = d.tweak * grip * r.tweakMax;
       if (tweakAngle > 1e-4) {
-        // Shove is about the axis through the grab point, perpendicular to the board's
-        // length and to the direction the legs push.
-        tweakAxis.set(grab.z, 0, -grab.x).normalize();
+        /**
+         * The axis runs along the board's *lateral* direction, through the grab point, so a
+         * tweak pitches the nose up and the tail down — the board visibly swings.
+         *
+         * This used to be `(grab.z, 0, -grab.x)`, perpendicular to the grab's radius in the
+         * XZ plane. At a mid-board grab `grab.z` is exactly 0, so that collapsed onto
+         * `(0, 0, -1)`: the board's own long axis. The tweak became a pure roll — the deck
+         * spun like a rotisserie and the nose did not move at all. Measured: 85° of driver
+         * gave 85° of deck roll and 0° of nose swing, so the board's silhouette was
+         * identical at every tweak depth while the hand-to-board IK dragged the torso down
+         * to meet a board that never went anywhere. Mid-board is exactly where a method and
+         * a melon live, so the one case the axis had to work for was the one it degenerated
+         * in.
+         *
+         * The grab point stays the pivot, which is what still makes a nose grab and a tail
+         * grab swing differently (design §13, open question 7) — the axis is shared, the
+         * lever arm is not.
+         */
+        tweakAxis.set(-1, 0, 0);
         board.quaternion.setFromAxisAngle(tweakAxis, tweakAngle);
         board.position.copy(grab).applyQuaternion(board.quaternion).negate().add(grab);
       } else {

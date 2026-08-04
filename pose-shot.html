@@ -4,25 +4,29 @@
     <meta charset="utf-8" />
     <title>camber — pose shot</title>
     <style>
-      body { margin: 0; background: #eef2f6; }
-      #label { position: fixed; left: 8px; top: 8px; font: 13px/1.4 monospace; color: #111; }
+      body { margin: 0; background: #fff; }
+      #label { position: fixed; left: 8px; top: 8px; font: 13px/1.4 monospace; color: #111; white-space: pre; }
     </style>
   </head>
   <body>
     <div id="label"></div>
     <!--
       Headless read of a single rig pose. `npm run dev`, then open
-      /pose-shot.html?pose=method&view=toe — or drive it with Playwright to diff a pose
-      change without a browser in the loop.
+      /pose-shot.html?pose=method&view=silhouette
 
-        pose=<anchor>   any key in ANCHORS (neutral, crouch, indy, melon, method, tailPress)
-        view=toe|heel|top|iso
-        <driver>=<n>    overrides any driver, e.g. &boardLift=0.2&tweak=0
+        pose=<anchor>   any key in ANCHORS
+        view=silhouette | diag | top
+        <driver>=<n>    overrides any driver, e.g. &boardBack=0.3&tweak=0
+        rig.<name>=<n>  overrides a proportion, e.g. &rig.upperArm=0.35
 
-      Exists because the milestone 4 gate is a judgement about a *silhouette*, and the
-      numbers that decide whether a grab is physically possible — arm reach and how much
-      vertical room the legs have — are invisible until you print them next to the picture.
-      Excluded from `vite build`, which only takes index.html.
+      The default view is a flat black-on-white side profile, orthographic, board
+      perpendicular to camera. That is deliberate: a method is a side-profile trick, and
+      angles in range do not tell you whether a pose *reads*. Only the outline does — if
+      the silhouette doesn't say "method" with every depth cue removed, it isn't one.
+
+      `diag` adds shading, the axis markers and a centre-of-mass dot for when you need to
+      see why the silhouette is wrong. Excluded from `vite build`, which only takes
+      index.html.
     -->
     <script type="module">
       import * as THREE from 'three';
@@ -32,18 +36,23 @@
 
       const q = new URLSearchParams(location.search);
       const poseName = q.get('pose') ?? 'neutral';
-      const shot = q.get('view') ?? 'toe';
+      const view = q.get('view') ?? 'silhouette';
+      const silhouette = view === 'silhouette';
 
+      const W = 900;
+      const H = 700;
       const renderer = new THREE.WebGLRenderer({ antialias: true });
-      renderer.setSize(900, 700);
-      renderer.setClearColor(0xeef2f6);
+      renderer.setSize(W, H);
+      renderer.setClearColor(0xffffff);
       document.body.appendChild(renderer.domElement);
 
       const scene = new THREE.Scene();
-      scene.add(new THREE.AmbientLight(0xffffff, 0.75));
-      const sun = new THREE.DirectionalLight(0xffffff, 1.1);
-      sun.position.set(-4, 6, 3);
-      scene.add(sun);
+      if (!silhouette) {
+        scene.add(new THREE.AmbientLight(0xffffff, 0.75));
+        const sun = new THREE.DirectionalLight(0xffffff, 1.1);
+        sun.position.set(-4, 6, 3);
+        scene.add(sun);
+      }
 
       const rig = createRig();
       scene.add(rig.root);
@@ -51,8 +60,6 @@
       const drivers = { ...ANCHORS[poseName] };
       for (const [key, value] of q.entries()) {
         if (key in drivers) drivers[key] = Number(value);
-        // rig.<name> overrides a proportion, e.g. &rig.upperArm=0.35 — limb lengths decide
-        // what is reachable at all, so they have to be sweepable alongside the drivers.
         if (key.startsWith('rig.')) {
           const name = key.slice(4);
           if (name in params.rig) params.rig[name] = Number(value);
@@ -60,73 +67,108 @@
       }
       rig.apply(drivers, params);
 
-      // Orientation markers, so a screenshot is self-describing months from now.
-      // Board local: +Z nose, +Y board up, +X heel side, −X toe side (design §1).
-      const marker = (color, x, y, z, size = 0.09) => {
-        const mesh = new THREE.Mesh(
-          new THREE.SphereGeometry(size, 12, 12),
-          new THREE.MeshBasicMaterial({ color }),
-        );
-        mesh.position.set(x, y, z);
-        scene.add(mesh);
-      };
-      marker(0xff8800, 0, 0.02, 0.85); // orange — nose, +Z
-      marker(0xdd0000, 0, 0.02, -0.85, 0.06); // red — tail, −Z
-      marker(0x00aa44, -0.35, 0.02, 0); // green — toe side, −X, the side the rider faces
-      marker(0x2255ff, 0.35, 0.02, 0); // blue — heel side, +X
-      scene.add(new THREE.GridHelper(6, 12, 0xbbbbbb, 0xdddddd));
+      // A method has zero ground contact. Posing it against a floor makes the
+      // hip-forward / board-back relationship unreadable and invites reading a horizontal
+      // board as "resting on the ground", so there is no ground here at all.
+      rig.root.position.y = 1.4;
+      rig.root.updateMatrixWorld(true);
 
-      const camera = new THREE.PerspectiveCamera(40, 900 / 700, 0.1, 100);
-      let axisNote = '';
-      if (shot === 'toe') {
-        camera.position.set(-4.2, 1.1, 0);
-        axisNote = 'TOE side, rider faces camera — right = nose';
-      } else if (shot === 'heel') {
-        camera.position.set(4.2, 1.1, 0);
-        axisNote = 'HEEL side, rider back to camera — left = nose';
-      } else if (shot === 'top') {
-        camera.position.set(0, 4.6, 0);
-        // Overhead with the default up vector is degenerate and lookAt picks an arbitrary
-        // roll, so pin it: up = +X puts the nose on screen right and the heel edge at the top.
-        camera.up.set(1, 0, 0);
-        axisNote = 'TOP down — right = nose, up = heel edge';
-      } else {
-        camera.position.set(-3.0, 1.6, 2.6);
-        axisNote = 'three-quarter';
-      }
-      camera.lookAt(0, 0.75, 0);
-      renderer.render(scene, camera);
+      // --- measurements -----------------------------------------------------------
+      // Measured off the board's actual transform, never echoed back from the driver that
+      // asked for it. A tweak about the board's own long axis produces a large rotation
+      // angle and moves the nose nowhere, so the driver value can read 85° while the
+      // silhouette is unchanged — which is exactly what it did.
+      const cleanNose = new THREE.Vector3(0, 0, 1);
+      const cleanUp = new THREE.Vector3(0, 1, 0);
+      const nose = cleanNose.clone().applyQuaternion(rig.board.quaternion);
+      const deck = cleanUp.clone().applyQuaternion(rig.board.quaternion);
+      const deg = (r) => (r * 180) / Math.PI;
+      const noseSwing = deg(cleanNose.angleTo(nose));
+      const deckSwing = deg(cleanUp.angleTo(deck));
 
-      // The numbers a pose has to be checked against, since none of them are visible.
-      // Knee flexion comes straight out of the law of cosines on the leg chain: boot
-      // stiffness caps a real one around 95–115°, and well past that is the crumpled tuck
-      // that reads as a rider folding up rather than boning a grab out.
       const thigh = params.rig.thigh;
       const shin = params.rig.shin;
       const kneeFlexion = (d) => {
         const clamped = Math.min(Math.max(d, 1e-3), thigh + shin - 1e-3);
         const cos = (thigh * thigh + shin * shin - clamped * clamped) / (2 * thigh * shin);
-        return (180 - (Math.acos(Math.min(1, Math.max(-1, cos))) * 180) / Math.PI).toFixed(0);
-      };
-      window.__geom = {
-        reachFront: rig.strain.front.toFixed(2),
-        reachBack: rig.strain.back.toFixed(2),
-        kneeFront: kneeFlexion(rig.legSpan.front),
-        kneeBack: kneeFlexion(rig.legSpan.back),
-        boardAngle: ((drivers.tweak * params.rig.tweakMax * 180) / Math.PI).toFixed(0),
+        return deg(Math.PI - Math.acos(Math.min(1, Math.max(-1, cos)))).toFixed(0);
       };
 
+      // Crude but honest composite COM: every mesh's world bounding-box centre, weighted by
+      // its volume. It must not move as tweak depth changes — if it does, the pose is
+      // physically fictional however good the joint angles look.
+      const com = new THREE.Vector3();
+      let mass = 0;
+      const box = new THREE.Box3();
+      const size = new THREE.Vector3();
+      const centre = new THREE.Vector3();
+      rig.root.traverse((o) => {
+        if (!o.isMesh) return;
+        box.setFromObject(o);
+        box.getSize(size);
+        box.getCenter(centre);
+        const m = Math.max(size.x * size.y * size.z, 1e-6);
+        com.addScaledVector(centre, m);
+        mass += m;
+      });
+      com.multiplyScalar(1 / mass);
+
+      window.__geom = {
+        noseSwing: noseSwing.toFixed(0),
+        deckSwing: deckSwing.toFixed(0),
+        askedFor: deg(drivers.tweak * params.rig.tweakMax).toFixed(0),
+        reachFront: rig.strain.front.toFixed(2),
+        kneeFront: kneeFlexion(rig.legSpan.front),
+        kneeBack: kneeFlexion(rig.legSpan.back),
+        comX: com.x.toFixed(3),
+        comY: com.y.toFixed(3),
+      };
+
+      // --- presentation -----------------------------------------------------------
+      if (silhouette) {
+        const flat = new THREE.MeshBasicMaterial({ color: 0x000000 });
+        rig.root.traverse((o) => {
+          if (o.isMesh) o.material = flat;
+        });
+      } else {
+        const marker = (color, x, y, z, size = 0.09) => {
+          const mesh = new THREE.Mesh(
+            new THREE.SphereGeometry(size, 12, 12),
+            new THREE.MeshBasicMaterial({ color }),
+          );
+          mesh.position.set(x, y + rig.root.position.y, z);
+          scene.add(mesh);
+        };
+        marker(0xff8800, 0, 0.02, 0.85); // orange — nose, +Z
+        marker(0xdd0000, 0, 0.02, -0.85, 0.06); // red — tail, −Z
+        marker(0x00aa44, -0.35, 0.02, 0); // green — toe side, −X, the side the rider faces
+        marker(0x2255ff, 0.35, 0.02, 0); // blue — heel side, +X
+        marker(0xff00ff, com.x, com.y - rig.root.position.y, com.z, 0.06); // magenta — COM
+      }
+
+      // Orthographic, from the toe side, board perpendicular to camera: the only angle a
+      // method can be judged from. Screen right is the nose.
+      const span = 2.2;
+      const camera = new THREE.OrthographicCamera(-span * (W / H), span * (W / H), span, -span, 0.1, 100);
+      if (view === 'top') {
+        camera.position.set(0, 6, 0);
+        camera.up.set(1, 0, 0);
+      } else {
+        camera.position.set(-6, rig.root.position.y, 0);
+      }
+      camera.lookAt(view === 'top' ? new THREE.Vector3(0, 0, 0) : new THREE.Vector3(0, rig.root.position.y, 0));
+      renderer.render(scene, camera);
+
+      const g = window.__geom;
       const overrides = [...q.entries()]
         .filter(([key]) => key in drivers)
         .map(([key, value]) => `${key}=${value}`)
         .join(' ');
-      const g = window.__geom;
       document.getElementById('label').textContent =
-        `${poseName} ${overrides}\n${axisNote}\n` +
-        `reach front ${g.reachFront} back ${g.reachBack}  (want ~0.95-1.00: near-straight = boned)\n` +
-        `knee flexion front ${g.kneeFront}deg back ${g.kneeBack}deg  (want 95-115)\n` +
-        `board vs clean frame ${g.boardAngle}deg  (a method wants 70-100)`;
-      document.getElementById('label').style.whiteSpace = 'pre';
+        `${poseName} ${overrides}\n` +
+        `${view === 'top' ? 'TOP down' : 'SIDE, orthographic, toe side — right = nose'}\n` +
+        `board: nose swung ${g.noseSwing}deg, deck rolled ${g.deckSwing}deg  (driver asked for ${g.askedFor}deg)\n` +
+        `reach ${g.reachFront}  knees ${g.kneeFront}/${g.kneeBack}deg  COM x ${g.comX} y ${g.comY}`;
       window.__ready = true;
     </script>
   </body>
