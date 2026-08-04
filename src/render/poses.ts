@@ -23,9 +23,8 @@ export const ANCHORS: Record<string, RigDrivers> = {
 
   /** Knees deep, weight centred — the pop wind-up. Body pose, no grab, so it survives. */
   crouch: pose({
+    hipY: -0.34,
     spineBend: 0.42,
-    kneeFront: 1.0,
-    kneeBack: 1.0,
     kneeSplay: 0.62,
   }),
 

@@ -12,16 +12,14 @@ import type { Params } from '../sim/params.ts';
 /** The whole rider, in about twenty numbers (§7.2). Everything else is a consequence. */
 export type RigDrivers = {
   /**
-   * rad, about board up — counter-rotation.
-   *
-   * There is no hip *translation* driver, deliberately. With the legs rigid and the board
-   * bolted to the feet, pelvis position and knee flexion are the same degree of freedom:
-   * offsetting the pelvis slides the whole chain, board included, and changes nothing about
-   * the pose. hipX/hipY/hipZ measured exactly 0.000 joint movement once the rig anchored on
-   * the board. Use hipFlex and the knees. (`grabs.md`'s remedy of "translate the pelvis" on
-   * an invalid reach means the joint angles, in this rig.)
+   * Pelvis position relative to the board, which is the fixed frame. This is how the rider
+   * gets placed: hips down is a crouch, hips toward the heel edge is a lean, hips toward the
+   * nose is a press. Knee flexion follows from where they end up.
    */
-  hipYaw: number;
+  hipX: number; // m, + toward the heel edge
+  hipY: number; // m, along the board normal. − is a crouch
+  hipZ: number; // m, + toward the nose
+  hipYaw: number; // rad, about board up — counter-rotation
   /**
    * rad of pelvis pitch in the rider's sagittal plane; positive leans the pelvis *back*
    * toward the heel side. This is what tweak depth mostly moves. The board's world pitch is
@@ -40,16 +38,6 @@ export type RigDrivers = {
   backHandT: number;
   frontGrip: number; // 0 = arm at rest, 1 = hand locked to the board
   backGrip: number;
-  /** rad of thigh swing in the sagittal plane; positive swings the thighs toward the toes. */
-  hipFlex: number;
-  /**
-   * rad of knee flexion, per leg, **driven**. The board's translation up and behind the
-   * rider comes out of this — deeper flexion brings the board closer to the hips — so this
-   * is what tweak depth modulates. Both legs want 105–115° in a method with at most ~10° of
-   * front bias; 42° of divergence is a symptom, not a style choice.
-   */
-  kneeFront: number;
-  kneeBack: number;
   /**
    * 0..1 of roll about the board's own long axis — the base turning to face away from the
    * rider, which is part of the look but a *lesser* magnitude than the pitch. Kept separate
@@ -82,6 +70,9 @@ export type RigDrivers = {
 
 export function neutralDrivers(): RigDrivers {
   return {
+    hipX: 0,
+    hipY: 0,
+    hipZ: 0,
     hipYaw: 0,
     pelvisPitch: 0,
     hipRoll: 0,
@@ -94,9 +85,6 @@ export function neutralDrivers(): RigDrivers {
     backHandT: 0.34,
     frontGrip: 0,
     backGrip: 0,
-    hipFlex: 0.25,
-    kneeFront: 0.45,
-    kneeBack: 0.45,
     tweakRoll: 0,
     headYaw: 0,
     headPitch: 0,
@@ -157,48 +145,7 @@ function placeBone(mesh: THREE.Mesh, from: THREE.Vector3, to: THREE.Vector3): vo
 
 const toTarget = new THREE.Vector3();
 const poleFlat = new THREE.Vector3();
-const thighDir = new THREE.Vector3();
-const shinDir = new THREE.Vector3();
-const kneeAxis = new THREE.Vector3();
-const legQuat = new THREE.Quaternion();
 
-/**
- * Forward kinematics down one leg: the thigh swings from straight-down by `hipFlex` in the
- * sagittal plane and by `splay` laterally, then the knee bends the shin backward by
- * `flex`. Both joints are drivers, so the foot — and through it the board — is an output.
- *
- * Flexing the knee swings the foot up and *behind*, heel toward glutes, which is what
- * carries the board up behind the rider. That is the whole of the board's translation.
- */
-function solveLeg(
-  outKnee: THREE.Vector3,
-  outFoot: THREE.Vector3,
-  hip: THREE.Vector3,
-  pelvis: THREE.Quaternion,
-  hipFlex: number,
-  flex: number,
-  splay: number,
-  side: number,
-  r: { thigh: number; shin: number },
-): void {
-  // Thigh: down, swung toward the toes by hipFlex, splayed outward along the board.
-  thighDir.set(0, -1, 0);
-  legQuat.setFromAxisAngle(zAxisConst, -hipFlex);
-  thighDir.applyQuaternion(legQuat);
-  legQuat.setFromAxisAngle(xAxisConst, side * splay * 0.25);
-  thighDir.applyQuaternion(legQuat);
-  thighDir.applyQuaternion(pelvis).normalize();
-  outKnee.copy(hip).addScaledVector(thighDir, r.thigh);
-
-  // Knee bends about the leg's lateral axis, swinging the shin toward the rider's back.
-  kneeAxis.set(0, 0, 1).applyQuaternion(pelvis).normalize();
-  legQuat.setFromAxisAngle(kneeAxis, flex);
-  shinDir.copy(thighDir).applyQuaternion(legQuat).normalize();
-  outFoot.copy(outKnee).addScaledVector(shinDir, r.shin);
-}
-
-const xAxisConst = new THREE.Vector3(1, 0, 0);
-const zAxisConst = new THREE.Vector3(0, 0, 1);
 
 /**
  * Analytic two-bone IK, law of cosines (§7.5). Twenty lines, no CCD, no FABRIK. Writes
@@ -365,10 +312,6 @@ export function createRig(): Rig {
   const kneeF = new THREE.Vector3();
   const kneeB = new THREE.Vector3();
   const boardLong = new THREE.Vector3();
-  const boardUp = new THREE.Vector3();
-  const boardSide = new THREE.Vector3();
-  const basis = new THREE.Matrix4();
-  const anchor = new THREE.Vector3();
   let effectiveStance = 0;
 
   return {
@@ -385,16 +328,47 @@ export function createRig(): Rig {
       const r = params.rig;
       const halfStance = (r.stanceWidth * d.stanceScale) / 2;
 
-      // Strict order, nothing later feeding anything earlier. The board is at step 4 and is
-      // *derived*: it is bolted to two feet, so its position and orientation are outputs of
-      // the leg solve. Driving the board and solving the body onto it is what produced both
-      // earlier dead ends — a board pinned flat with the angle absorbed into a contorted
-      // torso, then a board pitched about a mid-board grab which lifts one binding and drops
-      // the other and forced the knees to 135/93.
+      /**
+       * **The board is the fixed frame here.** It sits at the root, unrotated, and the feet
+       * are bolted to its bindings. The body is then positioned *relative to it*.
+       *
+       * This walks back the derived-board inversion for the pose path, on purpose. Deriving
+       * the board from the feet is right about the physics — it is bolted to two feet and its
+       * attitude is an output — but it makes the rig unposeable: with rigid legs and the board
+       * hanging off them, every pelvis driver moves the whole assembly and nothing moves
+       * relative to anything. Measured: hip translation gave exactly 0.000 joint movement once
+       * the board was anchored, and pelvis *rotation* tipped the rider and board over together
+       * because the anchor cancelled position but not orientation.
+       *
+       * The cost, stated plainly: knee flexion is an output again, not a driver, so the
+       * ≤10° divergence the patch note guaranteed by construction now has to be *watched* in
+       * the readout instead. That is the trade for being able to place the rider at all.
+       */
+      board.quaternion.identity();
+      board.position.set(0, 0, 0);
+      const roll = d.tweakRoll * r.tweakRollMax;
+      if (roll > 1e-5 || roll < -1e-5) {
+        // The one board rotation left: roll about its own length, showing the base. Pivots on
+        // the grabbed point so the hand stays where it was put.
+        const useFront = d.frontGrip >= d.backGrip;
+        edgePoint(grab, useFront ? d.frontHandEdge : d.backHandEdge, useFront ? d.frontHandT : d.backHandT);
+        boardLong.set(0, 0, 1);
+        board.quaternion.setFromAxisAngle(boardLong, roll);
+        board.position.copy(grab).applyQuaternion(board.quaternion).negate().add(grab);
+      }
 
-      // 1. Pelvis. Sagittal pitch is about Z because the rider faces −X, so Z is their
-      // left-right axis. Negated so positive `pelvisPitch` leans back toward the heel side.
-      hipCentre.set(0, r.hipHeight, 0);
+      // 1. Feet, bolted to the bindings, following the board.
+      footF.set(0, 0.09, halfStance);
+      footB.set(0, 0.09, -halfStance);
+      bootF.position.copy(footF);
+      bootB.position.copy(footB);
+      footF.applyQuaternion(board.quaternion).add(board.position);
+      footB.applyQuaternion(board.quaternion).add(board.position);
+
+      // 2. Pelvis, placed and oriented relative to the board. Sagittal pitch is about Z
+      // because the rider faces −X, so Z is their left-right axis; negated so positive
+      // `pelvisPitch` leans back toward the heel side.
+      hipCentre.set(d.hipX, r.hipHeight + d.hipY, d.hipZ);
       hipQuat.setFromAxisAngle(yAxis, d.hipYaw);
       tmpQuat.setFromAxisAngle(zAxis, -d.pelvisPitch);
       hipQuat.multiply(tmpQuat);
@@ -402,8 +376,10 @@ export function createRig(): Rig {
       hipQuat.multiply(tmpQuat);
       pelvis.position.copy(hipCentre);
       pelvis.quaternion.copy(hipQuat);
+      hipL.set(0, 0, halfStance * 0.42).applyQuaternion(hipQuat).add(hipCentre);
+      hipR.set(0, 0, -halfStance * 0.42).applyQuaternion(hipQuat).add(hipCentre);
 
-      // 2. Spine chain.
+      // 3. Spine chain.
       spineQuat.copy(hipQuat);
       tmpQuat.setFromAxisAngle(zAxis, d.spineBend);
       spineQuat.multiply(tmpQuat);
@@ -415,44 +391,7 @@ export function createRig(): Rig {
       torso.quaternion.copy(spineQuat);
       torsoAxis.set(0, 1, 0).applyQuaternion(spineQuat);
 
-      // 3. Legs forward-kinematically from hip rotation and knee flexion. Feet are outputs
-      // of the drivers now, not targets the drivers have to be reverse-engineered from.
-      hipL.set(0, 0, halfStance * 0.42).applyQuaternion(hipQuat).add(hipCentre);
-      hipR.set(0, 0, -halfStance * 0.42).applyQuaternion(hipQuat).add(hipCentre);
-      solveLeg(kneeF, footF, hipL, hipQuat, d.hipFlex, d.kneeFront, d.kneeSplay, 1, r);
-      solveLeg(kneeB, footB, hipR, hipQuat, d.hipFlex, d.kneeBack, d.kneeSplay, -1, r);
-      legSpan.front = hipL.distanceTo(footF);
-      legSpan.back = hipR.distanceTo(footB);
-
-      // 4. Board derived from the two feet. They define its length and where it sits; the
-      // only free choice left is the roll about that line, which comes from hip rotation.
-      boardLong.subVectors(footF, footB);
-      const stance = boardLong.length();
-      if (stance > 1e-5) boardLong.multiplyScalar(1 / stance);
-      else boardLong.set(0, 0, 1);
-      boardUp.set(0, 1, 0).applyQuaternion(hipQuat);
-      boardUp.addScaledVector(boardLong, -boardUp.dot(boardLong));
-      if (boardUp.lengthSq() < 1e-8) boardUp.set(0, 1, 0);
-      boardUp.normalize();
-      const roll = d.tweakRoll * r.tweakRollMax;
-      if (roll > 1e-5 || roll < -1e-5) {
-        tmpQuat.setFromAxisAngle(boardLong, roll);
-        boardUp.applyQuaternion(tmpQuat).normalize();
-      }
-      boardSide.crossVectors(boardUp, boardLong).normalize();
-      basis.makeBasis(boardSide, boardUp, boardLong);
-      board.quaternion.setFromRotationMatrix(basis);
-      // Origin sits a boot height below the midpoint of the feet, so the feet land on the deck.
-      board.position.copy(footF).add(footB).multiplyScalar(0.5).addScaledVector(boardUp, -0.09);
-      // Effective stance is whatever the legs produced. It is a diagnostic, not an input.
-      effectiveStance = stance;
-
-      // Boots ride the board, in its own space.
-      bootF.position.set(0, 0.09, stance * 0.5);
-      bootB.position.set(0, 0.09, -stance * 0.5);
-
-      // 5. Head, in torso space — the frame errors that made a vertical board and a vertical
-      // trailing arm were both a driver authored in the wrong frame.
+      // 4. Head, in torso space.
       chestPos.set(0, r.spine, 0).applyQuaternion(spineQuat).add(hipCentre);
       neckOffset.set(0, r.neck, 0).applyQuaternion(spineQuat);
       head.position.copy(chestPos).add(neckOffset);
@@ -462,9 +401,8 @@ export function createRig(): Rig {
       tmpQuat.setFromAxisAngle(zAxis, d.headPitch);
       head.quaternion.multiply(tmpQuat);
 
-      // 6. Arms. `reach` is an output and a validity test: above 1.0 the hand cannot touch
-      // the grab point, and the answer is to change the legs or the pelvis, never to stretch
-      // the arm. The IK clamps rather than extending, so an invalid pose shows as a gap.
+      // 5. Arms. `reach` stays an output and a validity test: above 1.0 the hand cannot touch
+      // the grab point, and the IK clamps rather than stretching, so it shows as a gap.
       const armReach = r.upperArm + r.forearm;
       for (const side of [1, -1]) {
         const front = side === 1;
@@ -489,24 +427,20 @@ export function createRig(): Rig {
         placeBone(front ? armLL : armRL, elbow, hand);
       }
 
-      // 7. Draw the legs the FK already solved. No IK: the knee angle is the driver.
+      // 6. Legs last, hips to the bolted feet. Knee bend emerges from where the pelvis ended
+      // up (§7.8); `kneeSplay` only picks which way it breaks — past π/2 the pole's X goes
+      // positive and the knees break backward toward the heel side, which a method needs.
+      legSpan.front = hipL.distanceTo(footF);
+      legSpan.back = hipR.distanceTo(footB);
+      pole.set(-Math.cos(d.kneeSplay), 0, Math.sin(d.kneeSplay));
+      solveTwoBone(kneeF, hipL, footF, r.thigh, r.shin, pole);
       placeBone(thighL, hipL, kneeF);
       placeBone(shinL, kneeF, footF);
+      pole.set(-Math.cos(d.kneeSplay), 0, -Math.sin(d.kneeSplay));
+      solveTwoBone(kneeB, hipR, footB, r.thigh, r.shin, pole);
       placeBone(thighR, hipR, kneeB);
       placeBone(shinR, kneeB, footB);
-
-      // 8. Re-anchor on the board. Everything above hangs off the pelvis and the board is
-      // derived from it, so a hip driver translated the entire assembly — body *and* board
-      // together — which makes hipX/Y/Z useless for posing: they slide the whole rider
-      // across the screen without changing anything about the pose. Shifting so the board
-      // sits at the root preserves every relative distance and leaves the hips moving the
-      // rider against a stationary board.
-      //
-      // It also matters in play: the sim's position is the board's contact point, so a board
-      // floating at whatever offset the legs implied would have decoupled the drawn board
-      // from where the sim thinks the rider is.
-      anchor.copy(board.position).negate();
-      for (const child of root.children) child.position.add(anchor);
+      effectiveStance = halfStance * 2;
     },
   };
 }

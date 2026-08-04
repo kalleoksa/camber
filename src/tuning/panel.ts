@@ -5,6 +5,9 @@ import type { Params, ParamGroup } from '../sim/params.ts';
 
 /** Slider ranges for the driver vector, so posing by hand is actually workable. */
 const DRIVER_RANGE: Record<keyof RigDrivers, { min: number; max: number }> = {
+  hipX: { min: -0.4, max: 0.4 },
+  hipY: { min: -0.75, max: 0.25 },
+  hipZ: { min: -0.5, max: 0.5 },
   hipYaw: { min: -1.2, max: 1.2 },
   pelvisPitch: { min: -0.6, max: 1.2 }, // positive leans the pelvis back; drives board pitch
   hipRoll: { min: -0.8, max: 0.8 },
@@ -17,9 +20,6 @@ const DRIVER_RANGE: Record<keyof RigDrivers, { min: number; max: number }> = {
   backHandT: { min: 0, max: 1 },
   frontGrip: { min: 0, max: 1 },
   backGrip: { min: 0, max: 1 },
-  hipFlex: { min: -0.6, max: 1.2 },
-  kneeFront: { min: 0, max: 2.4 }, // rad of flexion; a method wants ~1.83 (105 deg)
-  kneeBack: { min: 0, max: 2.4 },
   tweakRoll: { min: -1, max: 1 },
   headYaw: { min: -1.4, max: 1.4 },
   headPitch: { min: -0.8, max: 0.8 },

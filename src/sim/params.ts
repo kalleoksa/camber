@@ -95,9 +95,7 @@ export const params = {
     hipHeight: 0.86, // m above the deck, uncompressed
     spine: 0.52, // m hips to shoulders
     neck: 0.16, // m shoulders to head
-    crouchKnee: 0.85, // rad of extra knee flexion at full compress — the crouch is knees now,
-    // not a hip offset: with the board derived from the feet a pelvis offset moves nothing.
-    kneeNeutral: 0.45, // rad of knee flexion standing
+    crouchDepth: 0.28, // m the hips drop at full compress
     /**
      * rad of board-vs-clean-frame at full tweak. A method wants 70–100°; at the old 1.15
      * (66°) the board could not physically reach the angle that makes one, so tweak looked
