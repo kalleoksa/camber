@@ -1,6 +1,7 @@
-import type { RiderMode, RiderState } from './state.ts';
+import type { LandingRead, RiderMode, RiderState } from './state.ts';
 
 const MODES: RiderMode[] = ['grounded', 'airborne', 'railed', 'walled', 'bailed'];
+const LANDINGS: LandingRead[] = ['none', 'clean', 'sketchy', 'bail'];
 
 const scratch = new ArrayBuffer(8);
 const asFloat = new Float64Array(scratch);
@@ -10,12 +11,21 @@ const asWords = new Uint32Array(scratch);
  * FNV-1a over the raw bits of every state float. Exact, not rounded — a determinism
  * check that tolerated drift would not be a determinism check.
  */
-export function createHasher(): { push(value: number): void; digest(): string } {
+export type Hasher = {
+  reset(): void;
+  push(value: number): void;
+  digest(): string;
+};
+
+export function createHasher(): Hasher {
   let h = 0x811c9dc5;
   const mix = (word: number): void => {
     h = Math.imul(h ^ word, 0x01000193) >>> 0;
   };
   return {
+    reset() {
+      h = 0x811c9dc5;
+    },
     push(value: number) {
       asFloat[0] = value;
       mix(asWords[0] ?? 0);
@@ -27,7 +37,11 @@ export function createHasher(): { push(value: number): void; digest(): string } 
   };
 }
 
-export function hashState(state: RiderState, into = createHasher()): string {
+// Reused so hashing a state per tick doesn't allocate a closure (invariant 7).
+const shared = createHasher();
+
+export function hashState(state: RiderState, into: Hasher = shared): string {
+  into.reset();
   into.push(state.tick);
   into.push(MODES.indexOf(state.mode));
   into.push(state.position.x);
@@ -37,12 +51,28 @@ export function hashState(state: RiderState, into = createHasher()): string {
   into.push(state.velocity.y);
   into.push(state.velocity.z);
   into.push(state.heading);
+  into.push(state.headingTarget);
   into.push(state.edge);
   into.push(state.stance);
   into.push(state.compress);
+  into.push(state.charge);
+  into.push(state.spinFrame.x);
+  into.push(state.spinFrame.y);
+  into.push(state.spinFrame.z);
+  into.push(state.spinFrame.w);
+  into.push(state.spinAxis.x);
+  into.push(state.spinAxis.y);
+  into.push(state.spinAxis.z);
+  into.push(state.spinRate);
+  into.push(state.airYaw);
+  into.push(LANDINGS.indexOf(state.landing));
+  into.push(state.impact);
+  into.push(state.absorb);
+  into.push(state.bailTime);
   into.push(state.groundNormal.x);
   into.push(state.groundNormal.y);
   into.push(state.groundNormal.z);
+  into.push(state.scrub);
   into.push(state.clearance);
   into.push(state.airTime);
   return into.digest();
