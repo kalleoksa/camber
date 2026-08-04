@@ -311,6 +311,8 @@ export type Rig = {
   showReach(on: boolean): void;
   /** Hip-to-foot distance per leg, m. The knee angle it implies is what reads as a tuck. */
   legSpan: { front: number; back: number };
+  /** Solved elbow positions. A diagnostic: where the arm routes is only checkable from these. */
+  elbowAt: { front: THREE.Vector3; back: THREE.Vector3 };
   /** Spine direction, hips to shoulders. The frame board attitude should be measured in. */
   torsoAxis: THREE.Vector3;
   /** Foot separation the leg solve produced. A diagnostic — the board is derived from it. */
@@ -419,6 +421,7 @@ export function createRig(): Rig {
   const shoulder = new THREE.Vector3();
   const hand = new THREE.Vector3();
   const elbow = new THREE.Vector3();
+  const elbowAim = new THREE.Vector3();
   const pole = new THREE.Vector3();
   const chestPos = new THREE.Vector3();
   const grab = new THREE.Vector3();
@@ -439,6 +442,7 @@ export function createRig(): Rig {
   const strain = { front: 0, back: 0 };
   const shortfall = { front: 0, back: 0 };
   const legSpan = { front: 0, back: 0 };
+  const elbowAt = { front: new THREE.Vector3(), back: new THREE.Vector3() };
   const torsoAxis = new THREE.Vector3(0, 1, 0);
   const kneeF = new THREE.Vector3();
   const kneeB = new THREE.Vector3();
@@ -451,6 +455,7 @@ export function createRig(): Rig {
     strain,
     shortfall,
     legSpan,
+    elbowAt,
     torsoAxis,
     showReach(on: boolean): void {
       reachOverlay = on;
@@ -563,15 +568,31 @@ export function createRig(): Rig {
 
         // Free arm: pure FK, so both hands are placeable joint by joint and independently.
         solveArmFK(elbow, hand, shoulder, spineQuat, swing, outward, flex, poleAngle, side, r);
+        // Where the shoulder drivers aimed the elbow. Keep it — the grip solve needs it.
+        elbowAim.subVectors(elbow, shoulder);
 
         const g = front ? d.frontGrip : d.backGrip;
         if (g > 0) {
-          // Gripping: the hand is pulled to the grab point and the elbow solves to suit, with
-          // `pole` still choosing which way it breaks.
+          // Gripping: the hand is pulled to the grab point and the elbow solves to suit.
           edgePoint(grab, front ? d.frontHandEdge : d.backHandEdge, front ? d.frontHandT : d.backHandT);
           grab.applyQuaternion(board.quaternion).add(board.position);
           hand.lerp(grab, Math.min(g, 1));
-          pole.set(Math.cos(poleAngle), -0.2, side * Math.sin(poleAngle)).applyQuaternion(spineQuat);
+
+          // The pole is the elbow direction the shoulder drivers asked for, not a ring at a
+          // fixed elevation. That ring was one degree of freedom, and it left Swing, Out and
+          // Elbow doing nothing whenever a hand gripped — so the arm's route to the board was
+          // unauthorable, and a japan's front arm could only pass straight through the front
+          // leg. Steering the elbow with Swing and Out is what routes the arm over the leg or
+          // down between them.
+          //
+          // `flex` stays genuinely inert here, and correctly so: once both ends are fixed the
+          // elbow angle follows from the distance and is not free to choose.
+          pole.copy(elbowAim);
+          if (poleAngle !== 0) {
+            dir.subVectors(hand, shoulder).normalize();
+            tmpQuat.setFromAxisAngle(dir, poleAngle);
+            pole.applyQuaternion(tmpQuat);
+          }
           solveTwoBone(elbow, shoulder, hand, r.upperArm, r.forearm, pole);
         }
         const span = shoulder.distanceTo(hand);
@@ -585,6 +606,7 @@ export function createRig(): Rig {
           shortfall.back = missing;
         }
 
+        (front ? elbowAt.front : elbowAt.back).copy(elbow);
         placeBone(front ? armLU : armRU, shoulder, elbow, r.upperArm);
         placeBone(front ? armLL : armRL, elbow, hand, r.forearm);
         // The mitt rides the end of the forearm, not the target, so a hand that cannot
