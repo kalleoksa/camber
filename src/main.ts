@@ -1,5 +1,5 @@
 import { createLoop, TICK_DT } from './core/loop.ts';
-import { pollGamepad } from './input/gamepad.ts';
+import { padRawSummary, padSummary, pollGamepad } from './input/gamepad.ts';
 import {
   buildTake,
   createRecorder,
@@ -50,6 +50,8 @@ let cursor: ReplayCursor | null = null;
 const readout: Readout = {
   mode: state.mode,
   session: 'live',
+  pad: 'none — press a button on the pad',
+  padRaw: '—',
   speed: 0,
   tick: 0,
   clearance: 0,
@@ -76,6 +78,18 @@ addEventListener('keydown', () => audio.start(), { once: true });
 const liveInput = neutralInput();
 const tickInput = neutralInput();
 
+// A pad stays invisible to the page until it reports something, so "no pad" and "pad you
+// haven't touched yet" look identical. Log the arrival so the distinction is visible.
+addEventListener('gamepadconnected', ({ gamepad: pad }) => {
+  console.log(
+    `pad connected: slot ${pad.index}, "${pad.id}", mapping "${pad.mapping}", ` +
+      `${pad.axes.length} axes, ${pad.buttons.length} buttons`,
+  );
+});
+addEventListener('gamepaddisconnected', ({ gamepad: pad }) => {
+  console.log(`pad disconnected: slot ${pad.index}`);
+});
+
 let poseMode = false;
 
 function step(): void {
@@ -84,7 +98,7 @@ function step(): void {
   if (poseMode) return;
   copyRiderState(previous, state);
 
-  let input = quantizeInput(pollGamepad(0, liveInput), tickInput);
+  let input = quantizeInput(pollGamepad(liveInput), tickInput);
   if (cursor) {
     const frame = cursor.next();
     if (!frame) {
@@ -130,6 +144,8 @@ function render(alpha: number): void {
   view.renderer.render(view.scene, chase.camera);
 
   if (++refreshCounter % 6 === 0) {
+    readout.pad = padSummary();
+    readout.padRaw = padRawSummary();
     readout.mode = state.mode;
     readout.speed = length(state.velocity);
     readout.tick = state.tick;
