@@ -102,6 +102,13 @@ export const params = {
      * like a weak lean however far you pushed it. Anatomy still clamps below this.
      */
     tweakMax: 1.75,
+    /**
+     * rad of roll about the board's own long axis at full `tweakRoll` — the base turning to
+     * face away from the rider. Deliberately much smaller than `tweakMax`: the roll is part
+     * of the look but a method is predominantly a pitch, and one scalar driving both meant
+     * retuning either moved the other.
+     */
+    tweakRollMax: 0.6,
     hipStiffness: 250.0, // ω² for the hip spring — ω = sqrt of this, so 250 is ~15.8 rad/s
     hipDamping: 1.0, // ζ — 1.0 is critically damped
   },

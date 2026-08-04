@@ -21,6 +21,7 @@ const DRIVER_RANGE: Record<keyof RigDrivers, { min: number; max: number }> = {
   frontGrip: { min: 0, max: 1 },
   backGrip: { min: 0, max: 1 },
   tweak: { min: 0, max: 1 },
+  tweakRoll: { min: -1, max: 1 },
   headYaw: { min: -1.4, max: 1.4 },
   headPitch: { min: -0.8, max: 0.8 },
   kneeSplay: { min: -1.2, max: 3.1 }, // past pi/2 the knees break back — a method needs it

@@ -88,6 +88,7 @@
     "neck": 0.16,
     "crouchDepth": 0.28,
     "tweakMax": 1.75,
+    "tweakRollMax": 0.6,
     "hipStiffness": 250,
     "hipDamping": 1
   },

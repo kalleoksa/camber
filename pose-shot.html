@@ -78,13 +78,37 @@
       // asked for it. A tweak about the board's own long axis produces a large rotation
       // angle and moves the nose nowhere, so the driver value can read 85° while the
       // silhouette is unchanged — which is exactly what it did.
-      const cleanNose = new THREE.Vector3(0, 0, 1);
-      const cleanUp = new THREE.Vector3(0, 1, 0);
-      const nose = cleanNose.clone().applyQuaternion(rig.board.quaternion);
-      const deck = cleanUp.clone().applyQuaternion(rig.board.quaternion);
       const deg = (r) => (r * 180) / Math.PI;
-      const noseSwing = deg(cleanNose.angleTo(nose));
-      const deckSwing = deg(cleanUp.angleTo(deck));
+      const boardQuat = rig.board.quaternion;
+      const nose = new THREE.Vector3(0, 0, 1).applyQuaternion(boardQuat);
+      const deck = new THREE.Vector3(0, 1, 0).applyQuaternion(boardQuat);
+
+      // Elevation of the board's long axis above horizontal. This is the "diagonal, not a
+      // vertical" number — the one the silhouette actually shows.
+      const elevation = deg(Math.asin(Math.min(1, Math.max(-1, nose.y))));
+
+      // Roll of the deck about the board's own long axis, measured against world up
+      // projected into the plane perpendicular to that axis. Independent of the pitch, so
+      // the two no longer alias onto each other the way the old readout did.
+      const up = new THREE.Vector3(0, 1, 0);
+      const ref = up.clone().addScaledVector(nose, -up.dot(nose));
+      let baseRoll = 0;
+      if (ref.lengthSq() > 1e-8) {
+        ref.normalize();
+        const cross = new THREE.Vector3().crossVectors(ref, deck);
+        baseRoll = deg(Math.atan2(cross.dot(nose), ref.dot(deck)));
+      }
+
+      // The frame the pose is authored against: board long axis versus the torso.
+      const torso = rig.torsoAxis.clone().normalize();
+      const torsoLean = deg(torso.angleTo(up));
+      const boardVsTorso = deg(nose.angleTo(torso));
+
+      // Silhouette bounding box in the side view (Z across, Y up). "Roughly square to
+      // slightly wide, not tall and thin" is a measurable claim, so measure it.
+      const bounds = new THREE.Box3().setFromObject(rig.root);
+      const ext = bounds.getSize(new THREE.Vector3());
+      const aspect = ext.z / Math.max(ext.y, 1e-6);
 
       const thigh = params.rig.thigh;
       const shin = params.rig.shin;
@@ -114,9 +138,13 @@
       com.multiplyScalar(1 / mass);
 
       window.__geom = {
-        noseSwing: noseSwing.toFixed(0),
-        deckSwing: deckSwing.toFixed(0),
-        askedFor: deg(drivers.tweak * params.rig.tweakMax).toFixed(0),
+        elevation: elevation.toFixed(0),
+        baseRoll: baseRoll.toFixed(0),
+        torsoLean: torsoLean.toFixed(0),
+        boardVsTorso: boardVsTorso.toFixed(0),
+        aspect: aspect.toFixed(2),
+        width: ext.z.toFixed(2),
+        height: ext.y.toFixed(2),
         reachFront: rig.strain.front.toFixed(2),
         kneeFront: kneeFlexion(rig.legSpan.front),
         kneeBack: kneeFlexion(rig.legSpan.back),
@@ -167,7 +195,9 @@
       document.getElementById('label').textContent =
         `${poseName} ${overrides}\n` +
         `${view === 'top' ? 'TOP down' : 'SIDE, orthographic, toe side — right = nose'}\n` +
-        `board: nose swung ${g.noseSwing}deg, deck rolled ${g.deckSwing}deg  (driver asked for ${g.askedFor}deg)\n` +
+        `board ${g.elevation}deg above horizontal (want 40-55), base roll ${g.baseRoll}deg\n` +
+        `torso ${g.torsoLean}deg from vertical (want 40-50), board-vs-torso ${g.boardVsTorso}deg (want 70-90)\n` +
+        `outline ${g.width} wide x ${g.height} tall, aspect ${g.aspect} (want ~1, not tall and thin)\n` +
         `reach ${g.reachFront}  knees ${g.kneeFront}/${g.kneeBack}deg  COM x ${g.comX} y ${g.comY}`;
       window.__ready = true;
     </script>

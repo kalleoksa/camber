@@ -26,7 +26,18 @@ export type RigDrivers = {
   backHandT: number;
   frontGrip: number; // 0 = arm at rest, 1 = hand locked to the board
   backGrip: number;
-  tweak: number; // 0..1, how hard the legs shove the board away from the grab
+  /**
+   * 0..1 of sagittal pitch — the board's nose swinging up about its lateral axis, which is
+   * the rotation that puts the board on a diagonal behind the rider. Scaled by
+   * `rig.tweakMax`.
+   */
+  tweak: number;
+  /**
+   * 0..1 of roll about the board's own long axis — the base turning to face away from the
+   * rider, which is part of the look but a *lesser* magnitude than the pitch. Kept separate
+   * because one scalar driving both means retuning either one moves the other.
+   */
+  tweakRoll: number;
   headYaw: number; // rad
   /**
    * rad of neck extension — a nod. About board Z, the rider's left-right axis, because the
@@ -85,6 +96,7 @@ export function neutralDrivers(): RigDrivers {
     frontGrip: 0,
     backGrip: 0,
     tweak: 0,
+    tweakRoll: 0,
     headYaw: 0,
     headPitch: 0,
     kneeSplay: 0.5,
@@ -189,6 +201,8 @@ export type Rig = {
   strain: { front: number; back: number };
   /** Hip-to-foot distance per leg, m. The knee angle it implies is what reads as a tuck. */
   legSpan: { front: number; back: number };
+  /** Spine direction, hips to shoulders. The frame board attitude should be measured in. */
+  torsoAxis: THREE.Vector3;
   apply(drivers: RigDrivers, params: Params): void;
 };
 
@@ -295,12 +309,14 @@ export function createRig(): Rig {
 
   const strain = { front: 0, back: 0 };
   const legSpan = { front: 0, back: 0 };
+  const torsoAxis = new THREE.Vector3(0, 1, 0);
 
   return {
     root,
     board,
     strain,
     legSpan,
+    torsoAxis,
 
     apply(d, params) {
       const r = params.rig;
@@ -312,6 +328,7 @@ export function createRig(): Rig {
       edgePoint(grab, useFront ? d.frontHandEdge : d.backHandEdge, useFront ? d.frontHandT : d.backHandT);
       const lift = Math.max(0, d.boardLift);
       const tweakAngle = d.tweak * grip * r.tweakMax;
+      const rollAngle = d.tweakRoll * grip * r.tweakRollMax;
       if (tweakAngle > 1e-4) {
         /**
          * The axis runs along the board's *lateral* direction, through the grab point, so a
@@ -333,9 +350,19 @@ export function createRig(): Rig {
          */
         tweakAxis.set(-1, 0, 0);
         board.quaternion.setFromAxisAngle(tweakAxis, tweakAngle);
-        board.position.copy(grab).applyQuaternion(board.quaternion).negate().add(grab);
       } else {
         board.quaternion.identity();
+      }
+      // Then the lesser roll, about the board's own length, which is what shows the base.
+      if (rollAngle > 1e-4 || rollAngle < -1e-4) {
+        tweakAxis.set(0, 0, 1);
+        tmpQuat.setFromAxisAngle(tweakAxis, rollAngle);
+        board.quaternion.multiply(tmpQuat);
+      }
+      // Both rotations pivot on the grabbed point, so the hand stays where it was put.
+      if (tweakAngle > 1e-4 || rollAngle > 1e-4 || rollAngle < -1e-4) {
+        board.position.copy(grab).applyQuaternion(board.quaternion).negate().add(grab);
+      } else {
         board.position.set(0, 0, 0);
       }
       board.position.y += lift;
@@ -373,6 +400,7 @@ export function createRig(): Rig {
       torso.position.copy(hipCentre);
       torso.quaternion.copy(spineQuat);
 
+      torsoAxis.set(0, 1, 0).applyQuaternion(spineQuat);
       chestPos.set(0, r.spine, 0).applyQuaternion(spineQuat).add(hipCentre);
       neckOffset.set(0, r.neck, 0).applyQuaternion(spineQuat);
       head.position.copy(chestPos).add(neckOffset);

@@ -92,13 +92,18 @@ export const ANCHORS: Record<string, RigDrivers> = {
     // which for a rider facing the toe edge is backwards — an arch, not a fold. It used to
     // need 57° here, but that was the torso leaning over to *reach* a board that had no way
     // to come behind the rider; with boardBack carrying that, the arch is back in its band.
-    spineBend: -0.75, // the grab reference's +0.92 — that doc's spineBend sign is inverted
+    spineBend: -0.65, // torso 49° from vertical, inside the 40–50 band
     spineSide: -0.12,
     spineTwist: 0.35, // ~20° of counter-rotation against the board, which *is* the arch
     frontHandEdge: -1, // heel edge
     frontHandT: 0.5, // between the bindings — identical to melon
     frontGrip: 1,
-    tweak: 0.85, // ~85° of board vs clean frame at tweakMax 1.75
+    // Measured, not asked for: board 42° above horizontal (band 40–55) and 69° to the torso
+    // axis (band 70–90, 1° under). The old 0.85 gave 85° above horizontal — a vertical board,
+    // which came from reading the reference's 70–100° as world-relative when it was
+    // torso-relative. Change of frame, not of constant.
+    tweak: 0.42,
+    tweakRoll: 0.5, // the lesser roll, so the base turns toward the camera
     freeArmRaise: 1, // trailing arm thrown skyward
     headYaw: 0.35, // gaze back over the lead shoulder
     headPitch: 0.38, // ~22° of neck extension
