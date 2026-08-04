@@ -1,0 +1,119 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>camber — pose shot</title>
+    <style>
+      body { margin: 0; background: #eef2f6; }
+      #label { position: fixed; left: 8px; top: 8px; font: 13px/1.4 monospace; color: #111; }
+    </style>
+  </head>
+  <body>
+    <div id="label"></div>
+    <!--
+      Headless read of a single rig pose. `npm run dev`, then open
+      /pose-shot.html?pose=method&view=toe — or drive it with Playwright to diff a pose
+      change without a browser in the loop.
+
+        pose=<anchor>   any key in ANCHORS (neutral, crouch, indy, melon, method, tailPress)
+        view=toe|heel|top|iso
+        <driver>=<n>    overrides any driver, e.g. &boardLift=0.2&tweak=0
+
+      Exists because the milestone 4 gate is a judgement about a *silhouette*, and the
+      numbers that decide whether a grab is physically possible — arm reach and how much
+      vertical room the legs have — are invisible until you print them next to the picture.
+      Excluded from `vite build`, which only takes index.html.
+    -->
+    <script type="module">
+      import * as THREE from 'three';
+      import { createRig } from './src/render/rig.ts';
+      import { ANCHORS } from './src/render/poses.ts';
+      import { params } from './src/sim/params.ts';
+
+      const q = new URLSearchParams(location.search);
+      const poseName = q.get('pose') ?? 'neutral';
+      const shot = q.get('view') ?? 'toe';
+
+      const renderer = new THREE.WebGLRenderer({ antialias: true });
+      renderer.setSize(900, 700);
+      renderer.setClearColor(0xeef2f6);
+      document.body.appendChild(renderer.domElement);
+
+      const scene = new THREE.Scene();
+      scene.add(new THREE.AmbientLight(0xffffff, 0.75));
+      const sun = new THREE.DirectionalLight(0xffffff, 1.1);
+      sun.position.set(-4, 6, 3);
+      scene.add(sun);
+
+      const rig = createRig();
+      scene.add(rig.root);
+
+      const drivers = { ...ANCHORS[poseName] };
+      for (const [key, value] of q.entries()) {
+        if (key in drivers) drivers[key] = Number(value);
+      }
+      rig.apply(drivers, params);
+
+      // Orientation markers, so a screenshot is self-describing months from now.
+      // Board local: +Z nose, +Y board up, +X heel side, −X toe side (design §1).
+      const marker = (color, x, y, z, size = 0.09) => {
+        const mesh = new THREE.Mesh(
+          new THREE.SphereGeometry(size, 12, 12),
+          new THREE.MeshBasicMaterial({ color }),
+        );
+        mesh.position.set(x, y, z);
+        scene.add(mesh);
+      };
+      marker(0xff8800, 0, 0.02, 0.85); // orange — nose, +Z
+      marker(0xdd0000, 0, 0.02, -0.85, 0.06); // red — tail, −Z
+      marker(0x00aa44, -0.35, 0.02, 0); // green — toe side, −X, the side the rider faces
+      marker(0x2255ff, 0.35, 0.02, 0); // blue — heel side, +X
+      scene.add(new THREE.GridHelper(6, 12, 0xbbbbbb, 0xdddddd));
+
+      const camera = new THREE.PerspectiveCamera(40, 900 / 700, 0.1, 100);
+      let axisNote = '';
+      if (shot === 'toe') {
+        camera.position.set(-4.2, 1.1, 0);
+        axisNote = 'TOE side, rider faces camera — right = nose';
+      } else if (shot === 'heel') {
+        camera.position.set(4.2, 1.1, 0);
+        axisNote = 'HEEL side, rider back to camera — left = nose';
+      } else if (shot === 'top') {
+        camera.position.set(0, 4.6, 0);
+        // Overhead with the default up vector is degenerate and lookAt picks an arbitrary
+        // roll, so pin it: up = +X puts the nose on screen right and the heel edge at the top.
+        camera.up.set(1, 0, 0);
+        axisNote = 'TOP down — right = nose, up = heel edge';
+      } else {
+        camera.position.set(-3.0, 1.6, 2.6);
+        axisNote = 'three-quarter';
+      }
+      camera.lookAt(0, 0.75, 0);
+      renderer.render(scene, camera);
+
+      // The two numbers that decide whether a grab is makeable at all.
+      const hipY = params.rig.hipHeight + drivers.hipY;
+      const footY = drivers.boardLift + 0.09;
+      window.__geom = {
+        hip: hipY.toFixed(2),
+        foot: footY.toFixed(2),
+        vertical: (hipY - footY).toFixed(2),
+        legSpan: (params.rig.thigh + params.rig.shin).toFixed(2),
+        reachFront: rig.strain.front.toFixed(2),
+        reachBack: rig.strain.back.toFixed(2),
+      };
+
+      const overrides = [...q.entries()]
+        .filter(([key]) => key in drivers)
+        .map(([key, value]) => `${key}=${value}`)
+        .join(' ');
+      const g = window.__geom;
+      document.getElementById('label').textContent =
+        `${poseName} ${overrides}\n${axisNote}\n` +
+        `hip y ${g.hip}  foot y ${g.foot}  gap ${g.vertical} across ${g.legSpan} of leg\n` +
+        `reach front ${g.reachFront} back ${g.reachBack}  (>1.00 = arm cannot make the grab)`;
+      document.getElementById('label').style.whiteSpace = 'pre';
+      window.__ready = true;
+    </script>
+  </body>
+</html>
