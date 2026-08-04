@@ -179,6 +179,12 @@ const up = new THREE.Vector3(0, 1, 0);
 const dir = new THREE.Vector3();
 const quat = new THREE.Quaternion();
 
+/** Recolour a limb in place. Skips the write when it already matches, so it stays cheap. */
+function tint(mesh: THREE.Mesh, color: number): void {
+  const material = mesh.material as THREE.MeshStandardMaterial;
+  if (material.color.getHex() !== color) material.color.setHex(color);
+}
+
 /**
  * Aim a bone mesh from one joint to another, drawn at no more than `maxLen`.
  *
@@ -292,6 +298,17 @@ export type Rig = {
   board: THREE.Group;
   /** Shoulder-to-hand distance over arm reach. Above 1 means the arm is coming up short. */
   strain: { front: number; back: number };
+  /**
+   * How far short the hand actually is, in metres. A ratio tells you a pose is impossible;
+   * this tells you how much to move, which is what you need while dragging a slider.
+   */
+  shortfall: { front: number; back: number };
+  /**
+   * Draw the red gap bars and tint an over-reaching arm. On while authoring, off in play —
+   * a hand that misses during a trick should read as the trick going wrong, not as a debug
+   * overlay. `createScene` turns it on with pose mode.
+   */
+  showReach(on: boolean): void;
   /** Hip-to-foot distance per leg, m. The knee angle it implies is what reads as a tuck. */
   legSpan: { front: number; back: number };
   /** Spine direction, hips to shoulders. The frame board attitude should be measured in. */
@@ -303,6 +320,9 @@ export type Rig = {
 
 const SKIN = 0x2f6ee2;
 const DARK = 0x1b1f24;
+const MITT = 0x1b3f8f;
+/** The one colour that means "this pose is not physically possible". */
+const SHORT = 0xff2d2d;
 
 export function createRig(): Rig {
   const root = new THREE.Group();
@@ -361,9 +381,21 @@ export function createRig(): Rig {
   // invisible and any driver that only moved the hand looked like it did nothing.
   const mittF = new THREE.Mesh(
     new THREE.BoxGeometry(0.085, 0.09, 0.075),
-    new THREE.MeshStandardMaterial({ color: 0x1b3f8f, roughness: 0.6 }),
+    new THREE.MeshStandardMaterial({ color: MITT, roughness: 0.6 }),
   );
+  // Its own material, not the clone's shared one — otherwise tinting one mitt tints both and
+  // the overlay cannot say *which* hand is short.
   const mittB = mittF.clone();
+  mittB.material = new THREE.MeshStandardMaterial({ color: MITT, roughness: 0.6 });
+
+  // The gap between where the hand got to and where the grab point is. This is the whole
+  // point of the overlay: the number in the panel is easy to miss while you are dragging a
+  // slider and watching the viewport, and an unreachable pose otherwise just looks posed.
+  const gapF = bone(SHORT, 0.045);
+  const gapB = bone(SHORT, 0.045);
+  gapF.visible = false;
+  gapB.visible = false;
+  let reachOverlay = false;
 
   const bootF = new THREE.Mesh(
     new THREE.BoxGeometry(0.15, 0.12, 0.28),
@@ -375,6 +407,7 @@ export function createRig(): Rig {
     part.castShadow = true;
     root.add(part);
   }
+  root.add(gapF, gapB);
   board.add(bootF, bootB);
 
   // Scratch, all reused — this runs every frame.
@@ -404,6 +437,7 @@ export function createRig(): Rig {
    */
 
   const strain = { front: 0, back: 0 };
+  const shortfall = { front: 0, back: 0 };
   const legSpan = { front: 0, back: 0 };
   const torsoAxis = new THREE.Vector3(0, 1, 0);
   const kneeF = new THREE.Vector3();
@@ -415,8 +449,16 @@ export function createRig(): Rig {
     root,
     board,
     strain,
+    shortfall,
     legSpan,
     torsoAxis,
+    showReach(on: boolean): void {
+      reachOverlay = on;
+      if (!on) {
+        gapF.visible = false;
+        gapB.visible = false;
+      }
+    },
     get stance() {
       return effectiveStance;
     },
@@ -532,17 +574,34 @@ export function createRig(): Rig {
           pole.set(Math.cos(poleAngle), -0.2, side * Math.sin(poleAngle)).applyQuaternion(spineQuat);
           solveTwoBone(elbow, shoulder, hand, r.upperArm, r.forearm, pole);
         }
-        const need = shoulder.distanceTo(hand) / armReach;
-        if (front) strain.front = g > 0 ? need : 0;
-        else strain.back = g > 0 ? need : 0;
+        const span = shoulder.distanceTo(hand);
+        const need = span / armReach;
+        const missing = g > 0 ? Math.max(span - armReach, 0) : 0;
+        if (front) {
+          strain.front = g > 0 ? need : 0;
+          shortfall.front = missing;
+        } else {
+          strain.back = g > 0 ? need : 0;
+          shortfall.back = missing;
+        }
 
         placeBone(front ? armLU : armRU, shoulder, elbow, r.upperArm);
         placeBone(front ? armLL : armRL, elbow, hand, r.forearm);
         // The mitt rides the end of the forearm, not the target, so a hand that cannot
         // reach visibly falls short instead of the arm quietly stretching to it.
-        (front ? mittF : mittB).position
+        const mitt = front ? mittF : mittB;
+        mitt.position
           .copy(elbow)
           .addScaledVector(dir.subVectors(hand, elbow).normalize(), Math.min(hand.distanceTo(elbow), r.forearm));
+
+        // Overlay: bar the mitt to the grab point it could not make, and redden the arm.
+        const short = reachOverlay && missing > 1e-4;
+        const gapBar = front ? gapF : gapB;
+        gapBar.visible = short;
+        if (short) placeBone(gapBar, mitt.position, grab, span);
+        tint(front ? armLU : armRU, short ? SHORT : SKIN);
+        tint(front ? armLL : armRL, short ? SHORT : SKIN);
+        tint(mitt, short ? SHORT : MITT);
       }
 
       // 6. Legs last, hips to the bolted feet. Knee bend emerges from where the pelvis ended

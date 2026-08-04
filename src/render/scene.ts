@@ -102,6 +102,8 @@ export type SceneView = {
   drivers: RigDrivers;
   /** Per-hand shoulder-to-hand distance over arm reach; above 1 the grab is out of reach. */
   strain: { front: number; back: number };
+  /** How far each hand falls short of its grab point, m. 0 when it reaches. */
+  shortfall: { front: number; back: number };
   /** Hip-to-foot distance per leg. The knee angle it implies is what boardPitch tunes. */
   legSpan: { front: number; back: number };
   updateRider(view: RiderView, params: Params, poseMode: boolean, dt: number): void;
@@ -222,6 +224,7 @@ export function createScene(cfg: SlopeConfig, terrain: Terrain, camera: THREE.Pe
     rider: rig.root,
     drivers,
     strain: rig.strain,
+    shortfall: rig.shortfall,
     legSpan: rig.legSpan,
 
     updateRider(view, params, poseMode, dt) {
@@ -273,6 +276,8 @@ export function createScene(cfg: SlopeConfig, terrain: Terrain, camera: THREE.Pe
       markers.visible = !clean;
       scene.fog = clean ? null : fog;
       scene.background = clean ? stageColour : skyColour;
+      // Reach diagnostics belong to authoring, not to play.
+      rig.showReach(clean);
     },
 
     resize() {

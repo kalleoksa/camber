@@ -65,6 +65,9 @@
           if (name in params.rig) params.rig[name] = Number(value);
         }
       }
+      // The reach overlay is an authoring aid, so show it in the coloured views and keep it
+      // out of the silhouette — a red bar would just be another black shape in there.
+      rig.showReach(!silhouette);
       rig.apply(drivers, params);
 
       // A method has zero ground contact. Posing it against a floor makes the

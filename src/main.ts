@@ -162,12 +162,15 @@ function render(alpha: number): void {
     readout.clearance = state.clearance;
     readout.air = state.mode === 'airborne' ? state.airTime : 0;
     const st = view.strain;
+    const sf = view.shortfall;
+    // Centimetres short, not just the ratio: while you are dragging a slider what you need to
+    // know is how much further to go, and "8 cm SHORT" answers that where "1.12" doesn't.
+    const hand = (reach: number, miss: number) =>
+      reach === 0 ? '—' : miss > 0.0001 ? `${reach.toFixed(2)} ${(miss * 100).toFixed(0)}cm SHORT` : reach.toFixed(2);
     readout.reach =
       st.front === 0 && st.back === 0
         ? 'no grab'
-        : `front ${st.front ? st.front.toFixed(2) : '—'}  back ${st.back ? st.back.toFixed(2) : '—'}${
-            Math.max(st.front, st.back) > 1 ? '  SHORT' : ''
-          }`;
+        : `front ${hand(st.front, sf.front)}   back ${hand(st.back, sf.back)}`;
     const legs = view.legSpan;
     const flex = (d: number) => {
       const t = params.rig.thigh;
