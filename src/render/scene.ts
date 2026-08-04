@@ -6,14 +6,11 @@ import type { SlopeConfig, Terrain } from '../sim/terrain.ts';
 import { createContact } from '../sim/terrain.ts';
 import { length, vec3, type Vec3 } from '../sim/vec3.ts';
 import { createRig, neutralDrivers, type RigDrivers } from './rig.ts';
+import type { Secondary } from './secondary.ts';
 
 /** Board tip angle at full edge. */
 const MAX_EDGE_ROLL = 0.55;
-const MAX_CROUCH = 0.28; // m of knee bend at full compress
-/** Extra hip drop per m/s of landing impact. A placeholder until the rig lands in M4. */
-const ABSORB_PER_IMPACT = 0.022;
 const TUMBLE_RATE = 8.0; // rad/s at full slide speed
-const TICK = 1 / 60; // s, nominal frame for the render-side springs
 
 export type RiderView = {
   position: Vec3;
@@ -98,7 +95,7 @@ export type SceneView = {
   drivers: RigDrivers;
   /** Per-hand shoulder-to-hand distance over arm reach; above 1 the grab is out of reach. */
   strain: { front: number; back: number };
-  updateRider(view: RiderView, params: Params, poseMode: boolean): void;
+  updateRider(view: RiderView, params: Params, poseMode: boolean, secondary: Secondary): void;
   resize(): void;
 };
 
@@ -191,7 +188,6 @@ export function createScene(cfg: SlopeConfig, terrain: Terrain, camera: THREE.Pe
   const rig = createRig();
   scene.add(rig.root);
   const drivers = neutralDrivers();
-  let hipVel = 0;
 
   const roll = new THREE.Quaternion();
   const tumble = new THREE.Quaternion();
@@ -206,7 +202,7 @@ export function createScene(cfg: SlopeConfig, terrain: Terrain, camera: THREE.Pe
     drivers,
     strain: rig.strain,
 
-    updateRider(view, params, poseMode) {
+    updateRider(view, params, poseMode, secondary) {
       rig.root.position.set(view.position.x, view.position.y, view.position.z);
       // Tumble winds down with the slide rather than spinning at a fixed rate forever.
       tumbleAngle =
@@ -232,13 +228,9 @@ export function createScene(cfg: SlopeConfig, terrain: Terrain, camera: THREE.Pe
       // only the ones the sim already owns are mapped; grabs and tweak stay unwired until
       // the gate passes (§7.8, step 2 before step 3).
       if (!poseMode) {
-        const absorb = view.absorb > 0 ? view.impact * ABSORB_PER_IMPACT : 0;
-        const target = -view.compress * MAX_CROUCH - absorb;
-        // One critically-damped spring rather than assigning hip height (§7.6).
-        const k = params.rig.hipStiffness;
-        const acc = k * (target - drivers.hipY) - 2 * params.rig.hipDamping * Math.sqrt(k) * hipVel;
-        hipVel += acc * TICK;
-        drivers.hipY += hipVel * TICK;
+        // Hip height is a spring, not an assignment (§7.6), but it is integrated on the sim
+        // tick in secondary.ts and merely sampled here — see the note there for why.
+        drivers.hipY = secondary.hipY;
         drivers.hipX = view.edge * 0.1;
         drivers.hipZ = view.stance * 0.14;
         drivers.spineSide = view.stance * 0.3;

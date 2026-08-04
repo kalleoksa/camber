@@ -15,6 +15,15 @@ import { createSpray } from './render/effects.ts';
 import { ANCHORS } from './render/poses.ts';
 import { copyDrivers, neutralDrivers, type RigDrivers } from './render/rig.ts';
 import { createScene, interpolateRider } from './render/scene.ts';
+import {
+  copySecondary,
+  createSecondary,
+  hashSecondary,
+  resetSecondary,
+  sampleSecondary,
+  seedSecondary,
+  stepSecondary,
+} from './render/secondary.ts';
 import { createPoseOrbit } from './render/orbit.ts';
 import { hashState } from './sim/hash.ts';
 import { applyParams, cloneParams, params, type Params } from './sim/params.ts';
@@ -43,7 +52,14 @@ const state = createRiderState(spawn);
 const previous = cloneRiderState(state);
 const recorder = createRecorder();
 
+// Render-side springs, kept in the same prev/current pair as sim state so the frame can
+// interpolate between two ticks instead of integrating on its own cadence.
+const secondary = createSecondary();
+const secondaryPrevious = createSecondary();
+const secondaryView = createSecondary();
+
 let liveHashes: string[] = [];
+let liveSecondaryHashes: string[] = [];
 let currentTake: Take | null = null;
 let cursor: ReplayCursor | null = null;
 
@@ -83,6 +99,7 @@ function step(): void {
   // the only thing moving (design §7.8, build order step 2).
   if (poseMode) return;
   copyRiderState(previous, state);
+  copySecondary(secondaryPrevious, secondary);
 
   let input = quantizeInput(pollGamepad(0, liveInput), tickInput);
   if (cursor) {
@@ -97,7 +114,11 @@ function step(): void {
 
   if (recorder.recording) recorder.capture(input);
   tick(state, input, params, terrain, TICK_DT);
-  if (recorder.recording) liveHashes.push(hashState(state));
+  stepSecondary(secondary, state, params, TICK_DT);
+  if (recorder.recording) {
+    liveHashes.push(hashState(state));
+    liveSecondaryHashes.push(hashSecondary(secondary));
+  }
 }
 
 let lastLanding: RiderState['landing'] = 'none';
@@ -110,7 +131,8 @@ function render(alpha: number): void {
   lastRender = now;
 
   const rider = interpolateRider(previous, state, alpha);
-  view.updateRider(rider, params, poseMode);
+  sampleSecondary(secondaryView, secondaryPrevious, secondary, alpha);
+  view.updateRider(rider, params, poseMode, secondaryView);
   if (poseMode) {
     orbit.update(rider);
   } else {
@@ -153,6 +175,10 @@ function startReplay(): void {
   if (!currentTake) return;
   resetRiderState(state);
   copyRiderState(previous, state);
+  // Without this the springs would enter the replay carrying the end of the live run, and
+  // the take's secondary stream would never match no matter how correct the stepping is.
+  resetSecondary(secondary);
+  copySecondary(secondaryPrevious, secondary);
   cursor = createReplayCursor(currentTake.frames);
   readout.session = `replay (${currentTake.frames.length} ticks, live params)`;
 }
@@ -170,12 +196,18 @@ function finishRecording(): void {
   });
   readout.session = `take: ${currentTake.frames.length} ticks`;
 
-  // The gate: the live run and a headless re-sim of the same inputs must agree exactly.
+  // The gate: the live run and a headless re-sim of the same inputs must agree exactly, in
+  // the sim and in the render-side springs alike.
   const diverged = currentTake.hashes.findIndex((h, i) => h !== liveHashes[i]);
-  readout.determinism =
-    diverged === -1 && currentTake.hashes.length === liveHashes.length
-      ? `live matches replay (${liveHashes.length} ticks)`
-      : `live diverged @ ${diverged}`;
+  const recorded = currentTake.secondaryHashes ?? [];
+  const divergedSecondary = recorded.findIndex((h, i) => h !== liveSecondaryHashes[i]);
+  if (diverged !== -1 || currentTake.hashes.length !== liveHashes.length) {
+    readout.determinism = `live diverged @ ${diverged}`;
+  } else if (divergedSecondary !== -1 || recorded.length !== liveSecondaryHashes.length) {
+    readout.determinism = `live springs diverged @ ${divergedSecondary}`;
+  } else {
+    readout.determinism = `live matches replay (${liveHashes.length} ticks)`;
+  }
 }
 
 const orbit = createPoseOrbit(chase.camera, view.renderer.domElement);
@@ -185,7 +217,11 @@ const panel = createPanel(params, readout, view.drivers, {
     poseMode = on;
     orbit.setEnabled(on);
     readout.session = on ? 'pose mode — gameplay disconnected' : 'live';
-    if (!on) chase.snap(interpolateRider(previous, state, 1), params);
+    if (!on) {
+      seedSecondary(secondary, view.drivers.hipY);
+      copySecondary(secondaryPrevious, secondary);
+      chase.snap(interpolateRider(previous, state, 1), params);
+    }
   },
   onAnchor: (name) => {
     const anchor = ANCHORS[name];
@@ -203,13 +239,18 @@ const panel = createPanel(params, readout, view.drivers, {
   onReset: () => {
     resetRiderState(state);
     copyRiderState(previous, state);
+    resetSecondary(secondary);
+    copySecondary(secondaryPrevious, secondary);
     chase.snap(interpolateRider(previous, state, 1), params);
   },
   onRecord: () => {
     resetRiderState(state);
     copyRiderState(previous, state);
+    resetSecondary(secondary);
+    copySecondary(secondaryPrevious, secondary);
     cursor = null;
     liveHashes = [];
+    liveSecondaryHashes = [];
     recorder.start();
     readout.session = 'recording';
     readout.determinism = '—';
@@ -224,7 +265,7 @@ const panel = createPanel(params, readout, view.drivers, {
     const result = verifyTake(currentTake);
     readout.determinism = result.ok
       ? `deterministic (${result.ticks} ticks)`
-      : `diverged @ ${result.divergedAt}`;
+      : `${result.stream} diverged @ ${result.divergedAt}`;
   },
   onSaveTake: () => {
     if (currentTake) download(`take-${currentTake.frames.length}.json`, JSON.stringify(currentTake));
