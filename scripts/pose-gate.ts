@@ -29,6 +29,7 @@ type Geom = {
   boardVsTorso: string;
   aspect: string;
   reachFront: string;
+  reachBack: string;
   kneeFront: string;
   kneeBack: string;
   comX: string;
@@ -77,8 +78,11 @@ for (const { depth, g } of rows) {
 }
 
 // 3. Reach validity — never above 1.0. Above it the hand cannot touch the grab point.
+//    Checks both hands: a back-hand grab has its whole validity in `reachBack`, and testing
+//    only the front one passed those poses without looking at the grabbing arm at all.
 for (const { depth, g } of rows) {
-  if (Number(g.reachFront) > 1.0) failures.push(`reach ${g.reachFront} at depth ${depth}, invalid above 1.00`);
+  if (Number(g.reachFront) > 1.0) failures.push(`front reach ${g.reachFront} at depth ${depth}, invalid above 1.00`);
+  if (Number(g.reachBack) > 1.0) failures.push(`back reach ${g.reachBack} at depth ${depth}, invalid above 1.00`);
 }
 
 // 4. Aspect — 1.0..1.3 once the pose is deep. Tall and thin means the rider is folded

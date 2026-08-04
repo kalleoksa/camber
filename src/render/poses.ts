@@ -186,11 +186,69 @@ export const ANCHORS: Record<string, RigDrivers> = {
     backShoulderSwing: 1.17,
   }),
 
-  /** Front hand, t ≈ 0.9. The one grab family where the spine flexes rather than extends. */
-  nosegrab: pose({ frontHandEdge: 1, frontHandT: 0.9, frontGrip: 1 }),
+  /**
+   * Front hand at the **nose tip** — `t` is 1.0, the very end. Authored. This is the pose the
+   * edge taper existed for: at `t` = 1 the two splines have met, so `frontHandEdge` is inert
+   * here and the hand lands on the centre line whatever it says. The saved 1 is kept because
+   * it is what the author's slider read, not because it does anything.
+   */
+  nosegrab: pose({
+    hipX: -0.06,
+    hipY: -0.75,
+    hipZ: 0.13,
+    pelvisPitch: 0.18,
+    hipRoll: -0.05,
+    spineBend: 0.31,
+    spineSide: 0.25, // leaning toward the nose, chasing the hand out
+    spineTwist: 0.47,
+    frontHandEdge: 1,
+    frontHandT: 1,
+    frontGrip: 1,
+    backHandEdge: 0,
+    backHandT: 0.34,
+    boardPitch: 0.36,
+    tweakRoll: -0.28,
+    headYaw: 0.61,
+    headPitch: -0.07,
+    kneeSplay: 0.5,
+    frontElbowPole: -0.2,
+    backShoulderSwing: 0.93,
+    backShoulderOut: -1,
+    backElbow: 0.42,
+    backElbowPole: 0.13,
+  }),
 
-  /** Back hand, t ≈ 0.05. Geometrically nosegrab's mirror, but the spine extends. */
-  tailgrab: pose({ backHandEdge: 1, backHandT: 0.05, backGrip: 1 }),
+  /**
+   * Back hand at the **tail tip** — `t` is 0, the mirror coordinate to nosegrab, and `edge` is
+   * inert for the same reason.
+   *
+   * Not a mirrored pose though. `boardPitch` is −0.18 against nosegrab's +0.36, so the board
+   * tips the other way, and the spine is dead flat: `spineBend` and `spineTwist` are both
+   * exactly 0, the only anchor with no twist at all. My earlier guess in this slot claimed the
+   * spine extends here — the sliders say it just stays square, and the pose is the record.
+   */
+  tailgrab: pose({
+    hipX: 0.08,
+    hipY: -0.67,
+    hipZ: -0.01,
+    pelvisPitch: -0.05,
+    hipRoll: -0.38,
+    spineSide: -0.08,
+    frontHandEdge: 0,
+    frontHandT: 0.13,
+    backHandEdge: 1,
+    backHandT: 0,
+    backGrip: 1,
+    boardPitch: -0.18,
+    tweakRoll: -0.2,
+    headYaw: -0.49,
+    headPitch: -0.12,
+    kneeSplay: 0.53,
+    frontShoulderSwing: -0.16,
+    frontShoulderOut: -0.5,
+    frontElbow: 1.07,
+    frontElbowPole: 2.96, // free arm routed right round, same trick as indy and stalefish
+  }),
 
   /** Front hand, toe edge, t ≈ 0.54. Authored. Toe-side cousin of the method. */
   japan: pose({
