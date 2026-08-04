@@ -1,6 +1,6 @@
 # Visual identity — milestone 9
 
-Extends `CLAUDE.md` milestones and `design.md` §10. **Gated behind milestone 4.** Nothing
+Extends `CLAUDE.md` milestones and `design.md` §11. **Gated behind milestone 4.** Nothing
 here starts until every grab anchor is authored and approved on bare geometry.
 
 ---
@@ -26,7 +26,7 @@ art direction and **wrong for cloth**.
 In real snowboarding, clothing is how speed and rotation are read: pant flap, jacket lag,
 the delay between the body stopping and the fabric catching up. That is the same
 secondary-motion channel as the Verlet overshoot on the trailing arm — a feel signal, not
-decoration. It belongs in `design.md` §10 alongside camera and audio, under "truth to
+decoration. It belongs in `design.md` §11 alongside camera and audio, under "truth to
 snowboarding."
 
 Practical consequence: cloth motion should be driven by the same spring/overshoot system
@@ -43,7 +43,7 @@ already used for the trailing arm, not by a separate solver bolted on later.
 3. **No real cloth simulation.** Vertex-shader wind offset driven by speed, plus two or
    three extra bones per pant leg and one per jacket tail, gets ~90% of the read at zero
    risk. If it ever needs a constraint solver, the scope is wrong.
-4. **Replay must reproduce cloth.** Because replay is the reward loop (§10), cloth driven
+4. **Replay must reproduce cloth.** Because replay is the reward loop (§11), cloth driven
    by unseeded noise will differ between a run and its replay. Drive it from sim state
    (speed, angular velocity, contact impulse) plus the seeded PRNG — never from wall
    clock or `Math.random`.
@@ -64,7 +64,7 @@ Art direction is the rider's call. These are technical steers only.
 - **The board base graphic is functional.** `tweakRoll` shows the base — a base graphic
   is what makes roll legible. Keep it high-contrast and asymmetric so the direction of
   roll reads, not just its presence.
-- **Goggles give the head a direction.** Head look-at is a documented style cue (§10),
+- **Goggles give the head a direction.** Head look-at is a documented style cue (§7.7),
   but a featureless box can't express gaze. Goggles or a helmet stripe are the cheapest
   way to make the head read as pointing somewhere.
 - **Faceless, single rider, no customization.** Out of scope. Personal project, no
