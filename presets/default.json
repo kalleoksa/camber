@@ -103,7 +103,7 @@
     "gravity": 6
   },
   "audio": {
-    "master": 0.55,
+    "master": 0,
     "edgeGain": 0.5,
     "edgeFilterBase": 380,
     "edgeFilterGain": 95,

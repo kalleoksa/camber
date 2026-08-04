@@ -123,7 +123,12 @@ export const params = {
     gravity: 6.0, // m/s²
   },
   audio: {
-    master: 0.55,
+    /**
+     * Muted for now — not wanted at this stage. Every layer and the landing thump run through
+     * this one gain, so 0 silences the lot, and the slider brings it back live without a
+     * reload. Was 0.55.
+     */
+    master: 0,
     edgeGain: 0.5, // edge bite at full scrub
     edgeFilterBase: 380, // Hz at a standstill
     edgeFilterGain: 95, // Hz per m/s
