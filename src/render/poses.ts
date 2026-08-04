@@ -24,6 +24,7 @@ export const ANCHORS: Record<string, RigDrivers> = {
     frontHandT: 0.36,
     backHandEdge: 0.02,
     backHandT: 0.36,
+    headYaw: 0.94, // looking down the hill rather than straight across the board
     frontShoulderSwing: -0.24,
     frontShoulderOut: -0.19,
     frontElbow: 0.54,
@@ -34,17 +35,32 @@ export const ANCHORS: Record<string, RigDrivers> = {
     backElbowPole: -0.2,
   }),
 
-  /** Knees deep, weight centred — the pop wind-up. Authored. */
+  /**
+   * Knees deep, weight centred — the pop wind-up. Authored.
+   *
+   * Also the base of every grab transition (`blendToGrab` in main.ts), so changing it moves
+   * all eight paths, not just this pose. Re-check the dense path sweep after touching it.
+   */
   crouch: pose({
+    hipX: 0.17,
     hipY: -0.34,
-    spineBend: 0.42,
+    hipZ: 0.01,
+    hipYaw: 0.03,
+    pelvisPitch: 0.4,
+    spineBend: 0.56,
+    spineSide: 0.02,
+    spineTwist: 0.03,
+    frontHandEdge: -0.09,
+    headYaw: 0.94,
     kneeSplay: 0.62,
-    frontShoulderSwing: 0.08,
-    frontShoulderOut: 0.23,
-    frontElbow: 0,
-    backShoulderSwing: 0.41,
-    backShoulderOut: -0.3,
-    backElbow: 0,
+    frontShoulderSwing: 0.04,
+    frontShoulderOut: -0.58,
+    frontElbow: 0.88,
+    frontElbowPole: -3.1,
+    backShoulderSwing: 0.36,
+    backShoulderOut: -0.71,
+    backElbow: 0.62,
+    backElbowPole: -0.68,
   }),
 
   // --- grab coordinates, bodies unposed (grabs.md §3) -------------------------------
@@ -87,7 +103,14 @@ export const ANCHORS: Record<string, RigDrivers> = {
    */
   mute: pose({
     hipX: 0.1,
-    hipY: -0.62,
+    /**
+     * Authored at −0.62, dropped 1 cm. At −0.62 the endpoint was reach 0.9994 and the
+     * *transition* peaked at 1.0028 — invalid by under 2 mm of arm, for a few frames, which
+     * the two-decimal readout rounded to a passing 1.00. One centimetre here takes the path
+     * peak to 0.9900. The alternative was raising gripDelay to 0.90 globally, which barely
+     * cleared and would snap every other grab's hand shut over the last tenth of its blend.
+     */
+    hipY: -0.63,
     hipZ: -0.12,
     hipYaw: -0.16,
     pelvisPitch: -0.31,
