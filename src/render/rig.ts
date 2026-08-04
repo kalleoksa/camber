@@ -39,6 +39,18 @@ export type RigDrivers = {
   frontGrip: number; // 0 = arm at rest, 1 = hand locked to the board
   backGrip: number;
   /**
+   * rad of board pitch about its lateral axis, nose up for positive, pivoting on the grabbed
+   * point so the hand stays put.
+   *
+   * This is the driver that makes one leg straighter than the other. The feet are bolted to a
+   * rigid board, so with the pelvis placed both knee angles are already determined — nothing
+   * about the body can extend the back leg alone. Tilting the board raises one binding and
+   * drops the other, which bends one knee and extends the other, and that is what a boned
+   * japan or method actually is. It is also the board's nose-up attitude, so the same number
+   * does both jobs.
+   */
+  boardPitch: number;
+  /**
    * 0..1 of roll about the board's own long axis — the base turning to face away from the
    * rider, which is part of the look but a *lesser* magnitude than the pitch. Kept separate
    * because one scalar driving both means retuning either one moves the other.
@@ -100,6 +112,7 @@ export function neutralDrivers(): RigDrivers {
     backHandT: 0.34,
     frontGrip: 0,
     backGrip: 0,
+    boardPitch: 0,
     tweakRoll: 0,
     headYaw: 0,
     headPitch: 0,
@@ -416,14 +429,21 @@ export function createRig(): Rig {
        */
       board.quaternion.identity();
       board.position.set(0, 0, 0);
+      const pitch = d.boardPitch;
       const roll = d.tweakRoll * r.tweakRollMax;
-      if (roll > 1e-5 || roll < -1e-5) {
-        // The one board rotation left: roll about its own length, showing the base. Pivots on
-        // the grabbed point so the hand stays where it was put.
+      if (Math.abs(pitch) > 1e-5 || Math.abs(roll) > 1e-5) {
+        // Pitch about the lateral axis first — nose up for positive — then the lesser roll
+        // about the board's own length, which is what shows the base.
+        boardLong.set(-1, 0, 0);
+        board.quaternion.setFromAxisAngle(boardLong, pitch);
+        if (Math.abs(roll) > 1e-5) {
+          boardLong.set(0, 0, 1);
+          tmpQuat.setFromAxisAngle(boardLong, roll);
+          board.quaternion.multiply(tmpQuat);
+        }
+        // Pivot on the grabbed point so the hand stays where it was put (§7.4).
         const useFront = d.frontGrip >= d.backGrip;
         edgePoint(grab, useFront ? d.frontHandEdge : d.backHandEdge, useFront ? d.frontHandT : d.backHandT);
-        boardLong.set(0, 0, 1);
-        board.quaternion.setFromAxisAngle(boardLong, roll);
         board.position.copy(grab).applyQuaternion(board.quaternion).negate().add(grab);
       }
 

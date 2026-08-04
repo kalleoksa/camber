@@ -20,6 +20,7 @@ const DRIVER_RANGE: Record<keyof RigDrivers, { min: number; max: number }> = {
   backHandT: { min: 0, max: 1 },
   frontGrip: { min: 0, max: 1 },
   backGrip: { min: 0, max: 1 },
+  boardPitch: { min: -1.2, max: 1.2 }, // nose up; also what makes one leg straighter than the other
   tweakRoll: { min: -1, max: 1 },
   headYaw: { min: -1.4, max: 1.4 },
   headPitch: { min: -0.8, max: 0.8 },
@@ -45,6 +46,7 @@ export type Readout = {
   clearance: number;
   air: number;
   reach: string;
+  knees: string;
   spin: number;
   rotated: number;
   landing: string;
@@ -112,6 +114,7 @@ export function createPanel(
   status.addBinding(readout, 'clearance', { readonly: true, format: (v: number) => v.toFixed(2) });
   status.addBinding(readout, 'air', { readonly: true, format: (v: number) => v.toFixed(2) });
   status.addBinding(readout, 'reach', { readonly: true });
+  status.addBinding(readout, 'knees', { readonly: true });
   status.addBinding(readout, 'spin', { readonly: true, format: (v: number) => v.toFixed(2) });
   status.addBinding(readout, 'rotated', { readonly: true, format: (v: number) => `${v.toFixed(0)}°` });
   status.addBinding(readout, 'landing', { readonly: true });

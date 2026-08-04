@@ -57,6 +57,7 @@ const readout: Readout = {
   clearance: 0,
   air: 0,
   reach: '—',
+  knees: '—',
   spin: 0,
   rotated: 0,
   landing: 'none',
@@ -158,6 +159,14 @@ function render(alpha: number): void {
         : `front ${st.front ? st.front.toFixed(2) : '—'}  back ${st.back ? st.back.toFixed(2) : '—'}${
             Math.max(st.front, st.back) > 1 ? '  SHORT' : ''
           }`;
+    const legs = view.legSpan;
+    const flex = (d: number) => {
+      const t = params.rig.thigh;
+      const sh = params.rig.shin;
+      const c = (t * t + sh * sh - Math.min(d, t + sh - 1e-3) ** 2) / (2 * t * sh);
+      return (180 - (Math.acos(Math.min(1, Math.max(-1, c))) * 180) / Math.PI).toFixed(0);
+    };
+    readout.knees = `front ${flex(legs.front)}°  back ${flex(legs.back)}°`;
     readout.spin = state.spinRate;
     readout.rotated = (state.airYaw * 180) / Math.PI;
     readout.landing = state.landing;

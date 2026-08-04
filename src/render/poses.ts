@@ -18,21 +18,61 @@ function pose(overrides: Partial<RigDrivers>): RigDrivers {
 }
 
 export const ANCHORS: Record<string, RigDrivers> = {
-  /** Standing, no grab, knees lightly flexed. The zero everything else departs from. */
-  neutral: neutralDrivers(),
+  /** Standing, no grab. Authored. The zero everything else departs from. */
+  neutral: pose({
+    frontHandEdge: 0.26,
+    frontHandT: 0.36,
+    backHandEdge: 0.02,
+    backHandT: 0.36,
+    frontShoulderSwing: -0.24,
+    frontShoulderOut: -0.19,
+    frontElbow: 0.54,
+    frontElbowPole: -3.1,
+    backShoulderSwing: -0.08,
+    backShoulderOut: -0.27,
+    backElbow: 0.62,
+    backElbowPole: -0.2,
+  }),
 
-  /** Knees deep, weight centred — the pop wind-up. Body pose, no grab, so it survives. */
+  /** Knees deep, weight centred — the pop wind-up. Authored. */
   crouch: pose({
     hipY: -0.34,
     spineBend: 0.42,
     kneeSplay: 0.62,
+    frontShoulderSwing: 0.08,
+    frontShoulderOut: 0.23,
+    frontElbow: 0,
+    backShoulderSwing: 0.41,
+    backShoulderOut: -0.3,
+    backElbow: 0,
   }),
 
   // --- grab coordinates, bodies unposed (grabs.md §3) -------------------------------
   // `t` runs tail 0 to nose 1. `edge` is −1 heel, +1 toe, matching state.edge's sign.
 
-  /** Back hand, toe edge, t ≈ 0.35. The easiest grab — the toe edge comes to the hand. */
-  indy: pose({ backHandEdge: 1, backHandT: 0.35, backGrip: 1 }),
+  /** Back hand, toe edge, t ≈ 0.38. Authored. The easiest grab — the toe edge comes up to it. */
+  indy: pose({
+    hipX: 0.17,
+    hipY: -0.49,
+    hipZ: -0.01,
+    hipYaw: 0.23,
+    pelvisPitch: 0.08,
+    hipRoll: -0.26,
+    spineBend: 0.66,
+    spineTwist: 0.18,
+    backHandEdge: 1,
+    backHandT: 0.38,
+    backGrip: 1,
+    frontHandEdge: -0.04,
+    frontHandT: 0.33,
+    headYaw: 0.18,
+    headPitch: -0.07,
+    frontShoulderSwing: 0,
+    frontShoulderOut: -0.22,
+    frontElbow: 1.05,
+    frontElbowPole: 2.83, // the free arm routed round, which is what the pole is for
+    backShoulderSwing: 0.49,
+  }),
 
   /**
    * Front hand, toe edge, t ≈ 0.54. **Authored on the sliders, not derived** — these are the
@@ -81,8 +121,31 @@ export const ANCHORS: Record<string, RigDrivers> = {
    */
   method: pose({ frontHandEdge: -1, frontHandT: 0.5, frontGrip: 1 }),
 
-  /** Back hand, heel edge, t ≈ 0.35, arm behind the back leg. */
-  stalefish: pose({ backHandEdge: -1, backHandT: 0.35, backGrip: 1 }),
+  /** Back hand, heel edge, t ≈ 0.4, arm behind the back leg. Authored. */
+  stalefish: pose({
+    hipX: -0.06,
+    hipY: -0.4,
+    hipZ: -0.08,
+    hipYaw: -0.39,
+    pelvisPitch: 0.08,
+    hipRoll: -0.23,
+    spineBend: 0.21,
+    spineSide: -0.02,
+    spineTwist: -0.23,
+    backHandEdge: -1,
+    backHandT: 0.4,
+    backGrip: 1,
+    frontHandEdge: -0.26,
+    frontHandT: 0.61,
+    headYaw: -0.09,
+    headPitch: -0.16,
+    kneeSplay: 0.3,
+    frontShoulderSwing: -0.32,
+    frontShoulderOut: -0.35,
+    frontElbow: 0.82,
+    frontElbowPole: 2.29,
+    backShoulderSwing: 1.17,
+  }),
 
   /** Front hand, t ≈ 0.9. The one grab family where the spine flexes rather than extends. */
   nosegrab: pose({ frontHandEdge: 1, frontHandT: 0.9, frontGrip: 1 }),
