@@ -35,6 +35,17 @@ export type RiderState = {
   spinAxis: Vec3; // board-local, set at takeoff
   spinRate: number; // rad/s about spinAxis
   airYaw: number; // rad of board yaw accumulated this air
+  /**
+   * Slow follower of the edge stick while grounded — "the carve you are already holding".
+   * Takeoff measures the stick against this rather than against centre, so popping out of
+   * a carve is not read as asking for a spin. See `air.spinCarveReject`.
+   */
+  spinRef: number;
+  /**
+   * In-air spin control is disarmed until the stick comes back through centre. Without it,
+   * carrying a carve into the air drags the spin rate up to the carve's value.
+   */
+  spinArmed: boolean;
 
   groundNormal: Vec3; // smoothed, what the board is slaved to
   scrub: number; // m/s² the edge is removing from lateral velocity — drives spray and edge bite
@@ -67,6 +78,8 @@ export function createRiderState(spawn: Spawn): RiderState {
     spinAxis: vec3(0, 1, 0),
     spinRate: 0,
     airYaw: 0,
+    spinRef: 0,
+    spinArmed: true,
     groundNormal: vec3(0, 1, 0),
     scrub: 0,
     clearance: 0,
@@ -93,6 +106,8 @@ export function resetRiderState(state: RiderState): void {
   setXYZ(state.spinAxis, 0, 1, 0);
   state.spinRate = 0;
   state.airYaw = 0;
+  state.spinRef = 0;
+  state.spinArmed = true;
   state.scrub = 0;
   state.heading = spawn.heading;
   state.headingTarget = spawn.heading;
@@ -120,6 +135,8 @@ export function copyRiderState(dst: RiderState, src: RiderState): void {
   copyInto(dst.spinAxis, src.spinAxis);
   dst.spinRate = src.spinRate;
   dst.airYaw = src.airYaw;
+  dst.spinRef = src.spinRef;
+  dst.spinArmed = src.spinArmed;
   dst.heading = src.heading;
   dst.headingTarget = src.headingTarget;
   dst.edge = src.edge;

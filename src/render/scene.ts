@@ -6,14 +6,18 @@ import type { SlopeConfig, Terrain } from '../sim/terrain.ts';
 import { createContact } from '../sim/terrain.ts';
 import { length, vec3, type Vec3 } from '../sim/vec3.ts';
 import { createRig, neutralDrivers, type RigDrivers } from './rig.ts';
+import type { Secondary } from './secondary.ts';
 
 /** Board tip angle at full edge. */
 const MAX_EDGE_ROLL = 0.55;
-const MAX_CROUCH = 0.28; // m of knee bend at full compress
-/** Extra hip drop per m/s of landing impact. A placeholder until the rig lands in M4. */
-const ABSORB_PER_IMPACT = 0.022;
 const TUMBLE_RATE = 8.0; // rad/s at full slide speed
-const TICK = 1 / 60; // s, nominal frame for the render-side springs
+/**
+ * The hip spring moved to `secondary.ts` and is stepped on the sim tick, which is what makes
+ * it replay-identical. The tumble angle stays here because it is cosmetic and unhashed — but
+ * it is still integrated, so it needs the real frame dt, clamped so a hitch makes the rider
+ * lag rather than spin.
+ */
+const MAX_FRAME_DT = 1 / 30;
 
 export type RiderView = {
   position: Vec3;
@@ -98,7 +102,24 @@ export type SceneView = {
   drivers: RigDrivers;
   /** Per-hand shoulder-to-hand distance over arm reach; above 1 the grab is out of reach. */
   strain: { front: number; back: number };
-  updateRider(view: RiderView, params: Params, poseMode: boolean): void;
+  /** How far each hand falls short of its grab point, m. 0 when it reaches. */
+  shortfall: { front: number; back: number };
+  /** Hip-to-foot distance per leg. The knee angle it implies is what boardPitch tunes. */
+  legSpan: { front: number; back: number };
+  /** `secondary` carries the tick-stepped springs; `dt` is only for the unhashed tumble. */
+  updateRider(
+    view: RiderView,
+    params: Params,
+    poseMode: boolean,
+    secondary: Secondary,
+    dt: number,
+  ): void;
+  /**
+   * Strip the world back to the rider alone — no terrain, no markers, no fog, flat
+   * background. Posing against a slope makes the board's attitude hard to read against a
+   * moving horizon and invites reading a flat board as resting on the ground.
+   */
+  setStage(clean: boolean): void;
   resize(): void;
 };
 
@@ -185,13 +206,17 @@ export function createScene(cfg: SlopeConfig, terrain: Terrain, camera: THREE.Pe
   scene.add(sun);
   scene.add(new THREE.HemisphereLight(0xbcd7f0, 0xe8eef4, 1.1));
 
-  scene.add(slopeMesh(cfg, terrain));
-  scene.add(slopeMarkers(cfg, terrain));
+  const slope = slopeMesh(cfg, terrain);
+  const markers = slopeMarkers(cfg, terrain);
+  scene.add(slope);
+  scene.add(markers);
+  const skyColour = new THREE.Color(0x9db6cc);
+  const stageColour = new THREE.Color(0xeef2f6);
+  const fog = scene.fog;
 
   const rig = createRig();
   scene.add(rig.root);
   const drivers = neutralDrivers();
-  let hipVel = 0;
 
   const roll = new THREE.Quaternion();
   const tumble = new THREE.Quaternion();
@@ -205,12 +230,15 @@ export function createScene(cfg: SlopeConfig, terrain: Terrain, camera: THREE.Pe
     rider: rig.root,
     drivers,
     strain: rig.strain,
+    shortfall: rig.shortfall,
+    legSpan: rig.legSpan,
 
-    updateRider(view, params, poseMode) {
+    updateRider(view, params, poseMode, secondary, dt) {
+      const frameDt = Math.min(dt, MAX_FRAME_DT);
       rig.root.position.set(view.position.x, view.position.y, view.position.z);
       // Tumble winds down with the slide rather than spinning at a fixed rate forever.
       tumbleAngle =
-        view.mode === 'bailed' ? tumbleAngle + Math.min(view.speed / 8, 1) * TUMBLE_RATE * 0.016 : 0;
+        view.mode === 'bailed' ? tumbleAngle + Math.min(view.speed / 8, 1) * TUMBLE_RATE * frameDt : 0;
 
       // The sim owns board orientation — grounded it is slaved to the terrain, airborne
       // it carries angular momentum. Render just reads it.
@@ -232,13 +260,11 @@ export function createScene(cfg: SlopeConfig, terrain: Terrain, camera: THREE.Pe
       // only the ones the sim already owns are mapped; grabs and tweak stay unwired until
       // the gate passes (§7.8, step 2 before step 3).
       if (!poseMode) {
-        const absorb = view.absorb > 0 ? view.impact * ABSORB_PER_IMPACT : 0;
-        const target = -view.compress * MAX_CROUCH - absorb;
-        // One critically-damped spring rather than assigning hip height (§7.6).
-        const k = params.rig.hipStiffness;
-        const acc = k * (target - drivers.hipY) - 2 * params.rig.hipDamping * Math.sqrt(k) * hipVel;
-        hipVel += acc * TICK;
-        drivers.hipY += hipVel * TICK;
+        // Hip height is a spring, not an assignment (§7.6), but it is integrated on the sim
+        // tick in secondary.ts and merely sampled here — see the note there for why. It used
+        // to be integrated on this line against the render dt, which is frame cadence and so
+        // is not the same on a replay as on the take it replays.
+        drivers.hipY = secondary.hipY;
         drivers.hipX = view.edge * 0.1;
         drivers.hipZ = view.stance * 0.14;
         drivers.spineSide = view.stance * 0.3;
@@ -246,6 +272,15 @@ export function createScene(cfg: SlopeConfig, terrain: Terrain, camera: THREE.Pe
       }
 
       rig.apply(drivers, params);
+    },
+
+    setStage(clean) {
+      slope.visible = !clean;
+      markers.visible = !clean;
+      scene.fog = clean ? null : fog;
+      scene.background = clean ? stageColour : skyColour;
+      // Reach diagnostics belong to authoring, not to play.
+      rig.showReach(clean);
     },
 
     resize() {

@@ -180,7 +180,19 @@ export function takeoff(state: RiderState, input: InputSnapshot, params: Params)
   state.spinAxis.y = Math.cos(tilt);
   state.spinAxis.z = Math.sin(tilt);
 
+  // Left stick X is the edge stick grounded and the spin stick airborne, and the pop is
+  // the seam between the two. Read the stick position raw and a hard carve *is* a request
+  // for a 360, whether or not the rider wanted one — so measure it against the carve
+  // already being held instead of against centre. `spinRef` lags the stick at
+  // `air.spinRefRate`, so a deliberate whip still reads as spin while a steady thumb
+  // reads as zero. At `spinCarveReject` 0 this collapses back to raw stick position.
+  const whip = input.lx - state.spinRef * params.air.spinCarveReject;
   // Negative because a positive rotation about board up swings the nose to the heel side.
-  const rate = -input.lx * params.air.spinTakeoff;
+  const rate = -Math.min(1, Math.max(-1, whip)) * params.air.spinTakeoff;
   state.spinRate = Math.min(params.air.spinMax, Math.max(-params.air.spinMax, rate));
+
+  // Leaving the ground mid-carve, the thumb is still buried where the carve put it. Hold
+  // in-air spin control until it comes back through centre, or the air controller drags
+  // the rate up to the carve's value and undoes the whole point of the whip read.
+  state.spinArmed = Math.abs(input.lx) < params.air.spinArmBand;
 }

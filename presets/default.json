@@ -22,7 +22,7 @@
     "edgeResponse": 9
   },
   "pop": {
-    "chargeTime": 0.35,
+    "chargeTime": 0.25,
     "decay": 0.4,
     "base": 2,
     "charged": 5,
@@ -36,7 +36,10 @@
     "extendMultiplier": 0.85,
     "spinMax": 9,
     "axisTiltMax": 1.1,
-    "spinTakeoff": 7
+    "spinTakeoff": 7,
+    "spinCarveReject": 1,
+    "spinRefRate": 5,
+    "spinArmBand": 0.25
   },
   "land": {
     "clean": 0.44,
@@ -83,7 +86,10 @@
     "hipHeight": 0.86,
     "spine": 0.52,
     "neck": 0.16,
-    "hipStiffness": 90,
+    "crouchDepth": 0.28,
+    "tweakMax": 1.75,
+    "tweakRollMax": 0.6,
+    "hipStiffness": 250,
     "hipDamping": 1
   },
   "spray": {
@@ -97,7 +103,7 @@
     "gravity": 6
   },
   "audio": {
-    "master": 0.55,
+    "master": 0,
     "edgeGain": 0.5,
     "edgeFilterBase": 380,
     "edgeFilterGain": 95,

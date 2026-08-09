@@ -30,6 +30,13 @@ export function tick(
   state.edge = dampScalar(state.edge, input.lx, params.ground.edgeResponse, dt);
   state.stance = dampScalar(state.stance, input.ly, params.ground.edgeResponse, dt);
 
+  // The baseline takeoff measures the spin whip against — "the carve you are already
+  // holding". Its own rate rather than a reuse of `state.edge`, so widening the whip window
+  // can't change how a carve feels. Tracked in every mode, not just grounded: parked during
+  // an air it would go stale, and a fast re-pop after landing would read a whip that never
+  // happened.
+  state.spinRef = dampScalar(state.spinRef, input.lx, params.air.spinRefRate, dt);
+
   switch (state.mode) {
     case 'grounded':
       stepGrounded(state, input, params, terrain, dt);

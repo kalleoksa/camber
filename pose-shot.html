@@ -1,0 +1,227 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>camber — pose shot</title>
+    <style>
+      body { margin: 0; background: #fff; }
+      #label { position: fixed; left: 8px; top: 8px; font: 13px/1.4 monospace; color: #111; white-space: pre; }
+    </style>
+  </head>
+  <body>
+    <div id="label"></div>
+    <!--
+      Headless read of a single rig pose. `npm run dev`, then open
+      /pose-shot.html?pose=method&view=silhouette
+
+        pose=<anchor>   any key in ANCHORS
+        view=silhouette | diag | top
+        <driver>=<n>    overrides any driver, e.g. &boardBack=0.3&tweak=0
+        rig.<name>=<n>  overrides a proportion, e.g. &rig.upperArm=0.35
+
+      The default view is a flat black-on-white side profile, orthographic, board
+      perpendicular to camera. That is deliberate: a method is a side-profile trick, and
+      angles in range do not tell you whether a pose *reads*. Only the outline does — if
+      the silhouette doesn't say "method" with every depth cue removed, it isn't one.
+
+      `diag` adds shading, the axis markers and a centre-of-mass dot for when you need to
+      see why the silhouette is wrong. Excluded from `vite build`, which only takes
+      index.html.
+    -->
+    <script type="module">
+      import * as THREE from 'three';
+      import { blendToGrab, createRig, gripWeight, smoothstep } from './src/render/rig.ts';
+      import { ANCHORS } from './src/render/poses.ts';
+      import { params } from './src/sim/params.ts';
+
+      const q = new URLSearchParams(location.search);
+      const poseName = q.get('pose') ?? 'neutral';
+      const view = q.get('view') ?? 'silhouette';
+      const silhouette = view === 'silhouette';
+
+      const W = 900;
+      const H = 700;
+      const renderer = new THREE.WebGLRenderer({ antialias: true });
+      renderer.setSize(W, H);
+      renderer.setClearColor(0xffffff);
+      document.body.appendChild(renderer.domElement);
+
+      const scene = new THREE.Scene();
+      if (!silhouette) {
+        scene.add(new THREE.AmbientLight(0xffffff, 0.75));
+        const sun = new THREE.DirectionalLight(0xffffff, 1.1);
+        sun.position.set(-4, 6, 3);
+        scene.add(sun);
+      }
+
+      const rig = createRig();
+      scene.add(rig.root);
+
+      const drivers = { ...ANCHORS[poseName] };
+      for (const [key, value] of q.entries()) {
+        if (key in drivers) drivers[key] = Number(value);
+        if (key.startsWith('rig.')) {
+          const name = key.slice(4);
+          if (name in params.rig) params.rig[name] = Number(value);
+        }
+      }
+      // blend=0..1 mixes crouch -> this anchor, the same interpolation the transition preview
+      // and (later) gameplay use. Sweeping it is how you check the whole path into a grab is
+      // valid, not just the held pose at the end.
+      const blend = q.get('blend');
+      if (blend !== null) {
+        const body = smoothstep(Number(blend));
+        const delay = q.has('gripDelay') ? Number(q.get('gripDelay')) : params.grab.gripDelay;
+        blendToGrab(drivers, ANCHORS.crouch, { ...drivers }, body, gripWeight(body, delay));
+      }
+
+      // The reach overlay is an authoring aid, so show it in the coloured views and keep it
+      // out of the silhouette — a red bar would just be another black shape in there.
+      rig.showReach(!silhouette);
+      rig.apply(drivers, params);
+
+      // A method has zero ground contact. Posing it against a floor makes the
+      // hip-forward / board-back relationship unreadable and invites reading a horizontal
+      // board as "resting on the ground", so there is no ground here at all.
+      rig.root.position.y = 1.4;
+      rig.root.updateMatrixWorld(true);
+
+      // --- measurements -----------------------------------------------------------
+      // Measured off the board's actual transform, never echoed back from the driver that
+      // asked for it. A tweak about the board's own long axis produces a large rotation
+      // angle and moves the nose nowhere, so the driver value can read 85° while the
+      // silhouette is unchanged — which is exactly what it did.
+      const deg = (r) => (r * 180) / Math.PI;
+      const boardQuat = rig.board.quaternion;
+      const nose = new THREE.Vector3(0, 0, 1).applyQuaternion(boardQuat);
+      const deck = new THREE.Vector3(0, 1, 0).applyQuaternion(boardQuat);
+
+      // Elevation of the board's long axis above horizontal. This is the "diagonal, not a
+      // vertical" number — the one the silhouette actually shows.
+      const elevation = deg(Math.asin(Math.min(1, Math.max(-1, nose.y))));
+
+      // Roll of the deck about the board's own long axis, measured against world up
+      // projected into the plane perpendicular to that axis. Independent of the pitch, so
+      // the two no longer alias onto each other the way the old readout did.
+      const up = new THREE.Vector3(0, 1, 0);
+      const ref = up.clone().addScaledVector(nose, -up.dot(nose));
+      let baseRoll = 0;
+      if (ref.lengthSq() > 1e-8) {
+        ref.normalize();
+        const cross = new THREE.Vector3().crossVectors(ref, deck);
+        baseRoll = deg(Math.atan2(cross.dot(nose), ref.dot(deck)));
+      }
+
+      // The frame the pose is authored against: board long axis versus the torso.
+      const torso = rig.torsoAxis.clone().normalize();
+      const torsoLean = deg(torso.angleTo(up));
+      const boardVsTorso = deg(nose.angleTo(torso));
+
+      // Silhouette bounding box in the side view (Z across, Y up). "Roughly square to
+      // slightly wide, not tall and thin" is a measurable claim, so measure it.
+      const bounds = new THREE.Box3().setFromObject(rig.root);
+      const ext = bounds.getSize(new THREE.Vector3());
+      const aspect = ext.z / Math.max(ext.y, 1e-6);
+
+      const thigh = params.rig.thigh;
+      const shin = params.rig.shin;
+      const kneeFlexion = (d) => {
+        const clamped = Math.min(Math.max(d, 1e-3), thigh + shin - 1e-3);
+        const cos = (thigh * thigh + shin * shin - clamped * clamped) / (2 * thigh * shin);
+        return deg(Math.PI - Math.acos(Math.min(1, Math.max(-1, cos)))).toFixed(0);
+      };
+
+      // Crude but honest composite COM: every mesh's world bounding-box centre, weighted by
+      // its volume. It must not move as tweak depth changes — if it does, the pose is
+      // physically fictional however good the joint angles look.
+      const com = new THREE.Vector3();
+      let mass = 0;
+      const box = new THREE.Box3();
+      const size = new THREE.Vector3();
+      const centre = new THREE.Vector3();
+      rig.root.traverse((o) => {
+        if (!o.isMesh) return;
+        box.setFromObject(o);
+        box.getSize(size);
+        box.getCenter(centre);
+        const m = Math.max(size.x * size.y * size.z, 1e-6);
+        com.addScaledVector(centre, m);
+        mass += m;
+      });
+      com.multiplyScalar(1 / mass);
+
+      window.__geom = {
+        elevation: elevation.toFixed(0),
+        baseRoll: baseRoll.toFixed(0),
+        torsoLean: torsoLean.toFixed(0),
+        boardVsTorso: boardVsTorso.toFixed(0),
+        aspect: aspect.toFixed(2),
+        width: ext.z.toFixed(2),
+        height: ext.y.toFixed(2),
+        // Both hands. Only exporting the front one meant every back-hand grab — indy,
+        // stalefish, tailgrab — reported reach 0.00 for a hand that wasn't grabbing anything,
+        // and sailed through the validity test without ever being checked.
+        reachFront: rig.strain.front.toFixed(2),
+        reachBack: rig.strain.back.toFixed(2),
+        reachFrontExact: rig.strain.front.toFixed(4),
+        reachBackExact: rig.strain.back.toFixed(4),
+        elbowF: [rig.elbowAt.front.x.toFixed(3), rig.elbowAt.front.y.toFixed(3), rig.elbowAt.front.z.toFixed(3)].join(','),
+        elbowB: [rig.elbowAt.back.x.toFixed(3), rig.elbowAt.back.y.toFixed(3), rig.elbowAt.back.z.toFixed(3)].join(','),
+        kneeFront: kneeFlexion(rig.legSpan.front),
+        kneeBack: kneeFlexion(rig.legSpan.back),
+        comX: com.x.toFixed(3),
+        comY: com.y.toFixed(3),
+      };
+
+      // --- presentation -----------------------------------------------------------
+      if (silhouette) {
+        const flat = new THREE.MeshBasicMaterial({ color: 0x000000 });
+        rig.root.traverse((o) => {
+          if (o.isMesh) o.material = flat;
+        });
+      } else {
+        const marker = (color, x, y, z, size = 0.09) => {
+          const mesh = new THREE.Mesh(
+            new THREE.SphereGeometry(size, 12, 12),
+            new THREE.MeshBasicMaterial({ color }),
+          );
+          mesh.position.set(x, y + rig.root.position.y, z);
+          scene.add(mesh);
+        };
+        marker(0xff8800, 0, 0.02, 0.85); // orange — nose, +Z
+        marker(0xdd0000, 0, 0.02, -0.85, 0.06); // red — tail, −Z
+        marker(0x00aa44, -0.35, 0.02, 0); // green — toe side, −X, the side the rider faces
+        marker(0x2255ff, 0.35, 0.02, 0); // blue — heel side, +X
+        marker(0xff00ff, com.x, com.y - rig.root.position.y, com.z, 0.06); // magenta — COM
+      }
+
+      // Orthographic, from the toe side, board perpendicular to camera: the only angle a
+      // method can be judged from. Screen right is the nose.
+      const span = 2.2;
+      const camera = new THREE.OrthographicCamera(-span * (W / H), span * (W / H), span, -span, 0.1, 100);
+      if (view === 'top') {
+        camera.position.set(0, 6, 0);
+        camera.up.set(1, 0, 0);
+      } else {
+        camera.position.set(-6, rig.root.position.y, 0);
+      }
+      camera.lookAt(view === 'top' ? new THREE.Vector3(0, 0, 0) : new THREE.Vector3(0, rig.root.position.y, 0));
+      renderer.render(scene, camera);
+
+      const g = window.__geom;
+      const overrides = [...q.entries()]
+        .filter(([key]) => key in drivers)
+        .map(([key, value]) => `${key}=${value}`)
+        .join(' ');
+      document.getElementById('label').textContent =
+        `${poseName} ${overrides}\n` +
+        `${view === 'top' ? 'TOP down' : 'SIDE, orthographic, toe side — right = nose'}\n` +
+        `board ${g.elevation}deg above horizontal (want 40-55), base roll ${g.baseRoll}deg\n` +
+        `torso ${g.torsoLean}deg from vertical (want 40-50), board-vs-torso ${g.boardVsTorso}deg (want 70-90)\n` +
+        `outline ${g.width} wide x ${g.height} tall, aspect ${g.aspect} (want 1.0-1.3)\n` +
+        `reach front ${g.reachFront} back ${g.reachBack}  knees ${g.kneeFront}/${g.kneeBack}deg  ` +
+        `COM x ${g.comX} y ${g.comY}`;
+      window.__ready = true;
+    </script>
+  </body>
+</html>

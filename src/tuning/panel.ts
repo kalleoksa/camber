@@ -5,11 +5,11 @@ import type { Params, ParamGroup } from '../sim/params.ts';
 
 /** Slider ranges for the driver vector, so posing by hand is actually workable. */
 const DRIVER_RANGE: Record<keyof RigDrivers, { min: number; max: number }> = {
-  hipX: { min: -0.35, max: 0.35 },
-  hipY: { min: -0.8, max: 0.2 },
-  hipZ: { min: -0.45, max: 0.45 },
+  hipX: { min: -0.4, max: 0.4 },
+  hipY: { min: -0.75, max: 0.25 },
+  hipZ: { min: -0.5, max: 0.5 },
   hipYaw: { min: -1.2, max: 1.2 },
-  hipPitch: { min: -0.8, max: 0.8 },
+  pelvisPitch: { min: -0.6, max: 1.2 }, // positive leans the pelvis back; drives board pitch
   hipRoll: { min: -0.8, max: 0.8 },
   spineBend: { min: -1.6, max: 1.6 },
   spineSide: { min: -0.9, max: 0.9 },
@@ -20,22 +20,33 @@ const DRIVER_RANGE: Record<keyof RigDrivers, { min: number; max: number }> = {
   backHandT: { min: 0, max: 1 },
   frontGrip: { min: 0, max: 1 },
   backGrip: { min: 0, max: 1 },
-  tweak: { min: 0, max: 1 },
+  boardPitch: { min: -1.2, max: 1.2 }, // nose up; also what makes one leg straighter than the other
+  tweakRoll: { min: -1, max: 1 },
   headYaw: { min: -1.4, max: 1.4 },
   headPitch: { min: -0.8, max: 0.8 },
-  kneeSplay: { min: -1.2, max: 1.4 },
+  kneeSplay: { min: -1.2, max: 3.1 }, // past pi/2 the knees break back — a method needs it
   stanceScale: { min: 0.7, max: 1.4 },
-  boardLift: { min: 0, max: 0.7 },
+  frontShoulderSwing: { min: -0.6, max: 3.1 }, // 0 at the side, pi/2 out toward the toes, pi overhead
+  frontShoulderOut: { min: -1.0, max: 1.4 },
+  frontElbow: { min: 0, max: 2.6 },
+  frontElbowPole: { min: -3.1, max: 3.1 },
+  backShoulderSwing: { min: -0.6, max: 3.1 },
+  backShoulderOut: { min: -1.0, max: 1.4 },
+  backElbow: { min: 0, max: 2.6 },
+  backElbowPole: { min: -3.1, max: 3.1 },
 };
 
 export type Readout = {
   mode: string;
   session: string;
+  pad: string;
+  padRaw: string;
   speed: number;
   tick: number;
   clearance: number;
   air: number;
   reach: string;
+  knees: string;
   spin: number;
   rotated: number;
   landing: string;
@@ -45,6 +56,7 @@ export type Readout = {
 export type PanelHandlers = {
   onPoseMode(on: boolean): void;
   onAnchor(name: string): void;
+  onStepAnchor(delta: number): void;
   onSavePose(): void;
   onLoadPose(json: string): void;
   onReset(): void;
@@ -85,22 +97,29 @@ function stepFor(value: number): number {
   return Math.max(10 ** (Math.floor(Math.log10(Math.abs(value))) - 2), 1e-5);
 }
 
+/** Grab transition preview state, owned by the bootstrap and bound here. */
+export type PreviewState = { play: boolean; loop: boolean; phase: number };
+
 export function createPanel(
   params: Params,
   readout: Readout,
   drivers: RigDrivers,
+  preview: PreviewState,
   handlers: PanelHandlers,
 ): { refresh(): void } {
   const pane = new Pane({ title: 'camber' });
 
   const status = pane.addFolder({ title: 'status' });
   status.addBinding(readout, 'session', { readonly: true });
+  status.addBinding(readout, 'pad', { readonly: true });
+  status.addBinding(readout, 'padRaw', { readonly: true, label: 'pad raw' });
   status.addBinding(readout, 'mode', { readonly: true });
   status.addBinding(readout, 'speed', { readonly: true, format: (v: number) => v.toFixed(2) });
   status.addBinding(readout, 'tick', { readonly: true, format: (v: number) => v.toFixed(0) });
   status.addBinding(readout, 'clearance', { readonly: true, format: (v: number) => v.toFixed(2) });
   status.addBinding(readout, 'air', { readonly: true, format: (v: number) => v.toFixed(2) });
   status.addBinding(readout, 'reach', { readonly: true });
+  status.addBinding(readout, 'knees', { readonly: true });
   status.addBinding(readout, 'spin', { readonly: true, format: (v: number) => v.toFixed(2) });
   status.addBinding(readout, 'rotated', { readonly: true, format: (v: number) => `${v.toFixed(0)}°` });
   status.addBinding(readout, 'landing', { readonly: true });
@@ -127,8 +146,20 @@ export function createPanel(
       options: Object.fromEntries(ANCHOR_NAMES.map((n) => [n, n])),
     })
     .on('change', (ev) => handlers.onAnchor(String(ev.value)));
+  // Stepping is the real workflow, and the dropdown only fires on *change* — re-picking the
+  // anchor you are already on will not reload it. Also bound to [ and ] below.
+  pose.addButton({ title: 'prev anchor  [' }).on('click', () => handlers.onStepAnchor(-1));
+  pose.addButton({ title: 'next anchor  ]' }).on('click', () => handlers.onStepAnchor(1));
   pose.addButton({ title: 'save pose' }).on('click', handlers.onSavePose);
   pose.addButton({ title: 'load pose' }).on('click', () => pickFile(handlers.onLoadPose));
+
+  // Transition preview. A pose arrived at reads differently from one held still, so the
+  // pose being edited can be played crouch -> grab -> crouch on the `grab` timing params.
+  // `phase` doubles as a scrub: with play off, drag it to hold any point of the transition.
+  const play = pose.addFolder({ title: 'transition', expanded: true });
+  play.addBinding(preview, 'play', { label: 'play' });
+  play.addBinding(preview, 'loop');
+  play.addBinding(preview, 'phase', { min: 0, max: 1, step: 0.005, label: 'phase / scrub' });
 
   const driverFolder = pose.addFolder({ title: 'drivers', expanded: true });
   for (const key of Object.keys(drivers) as (keyof RigDrivers)[]) {

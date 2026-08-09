@@ -42,7 +42,10 @@ export function stepAirborne(
   // `air.authority` is how fast the board answers a stick change, so takeoff still sets
   // where you start and a short air can't fully retarget. Centred stick coasts — that is
   // how you hold a rotation you already have.
-  if (input.lx !== 0) {
+  // Disarmed means the thumb is still where the carve left it at takeoff. Coming back
+  // through centre arms it; from then on the law above applies unchanged.
+  if (!state.spinArmed && Math.abs(input.lx) < params.air.spinArmBand) state.spinArmed = true;
+  if (state.spinArmed && input.lx !== 0) {
     const target = -input.lx * params.air.spinTakeoff;
     state.spinRate += (target - state.spinRate) * (1 - Math.exp(-params.air.authority * dt));
   }

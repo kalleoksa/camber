@@ -26,7 +26,7 @@ export const params = {
     edgeResponse: 9.0, // 1/s, stick-to-edge-angle rate
   },
   pop: {
-    chargeTime: 0.35, // s to full compress
+    chargeTime: 0.25, // s to full compress
     decay: 0.4, // 1/s bleed after full
     base: 2.0, // m/s uncharged
     charged: 5.0, // m/s added at full charge
@@ -40,7 +40,15 @@ export const params = {
     extendMultiplier: 0.85, // spin rate while stretched
     spinMax: 9.0, // rad/s cap
     axisTiltMax: 1.1, // rad, max cork axis lerp
-    spinTakeoff: 7.0, // rad/s at full stick on takeoff
+    spinTakeoff: 7.0, // rad/s at full whip on takeoff
+    /**
+     * 0..1, how much of a held carve is discounted from the takeoff stick read. At 0 the
+     * stick position sets spin, which means a hard carve *is* a request for a 360 whether
+     * or not you wanted one. At 1 only a whip beyond the carve counts.
+     */
+    spinCarveReject: 1.0,
+    spinRefRate: 5.0, // 1/s the carve baseline follows the stick — lower widens the whip window
+    spinArmBand: 0.25, // |stick| below this arms in-air spin control after takeoff
   },
   land: {
     clean: 0.44, // rad ≈ 25°
@@ -76,18 +84,69 @@ export const params = {
     grip: 0.3, // multiplier on gripEdge
     yawAuthority: 3.2, // rad/s
   },
+  /**
+   * Grab timing. `reach` and `release` are the real feel numbers — the rate the rider blends
+   * toward an anchor and back — and gameplay will use them unchanged once grabs are wired.
+   * `hold` only exists for the pose-mode preview, where nothing is holding a button.
+   */
+  grab: {
+    reachTime: 0.18, // s, crouch to full grab
+    holdTime: 0.4, // s at full grab — preview envelope only, gameplay holds while held
+    releaseTime: 0.14, // s, grab back to crouch. Quicker than the reach: you snap back to land
+    /**
+     * 0..1 of the body blend completed before the hand starts closing on the board. Without
+     * it every grab passes through an unreachable pose mid-transition, because crouch is a
+     * shallower crouch than any grab and the halfway body is further from the board than
+     * either end. Raise it if an arm still snaps on the way in.
+     *
+     * 0.75 is measured, not guessed: it is the lowest value at which all eight grabs stay
+     * under reach 1.0 across the whole path. At 0.65 melon still peaks at 1.01, and at 0 every
+     * single grab is invalid somewhere in the middle.
+     */
+    gripDelay: 0.75,
+    /**
+     * Reach above this tints the arm amber in pose mode; above 1.0 it goes red.
+     *
+     * The red-only overlay was a cliff, and it turned out to *teach* posing at the limit: you
+     * push a slider until the red just disappears and stop, which lands you on the boundary.
+     * Six of the eight authored grabs came back between 0.97 and 1.00, one at 0.9994. That is
+     * the worst place to be — at full extension the elbow is confined to a few centimetres and
+     * the arm cannot route around anything. Amber marks "valid but no margin left".
+     *
+     * 0.90 lights every current anchor amber, and that is the honest answer rather than a
+     * broken threshold: the eight run 0.934 to 0.999, so the whole set really is at full
+     * extension. Do not raise this to make the indicator look discriminating — that is fitting
+     * the instrument to the data. Real elbow freedom wants 0.85 or below (17 cm of pole radius
+     * against 12 cm at 0.93), so if the amber ever goes away it means the poses improved.
+     */
+    reachWarn: 0.9,
+  },
   rig: {
     thigh: 0.44, // m
     shin: 0.44, // m
     upperArm: 0.33, // m
-    forearm: 0.33, // m, to the grip rather than the wrist
+    forearm: 0.33, // m, to the grip rather than the wrist — 0.66 total, adult shoulder-to-grip
     hipWidth: 0.18, // m between leg roots
     shoulderWidth: 0.36, // m between arm roots, along the board
     stanceWidth: 0.52, // m between bindings
     hipHeight: 0.86, // m above the deck, uncompressed
     spine: 0.52, // m hips to shoulders
     neck: 0.16, // m shoulders to head
-    hipStiffness: 90.0, // ω for the hip spring
+    crouchDepth: 0.28, // m the hips drop at full compress
+    /**
+     * rad of board-vs-clean-frame at full tweak. A method wants 70–100°; at the old 1.15
+     * (66°) the board could not physically reach the angle that makes one, so tweak looked
+     * like a weak lean however far you pushed it. Anatomy still clamps below this.
+     */
+    tweakMax: 1.75,
+    /**
+     * rad of roll about the board's own long axis at full `tweakRoll` — the base turning to
+     * face away from the rider. Deliberately much smaller than `tweakMax`: the roll is part
+     * of the look but a method is predominantly a pitch, and one scalar driving both meant
+     * retuning either moved the other.
+     */
+    tweakRollMax: 0.6,
+    hipStiffness: 250.0, // ω² for the hip spring — ω = sqrt of this, so 250 is ~15.8 rad/s
     hipDamping: 1.0, // ζ — 1.0 is critically damped
   },
   spray: {
@@ -101,7 +160,12 @@ export const params = {
     gravity: 6.0, // m/s²
   },
   audio: {
-    master: 0.55,
+    /**
+     * Muted for now — not wanted at this stage. Every layer and the landing thump run through
+     * this one gain, so 0 silences the lot, and the slider brings it back live without a
+     * reload. Was 0.55.
+     */
+    master: 0,
     edgeGain: 0.5, // edge bite at full scrub
     edgeFilterBase: 380, // Hz at a standstill
     edgeFilterGain: 95, // Hz per m/s
@@ -144,4 +208,19 @@ export function applyParams(target: Params, src: Params): void {
       if (typeof value === 'number') dstGroup[key] = value;
     }
   }
+}
+
+/** The values as authored, captured at load before any tuning session mutates `params`. */
+const DEFAULTS = cloneParams(params);
+
+/**
+ * Params for replaying a serialized take or preset. What it recorded wins; groups that did
+ * not exist when it was recorded fall back to the authored defaults — the v1 takes predate
+ * `params.rig` entirely. The fallback is the defaults and never the live values, so a take
+ * stays immune to the tuning session it is being replayed inside of.
+ */
+export function withDefaults(src: Params): Params {
+  const merged = cloneParams(DEFAULTS);
+  applyParams(merged, src);
+  return merged;
 }

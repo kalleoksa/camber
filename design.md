@@ -133,7 +133,18 @@ welded together.
 - Spin axis in board-local space, lerped by left stick Y at takeoff:
   stick centred → board up (flat spin); stick pushed → tilted toward board forward/right
   (cork, rodeo, misty come out of the same axis lerp — do not special-case them).
-- `angularVelocity` set from stick X magnitude at takeoff.
+- `angularVelocity` set at takeoff from **how far stick X has been whipped past the carve
+  already being held**, not from its absolute position. Left stick X is the edge stick
+  grounded and the spin stick airborne, and the pop is the seam between the two — read the
+  position raw and a hard carve *is* a request for a 360 whether the rider wanted one or
+  not, which is exactly what it did. `state.spinRef` follows the stick at
+  `air.spinRefRate` and takeoff measures against that, so a steady thumb pops straight and
+  a deliberate whip spins. `air.spinCarveReject` at 0 restores the raw-position read.
+  Two consequences worth knowing, both symmetric and both intended: how long you hold the
+  whip before releasing RT meters the rotation down (full whip → 360 released immediately,
+  ~180 after 150 ms, ~0 after 500 ms), and relaxing the stick to centre out of a hard carve
+  and popping *immediately* is itself a full whip, so it spins you the other way. Settle
+  for `spinRefRate`'s time constant first if you want the straight air.
 - In flight, **stick position means the same thing it did at takeoff: spin speed.** It
   pulls the rate toward `stickX * air.spinTakeoff` at `air.authority` per second, so a
   short air cannot fully retarget and takeoff still decides where you start. A centred
@@ -143,7 +154,12 @@ welded together.
   whatever the stick happened to be at on release, and since full stick saturated near
   360° that was the only repeatable trick — a 180 needed the stick inside a ~6% band you
   cannot see. One consistent scale plus a real response rate makes the whole range
-  reachable: half stick is a 180, full stick is a 360, and mid-air stick moves it.
+  reachable: half whip is a 180, full whip is a 360, and mid-air stick moves it.
+  In-air spin control is **disarmed until the stick comes back inside `air.spinArmBand`**.
+  Leaving the ground mid-carve the thumb is still buried where the carve put it, and
+  without the latch the air controller spends the whole air dragging the rate up to the
+  carve's value — measured at 146° of unrequested rotation off an otherwise straight pop,
+  enough to undo the takeoff fix on its own. Once armed, the law above applies unchanged.
 - Grab held → `air.tuckMultiplier` (~1.25) faster spin. Extended → slower. This is real
   and it's the main mid-air expression tool.
 
@@ -207,7 +223,17 @@ Almost the entire vocabulary is *where the hips sit relative to the board*:
 ### 7.2 The driver vector
 
 The whole rider is about twenty numbers. Small enough to bind every one to Tweakpane,
-which is the point — see §7.8.
+which is the point — see §7.8. It is twenty-three now: 21–23 below were each added
+because a pose the rig was supposed to reach turned out to be unreachable without them.
+Every one was found the same way: by measuring a pose against `grabs.md` and finding no
+value of the existing drivers that satisfied it.
+
+`boardBack` is the one worth learning from. Its absence looked like a *proportions* problem
+— the arm measured 4% too short to make a method at anatomically correct knee flexion, and
+lengthening it did fix the numbers. But the real cause was that the board could not go
+behind the rider, so the torso had to lean over to reach it. Once `boardBack` existed the
+arm went back to 0.66 m and the pose came out inside every band. A missing degree of
+freedom impersonates a wrong constant.
 
 | # | Driver | Space / range |
 |---|---|---|
@@ -219,8 +245,29 @@ which is the point — see §7.8.
 | 14–15 | Hand attachment, per hand | 0 = rest pose, 1 = locked to board |
 | 16 | Tweak depth | 0..1 |
 | 17–18 | Head look-at: yaw, pitch | rad, world-relative |
-| 19 | Knee pole splay | rad |
+| 19 | Knee pole splay | rad, swept from the toe side. **Past π/2 the knees break backward** — a method needs that, and the slider used to stop at 1.4 so it was unreachable |
 | 20 | Stance width scale | multiplier on binding separation |
+| 21 | Board lift | m the board rises toward the rider along its own normal — the leg tuck. Without it a grab is only reachable by folding the torso double |
+| 22 | Board back | m the board travels toward the heel side, **behind the rider's back**. Lift alone could only raise it, so the only way onto the heel edge was to lean the torso 57° over to meet it — which is a fold, not a method. It is also the melon/method discriminator: board under the rider versus behind them |
+| 23 | Free arm raise | 0 at the side, 1 at ~155° shoulder flexion. A method's trailing arm is a counterweight thrown skyward and the rest pose pinned it down |
+
+**Head pitch is about board Z, not board X.** The rider faces −X, so X is their *facing*
+axis and a rotation about it rolls the head ear-to-shoulder. Neck extension — looking up
+and back — needs Z. `hipPitch` and `hipRoll` still have this backwards: `hipPitch` rotates
+about X, which for the rider is a roll, and `hipRoll` about Z, which is a pitch. They are
+named in the board's frame and authored in the rider's, and the two disagree.
+
+**Known unreachable, from `grabs.md`:**
+
+- **`armRouting`** — `outside` | `betweenLegs` | `crossed`. The same `(hand, edge, t)` on a
+  different arm path is a different trick: roast beef and stalefish grab nearly the same
+  spot. The elbow pole is currently a fixed toe-side vector, so every routing is `outside`,
+  and a melon's arm will happily pass *in front* of the front leg, which is anatomically
+  impossible at that `t`.
+- **`boneMap`** — which leg extends, `front` | `back` | `both` | `neither`. "Boned" means
+  extended, and per `grabs.md` this is where most of the perceived style lives. `kneeSplay`
+  is one driver shared by both legs, so a boned indy — front leg pushed straight while the
+  back stays tucked — cannot be posed at all.
 
 **Sim owns**, because it feeds the landing test or the physics: `spinFrame`,
 `tweakOffset`, the active grab (`edge`, `t`, which hand, attached), `compress`, `stance`,
@@ -233,7 +280,29 @@ render side of invariant 5.
 This supersedes the 8-way diagram that used to be in §2.
 
 Two splines run along the board, one per edge, parameterised `t` from tail (0) to nose
-(1). A grab is `(edge, t, whichHand)`. The right stick maps continuously into that
+(1). A grab is `(edge, t, whichHand)` — **incomplete**, see `grabs.md` §1: it needs
+`armRouting` as a fourth parameter, and `boneMap` on the tweak side.
+
+**The strongest argument for this whole architecture:** a method and a melon are the *same
+grab*. Front hand, heel edge, `t` ≈ 0.5, identical coordinate. Everything that separates
+them happens after the hand lands — spine extension, board behind rather than under. That
+is why the grab spline and the driver vector have to be separate systems, and why trick
+names must never appear in the input layer.
+
+**The arm is a tension member, never an actuator.** Once anchored, the hand does not lift
+the board; the legs push the board away against the anchored hand. Board orientation is
+the *effect*, knee and hip action the *cause*. Implemented the other way round the poses
+come out geometrically correct and read as dead.
+
+**The centre of mass stays on its parabola.** If tucking the legs swings the board back,
+the hips move forward by the mass-weighted equivalent. This single constraint generates
+most of what reads as authentic, including the arch in a method, which is largely
+counter-rotation of 15–25° against the board rather than decoration. A pose that moves the
+COM is wrong even when the silhouette looks right.
+
+Note that `grabs.md`'s data block uses the **opposite sign convention for `spineBend`** —
+there `+` is extension (arch), in the rig `+` folds the chest toward the toes. Its method
+value of `+0.92` is this rig's `−0.92`. The right stick maps continuously into that
 space: stick X → edge, stick Y → `t`.
 
 | Grab | Hand | Edge | `t` |
@@ -464,7 +533,7 @@ export const params = {
     edgeResponse: 9.0,      // 1/s, stick-to-edge-angle rate
   },
   pop: {
-    chargeTime: 0.35,       // s to full compress
+    chargeTime: 0.25,       // s to full compress
     decay: 0.4,             // 1/s bleed after full
     base: 2.0,              // m/s uncharged
     charged: 5.0,           // m/s added at full charge
