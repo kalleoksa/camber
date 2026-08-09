@@ -65,6 +65,17 @@ said 0.96. That 0.96 was the free hand.
 Any per-side diagnostic needs both sides exported *and* both sides tested, or half the set
 is unchecked and looks fine.
 
+**Two more ways the same mistake showed up**, both after this was supposedly learned:
+
+- *Sampling where nothing is under test.* Once `gripDelay` held the grip shut until the body
+  was 75% there, a coarse sweep of the transition mostly landed where grip was still 0 — no
+  grab constraint, reach reports 0.00, passes for free. Eight clean rows measuring nothing.
+- *Losing it to the formatter.* The same sweep printed two decimals, so `mute` peaking at
+  **1.0020** mid-transition displayed as a passing `1.00`. Four decimals found it.
+
+A check that cannot fail is not a check. When one passes first time, make it fail on purpose
+before believing it — reintroducing the defect is the only proof the test is wired up.
+
 ## 4. A number in a panel is not visible
 
 The reach numbers for both hands, with a `SHORT` flag, were printed in the tuning panel the
@@ -156,16 +167,27 @@ A single-variable sweep is a good instrument aimed at the wrong question. Ask wh
 
 ## 11. Acceptance criteria drift out of sync with the spec
 
-`npm run gate` currently fails, and most of the failures are the gate being wrong:
+`npm run gate` was failing, and most of the failures were the gate being wrong:
 
-- it asserts knees diverge by ≤10°, while the authored method runs **113/55** — asymmetric
-  legs were an explicit later requirement, so the test now forbids what was asked for.
-- it sweeps synthetic depth overrides onto `method`, which made sense when method was a
+- it asserted knees diverge by ≤10°, while the authored method runs **113/55** — asymmetric
+  legs were an explicit later requirement, so the test forbade what had been asked for.
+- it swept synthetic depth overrides onto `method`, which made sense when method was a
   reconstruction and measures a pose nobody authored now that it is a real anchor.
 
 Criteria written before the thing exists describe what you *expected*, and need re-cutting
 once real poses land — but re-cutting them is an owner decision, not a tidy-up. Leaving it
 red and saying why is better than quietly relaxing it until it passes.
+
+**Now re-cut.** Both of those assertions are gone rather than relaxed, and what replaced them
+is the set of sweeps that had actually been catching defects while living in a scratch
+directory outside the repo: endpoint reach per *grabbing* hand, and reach across the whole
+transition, sampled densely through the grip-commit window at four decimals. Verified by
+reintroducing the defect — `gripDelay` at 0 fails all eight and exits 1.
+
+Aspect is printed but deliberately **not** asserted. `japan` at 0.59 and `method` at 0.83 are
+under the 1.0–1.3 band, the cause is known (§12), but that band was written before any pose
+existed and nobody has confirmed it. Hard-failing on an unconfirmed criterion just teaches
+everyone to ignore the gate.
 
 ## 12. `boardVsTorso` is about the *sign* of the lean, not the board angle
 
@@ -189,27 +211,33 @@ found.
 
 ## Where the ten anchors stand
 
-Measured at `6745e79`. Reach is the grabbing hand only; all ten are now physically
-reachable, which took until `cffcaf9`.
+Measured at `47968bb` by `npm run gate`. Reach is the *grabbing* hand. "path" is the worst
+reach anywhere in the crouch → grab transition, which is always slightly above the held
+pose — endpoint validity alone was never sufficient.
 
-| anchor | grab | reach | aspect | board | vsTorso | knees f/b |
-|---|---|---|---|---|---|---|
-| neutral | — | — | 0.94 | 0 | 90 | 54/54 |
-| crouch | — | — | 1.21 | 0 | 90 | 118/118 |
-| indy | back, toe, t 0.38 | 0.98 | 1.34 | −9 | 111 | 116/151 |
-| mute | front, toe, t 0.54 | 1.00 | 1.25 | 13 | 71 | 138/146 |
-| melon | front, heel, t 0.50 | 0.96 | 1.17 | 18 | 72 | 134/155 |
-| method | front, heel, t 0.83 | 0.99 | **0.83** | 32 | 24 | 113/55 |
-| stalefish | back, heel, t 0.39 | 0.98 | 1.19 | −10 | 119 | 124/154 |
-| japan | front, toe, t 0.55 | 0.94 | **0.59** | 52 | 14 | 140/114 |
-| nosegrab | front, nose tip | 0.98 | 0.96 | 21 | 58 | 153/120 |
-| tailgrab | back, tail tip | 0.93 | 1.21 | −10 | 126 | 131/151 |
+| anchor | grab | reach | path | aspect | knees f/b |
+|---|---|---|---|---|---|
+| neutral | — | — | — | 0.93 | 54/54 |
+| crouch | — | — | — | 1.17 | 113/113 |
+| indy | back, toe, t 0.38 | 0.9755 | 0.9858 | 1.34 | 116/151 |
+| mute | front, toe, t 0.54 | 0.9865 | 0.9899 | 1.20 | 143/148 |
+| melon | front, heel, t 0.55 | 0.9701 | 0.9727 | 1.15 | 133/152 |
+| method | front, heel, t 0.83 | 0.9873 | 0.9895 | **0.83** | 113/55 |
+| stalefish | back, heel, t 0.39 | 0.9762 | 0.9789 | 1.19 | 124/154 |
+| japan | front, toe, t 0.55 | 0.9388 | 0.9711 | **0.59** | 140/114 |
+| nosegrab | front, nose tip | 0.9812 | 0.9820 | 0.96 | 153/120 |
+| tailgrab | back, tail tip | 0.9339 | 0.9644 | 1.21 | 131/151 |
+
+All eight grabs are valid held *and* throughout their transition. Every one is in the amber
+band (§1) — the set sits at full extension, so none of them has arm-routing room to spare.
 
 Open, in rough priority order:
 
 1. `japan` and `method` silhouettes — see §12.
-2. Re-cut the gate against criteria that match the real poses — see §11.
-3. `mute` sits at exactly 1.00. No margin at all, and by §1 that means no arm route.
+2. ~~Re-cut the gate~~ — done, see §11. It now checks endpoint and whole-path reach and
+   passes; aspect is printed but not asserted.
+3. Nothing has arm-routing margin. The eight run 0.934–0.987 reach, all amber. It only bites
+   when a pose needs its arm routed round a leg, which so far is `japan` alone.
 4. COM drift across a tweak sweep is ~9 cm against a 5 cm limit. Needs hips solved *from*
    board displacement rather than independently.
 5. Grabs are not wired to the pad. `scene.ts` has no grab references, nothing reads
