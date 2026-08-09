@@ -189,25 +189,45 @@ under the 1.0–1.3 band, the cause is known (§12), but that band was written b
 existed and nobody has confirmed it. Hard-failing on an unconfirmed criterion just teaches
 everyone to ignore the gate.
 
-## 12. `boardVsTorso` is about the *sign* of the lean, not the board angle
+## 12. The three silhouette bands are mutually unsatisfiable — no pose in the set meets all
 
-The current open problem, recorded so the next pass does not start from scratch.
+This section previously said the fix for `japan` and `method` reading folded was to flip the
+torso lean with `spineSide`, `hipRoll` or `pelvisPitch`, and *not* `boardPitch`. **Both halves
+of that were wrong**, and sweeping it settled the matter.
 
-`japan` and `method` both read as folded — aspect 0.59 and 0.83 against a 1.0–1.3 want. The
-instinct is that the board is over-pitched, but japan's board elevation is 52°, squarely
-inside the 40–55 band, and the best it has ever measured.
+**`boardPitch` is free and it is the aspect lever.** Reach does not move at all across its
+whole range — 0.939 for japan and 0.987 for method at every value — because the board pivots
+on the grab point, so the hand's target never moves. And it drives aspect hard:
 
-The actual issue: torso is 24° off vertical, board is 38° off vertical, **the same way**, so
-they are only 14° apart and the rider is stacked along the board. The three bands are only
-mutually satisfiable if the torso leans *opposite* to the board — 35–50° of board plus
-40–50° of torso on the other side sums to the 75–90° the spec asks for. Right now they
-cancel instead of adding.
+| japan `boardPitch` | board | boardVsTorso | aspect | reach |
+|---|---|---|---|---|
+| 0.00 | 0° | 66 | **1.28** | 0.939 |
+| 0.30 | 17° | 49 | 1.07 | 0.939 |
+| 0.60 | 34° | 32 | 0.83 | 0.939 |
+| 0.91 (authored) | 52° | 14 | 0.59 | 0.939 |
 
-So the lever is whichever of `spineSide`, `hipRoll` or `pelvisPitch` tips the torso back the
-other way, not `boardPitch`. Expect aspect and `boardVsTorso` to move together when it is
-found.
+**The torso drivers are the expensive ones.** They move `boardVsTorso` but drag the shoulder
+away from the grab point. No single-driver setting reaches the 70–90 band with a valid hand;
+every one that gets there is unreachable (japan `hipRoll −0.4` → vsTorso 75 at reach 1.373).
+A deep enough crouch buys some back — japan at `hipRoll −0.4, hipY −1.05` lands vsTorso 75,
+reach 0.932 — but that is a 43 cm hip drop below the authored pose, and aspect is still 0.89.
 
----
+**The bands cannot all hold at once.** Aspect ≥ 1.0 needs board elevation ≤ ~20°; the board
+band asks for 40–55°. Those are disjoint. Check it against the anchors:
+
+- `melon` — board 18°, vsTorso 72, aspect 1.15. Satisfies aspect *and* vsTorso, fails board.
+- `japan` — board 52°. Satisfies board, fails the other two.
+- Nothing satisfies all three, and the sweeps say nothing can.
+
+So this stopped being a pose problem and became a criteria problem, which is §11's lesson
+arriving a second time. The bands came from the method spec, written before any pose existed.
+One of them has to give, and which one is a judgement about what a japan should look like:
+
+- keep the board attitude (40–55°) and accept a stacked silhouette, or
+- keep the open silhouette (aspect 1.0–1.3) and accept a flatter board.
+
+Not a call to make from measurements. Recorded here so the next pass starts from the trade
+rather than from my two wrong diagnoses.
 
 ## Where the ten anchors stand
 
@@ -233,7 +253,8 @@ band (§1) — the set sits at full extension, so none of them has arm-routing r
 
 Open, in rough priority order:
 
-1. `japan` and `method` silhouettes — see §12.
+1. `japan` and `method` silhouettes — **needs an owner decision, not more measurement.** The
+   board-elevation band and the aspect band are disjoint; see §12 for the trade.
 2. ~~Re-cut the gate~~ — done, see §11. It now checks endpoint and whole-path reach and
    passes; aspect is printed but not asserted.
 3. Nothing has arm-routing margin. The eight run 0.934–0.987 reach, all amber. It only bites
