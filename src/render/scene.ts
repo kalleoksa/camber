@@ -6,18 +6,18 @@ import type { SlopeConfig, Terrain } from '../sim/terrain.ts';
 import { createContact } from '../sim/terrain.ts';
 import { length, vec3, type Vec3 } from '../sim/vec3.ts';
 import { createRig, neutralDrivers, type RigDrivers } from './rig.ts';
+import type { Secondary } from './secondary.ts';
 
 /** Board tip angle at full edge. */
 const MAX_EDGE_ROLL = 0.55;
-/** Extra hip drop, m per m/s of landing impact. */
-const ABSORB_PER_IMPACT = 0.022;
 const TUMBLE_RATE = 8.0; // rad/s at full slide speed
 /**
- * The render springs are explicit-Euler and go unstable past ω·dt ≈ 2, so a long frame
- * has to be clamped rather than integrated: a hitch should make the hips lag, never
- * launch them. 1/30 s leaves headroom up to ω ≈ 60 (`rig.hipStiffness` ≈ 3600).
+ * The hip spring moved to `secondary.ts` and is stepped on the sim tick, which is what makes
+ * it replay-identical. The tumble angle stays here because it is cosmetic and unhashed — but
+ * it is still integrated, so it needs the real frame dt, clamped so a hitch makes the rider
+ * lag rather than spin.
  */
-const MAX_SPRING_DT = 1 / 30;
+const MAX_FRAME_DT = 1 / 30;
 
 export type RiderView = {
   position: Vec3;
@@ -106,7 +106,14 @@ export type SceneView = {
   shortfall: { front: number; back: number };
   /** Hip-to-foot distance per leg. The knee angle it implies is what boardPitch tunes. */
   legSpan: { front: number; back: number };
-  updateRider(view: RiderView, params: Params, poseMode: boolean, dt: number): void;
+  /** `secondary` carries the tick-stepped springs; `dt` is only for the unhashed tumble. */
+  updateRider(
+    view: RiderView,
+    params: Params,
+    poseMode: boolean,
+    secondary: Secondary,
+    dt: number,
+  ): void;
   /**
    * Strip the world back to the rider alone — no terrain, no markers, no fog, flat
    * background. Posing against a slope makes the board's attitude hard to read against a
@@ -210,7 +217,6 @@ export function createScene(cfg: SlopeConfig, terrain: Terrain, camera: THREE.Pe
   const rig = createRig();
   scene.add(rig.root);
   const drivers = neutralDrivers();
-  let hipVel = 0;
 
   const roll = new THREE.Quaternion();
   const tumble = new THREE.Quaternion();
@@ -227,12 +233,12 @@ export function createScene(cfg: SlopeConfig, terrain: Terrain, camera: THREE.Pe
     shortfall: rig.shortfall,
     legSpan: rig.legSpan,
 
-    updateRider(view, params, poseMode, dt) {
-      const springDt = Math.min(dt, MAX_SPRING_DT);
+    updateRider(view, params, poseMode, secondary, dt) {
+      const frameDt = Math.min(dt, MAX_FRAME_DT);
       rig.root.position.set(view.position.x, view.position.y, view.position.z);
       // Tumble winds down with the slide rather than spinning at a fixed rate forever.
       tumbleAngle =
-        view.mode === 'bailed' ? tumbleAngle + Math.min(view.speed / 8, 1) * TUMBLE_RATE * springDt : 0;
+        view.mode === 'bailed' ? tumbleAngle + Math.min(view.speed / 8, 1) * TUMBLE_RATE * frameDt : 0;
 
       // The sim owns board orientation — grounded it is slaved to the terrain, airborne
       // it carries angular momentum. Render just reads it.
@@ -254,14 +260,11 @@ export function createScene(cfg: SlopeConfig, terrain: Terrain, camera: THREE.Pe
       // only the ones the sim already owns are mapped; grabs and tweak stay unwired until
       // the gate passes (§7.8, step 2 before step 3).
       if (!poseMode) {
-        // Crouch is a hip drop again, sprung. It works because the board is the fixed frame:
-        // drop the hips and the knees fold to keep the feet on the bindings.
-        const absorb = view.absorb > 0 ? view.impact * ABSORB_PER_IMPACT : 0;
-        const target = -view.compress * params.rig.crouchDepth - absorb;
-        const k = params.rig.hipStiffness;
-        const acc = k * (target - drivers.hipY) - 2 * params.rig.hipDamping * Math.sqrt(k) * hipVel;
-        hipVel += acc * springDt;
-        drivers.hipY += hipVel * springDt;
+        // Hip height is a spring, not an assignment (§7.6), but it is integrated on the sim
+        // tick in secondary.ts and merely sampled here — see the note there for why. It used
+        // to be integrated on this line against the render dt, which is frame cadence and so
+        // is not the same on a replay as on the take it replays.
+        drivers.hipY = secondary.hipY;
         drivers.hipX = view.edge * 0.1;
         drivers.hipZ = view.stance * 0.14;
         drivers.spineSide = view.stance * 0.3;

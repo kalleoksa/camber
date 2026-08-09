@@ -209,3 +209,18 @@ export function applyParams(target: Params, src: Params): void {
     }
   }
 }
+
+/** The values as authored, captured at load before any tuning session mutates `params`. */
+const DEFAULTS = cloneParams(params);
+
+/**
+ * Params for replaying a serialized take or preset. What it recorded wins; groups that did
+ * not exist when it was recorded fall back to the authored defaults — the v1 takes predate
+ * `params.rig` entirely. The fallback is the defaults and never the live values, so a take
+ * stays immune to the tuning session it is being replayed inside of.
+ */
+export function withDefaults(src: Params): Params {
+  const merged = cloneParams(DEFAULTS);
+  applyParams(merged, src);
+  return merged;
+}
