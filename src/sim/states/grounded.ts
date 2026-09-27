@@ -148,7 +148,7 @@ export function stepGrounded(
     return;
   } else {
     state.charge = 0;
-    state.compress = dampScalar(state.compress, 0, params.ground.edgeResponse, dt);
+    state.compress = dampScalar(state.compress, 0, params.pop.compressResponse, dt);
   }
 
   addScaled(p, v, dt);

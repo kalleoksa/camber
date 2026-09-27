@@ -75,5 +75,8 @@ export function hashState(state: RiderState, into: Hasher = shared): string {
   into.push(state.scrub);
   into.push(state.clearance);
   into.push(state.airTime);
+  // Latches steer the next tick, so a mismatch here is a divergence even before it shows.
+  into.push(state.resetLatch ? 1 : 0);
+  into.push(state.popLatch ? 1 : 0);
   return into.digest();
 }

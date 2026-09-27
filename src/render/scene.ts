@@ -7,13 +7,12 @@ import { createContact } from '../sim/terrain.ts';
 import { length, vec3, type Vec3 } from '../sim/vec3.ts';
 import { createRig, neutralDrivers, type RigDrivers } from './rig.ts';
 
-/** Board tip angle at full edge. */
-const MAX_EDGE_ROLL = 0.55;
-const MAX_CROUCH = 0.28; // m of knee bend at full compress
-/** Extra hip drop per m/s of landing impact. A placeholder until the rig lands in M4. */
-const ABSORB_PER_IMPACT = 0.022;
-const TUMBLE_RATE = 8.0; // rad/s at full slide speed
-const TICK = 1 / 60; // s, nominal frame for the render-side springs
+/**
+ * Render springs step at a fixed rate whatever the display runs at, so a 144 Hz monitor
+ * doesn't make the rider stiffer than a 60 Hz one, and a stiff spring stays stable on a
+ * slow frame. Not tied to the sim tick — this is render-only memory.
+ */
+const SPRING_DT = 1 / 120;
 
 export type RiderView = {
   position: Vec3;
@@ -98,7 +97,7 @@ export type SceneView = {
   drivers: RigDrivers;
   /** Per-hand shoulder-to-hand distance over arm reach; above 1 the grab is out of reach. */
   strain: { front: number; back: number };
-  updateRider(view: RiderView, params: Params, poseMode: boolean): void;
+  updateRider(view: RiderView, params: Params, poseMode: boolean, dt: number): void;
   resize(): void;
 };
 
@@ -192,6 +191,7 @@ export function createScene(cfg: SlopeConfig, terrain: Terrain, camera: THREE.Pe
   scene.add(rig.root);
   const drivers = neutralDrivers();
   let hipVel = 0;
+  let springTime = 0;
 
   const roll = new THREE.Quaternion();
   const tumble = new THREE.Quaternion();
@@ -206,11 +206,14 @@ export function createScene(cfg: SlopeConfig, terrain: Terrain, camera: THREE.Pe
     drivers,
     strain: rig.strain,
 
-    updateRider(view, params, poseMode) {
+    updateRider(view, params, poseMode, dt) {
+      const r = params.rig;
       rig.root.position.set(view.position.x, view.position.y, view.position.z);
       // Tumble winds down with the slide rather than spinning at a fixed rate forever.
       tumbleAngle =
-        view.mode === 'bailed' ? tumbleAngle + Math.min(view.speed / 8, 1) * TUMBLE_RATE * 0.016 : 0;
+        view.mode === 'bailed'
+          ? tumbleAngle + Math.min(view.speed / params.bail.tumbleSpeedRef, 1) * params.bail.tumbleRate * dt
+          : 0;
 
       // The sim owns board orientation — grounded it is slaved to the terrain, airborne
       // it carries angular momentum. Render just reads it.
@@ -220,7 +223,7 @@ export function createScene(cfg: SlopeConfig, terrain: Terrain, camera: THREE.Pe
       // Edge roll is cosmetic and only means anything on snow.
       if (view.mode === 'grounded') {
         // Local +X is the heel side (design §1), so a toe edge tips −X down.
-        roll.setFromAxisAngle(zAxis, view.edge * MAX_EDGE_ROLL);
+        roll.setFromAxisAngle(zAxis, view.edge * r.edgeRoll);
         rig.root.quaternion.multiply(roll);
       }
       if (view.mode === 'bailed') {
@@ -232,17 +235,22 @@ export function createScene(cfg: SlopeConfig, terrain: Terrain, camera: THREE.Pe
       // only the ones the sim already owns are mapped; grabs and tweak stay unwired until
       // the gate passes (§7.8, step 2 before step 3).
       if (!poseMode) {
-        const absorb = view.absorb > 0 ? view.impact * ABSORB_PER_IMPACT : 0;
-        const target = -view.compress * MAX_CROUCH - absorb;
+        const absorb = view.absorb > 0 ? view.impact * r.absorbPerImpact : 0;
+        const target = -view.compress * r.crouchDepth - absorb;
         // One critically-damped spring rather than assigning hip height (§7.6).
-        const k = params.rig.hipStiffness;
-        const acc = k * (target - drivers.hipY) - 2 * params.rig.hipDamping * Math.sqrt(k) * hipVel;
-        hipVel += acc * TICK;
-        drivers.hipY += hipVel * TICK;
-        drivers.hipX = view.edge * 0.1;
-        drivers.hipZ = view.stance * 0.14;
-        drivers.spineSide = view.stance * 0.3;
-        drivers.spineBend = 0.18 + view.compress * 0.25;
+        // Semi-implicit: a = ω²(target − x) − 2ζωv.
+        const w = r.hipStiffness;
+        springTime += dt;
+        while (springTime >= SPRING_DT) {
+          springTime -= SPRING_DT;
+          const acc = w * w * (target - drivers.hipY) - 2 * r.hipDamping * w * hipVel;
+          hipVel += acc * SPRING_DT;
+          drivers.hipY += hipVel * SPRING_DT;
+        }
+        drivers.hipX = view.edge * r.edgeHipShift;
+        drivers.hipZ = view.stance * r.stanceHipShift;
+        drivers.spineSide = view.stance * r.stanceSpineSide;
+        drivers.spineBend = r.spineBendBase + view.compress * r.compressSpineBend;
       }
 
       rig.apply(drivers, params);

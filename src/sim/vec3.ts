@@ -76,14 +76,6 @@ export function clampLength(out: Vec3, max: number): Vec3 {
   return l > max && l > 0 ? scale(out, max / l) : out;
 }
 
-export function lerp(a: Vec3, b: Vec3, t: number): Vec3 {
-  return {
-    x: a.x + (b.x - a.x) * t,
-    y: a.y + (b.y - a.y) * t,
-    z: a.z + (b.z - a.z) * t,
-  };
-}
-
 /** Frame-rate independent exponential approach: moves `out` toward `target` at `rate` 1/s. */
 export function damp(out: Vec3, target: Vec3, rate: number, dt: number): Vec3 {
   const t = 1 - Math.exp(-rate * dt);

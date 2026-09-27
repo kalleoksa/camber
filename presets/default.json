@@ -19,7 +19,8 @@
     "brakeDecel": 9,
     "brakeGripLoss": 0.7,
     "normalSmoothing": 12,
-    "edgeResponse": 9
+    "edgeResponse": 9,
+    "stanceResponse": 9
   },
   "pop": {
     "chargeTime": 0.35,
@@ -27,7 +28,8 @@
     "base": 2,
     "charged": 5,
     "stanceBias": 0.3,
-    "trigger": 0.15
+    "trigger": 0.15,
+    "compressResponse": 9
   },
   "air": {
     "detachClearance": 0.12,
@@ -51,7 +53,8 @@
     "drag": 16,
     "recoverSpeed": 2.5,
     "minTime": 0.9,
-    "tumbleRate": 8
+    "tumbleRate": 8,
+    "tumbleSpeedRef": 8
   },
   "rail": {
     "captureRadius": 0.35,
@@ -84,8 +87,16 @@
     "hipHeight": 0.86,
     "spine": 0.52,
     "neck": 0.16,
-    "hipStiffness": 90,
-    "hipDamping": 1
+    "hipStiffness": 9.5,
+    "hipDamping": 1,
+    "edgeRoll": 0.55,
+    "crouchDepth": 0.28,
+    "absorbPerImpact": 0.022,
+    "edgeHipShift": 0.1,
+    "stanceHipShift": 0.14,
+    "stanceSpineSide": 0.3,
+    "spineBendBase": 0.18,
+    "compressSpineBend": 0.25
   },
   "spray": {
     "rate": 900,

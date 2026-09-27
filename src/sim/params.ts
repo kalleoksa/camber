@@ -24,6 +24,7 @@ export const params = {
     brakeGripLoss: 0.7, // grip lost at full LT — the scrub half of brake/scrub
     normalSmoothing: 12.0, // 1/s, board-to-terrain alignment rate
     edgeResponse: 9.0, // 1/s, stick-to-edge-angle rate
+    stanceResponse: 9.0, // 1/s, stick-to-stance rate — weight shifts, it isn't an edge
   },
   pop: {
     chargeTime: 0.35, // s to full compress
@@ -32,6 +33,7 @@ export const params = {
     charged: 5.0, // m/s added at full charge
     stanceBias: 0.3, // ollie/nollie pop multiplier range
     trigger: 0.15, // RT above this counts as held; dropping below it releases
+    compressResponse: 9.0, // 1/s, knees following RT in the air and unloading after a pop
   },
   air: {
     detachClearance: 0.12, // m
@@ -55,7 +57,8 @@ export const params = {
     drag: 16.0, // m/s² while tumbling
     recoverSpeed: 2.5, // m/s below which the rider gets back up
     minTime: 0.9, // s before recovery is allowed at all
-    tumbleRate: 8.0, // rad/s, visual tumble while down
+    tumbleRate: 8.0, // rad/s, visual tumble while down, at full slide speed
+    tumbleSpeedRef: 8.0, // m/s of slide at which the tumble reaches full rate
   },
   rail: {
     captureRadius: 0.35, // m
@@ -88,8 +91,16 @@ export const params = {
     hipHeight: 0.86, // m above the deck, uncompressed
     spine: 0.52, // m hips to shoulders
     neck: 0.16, // m shoulders to head
-    hipStiffness: 90.0, // ω for the hip spring
+    hipStiffness: 9.5, // ω, rad/s — was 90 used as ω², same spring
     hipDamping: 1.0, // ζ — 1.0 is critically damped
+    edgeRoll: 0.55, // rad of board tip at full edge, drawn only
+    crouchDepth: 0.28, // m of hip drop at full compress
+    absorbPerImpact: 0.022, // m of extra hip drop per m/s of landing impact
+    edgeHipShift: 0.1, // m of hip lean toward the edge at full edge
+    stanceHipShift: 0.14, // m of hip travel toward nose/tail at full press
+    stanceSpineSide: 0.3, // rad of spine lean into a press
+    spineBendBase: 0.18, // rad of forward fold standing
+    compressSpineBend: 0.25, // rad of extra fold at full compress
   },
   spray: {
     rate: 900, // particles/s at full scrub

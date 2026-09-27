@@ -28,7 +28,7 @@ export function tick(
   }
 
   state.edge = dampScalar(state.edge, input.lx, params.ground.edgeResponse, dt);
-  state.stance = dampScalar(state.stance, input.ly, params.ground.edgeResponse, dt);
+  state.stance = dampScalar(state.stance, input.ly, params.ground.stanceResponse, dt);
 
   switch (state.mode) {
     case 'grounded':

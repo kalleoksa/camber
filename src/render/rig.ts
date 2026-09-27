@@ -295,8 +295,8 @@ export function createRig(): Rig {
       pelvis.position.copy(hipCentre);
       pelvis.quaternion.copy(hipQuat);
 
-      hipL.set(0, 0, halfStance * 0.42).applyQuaternion(hipQuat).add(hipCentre);
-      hipR.set(0, 0, -halfStance * 0.42).applyQuaternion(hipQuat).add(hipCentre);
+      hipL.set(0, 0, r.hipWidth / 2).applyQuaternion(hipQuat).add(hipCentre);
+      hipR.set(0, 0, -r.hipWidth / 2).applyQuaternion(hipQuat).add(hipCentre);
 
       // 4. Spine, then head.
       spineQuat.copy(hipQuat);

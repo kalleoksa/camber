@@ -36,7 +36,7 @@ export function stepAirborne(
   const v = state.velocity;
 
   state.scrub = 0;
-  state.compress = dampScalar(state.compress, input.rt, params.ground.edgeResponse, dt);
+  state.compress = dampScalar(state.compress, input.rt, params.pop.compressResponse, dt);
 
   // Stick position means the same thing in the air as it did at takeoff: spin speed.
   // `air.authority` is how fast the board answers a stick change, so takeoff still sets

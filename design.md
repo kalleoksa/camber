@@ -538,7 +538,7 @@ export const params = {
     stanceWidth: 0.52,      // m between bindings
     hipHeight: 0.86,        // m above the deck, uncompressed
     kneeSplay: 0.5,         // rad, pole vector out from forward
-    hipStiffness: 90.0,     // ω, vertical and lateral hip spring
+    hipStiffness: 9.5,      // ω rad/s, vertical and lateral hip spring (90 was ω²)
     hipDamping: 1.0,        // ζ, 1.0 = critically damped
     spineStiffness: 55.0,   // ω
     spineDamping: 1.0,      // ζ
