@@ -144,6 +144,9 @@ welded together.
   360° that was the only repeatable trick — a 180 needed the stick inside a ~6% band you
   cannot see. One consistent scale plus a real response rate makes the whole range
   reachable: half stick is a 180, full stick is a 360, and mid-air stick moves it.
+- **Only a pop sets rotation.** Riding off a lip without popping carries the carve's
+  yaw rate onto a flat axis; the stick does not launch a spin nobody wound up. In-air
+  authority still applies from there.
 - Grab held → `air.tuckMultiplier` (~1.25) faster spin. Extended → slower. This is real
   and it's the main mid-air expression tool.
 
@@ -165,10 +168,15 @@ Then:
 | Condition | Result |
 |---|---|
 | `θ < land.clean` AND `φ < land.rollClean` | **Clean.** Heading pulled onto velocity. Full speed retained. |
-| `θ < land.sketchy` | **Sketchy.** Heading snapped, speed penalty, hard absorb, rider wobble, audio scrape. |
+| `θ < land.sketchy` AND `φ < land.rollSketchy` | **Sketchy.** Heading snapped, speed penalty, hard absorb, rider wobble, audio scrape. |
 | otherwise | **Bail.** Edge catch, ragdoll. |
 
-Start with `land.clean = 25°`, `land.sketchy = 50°`.
+Start with `land.clean = 25°`, `land.sketchy = 50°`, `land.rollSketchy = 50°`. Without
+the roll bound on the sketchy row, a board that comes down upside down but pointing the
+right way survives.
+
+Board heading at contact is read from the composed orientation, not carried over from
+takeoff. Carrying it over judges a 180 correctly and then rebuilds it riding forward.
 
 The heading correction is *converged* at `land.headingSnap` over the absorb window, not
 teleported. An instant snap of up to `land.sketchy` makes every landing come out at an
@@ -484,6 +492,7 @@ export const params = {
     clean: 0.44,            // rad ≈ 25°
     sketchy: 0.87,          // rad ≈ 50°
     rollClean: 0.35,        // rad, board-up vs contact normal
+    rollSketchy: 0.87,      // rad ≈ 50°, roll past which even a straight board bails
     sketchySpeedLoss: 0.25, // fraction
     absorbTime: 0.22,       // s
     headingSnap: 18.0,      // 1/s, heading correction onto velocity
@@ -571,6 +580,7 @@ export const params = {
     fovBase: 62,            // deg
     fovSpeedGain: 0.5,      // deg per m/s
     rollGain: 0.18,         // rad per unit edge
+    followSpeed: 3.0,       // m/s above which the camera follows travel, not the board
   },
 };
 ```

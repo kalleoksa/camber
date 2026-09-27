@@ -1,4 +1,4 @@
-import { copyQuat, quat, setIdentity, type Quat } from './quat.ts';
+import { copyQuat, quat, type Quat } from './quat.ts';
 import { copy, vec3, type Vec3 } from './vec3.ts';
 
 export type RiderMode = 'grounded' | 'airborne' | 'railed' | 'walled' | 'bailed';
@@ -63,7 +63,7 @@ export function createRiderState(spawn: Spawn): RiderState {
     stance: 0,
     compress: 0,
     charge: 0,
-    spinFrame: quat(),
+    spinFrame: yawFrame(quat(), spawn.heading),
     spinAxis: vec3(0, 1, 0),
     spinRate: 0,
     airYaw: 0,
@@ -89,7 +89,7 @@ export function resetRiderState(state: RiderState): void {
   copyInto(state.position, spawn.position);
   setXYZ(state.velocity, 0, 0, 0);
   setXYZ(state.groundNormal, 0, 1, 0);
-  setIdentity(state.spinFrame);
+  yawFrame(state.spinFrame, spawn.heading);
   setXYZ(state.spinAxis, 0, 1, 0);
   state.spinRate = 0;
   state.airYaw = 0;
@@ -135,6 +135,19 @@ export function copyRiderState(dst: RiderState, src: RiderState): void {
   dst.bailTime = src.bailTime;
   dst.resetLatch = src.resetLatch;
   dst.popLatch = src.popLatch;
+}
+
+/**
+ * Level board facing `heading`: a yaw about world up, written directly so reset stays
+ * allocation-free. It must agree with `heading`, because landing reads heading back
+ * out of the frame.
+ */
+function yawFrame(out: Quat, heading: number): Quat {
+  out.x = 0;
+  out.y = Math.sin(heading / 2);
+  out.z = 0;
+  out.w = Math.cos(heading / 2);
+  return out;
 }
 
 function copyInto(dst: Vec3, src: Vec3): void {

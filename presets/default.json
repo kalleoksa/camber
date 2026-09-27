@@ -42,6 +42,7 @@
     "clean": 0.44,
     "sketchy": 0.87,
     "rollClean": 0.35,
+    "rollSketchy": 0.87,
     "sketchySpeedLoss": 0.25,
     "absorbTime": 0.22,
     "headingSnap": 18
@@ -118,6 +119,7 @@
     "lookAhead": 6,
     "fovBase": 62,
     "fovSpeedGain": 0.5,
-    "rollGain": 0.18
+    "rollGain": 0.18,
+    "followSpeed": 3
   }
 }

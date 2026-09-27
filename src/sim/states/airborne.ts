@@ -89,6 +89,10 @@ function land(state: RiderState, params: Params, n: Vec3): void {
   projectOntoPlane(course, n);
   const courseSpeed = length(course);
 
+  // The board's heading is whatever the air left it at, not what it took off with —
+  // otherwise a 180 lands, is judged, and is then silently rebuilt facing forward.
+  if (boardForward.x !== 0 || boardForward.z !== 0) state.heading = planeHeading(boardForward, n);
+
   // Below walking pace the velocity direction is noise, so only the roll angle matters.
   let theta = 0;
   if (courseSpeed > params.ground.pivotSpeed) {
@@ -101,13 +105,14 @@ function land(state: RiderState, params: Params, n: Vec3): void {
 
   if (theta < params.land.clean && phi < params.land.rollClean) {
     state.landing = 'clean';
-  } else if (theta < params.land.sketchy) {
+  } else if (theta < params.land.sketchy && phi < params.land.rollSketchy) {
     state.landing = 'sketchy';
   } else {
     state.mode = 'bailed';
     state.landing = 'bail';
     state.bailTime = 0;
     state.spinRate = 0;
+    state.headingTarget = state.heading;
     return;
   }
 
@@ -115,7 +120,7 @@ function land(state: RiderState, params: Params, n: Vec3): void {
   // Converged over the absorb window rather than teleported — an instant snap of up to
   // land.sketchy reads as the game rounding your trick off for you.
   if (courseSpeed > params.ground.pivotSpeed) {
-    const courseHeading = Math.atan2(course.x, course.z);
+    const courseHeading = planeHeading(course, n);
     const delta = wrapAngle(courseHeading - state.heading);
     state.headingTarget = wrapAngle(Math.abs(delta) > Math.PI / 2 ? courseHeading + Math.PI : courseHeading);
   } else {
@@ -129,4 +134,14 @@ function land(state: RiderState, params: Params, n: Vec3): void {
   state.airTime = 0;
   state.spinRate = 0;
   state.absorb = params.land.absorbTime;
+}
+
+/**
+ * Inverse of how grounded builds `forward`: the heading whose horizontal (sin, 0, cos),
+ * projected onto the plane of `n`, points along in-plane vector `b`. Lift `b` back to
+ * horizontal along `n`, then read its yaw. A plain atan2 of `b` is off on a tilted plane.
+ */
+function planeHeading(b: Vec3, n: Vec3): number {
+  const s = b.y / n.y;
+  return Math.atan2(b.x - n.x * s, b.z - n.z * s);
 }

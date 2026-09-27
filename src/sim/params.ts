@@ -46,6 +46,7 @@ export const params = {
     clean: 0.44, // rad ≈ 25°
     sketchy: 0.87, // rad ≈ 50°
     rollClean: 0.35, // rad, board-up vs contact normal
+    rollSketchy: 0.87, // rad ≈ 50°, past this even a straight board catches — no landing upside down
     sketchySpeedLoss: 0.25, // fraction
     absorbTime: 0.22, // s
     headingSnap: 18.0, // 1/s, heading correction onto velocity — fast, but not a teleport
@@ -123,11 +124,15 @@ export const params = {
     fovBase: 62, // deg
     fovSpeedGain: 0.5, // deg per m/s
     rollGain: 0.18, // rad per unit edge
+    followSpeed: 3.0, // m/s above which the camera follows travel fully rather than the board
   },
 };
 
 export type Params = typeof params;
 export type ParamGroup = keyof Params;
+
+/** Snapshot at load, before any tuning — fills keys an older take or preset predates. */
+export const defaultParams: Params = cloneParams(params);
 
 export function cloneParams(src: Params): Params {
   return JSON.parse(JSON.stringify(src)) as Params;

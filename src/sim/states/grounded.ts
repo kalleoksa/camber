@@ -143,7 +143,7 @@ export function stepGrounded(
     const bias = 1 - state.stance * params.pop.stanceBias;
     addScaled(v, n, (params.pop.base + params.pop.charged * state.compress) * bias);
     state.charge = 0;
-    takeoff(state, input, params);
+    popTakeoff(state, input, params);
     addScaled(p, v, dt);
     return;
   } else {
@@ -156,7 +156,7 @@ export function stepGrounded(
   terrain.sample(p.x, p.z, contact);
   state.clearance = p.y - contact.height;
   if (state.clearance > params.air.detachClearance) {
-    takeoff(state, input, params);
+    rideOff(state, -yaw);
     return;
   }
 
@@ -165,16 +165,19 @@ export function stepGrounded(
   projectOntoPlane(v, contact.normal);
 }
 
-/**
- * Rotation is set here and only here (§5). The axis is board-local and lerped by stick Y,
- * so cork, rodeo and misty all fall out of one number instead of being special-cased.
- */
-export function takeoff(state: RiderState, input: InputSnapshot, params: Params): void {
+function enterAir(state: RiderState): void {
   state.mode = 'airborne';
   state.airTime = 0;
   state.airYaw = 0;
   state.landing = 'none';
+}
 
+/**
+ * A pop is where rotation is set (§5). The axis is board-local and lerped by stick Y, so
+ * cork, rodeo and misty all fall out of one number instead of being special-cased.
+ */
+function popTakeoff(state: RiderState, input: InputSnapshot, params: Params): void {
+  enterAir(state);
   const tilt = Math.min(1, Math.max(-1, input.ly)) * params.air.axisTiltMax;
   state.spinAxis.x = 0;
   state.spinAxis.y = Math.cos(tilt);
@@ -183,4 +186,17 @@ export function takeoff(state: RiderState, input: InputSnapshot, params: Params)
   // Negative because a positive rotation about board up swings the nose to the heel side.
   const rate = -input.lx * params.air.spinTakeoff;
   state.spinRate = Math.min(params.air.spinMax, Math.max(-params.air.spinMax, rate));
+}
+
+/**
+ * Leaving the snow without popping — a rollover, a lip ridden straight off. No wind-up
+ * happened, so the stick doesn't set a spin; the board just carries the yaw rate the
+ * carve had. `spinRate` and heading rate share a sign: both positive toward the heel.
+ */
+function rideOff(state: RiderState, headingRate: number): void {
+  enterAir(state);
+  state.spinAxis.x = 0;
+  state.spinAxis.y = 1;
+  state.spinAxis.z = 0;
+  state.spinRate = headingRate;
 }

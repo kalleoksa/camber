@@ -1,5 +1,5 @@
 import { hashState } from '../sim/hash.ts';
-import { cloneParams, type Params } from '../sim/params.ts';
+import { applyParams, cloneParams, defaultParams, type Params } from '../sim/params.ts';
 import { tick } from '../sim/rider.ts';
 import { createRiderState, type RiderState, type Spawn } from '../sim/state.ts';
 import { createSlope, type SlopeConfig } from '../sim/terrain.ts';
@@ -105,9 +105,12 @@ export function buildTake(opts: {
 export function simulateTake(take: Take): { hashes: string[]; state: RiderState } {
   const terrain = createSlope(take.terrain);
   const state = createRiderState(take.spawn);
+  // A take recorded before a param existed gets the default for it, not undefined.
+  const takeParams = cloneParams(defaultParams);
+  applyParams(takeParams, take.params);
   const hashes: string[] = [];
   for (const frame of take.frames) {
-    tick(state, frame, take.params, terrain, take.dt);
+    tick(state, frame, takeParams, terrain, take.dt);
     hashes.push(hashState(state));
   }
   return { hashes, state };
