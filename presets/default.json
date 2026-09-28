@@ -54,7 +54,7 @@
     "spinArmBand": 0.25
   },
   "land": {
-    "clean": 0.44,
+    "clean": 0.5,
     "sketchy": 0.87,
     "rollClean": 0.35,
     "rollSketchy": 0.87,

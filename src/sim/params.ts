@@ -65,7 +65,7 @@ export const params = {
     spinArmBand: 0.25, // |stick| below this arms in-air spin control after takeoff
   },
   land: {
-    clean: 0.44, // rad ≈ 25°
+    clean: 0.5, // rad ≈ 29° (was 0.44, raised by play)
     sketchy: 0.87, // rad ≈ 50°
     rollClean: 0.35, // rad, board-up vs contact normal
     rollSketchy: 0.87, // rad ≈ 50°, past this even a straight board catches — no landing upside down
