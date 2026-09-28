@@ -17,6 +17,7 @@ const slope = createSlope({ length: 400, width: 120, pitch: 0.28 });
 // Same slope with a 1.5 m step down 40 m in — something to ride straight off.
 const DROP_Z = -40;
 const drop: Terrain = {
+  rails: [],
   sample(x, z, out) {
     slope.sample(x, z, out);
     if (z < DROP_Z) out.height -= 1.5;
@@ -146,6 +147,43 @@ function kicker(name: string, pop: boolean, lx = 0, checkAt = Infinity, ly = 0, 
   report(name, state, kickerSlope, air, Infinity, checkAt, corkFor);
 }
 
+const railSlope = createSlope({ length: 400, width: 120, pitch: 0.28, rails: [{ points: [[0, 0.6, -10], [0, 0.6, -35]] }] });
+
+/**
+ * Dropped onto a rail at 8 m/s. `balanced` stands in for a thumb: a proportional-derivative
+ * correction on the lean, which is roughly what holding a rail feels like. `slide` holds RB
+ * until the board is that far across the rail; `press` is stick Y.
+ */
+function rail(name: string, { balanced = false, slide = 0, press = 0, offset = 0 } = {}): void {
+  const r = railSlope.rails[0];
+  if (!r) return;
+  const state = createRiderState({ position: { x: offset, y: (r.y[0] ?? 0) - 0.02 * 1 + 0.2, z: -11 }, heading: Math.PI });
+  state.velocity.z = -8 * Math.cos(0.28);
+  state.velocity.y = -8 * Math.sin(0.28) - 1;
+  const input = neutralInput();
+  let onFor = 0;
+  let exit = 'missed';
+  let exitSpeed = 0;
+  let maxLean = 0;
+  for (let i = 0; i < 12 / TICK_DT; i++) {
+    const was = state.mode;
+    input.ly = press;
+    input.rb = slide > 0 && state.mode === 'railed' && Math.abs(state.slide) < slide;
+    input.lx = balanced && state.mode === 'railed' ? Math.max(-1, Math.min(1, -(1.2 * state.balance + 0.5 * state.balanceVel))) : 0;
+    tick(state, input, params, railSlope, TICK_DT);
+    if (state.mode === 'railed') {
+      onFor += TICK_DT;
+      maxLean = Math.max(maxLean, Math.abs(state.balance));
+    }
+    if (was === 'railed' && state.mode !== 'railed') {
+      exit = state.mode === 'bailed' ? 'fell off' : 'rode off the end';
+      exitSpeed = length(state.velocity);
+      break;
+    }
+  }
+  console.log(`${name.padEnd(26)} ${exit.padEnd(16)} ${onFor.toFixed(2)} s on, lean max ${maxLean.toFixed(2)}, off at ${exitSpeed.toFixed(1)} m/s`);
+}
+
 console.log('move                   landing  rotated     riding  speed');
 pop('straight air');
 pop('180, check 0.55 s', { lx: 0.5, checkAt: 0.55 });
@@ -173,5 +211,10 @@ kicker('cork held: double cork', true, 1, 0.9, 0.9);
 kicker('kicker backflip', true, 0, Infinity, -1, 1.0);
 kicker('kicker frontflip', true, 0, Infinity, 1, 1.0);
 kicker('backflip let go early', true, 0, Infinity, -1, 0.4);
+rail('50-50, hands off');
+rail('50-50, balanced', { balanced: true });
+rail('boardslide, hands off', { slide: 1.5 });
+rail('boardslide, balanced', { balanced: true, slide: 1.5 });
+rail('tailslide, balanced', { balanced: true, press: -1 });
 carve('toe edge held', 1);
 carve('heel edge held', -1);

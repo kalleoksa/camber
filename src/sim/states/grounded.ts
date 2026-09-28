@@ -2,6 +2,7 @@ import type { InputSnapshot } from '../../input/snapshot.ts';
 import type { Params } from '../params.ts';
 import { axisY, setFromBasis } from '../quat.ts';
 import type { RiderState } from '../state.ts';
+import { tryCapture } from './railed.ts';
 import { createContact, type Terrain } from '../terrain.ts';
 import {
   addScaled,
@@ -132,17 +133,7 @@ export function stepGrounded(
 
   if (state.absorb > 0) state.absorb = Math.max(0, state.absorb - dt);
 
-  // Pop: charge while RT is held, bleed once full, fire the impulse on release.
-  const held = input.rt > params.pop.trigger;
-  if (held) {
-    state.popLatch = true;
-    state.charge += dt;
-    state.compress =
-      state.charge <= params.pop.chargeTime
-        ? state.charge / params.pop.chargeTime
-        : Math.max(0, 1 - (state.charge - params.pop.chargeTime) * params.pop.decay);
-  } else if (state.popLatch) {
-    state.popLatch = false;
+  if (chargePop(state, input, params, dt)) {
     // Along the contact normal, not world up — ramp geometry then needs no special case.
     const bias = 1 - state.stance * params.pop.stanceBias;
     addScaled(v, n, (params.pop.base + params.pop.charged * state.compress) * bias);
@@ -150,12 +141,10 @@ export function stepGrounded(
     popTakeoff(state, input, params);
     addScaled(p, v, dt);
     return;
-  } else {
-    state.charge = 0;
-    state.compress = dampScalar(state.compress, 0, params.pop.compressResponse, dt);
   }
 
   addScaled(p, v, dt);
+  if (tryCapture(state, params, terrain)) return;
 
   terrain.sample(p.x, p.z, contact);
   state.clearance = p.y - contact.height;
@@ -173,6 +162,30 @@ export function stepGrounded(
   projectOntoPlane(v, contact.normal);
 }
 
+/**
+ * Pop charge: RT held ramps `compress`, bleeding once full; the tick it's let go is the
+ * pop, and this returns true. The caller fires the impulse from `compress` and zeroes
+ * `charge`. Shared by snow and rail, so a pop off a rail charges exactly like one off snow.
+ */
+export function chargePop(state: RiderState, input: InputSnapshot, params: Params, dt: number): boolean {
+  if (input.rt > params.pop.trigger) {
+    state.popLatch = true;
+    state.charge += dt;
+    state.compress =
+      state.charge <= params.pop.chargeTime
+        ? state.charge / params.pop.chargeTime
+        : Math.max(0, 1 - (state.charge - params.pop.chargeTime) * params.pop.decay);
+    return false;
+  }
+  if (state.popLatch) {
+    state.popLatch = false;
+    return true;
+  }
+  state.charge = 0;
+  state.compress = dampScalar(state.compress, 0, params.pop.compressResponse, dt);
+  return false;
+}
+
 function enterAir(state: RiderState): void {
   state.mode = 'airborne';
   state.airTime = 0;
@@ -186,7 +199,7 @@ function enterAir(state: RiderState): void {
  * A pop is where rotation is set (§5). The axis is board-local and lerped by stick Y, so
  * cork, rodeo and misty all fall out of one number instead of being special-cased.
  */
-function popTakeoff(state: RiderState, input: InputSnapshot, params: Params): void {
+export function popTakeoff(state: RiderState, input: InputSnapshot, params: Params): void {
   enterAir(state);
   state.popWindow = params.air.takeoffWindow;
   setTakeoffSpin(state, input, params);
@@ -276,7 +289,7 @@ export function setTakeoffSpin(state: RiderState, input: InputSnapshot, params: 
  * happened, so the stick doesn't set a spin; the board just carries the yaw rate the
  * carve had. `spinRate` and heading rate share a sign: both positive toward the heel.
  */
-function rideOff(state: RiderState, input: InputSnapshot, params: Params, headingRate: number): void {
+export function rideOff(state: RiderState, input: InputSnapshot, params: Params, headingRate: number): void {
   enterAir(state);
   state.popWindow = 0;
   state.spinArmed = Math.abs(input.lx) < params.air.spinArmBand;

@@ -4,6 +4,7 @@ import { resetRiderState, type RiderState } from './state.ts';
 import { stepAirborne } from './states/airborne.ts';
 import { stepBailed } from './states/bailed.ts';
 import { stepGrounded } from './states/grounded.ts';
+import { stepRailed } from './states/railed.ts';
 import type { Terrain } from './terrain.ts';
 import { dampScalar } from './vec3.ts';
 
@@ -47,8 +48,11 @@ export function tick(
     case 'bailed':
       stepBailed(state, params, terrain, dt);
       break;
+    case 'railed':
+      stepRailed(state, input, params, terrain, dt);
+      break;
     default:
-      // railed and walled arrive in milestones 5 and 6.
+      // walled arrives in milestone 6.
       stepAirborne(state, input, params, terrain, dt);
       break;
   }

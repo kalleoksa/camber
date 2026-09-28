@@ -57,6 +57,8 @@ const slopeConfig: SlopeConfig = {
   // the lip at ~12 m/s and pops at ~14, all landing on the landing — rolls at ~6 m/s
   // impact, pops ~11. Stand-in until park.json in milestone 7.
   kicker: { z: -16, x: 0, width: 10, lipHeight: 6, lipAngle: 0.5, deckLength: 5, sideTaper: 3, landingAngle: 0.3, knuckleRadius: 5, runoutRadius: 18 },
+  // A straight 26 m rail, 0.6 m up, right of the kicker line: carve over and ollie on.
+  rails: [{ points: [[14, 0.6, -14], [14, 0.6, -40]] }],
 };
 
 const terrain = createSlope(slopeConfig);
@@ -81,6 +83,7 @@ let currentTake: Take | null = null;
 let cursor: ReplayCursor | null = null;
 
 const readout: Readout = {
+  rail: '—',
   mode: state.mode,
   session: 'live',
   pad: 'none — press a button on the pad',
@@ -312,6 +315,10 @@ function render(alpha: number): void {
     readout.pad = padSummary();
     readout.padRaw = padRawSummary();
     readout.mode = state.mode;
+    readout.rail =
+      state.mode === 'railed'
+        ? `slide ${Math.round((state.slide * 180) / Math.PI)}°  lean ${state.balance.toFixed(2)} / ${params.rail.balanceMax}`
+        : '—';
     readout.speed = length(state.velocity);
     readout.tick = state.tick;
     readout.clearance = state.clearance;

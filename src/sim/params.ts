@@ -83,12 +83,27 @@ export const params = {
     tumbleSpeedRef: 8.0, // m/s of slide at which the tumble reaches full rate
   },
   rail: {
-    captureRadius: 0.35, // m
-    captureAngle: 0.6, // rad
-    friction: 0.4, // m/s² along spline
-    driftBase: 0.9, // balance drift rate
-    balanceMax: 1.0,
-    correctionGain: 2.2,
+    captureRadius: 0.35, // m, board to rail top for it to catch
+    captureAngle: 0.6, // rad, travel against the rail's line past which it won't catch
+    rideHeight: 0.03, // m, board bottom above the rail line
+    friction: 1.0, // m/s² along the rail at a 50-50
+    slideFriction: 2.0, // extra friction × |sin slide| — a boardslide scrapes, a 50-50 runs
+    slideRate: 4.0, // rad/s, LB/RB turning the board against the rail
+    stallSpeed: 1.0, // m/s below which you drop off the side
+    // Balance: an unstable lean, like standing on an edge — deterministic, seeded only by
+    // the entry (open question 4). b'' = λ·b − c·b' + correctionGain·lx.
+    instability: 8.0, // λ, 1/s² at a centred 50-50 — hands off, a lean runs away in ~1 s
+    slideDrift: 1.0, // λ × (1 + this·|sin slide|): a boardslide is less stable
+    pressDrift: 1.0, // λ × (1 + this·|stance|): so is a nose or tail press
+    balanceDamping: 0.3, // ζ against the lean's own rate
+    correctionGain: 8.0, // 1/s² per unit of stick X — gain/λ is the furthest lean you can still save
+    balanceMax: 1.0, // lean past which you fall off
+    entryOffsetGain: 0.6, // lean at capture per captureRadius of sideways miss
+    entryVelGain: 0.8, // lean rate at capture per unit of sideways/along speed ratio
+    minImbalance: 0.05, // a perfect entry still starts this far off — balance is never free
+    captureRise: 0.3, // fraction of speed rising away from the rail past which it won't catch
+    fallSpeed: 1.5, // m/s off the side when the lean is lost
+    stallPush: 1.0, // m/s off the side on a stall
   },
   wall: {
     minAngle: 1.13, // rad ≈ 65° from up
@@ -197,6 +212,7 @@ export const params = {
     stanceSpineSide: 0.3, // rad of spine lean into a press
     spineBendBase: 0.18, // rad of forward fold standing
     compressSpineBend: 0.25, // rad of extra fold at full compress
+    railLean: 0.18, // m of hip shift at full rail balance — the lean you're fighting, drawn
     spineStiffness: 55.0, // ω² for the spine twist and head springs, like hipStiffness — ω ≈ 7.4 rad/s
     spineDamping: 1.0, // ζ
     counterRotation: 0.7, // rad of spine twist against the coming spin at full charge

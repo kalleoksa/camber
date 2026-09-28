@@ -74,6 +74,15 @@ export type RiderState = {
   absorb: number; // s remaining of the landing absorb
   bailTime: number; // s spent down
 
+  // On a rail (§8). Arc length runs first point → last; `railDir` is which way you travel.
+  railIndex: number; // −1 off every rail
+  railS: number; // m along the rail
+  railDir: number; // +1 or −1
+  railSpeed: number; // m/s along the direction of travel, ≥ 0
+  slide: number; // rad, board heading against the rail: 0 is a 50-50, ±π/2 a boardslide
+  balance: number; // lean off the rail; past rail.balanceMax you fall. + toward S = T × U
+  balanceVel: number;
+
   resetLatch: boolean; // debounces the reset button
   popLatch: boolean; // true while RT is held past pop.trigger
   spawn: Spawn;
@@ -113,6 +122,13 @@ export function createRiderState(spawn: Spawn): RiderState {
     impact: 0,
     absorb: 0,
     bailTime: 0,
+    railIndex: -1,
+    railS: 0,
+    railDir: 1,
+    railSpeed: 0,
+    slide: 0,
+    balance: 0,
+    balanceVel: 0,
     resetLatch: false,
     popLatch: false,
     spawn: { position: copy(spawn.position), heading: spawn.heading },
@@ -155,6 +171,13 @@ export function resetRiderState(state: RiderState): void {
   state.absorb = 0;
   state.bailTime = 0;
   state.popLatch = false;
+  state.railIndex = -1;
+  state.railS = 0;
+  state.railDir = 1;
+  state.railSpeed = 0;
+  state.slide = 0;
+  state.balance = 0;
+  state.balanceVel = 0;
 }
 
 /** Copy without allocating — the render loop keeps one previous-state buffer. */
@@ -191,6 +214,13 @@ export function copyRiderState(dst: RiderState, src: RiderState): void {
   dst.impact = src.impact;
   dst.absorb = src.absorb;
   dst.bailTime = src.bailTime;
+  dst.railIndex = src.railIndex;
+  dst.railS = src.railS;
+  dst.railDir = src.railDir;
+  dst.railSpeed = src.railSpeed;
+  dst.slide = src.slide;
+  dst.balance = src.balance;
+  dst.balanceVel = src.balanceVel;
   dst.resetLatch = src.resetLatch;
   dst.popLatch = src.popLatch;
 }

@@ -3,6 +3,7 @@ import type { Params } from '../params.ts';
 import { boardAttitude } from '../grabs.ts';
 import { axisY, axisZ, multiply, normalizeQuat, quat, rotate, setFromAxisAngle, type Quat } from '../quat.ts';
 import type { RiderState } from '../state.ts';
+import { tryCapture } from './railed.ts';
 import { corkStick, setRotation, setTakeoffSpin, stickRotation, takeoffSpinRate } from './grounded.ts';
 import { createContact, type Terrain } from '../terrain.ts';
 import {
@@ -112,6 +113,7 @@ export function stepAirborne(
   clampLength(v, params.world.terminalSpeed);
   addScaled(p, v, dt);
   state.airTime += dt;
+  if (tryCapture(state, params, terrain)) return;
 
   terrain.sample(p.x, p.z, contact);
   state.clearance = p.y - contact.height;
