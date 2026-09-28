@@ -42,7 +42,7 @@
     "extendMultiplier": 0.85,
     "spinMax": 9,
     "axisTiltMax": 1.1,
-    "corkRightMax": 1.2,
+    "corkRightMax": 1,
     "flipRate": 6,
     "corkDeadzone": 0.5,
     "corkRecover": 6,
