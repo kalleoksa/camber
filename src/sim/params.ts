@@ -27,7 +27,7 @@ export const params = {
     stanceResponse: 9.0, // 1/s, stick-to-stance rate — weight shifts, it isn't an edge
   },
   pop: {
-    chargeTime: 0.35, // s to full compress
+    chargeTime: 0.25, // s to full compress
     decay: 0.4, // 1/s bleed after full
     base: 2.0, // m/s uncharged
     charged: 5.0, // m/s added at full charge
@@ -43,11 +43,21 @@ export const params = {
     extendMultiplier: 0.85, // spin rate while stretched
     spinMax: 9.0, // rad/s cap
     axisTiltMax: 1.1, // rad, max cork axis lerp
-    spinTakeoff: 9.0, // rad/s at full stick on takeoff — overspins a full pop on purpose; centre to check
+    spinTakeoff: 9.0, // rad/s at full whip on takeoff — overspins a full pop on purpose; centre to check
     takeoffWindow: 0.1, // s after a pop the stick still sets spin at full authority — 0 = trigger tick only
     checkRate: 6.0, // 1/s, spin decay with the stick centred; leftover rotation ≈ rate/checkRate. 0 = coast
     shiftyMax: 0.9, // rad of board yaw against the body on LB/RB
     shiftyRate: 8.0, // 1/s, board swinging out and back — held at contact, it's judged
+    /**
+     * 0..1, how much of a held carve is discounted from the takeoff stick read. At 0 the
+     * stick position sets spin, which means a hard carve *is* a request for a 360 whether
+     * or not you wanted one. At 1 only a whip beyond the carve counts.
+     */
+    // Off by default: holding the stick through the charge is the wind-up (§7.7), and at 1
+    // a real ride's 360s came out at 240–250° — the held stick was discounted as carve.
+    spinCarveReject: 0,
+    spinRefRate: 5.0, // 1/s the carve baseline follows the stick — lower widens the whip window
+    spinArmBand: 0.25, // |stick| below this arms in-air spin control after takeoff
   },
   land: {
     clean: 0.44, // rad ≈ 25°
@@ -85,38 +95,102 @@ export const params = {
     grip: 0.3, // multiplier on gripEdge
     yawAuthority: 3.2, // rad/s
   },
+  /**
+   * Grab timing. `reach` and `release` are the real feel numbers — the rate the rider blends
+   * toward an anchor and back, and the rate the sim's grip ramps in play. `hold` only exists
+   * for the pose-mode preview, where nothing is holding a button.
+   */
   grab: {
     commit: 0.35, // right-stick magnitude past which the hand goes for the board
     edgeSharpness: 2.0, // stick X gain onto the edge coordinate — >30° off vertical is a full rail
-    reachTime: 0.12, // s, hand travel to the board once the stick commits
-    releaseTime: 0.09, // s, hand back to rest
     tweakEnter: 0.55, // stick magnitude past which the tweak starts
-    tweakDepthMax: 1.15, // rad of board rotation about the grab point at full push
     tweakRate: 10.0, // 1/s, board shoved out toward the stick's depth
     tweakRecover: 14.0, // 1/s, board springs back to spinFrame on release — sets how forgiving §6 is
+    tweakGain: 1.0, // extra board attitude at full push, × the grab's own, where no tweaked anchor exists
+    /**
+     * rad, cap on board pitch against the clean frame. A method wants 70–100°; at the old
+     * 1.15 (66°) the board could not reach the angle that makes one. Sim-side, because the
+     * landing test judges the drawn board.
+     */
+    tweakPitchMax: 1.75,
+    /**
+     * rad of roll about the board's own long axis at full `tweakRoll` — the base turning to
+     * face away from the rider. Much smaller than the pitch cap: the roll is part of the look
+     * but a method is predominantly a pitch. Sim-side for the same reason.
+     */
+    tweakRollMax: 0.6,
+    // Board attitude per grab — rad of pitch (nose up) and 0..1 of tweakRollMax of roll —
+    // as authored in each anchor. Sim-side because the landing test judges the drawn board;
+    // pose mode's "write to anchor" copies an anchor's boardPitch/tweakRoll into these.
+    indyPitch: -0.16,
+    indyRoll: 0,
+    mutePitch: 0.34,
+    muteRoll: 0.17,
+    japanPitch: 0.91, // japan is mute shoved out: mute's spot at full tweak
+    japanRoll: 1,
+    melonPitch: 0.31,
+    melonRoll: 0.35,
+    methodPitch: 0.55,
+    methodRoll: 0.72,
+    stalefishPitch: -0.18,
+    stalefishRoll: 1,
+    nosegrabPitch: 0.36,
+    nosegrabRoll: -0.28,
+    tailgrabPitch: -0.18,
+    tailgrabRoll: -0.2,
+    reachTime: 0.18, // s, crouch to full grab
+    holdTime: 0.4, // s at full grab — preview envelope only, gameplay holds while held
+    releaseTime: 0.14, // s, grab back to crouch. Quicker than the reach: you snap back to land
+    /**
+     * 0..1 of the body blend completed before the hand starts closing on the board. Without
+     * it every grab passes through an unreachable pose mid-transition, because crouch is a
+     * shallower crouch than any grab and the halfway body is further from the board than
+     * either end. Raise it if an arm still snaps on the way in.
+     *
+     * 0.75 is measured, not guessed: it is the lowest value at which all eight grabs stay
+     * under reach 1.0 across the whole path. At 0.65 melon still peaks at 1.01, and at 0 every
+     * single grab is invalid somewhere in the middle.
+     */
+    gripDelay: 0.75,
+    /**
+     * Reach above this tints the arm amber in pose mode; above 1.0 it goes red.
+     *
+     * The red-only overlay was a cliff, and it turned out to *teach* posing at the limit: you
+     * push a slider until the red just disappears and stop, which lands you on the boundary.
+     * Six of the eight authored grabs came back between 0.97 and 1.00, one at 0.9994. That is
+     * the worst place to be — at full extension the elbow is confined to a few centimetres and
+     * the arm cannot route around anything. Amber marks "valid but no margin left".
+     *
+     * 0.90 lights every current anchor amber, and that is the honest answer rather than a
+     * broken threshold: the eight run 0.934 to 0.999, so the whole set really is at full
+     * extension. Do not raise this to make the indicator look discriminating — that is fitting
+     * the instrument to the data. Real elbow freedom wants 0.85 or below (17 cm of pole radius
+     * against 12 cm at 0.93), so if the amber ever goes away it means the poses improved.
+     */
+    reachWarn: 0.9,
   },
   rig: {
     thigh: 0.44, // m
     shin: 0.44, // m
     upperArm: 0.33, // m
-    forearm: 0.33, // m, to the grip rather than the wrist
+    forearm: 0.33, // m, to the grip rather than the wrist — 0.66 total, adult shoulder-to-grip
     hipWidth: 0.18, // m between leg roots
     shoulderWidth: 0.36, // m between arm roots, along the board
     stanceWidth: 0.52, // m between bindings
     hipHeight: 0.86, // m above the deck, uncompressed
     spine: 0.52, // m hips to shoulders
     neck: 0.16, // m shoulders to head
-    hipStiffness: 9.5, // ω, rad/s — was 90 used as ω², same spring
+    crouchDepth: 0.28, // m the hips drop at full compress
+    hipStiffness: 250.0, // ω² for the hip spring — ω = sqrt of this, so 250 is ~15.8 rad/s
     hipDamping: 1.0, // ζ — 1.0 is critically damped
     edgeRoll: 0.55, // rad of board tip at full edge, drawn only
-    crouchDepth: 0.28, // m of hip drop at full compress
     absorbPerImpact: 0.022, // m of extra hip drop per m/s of landing impact
     edgeHipShift: 0.1, // m of hip lean toward the edge at full edge
     stanceHipShift: 0.14, // m of hip travel toward nose/tail at full press
     stanceSpineSide: 0.3, // rad of spine lean into a press
     spineBendBase: 0.18, // rad of forward fold standing
     compressSpineBend: 0.25, // rad of extra fold at full compress
-    spineStiffness: 7.4, // ω, rad/s, spine twist and head spring — design's 55 read as ω² (§7.6)
+    spineStiffness: 55.0, // ω² for the spine twist and head springs, like hipStiffness — ω ≈ 7.4 rad/s
     spineDamping: 1.0, // ζ
     counterRotation: 0.7, // rad of spine twist against the coming spin at full charge
     shoulderLead: 0.25, // rad, shoulders ahead of the board at full takeoff spin
@@ -134,7 +208,12 @@ export const params = {
     gravity: 6.0, // m/s²
   },
   audio: {
-    master: 0.55,
+    /**
+     * Muted for now — not wanted at this stage. Every layer and the landing thump run through
+     * this one gain, so 0 silences the lot, and the slider brings it back live without a
+     * reload. Was 0.55.
+     */
+    master: 0,
     edgeGain: 0.5, // edge bite at full scrub
     edgeFilterBase: 380, // Hz at a standstill
     edgeFilterGain: 95, // Hz per m/s
@@ -163,9 +242,6 @@ export const params = {
 export type Params = typeof params;
 export type ParamGroup = keyof Params;
 
-/** Snapshot at load, before any tuning — fills keys an older take or preset predates. */
-export const defaultParams: Params = cloneParams(params);
-
 export function cloneParams(src: Params): Params {
   return JSON.parse(JSON.stringify(src)) as Params;
 }
@@ -181,4 +257,22 @@ export function applyParams(target: Params, src: Params): void {
       if (typeof value === 'number') dstGroup[key] = value;
     }
   }
+}
+
+/** The values as authored, captured at load before any tuning session mutates `params`. */
+const DEFAULTS = cloneParams(params);
+
+/**
+ * Params for replaying a serialized take or preset. What it recorded wins; groups that did
+ * not exist when it was recorded fall back to the authored defaults — the v1 takes predate
+ * `params.rig` entirely. The fallback is the defaults and never the live values, so a take
+ * stays immune to the tuning session it is being replayed inside of.
+ */
+export function withDefaults(src: Params, before?: Params): Params {
+  const merged = cloneParams(DEFAULTS);
+  // `before`: values that reproduce the sim from before a param existed, for params that
+  // switched on new behaviour. Applied under `src`, so only keys `src` lacks take them.
+  if (before) applyParams(merged, before);
+  applyParams(merged, src);
+  return merged;
 }

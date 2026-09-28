@@ -1,9 +1,9 @@
 import type { InputSnapshot } from '../../input/snapshot.ts';
 import type { Params } from '../params.ts';
-import { tweakAxis } from '../board.ts';
+import { boardAttitude } from '../grabs.ts';
 import { axisY, axisZ, multiply, normalizeQuat, quat, setFromAxisAngle, type Quat } from '../quat.ts';
 import type { RiderState } from '../state.ts';
-import { setTakeoffSpin } from './grounded.ts';
+import { setTakeoffSpin, takeoffSpinRate } from './grounded.ts';
 import { createContact, type Terrain } from '../terrain.ts';
 import {
   addScaled,
@@ -27,10 +27,12 @@ const spin = quat();
 const boardForward = vec3();
 const boardUp = vec3();
 const course = vec3();
-const axis = vec3();
-const tweakQ = quat();
+const pitchQ = quat();
+const rollQ = quat();
 const shiftyQ = quat();
 const UP = vec3(0, 1, 0);
+const LATERAL = vec3(-1, 0, 0); // pitch axis: positive raises the nose, as the rig draws it
+const LONG = vec3(0, 0, 1);
 const composed = quat();
 
 export function stepAirborne(
@@ -52,11 +54,17 @@ export function stepAirborne(
   // stick change, so a short air can't fully retarget. Holding the stick holds the spin;
   // centring it checks the spin at `air.checkRate` — opening up to spot the landing.
   // Checking only ever removes rotation, so takeoff still decides how much you have.
+  // Disarmed means the thumb is still where the carve left it at takeoff: the spin coasts,
+  // neither steered nor checked. Coming back through centre arms it; from then on the law
+  // above applies unchanged.
+  if (!state.spinArmed && Math.abs(input.lx) < params.air.spinArmBand) state.spinArmed = true;
   if (state.popWindow > 0) {
     // Only a stronger stick counts: a late wind-up is forgiven, a flick already released
-    // is not taken back.
+    // is not taken back. Read as a whip, same as the pop itself.
     state.popWindow = Math.max(0, state.popWindow - dt);
-    if (Math.abs(input.lx * params.air.spinTakeoff) > Math.abs(state.spinRate)) setTakeoffSpin(state, input, params);
+    if (Math.abs(takeoffSpinRate(state, input, params)) > Math.abs(state.spinRate)) setTakeoffSpin(state, input, params);
+  } else if (!state.spinArmed) {
+    // coast
   } else if (input.lx !== 0) {
     const target = -input.lx * params.air.spinTakeoff;
     state.spinRate += (target - state.spinRate) * (1 - dm.exp(-params.air.authority * dt));
@@ -130,16 +138,19 @@ function updateGrab(state: RiderState, input: InputSnapshot, params: Params, dt:
 }
 
 /**
- * Drawn board = spinFrame ∘ shifty ∘ tweakOffset. What the landing test must read (§6,
- * §7.4). The shifty yaws the board under the body; the tweak then pivots it about the
- * grab point in that yawed frame — the same order the rig draws it in.
+ * Drawn board = spinFrame ∘ shifty ∘ pitch ∘ roll — what the landing test must read (§6,
+ * §7.4), in exactly the order the rig draws it: the shifty yaws the board under the body,
+ * then the grab's attitude pitches it about its lateral axis and rolls it about its length.
+ * The pivot about the grab point only moves the board, so it doesn't enter the angles.
  */
 function composeBoard(out: Quat, state: RiderState, params: Params): Quat {
+  const a = boardAttitude(state.grabEdge, state.grabT, state.grip, state.tweak, params);
   setFromAxisAngle(shiftyQ, UP, state.shifty);
-  tweakAxis(axis, state.grabEdge, state.grabT);
-  setFromAxisAngle(tweakQ, axis, state.tweak * params.grab.tweakDepthMax);
+  setFromAxisAngle(pitchQ, LATERAL, a.pitch);
+  setFromAxisAngle(rollQ, LONG, a.roll * params.grab.tweakRollMax);
   multiply(out, state.spinFrame, shiftyQ);
-  return multiply(out, out, tweakQ);
+  multiply(out, out, pitchQ);
+  return multiply(out, out, rollQ);
 }
 
 /**

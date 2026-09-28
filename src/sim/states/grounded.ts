@@ -161,7 +161,7 @@ export function stepGrounded(
   // rollover. Without the second, a kicker's deck would catch the rider every tick and
   // re-project the launch flat, because per tick the rise is only centimetres.
   if (state.clearance > params.air.detachClearance || dot(v, contact.normal) > params.air.detachSpeed) {
-    rideOff(state, -yaw);
+    rideOff(state, input, params, -yaw);
     return;
   }
 
@@ -185,6 +185,25 @@ function popTakeoff(state: RiderState, input: InputSnapshot, params: Params): vo
   enterAir(state);
   state.popWindow = params.air.takeoffWindow;
   setTakeoffSpin(state, input, params);
+  // Leaving the ground mid-carve, the thumb is still buried where the carve put it. Hold
+  // in-air spin control until it comes back through centre, or the air controller drags
+  // the rate up to the carve's value and undoes the whole point of the whip read.
+  state.spinArmed = Math.abs(input.lx) < params.air.spinArmBand;
+}
+
+/**
+ * Spin rate the stick asks for at takeoff. Left stick X is the edge stick grounded and the
+ * spin stick airborne, and the pop is the seam between the two: read raw, a hard carve
+ * *is* a request for a 360 whether or not the rider wanted one. So it is measured against
+ * the carve already being held — `spinRef` lags the stick at `air.spinRefRate`, a
+ * deliberate whip still reads as spin, a steady thumb reads as zero. At
+ * `air.spinCarveReject` 0 this is the raw stick position.
+ */
+export function takeoffSpinRate(state: RiderState, input: InputSnapshot, params: Params): number {
+  const whip = input.lx - state.spinRef * params.air.spinCarveReject;
+  // Negative because a positive rotation about board up swings the nose to the heel side.
+  const rate = -Math.min(1, Math.max(-1, whip)) * params.air.spinTakeoff;
+  return Math.min(params.air.spinMax, Math.max(-params.air.spinMax, rate));
 }
 
 /**
@@ -197,9 +216,7 @@ export function setTakeoffSpin(state: RiderState, input: InputSnapshot, params: 
   state.spinAxis.y = dm.cos(tilt);
   state.spinAxis.z = dm.sin(tilt);
 
-  // Negative because a positive rotation about board up swings the nose to the heel side.
-  const rate = -input.lx * params.air.spinTakeoff;
-  state.spinRate = Math.min(params.air.spinMax, Math.max(-params.air.spinMax, rate));
+  state.spinRate = takeoffSpinRate(state, input, params);
 }
 
 /**
@@ -207,9 +224,10 @@ export function setTakeoffSpin(state: RiderState, input: InputSnapshot, params: 
  * happened, so the stick doesn't set a spin; the board just carries the yaw rate the
  * carve had. `spinRate` and heading rate share a sign: both positive toward the heel.
  */
-function rideOff(state: RiderState, headingRate: number): void {
+function rideOff(state: RiderState, input: InputSnapshot, params: Params, headingRate: number): void {
   enterAir(state);
   state.popWindow = 0;
+  state.spinArmed = Math.abs(input.lx) < params.air.spinArmBand;
   state.spinAxis.x = 0;
   state.spinAxis.y = 1;
   state.spinAxis.z = 0;

@@ -17,13 +17,15 @@ const walk = (dir: string): string[] =>
     return statSync(path).isDirectory() ? walk(path) : [path];
   });
 const simDir = new URL('../src/sim', import.meta.url).pathname;
-for (const file of walk(simDir)) {
+// secondary.ts is render-owned but stepped on the tick and hashed, so it is held to the same rule.
+const secondary = new URL('../src/render/secondary.ts', import.meta.url).pathname;
+for (const file of [...walk(simDir), secondary]) {
   if (file.endsWith('dmath.ts')) continue;
   readFileSync(file, 'utf8')
     .split('\n')
     .forEach((line, i) => {
       if (BANNED.test(line) && !line.trim().startsWith('*') && !line.trim().startsWith('//')) {
-        failures.push(`${file.slice(simDir.length - 7)}:${i + 1} uses ${line.match(BANNED)?.[0]} — use dmath`);
+        failures.push(`${file.slice(file.indexOf('/src/') + 1)}:${i + 1} uses ${line.match(BANNED)?.[0]} — use dmath`);
       }
     });
 }

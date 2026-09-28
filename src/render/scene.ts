@@ -5,15 +5,18 @@ import type { LandingRead, RiderMode, RiderState } from '../sim/state.ts';
 import type { SlopeConfig, Terrain } from '../sim/terrain.ts';
 import { createContact } from '../sim/terrain.ts';
 import { length, vec3, type Vec3 } from '../sim/vec3.ts';
+import { boardAttitude } from '../sim/grabs.ts';
 import { BODY_KEYS, grabBody } from './poses.ts';
-import { createRig, neutralDrivers, type RigDrivers } from './rig.ts';
+import { createRig, gripWeight, neutralDrivers, smoothstep, type RigDrivers } from './rig.ts';
+import type { Secondary } from './secondary.ts';
 
 /**
- * Render springs step at a fixed rate whatever the display runs at, so a 144 Hz monitor
- * doesn't make the rider stiffer than a 60 Hz one, and a stiff spring stays stable on a
- * slow frame. Not tied to the sim tick — this is render-only memory.
+ * The hip spring moved to `secondary.ts` and is stepped on the sim tick, which is what makes
+ * it replay-identical. The tumble angle stays here because it is cosmetic and unhashed — but
+ * it is still integrated, so it needs the real frame dt, clamped so a hitch makes the rider
+ * lag rather than spin.
  */
-const SPRING_DT = 1 / 120;
+const MAX_FRAME_DT = 1 / 30;
 
 export type RiderView = {
   position: Vec3;
@@ -31,7 +34,6 @@ export type RiderView = {
   impact: number;
   absorb: number;
   bailTime: number;
-  spinRate: number;
   grabEdge: number;
   grabT: number;
   grabFront: boolean;
@@ -63,7 +65,6 @@ const view: RiderView = {
   impact: 0,
   absorb: 0,
   bailTime: 0,
-  spinRate: 0,
   grabEdge: 0,
   grabT: 0.5,
   grabFront: true,
@@ -97,7 +98,6 @@ export function interpolateRider(prev: RiderState, cur: RiderState, alpha: numbe
   view.impact = cur.impact;
   view.absorb = cur.absorb;
   view.bailTime = cur.bailTime;
-  view.spinRate = cur.spinRate;
   view.grabEdge = prev.grabEdge + (cur.grabEdge - prev.grabEdge) * alpha;
   view.grabT = prev.grabT + (cur.grabT - prev.grabT) * alpha;
   view.grabFront = cur.grabFront;
@@ -119,7 +119,24 @@ export type SceneView = {
   drivers: RigDrivers;
   /** Per-hand shoulder-to-hand distance over arm reach; above 1 the grab is out of reach. */
   strain: { front: number; back: number };
-  updateRider(view: RiderView, params: Params, poseMode: boolean, dt: number): void;
+  /** How far each hand falls short of its grab point, m. 0 when it reaches. */
+  shortfall: { front: number; back: number };
+  /** Hip-to-foot distance per leg. The knee angle it implies is what boardPitch tunes. */
+  legSpan: { front: number; back: number };
+  /** `secondary` carries the tick-stepped springs; `dt` is only for the unhashed tumble. */
+  updateRider(
+    view: RiderView,
+    params: Params,
+    poseMode: boolean,
+    secondary: Secondary,
+    dt: number,
+  ): void;
+  /**
+   * Strip the world back to the rider alone — no terrain, no markers, no fog, flat
+   * background. Posing against a slope makes the board's attitude hard to read against a
+   * moving horizon and invites reading a flat board as resting on the ground.
+   */
+  setStage(clean: boolean): void;
   resize(): void;
 };
 
@@ -206,23 +223,17 @@ export function createScene(cfg: SlopeConfig, terrain: Terrain, camera: THREE.Pe
   scene.add(sun);
   scene.add(new THREE.HemisphereLight(0xbcd7f0, 0xe8eef4, 1.1));
 
-  scene.add(slopeMesh(cfg, terrain));
-  scene.add(slopeMarkers(cfg, terrain));
+  const slope = slopeMesh(cfg, terrain);
+  const markers = slopeMarkers(cfg, terrain);
+  scene.add(slope);
+  scene.add(markers);
+  const skyColour = new THREE.Color(0x9db6cc);
+  const stageColour = new THREE.Color(0xeef2f6);
+  const fog = scene.fog;
 
   const rig = createRig();
   scene.add(rig.root);
   const drivers = neutralDrivers();
-  const neutral = neutralDrivers();
-  const base = neutralDrivers();
-  const body = neutralDrivers();
-  // Render-side spring memory (§7.6): position and velocity per driven channel.
-  let hipY = 0;
-  let hipVel = 0;
-  let twist = 0;
-  let twistVel = 0;
-  let head = 0;
-  let headVel = 0;
-  let springTime = 0;
 
   const roll = new THREE.Quaternion();
   const tumble = new THREE.Quaternion();
@@ -230,66 +241,46 @@ export function createScene(cfg: SlopeConfig, terrain: Terrain, camera: THREE.Pe
   const tumbleAxis = new THREE.Vector3(1, 0.3, 0).normalize();
   let tumbleAngle = 0;
 
+  const neutral = neutralDrivers();
+  const base = neutralDrivers();
+  const body = neutralDrivers();
+
   /**
-   * Gameplay → drivers. Every channel is a spring toward a target, never a direct write
-   * of anything that moves (§7.6). The grab blends the body toward the anchors by grip;
-   * hands and tweak come straight from the sim so the drawn board is the judged board.
+   * Gameplay → drivers. The body blends toward the grab anchors by grip; the gripping
+   * hand, the grips and the board's attitude come straight from the sim, so the board that
+   * is drawn is the board the landing test judges. Everything that moves is a spring on the
+   * sim tick (secondary.ts), never a per-frame integration (§7.6).
    */
-  const driveFromSim = (view: RiderView, params: Params, dt: number): void => {
+  const driveFromSim = (view: RiderView, params: Params, secondary: Secondary): void => {
     const r = params.rig;
     const grounded = view.mode === 'grounded';
-    const airborne = view.mode === 'airborne';
 
-    const absorb = view.absorb > 0 ? view.impact * r.absorbPerImpact : 0;
-    const hipTarget = -view.compress * r.crouchDepth - absorb;
-
-    // §7.7. Charging with the stick pushed winds the shoulders against the spin that's
-    // coming (the spin will be −edge, so the wind-up is +edge); the pop releases it and
-    // the same spring carries it through into a lead. Head looks where the board will be.
-    const spinFraction = Math.max(-1, Math.min(1, view.spinRate / params.air.spinTakeoff));
-    const twistTarget = grounded
-      ? view.edge * view.compress * r.counterRotation
-      : airborne
-        ? spinFraction * r.shoulderLead
-        : 0;
-    const headTarget = airborne ? Math.max(-r.headTurnMax, Math.min(r.headTurnMax, view.spinRate * r.headLead)) : 0;
-
-    // Semi-implicit: a = ω²(target − x) − 2ζωv.
-    const wh = r.hipStiffness;
-    const ws = r.spineStiffness;
-    springTime += dt;
-    while (springTime >= SPRING_DT) {
-      springTime -= SPRING_DT;
-      hipVel += (wh * wh * (hipTarget - hipY) - 2 * r.hipDamping * wh * hipVel) * SPRING_DT;
-      hipY += hipVel * SPRING_DT;
-      twistVel += (ws * ws * (twistTarget - twist) - 2 * r.spineDamping * ws * twistVel) * SPRING_DT;
-      twist += twistVel * SPRING_DT;
-      headVel += (ws * ws * (headTarget - head) - 2 * r.spineDamping * ws * headVel) * SPRING_DT;
-      head += headVel * SPRING_DT;
-    }
-
+    base.hipY = secondary.hipY;
     base.hipX = grounded ? view.edge * r.edgeHipShift : 0; // in the air lx is spin, not lean
-    base.hipY = hipY;
     base.hipZ = view.stance * r.stanceHipShift;
     base.spineSide = view.stance * r.stanceSpineSide;
     base.spineBend = r.spineBendBase + view.compress * r.compressSpineBend;
-    base.spineTwist = 0;
-    base.headYaw = 0;
 
+    // Body leads, hand commits later — the grab path stays reachable the whole way (rig.ts).
+    const bodyWeight = smoothstep(view.grip);
+    const handWeight = gripWeight(view.grip, params.grab.gripDelay);
     grabBody(body, view.grabEdge, view.grabT, view.tweak);
-    for (const k of BODY_KEYS) drivers[k] = base[k] + (body[k] - base[k]) * view.grip;
+    for (const k of BODY_KEYS) drivers[k] = base[k] + (body[k] - base[k]) * bodyWeight;
     // Wind-up and lead ride on top of whatever the grab asks for, not under it.
-    drivers.spineTwist += twist;
-    drivers.headYaw += head;
+    drivers.spineTwist += secondary.twist;
+    drivers.headYaw += secondary.head;
 
     const front = view.grabFront;
     drivers.frontHandEdge = front ? view.grabEdge : neutral.frontHandEdge;
     drivers.frontHandT = front ? view.grabT : neutral.frontHandT;
-    drivers.frontGrip = front ? view.grip : 0;
+    drivers.frontGrip = front ? handWeight : 0;
     drivers.backHandEdge = front ? neutral.backHandEdge : view.grabEdge;
     drivers.backHandT = front ? neutral.backHandT : view.grabT;
-    drivers.backGrip = front ? 0 : view.grip;
-    drivers.tweak = view.tweak;
+    drivers.backGrip = front ? 0 : handWeight;
+
+    const a = boardAttitude(view.grabEdge, view.grabT, view.grip, view.tweak, params);
+    drivers.boardPitch = a.pitch;
+    drivers.tweakRoll = a.roll;
     drivers.shifty = view.shifty;
     drivers.stanceScale = neutral.stanceScale;
   };
@@ -300,14 +291,16 @@ export function createScene(cfg: SlopeConfig, terrain: Terrain, camera: THREE.Pe
     rider: rig.root,
     drivers,
     strain: rig.strain,
+    shortfall: rig.shortfall,
+    legSpan: rig.legSpan,
 
-    updateRider(view, params, poseMode, dt) {
-      const r = params.rig;
+    updateRider(view, params, poseMode, secondary, dt) {
+      const frameDt = Math.min(dt, MAX_FRAME_DT);
       rig.root.position.set(view.position.x, view.position.y, view.position.z);
       // Tumble winds down with the slide rather than spinning at a fixed rate forever.
       tumbleAngle =
         view.mode === 'bailed'
-          ? tumbleAngle + Math.min(view.speed / params.bail.tumbleSpeedRef, 1) * params.bail.tumbleRate * dt
+          ? tumbleAngle + Math.min(view.speed / params.bail.tumbleSpeedRef, 1) * params.bail.tumbleRate * frameDt
           : 0;
 
       // The sim owns board orientation — grounded it is slaved to the terrain, airborne
@@ -318,7 +311,7 @@ export function createScene(cfg: SlopeConfig, terrain: Terrain, camera: THREE.Pe
       // Edge roll is cosmetic and only means anything on snow.
       if (view.mode === 'grounded') {
         // Local +X is the heel side (design §1), so a toe edge tips −X down.
-        roll.setFromAxisAngle(zAxis, view.edge * r.edgeRoll);
+        roll.setFromAxisAngle(zAxis, view.edge * params.rig.edgeRoll);
         rig.root.quaternion.multiply(roll);
       }
       if (view.mode === 'bailed') {
@@ -327,9 +320,18 @@ export function createScene(cfg: SlopeConfig, terrain: Terrain, camera: THREE.Pe
       }
 
       // Pose mode leaves the drivers alone — they are the thing being authored.
-      if (!poseMode) driveFromSim(view, params, dt);
+      if (!poseMode) driveFromSim(view, params, secondary);
 
       rig.apply(drivers, params);
+    },
+
+    setStage(clean) {
+      slope.visible = !clean;
+      markers.visible = !clean;
+      scene.fog = clean ? null : fog;
+      scene.background = clean ? stageColour : skyColour;
+      // Reach diagnostics belong to authoring, not to play.
+      rig.showReach(clean);
     },
 
     resize() {

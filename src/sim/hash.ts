@@ -65,6 +65,8 @@ export function hashState(state: RiderState, into: Hasher = shared): string {
   into.push(state.spinAxis.z);
   into.push(state.spinRate);
   into.push(state.airYaw);
+  into.push(state.spinRef);
+  into.push(state.spinArmed ? 1 : 0);
   into.push(state.grabEdge);
   into.push(state.grabT);
   into.push(state.grabFront ? 1 : 0);
