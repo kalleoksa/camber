@@ -33,6 +33,7 @@
   },
   "air": {
     "detachClearance": 0.12,
+    "detachSpeed": 1.5,
     "authority": 1.2,
     "tuckMultiplier": 1.25,
     "extendMultiplier": 0.85,

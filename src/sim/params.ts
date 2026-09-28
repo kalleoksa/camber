@@ -37,6 +37,7 @@ export const params = {
   },
   air: {
     detachClearance: 0.12, // m
+    detachSpeed: 1.5, // m/s of velocity into the air off the new surface normal — a lip launches you
     authority: 1.2, // 1/s, how fast in-air stick pulls spin toward its target
     tuckMultiplier: 1.25, // spin rate while grabbed
     extendMultiplier: 0.85, // spin rate while stretched

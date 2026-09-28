@@ -156,7 +156,11 @@ export function stepGrounded(
 
   terrain.sample(p.x, p.z, contact);
   state.clearance = p.y - contact.height;
-  if (state.clearance > params.air.detachClearance) {
+  // Two ways to leave the snow without popping: the ground dropped away (clearance), or
+  // it turned away under a board still travelling along the old surface — a lip, a
+  // rollover. Without the second, a kicker's deck would catch the rider every tick and
+  // re-project the launch flat, because per tick the rise is only centimetres.
+  if (state.clearance > params.air.detachClearance || dot(v, contact.normal) > params.air.detachSpeed) {
     rideOff(state, -yaw);
     return;
   }
