@@ -37,6 +37,12 @@ export type RiderState = {
   spinRate: number; // rad/s about spinAxis
   airYaw: number; // rad of board yaw accumulated this air
   /**
+   * World "up" of the surface the rider took off from, rotated in flight with the board
+   * toward the ground below. Levelling moves this and the board together, so it corrects
+   * the lip-to-landing angle without touching the spin — a cork included.
+   */
+  airUp: Vec3;
+  /**
    * Slow follower of the edge stick — "the carve you are already holding". Takeoff
    * measures the stick against this rather than against centre, so popping out of a carve
    * is not read as asking for a spin. See `air.spinCarveReject`.
@@ -89,6 +95,7 @@ export function createRiderState(spawn: Spawn): RiderState {
     spinAxis: vec3(0, 1, 0),
     spinRate: 0,
     airYaw: 0,
+    airUp: vec3(0, 1, 0),
     spinRef: 0,
     spinArmed: true,
     grabEdge: 0,
@@ -124,6 +131,7 @@ export function resetRiderState(state: RiderState): void {
   setXYZ(state.spinAxis, 0, 1, 0);
   state.spinRate = 0;
   state.airYaw = 0;
+  setXYZ(state.airUp, 0, 1, 0);
   state.spinRef = 0;
   state.spinArmed = true;
   state.grabEdge = 0;
@@ -160,6 +168,7 @@ export function copyRiderState(dst: RiderState, src: RiderState): void {
   copyInto(dst.spinAxis, src.spinAxis);
   dst.spinRate = src.spinRate;
   dst.airYaw = src.airYaw;
+  copyInto(dst.airUp, src.airUp);
   dst.spinRef = src.spinRef;
   dst.spinArmed = src.spinArmed;
   dst.grabEdge = src.grabEdge;
@@ -219,6 +228,7 @@ export function cloneRiderState(state: RiderState): RiderState {
     groundNormal: copy(state.groundNormal),
     spinFrame: copyQuat(quat(), state.spinFrame),
     spinAxis: copy(state.spinAxis),
+    airUp: copy(state.airUp),
     spawn: { position: copy(state.spawn.position), heading: state.spawn.heading },
   };
 }

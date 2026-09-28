@@ -39,7 +39,8 @@ export const params = {
     detachClearance: 0.12, // m
     detachSpeed: 1.5, // m/s of velocity into the air off the new surface normal — a lip launches you
     levelRate: 3.0, // 1/s, board pitch/roll brought round to the ground below in flight. 0 = off
-    levelTiltMax: 0.3, // rad of cork axis tilt at which levelling has faded out — a cork keeps its tilt
+    levelWhole: 1, // 1: level the whole rotation (corks land too). 0: older board-up rule, fades on corks
+    levelTiltMax: 0.3, // rad of cork tilt at which the older rule (levelWhole 0) has faded out
     authority: 1.2, // 1/s, how fast in-air stick pulls spin toward its target
     tuckMultiplier: 1.25, // spin rate while grabbed
     extendMultiplier: 0.85, // spin rate while stretched

@@ -1,7 +1,7 @@
 import type { InputSnapshot } from '../../input/snapshot.ts';
 import type { Params } from '../params.ts';
 import { boardAttitude } from '../grabs.ts';
-import { axisY, axisZ, multiply, normalizeQuat, quat, setFromAxisAngle, type Quat } from '../quat.ts';
+import { axisY, axisZ, multiply, normalizeQuat, quat, rotate, setFromAxisAngle, type Quat } from '../quat.ts';
 import type { RiderState } from '../state.ts';
 import { setTakeoffSpin, takeoffSpinRate } from './grounded.ts';
 import { createContact, type Terrain } from '../terrain.ts';
@@ -123,6 +123,24 @@ export function stepAirborne(
 function levelBoard(state: RiderState, params: Params, dt: number): void {
   const rate = params.air.levelRate;
   if (rate <= 0) return;
+  if (params.air.levelWhole > 0) {
+    // Rotate the takeoff surface's up toward the ground below, and the board with it, as
+    // one rigid rotation. A full spin about any axis brings the board back to its takeoff
+    // attitude, so correcting that attitude rather than board up lands flat spins and
+    // corks alike on the landing's angle, and never fights the spin itself.
+    cross(levelAxis, state.airUp, state.groundNormal);
+    const s = length(levelAxis);
+    if (s < 1e-9) return;
+    const angle = dm.atan2(s, dot(state.airUp, state.groundNormal));
+    scale(levelAxis, 1 / s);
+    setFromAxisAngle(levelQ, levelAxis, angle * (1 - dm.exp(-rate * dt)));
+    multiply(state.spinFrame, levelQ, state.spinFrame);
+    normalizeQuat(state.spinFrame);
+    rotate(state.airUp, levelQ, state.airUp);
+    normalize(state.airUp);
+    return;
+  }
+  // Older rule, kept so takes recorded under it replay: level board up, faded out on corks.
   const tilt = Math.abs(state.spinAxis.z) / dm.sin(params.air.levelTiltMax);
   const weight = 1 - Math.min(1, tilt);
   if (weight <= 0) return;

@@ -1,6 +1,6 @@
 import type { InputSnapshot } from '../../input/snapshot.ts';
 import type { Params } from '../params.ts';
-import { setFromBasis } from '../quat.ts';
+import { axisY, setFromBasis } from '../quat.ts';
 import type { RiderState } from '../state.ts';
 import { createContact, type Terrain } from '../terrain.ts';
 import {
@@ -175,6 +175,8 @@ function enterAir(state: RiderState): void {
   state.airTime = 0;
   state.airYaw = 0;
   state.landing = 'none';
+  // The surface the rider left, as the reference in-air levelling carries to the landing.
+  axisY(state.airUp, state.spinFrame);
 }
 
 /**

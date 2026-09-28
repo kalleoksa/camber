@@ -174,6 +174,13 @@ welded together.
   to contact overspins. `air.takeoffWindow` (0.1 s) lets a stick that arrives just after
   the trigger still count as the wind-up; it only ever strengthens the spin. Both new
   params at 0 restore the old coast.
+- **Levelling moves the whole rotation.** In flight the takeoff surface's up (`airUp`)
+  is rotated toward the ground below at `air.levelRate`, and the board with it, as one
+  rigid rotation. A full spin about any axis returns the board to its takeoff attitude, so
+  correcting that attitude lands flat spins *and* corks on the landing's angle without
+  ever fighting the spin. The first version levelled board up and had to switch off for
+  corks; a recorded cork 360 off the kicker, 6° from a full turn, then landed 42° nose-high
+  (the lip-to-landing angle) and sketchy. It lands clean under this rule.
 - **Cork deadzone.** Stick Y at takeoff is also the tail press, so |Y| under
   `air.corkDeadzone` (0.5) is a flat spin; past it the tilt rescales to the full cork.
   Found on a recorded 720 off the kicker: a thumb pressing tail at −0.41 while throwing
