@@ -160,6 +160,10 @@ welded together.
 - **Shifty** (LB/RB) yaws the board under the body toward ±`air.shiftyMax` at
   `air.shiftyRate`. Drawn board and landing test are `spinFrame ∘ shifty ∘ tweakOffset`,
   so a shifty held into contact is judged like any other off-axis board.
+  The same rule means a small shifty at contact can *save* a slightly over- or
+  under-rotated spin by bringing the board back onto the direction of travel.
+  Decided by play: keep it — it's how a real rider saves a landing. The lever if it
+  ever gets too forgiving is `air.shiftyMax`, not a special case in the landing test.
 - Grab held → `air.tuckMultiplier` (~1.25) faster spin. Extended → slower. This is real
   and it's the main mid-air expression tool.
 
