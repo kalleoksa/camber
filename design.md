@@ -743,6 +743,18 @@ because `tweakOffset` reaches the landing test.
 
 ---
 
+## Milestone status
+
+| # | Milestone | Status |
+|---|---|---|
+| 1 | Harness | Gate passed — real takes replay bit-identically, across machines since `dmath` |
+| 2 | Carving | Gate passed |
+| 3 | Air | Gate passed 2026-09 — spins with check, corks, flips, landing tolerance tuned by play |
+| 4 | Grabs + rig | Gate passed 2026-09 — authored anchors, grabs/tweak/shifty wired, pose-mode anchor editing |
+| 5 | Rails | Next. Balance is deterministic from entry and stance (open question 4, decided) |
+
+---
+
 ## 13. Open questions — resolve by playing, not by discussing
 
 1. ~~Is `air.authority` at 0.35 too punishing for a pad player?~~ **Resolved by play:**
@@ -750,8 +762,8 @@ because `tweakOffset` reaches the landing test.
    scale takeoff uses.
 2. Should switch riding invert the edge mapping, or is heading-relative enough?
 3. Does `speedFactorKnee` at 6 m/s make slow-speed riding feel dead?
-4. Rail balance: noise-driven, or fully deterministic from entry angle? Deterministic is
-   more learnable; noise is more tense. Try deterministic first.
+4. ~~Rail balance: noise-driven, or fully deterministic from entry angle?~~ **Decided:**
+   deterministic. Learnable beats tense; noise can be layered later if it plays free.
 5. Does a scoreless game need a "clean/sketchy" stamp at all, or is the physical read
    enough? Build without it, add only if the game feels mute.
 6. Crossed grabs (crail, roast beef) need the hand that §7.3's reach rule would not
