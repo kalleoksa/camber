@@ -25,7 +25,7 @@ const drop: Terrain = {
 };
 
 // The kicker the game places (main.ts), for airs off a lip.
-const KICKER = { z: -10, x: 0, width: 10, lipHeight: 5.5, lipAngle: 0.5, deckLength: 5, sideTaper: 3, landingAngle: 0.3, knuckleRadius: 5, runoutRadius: 18 };
+const KICKER = { z: -16, x: 0, width: 10, lipHeight: 6, lipAngle: 0.5, deckLength: 5, sideTaper: 3, landingAngle: 0.3, knuckleRadius: 5, runoutRadius: 18 };
 const kickerSlope = createSlope({ length: 400, width: 120, pitch: 0.28, kicker: KICKER });
 // m from the kicker's start to the lip: the transition is an arc with H = R(1 − cos θ).
 const KICKER_RUN_IN = (KICKER.lipHeight / (1 - Math.cos(KICKER.lipAngle))) * Math.sin(KICKER.lipAngle);

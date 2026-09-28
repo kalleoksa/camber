@@ -51,11 +51,12 @@ const slopeConfig: SlopeConfig = {
   length: 400,
   width: 120,
   pitch: 0.28,
-  // A park table-top 10 m down: 5.5 m lip, rounded knuckle, 14 m landing at 0.3 rad below
-  // the slope, rounded run-out. Sized by simulation so straight rolls, popped airs and a
-  // checked 360 all land on the landing — rolls at ~3 m/s impact, pops ~9 — at the
-  // 10–12 m/s you arrive with from spawn. Stand-in until park.json in milestone 7.
-  kicker: { z: -10, x: 0, width: 10, lipHeight: 5.5, lipAngle: 0.5, deckLength: 5, sideTaper: 3, landingAngle: 0.3, knuckleRadius: 5, runoutRadius: 18 },
+  // A park table-top 16 m down: 6 m lip, rounded knuckle, 16 m landing at 0.3 rad below
+  // the slope, rounded run-out. Moved down from 10 m after play: lip speeds of 10–12 m/s
+  // felt slow and the slowest air came up short onto the knuckle. Simulated: rolls reach
+  // the lip at ~12 m/s and pops at ~14, all landing on the landing — rolls at ~6 m/s
+  // impact, pops ~11. Stand-in until park.json in milestone 7.
+  kicker: { z: -16, x: 0, width: 10, lipHeight: 6, lipAngle: 0.5, deckLength: 5, sideTaper: 3, landingAngle: 0.3, knuckleRadius: 5, runoutRadius: 18 },
 };
 
 const terrain = createSlope(slopeConfig);
