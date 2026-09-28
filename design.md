@@ -514,8 +514,12 @@ the heightfield — circular transition to the lip, flat deck, landing ramp. Two
 needed in the sim: grounded detaches when the surface turns away under the board
 (`air.detachSpeed`), or the deck catches the rider at the lip every tick; and in flight the
 board's pitch/roll relax toward the ground beneath (`air.levelRate`), or every straight air
-lands nose-high off the lip's angle. Popping at the lip adds ~0.6 s and ~8 m, so the landing
-is sized for popped airs; impact on those stays ~13 m/s until the table is taller.
+lands nose-high off the lip's angle. It is now a park table-top: circular takeoff to a 5.5 m lip, flat deck, rounded knuckle,
+a straight landing 0.3 rad below the slope (~33° absolute), rounded run-out. Sized by
+simulation at the 10–12 m/s you arrive with 10 m below spawn — the old 30 m placement gave
+18–22 m/s, which no park-sized landing can catch. Straight rolls land at ~3 m/s of impact.
+Popped airs still come in around 9 m/s: the pop adds ~7 m/s of lift, far more than an ollie
+off a real lip, so `pop.charged` is the lever there, not the landing.
 
 ```json
 {

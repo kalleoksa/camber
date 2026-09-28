@@ -36,9 +36,18 @@ export type KickerConfig = {
   width: number; // m
   lipHeight: number; // m above the base slope
   lipAngle: number; // rad, takeoff angle relative to the base slope
-  deckLength: number; // m of flat table between lip and landing
-  landingLength: number; // m of landing ramp from deck back down to the slope
+  deckLength: number; // m of flat table between lip and knuckle
   sideTaper: number; // m over which the sides fall away, so the edge isn't a wall
+  /**
+   * A park landing: rounded knuckle, a straight ramp at `landingAngle` below the base
+   * slope, and a rounded run-out back onto it. Set these three for that; leave them out
+   * and `landingLength` gives the older straight ramp from deck to slope, kept so takes
+   * recorded on it still replay.
+   */
+  landingAngle?: number; // rad the landing falls away below the base slope
+  knuckleRadius?: number; // m, convex roll from deck into landing
+  runoutRadius?: number; // m, concave roll from landing back onto the slope
+  landingLength?: number; // m, legacy straight ramp only
 };
 
 export function createContact(): Contact {
@@ -69,7 +78,23 @@ export function createSlope(cfg: SlopeConfig): Terrain {
   const radius = k ? k.lipHeight / (1 - dm.cos(k.lipAngle)) : 0;
   const runIn = k ? radius * dm.sin(k.lipAngle) : 0;
   const deckEnd = k ? runIn + k.deckLength : 0;
-  const end = k ? deckEnd + k.landingLength : 0;
+
+  // Park landing geometry: knuckle arc, straight landing, run-out arc. Each arc turns
+  // through `landingAngle`, so the knuckle drops Rk(1 − cos α) over Rk sin α and the
+  // run-out the same with its own radius; the straight covers the height left between.
+  const alpha = k?.landingAngle ?? 0;
+  const park = k !== undefined && alpha > 0;
+  const rk = k?.knuckleRadius ?? 0;
+  const rb = k?.runoutRadius ?? 0;
+  const knuckleLen = park ? rk * dm.sin(alpha) : 0;
+  const knuckleDrop = park ? rk * (1 - dm.cos(alpha)) : 0;
+  const runoutLen = park ? rb * dm.sin(alpha) : 0;
+  const runoutRise = park ? rb * (1 - dm.cos(alpha)) : 0;
+  const slopeAlpha = park ? dm.tan(alpha) : 0;
+  const straightLen = park && k ? Math.max(0, k.lipHeight - knuckleDrop - runoutRise) / slopeAlpha : 0;
+  const knuckleEnd = deckEnd + knuckleLen;
+  const straightEnd = knuckleEnd + straightLen;
+  const end = !k ? 0 : park ? straightEnd + runoutLen : deckEnd + (k.landingLength ?? 0);
 
   const kickerHeight = (x: number, z: number): number => {
     if (!k) return 0;
@@ -80,7 +105,15 @@ export function createSlope(cfg: SlopeConfig): Terrain {
     let h: number;
     if (s < runIn) h = radius - Math.sqrt(radius * radius - s * s);
     else if (s < deckEnd) h = k.lipHeight;
-    else h = k.lipHeight * (1 - (s - deckEnd) / k.landingLength);
+    else if (!park) h = k.lipHeight * (1 - (s - deckEnd) / (k.landingLength ?? 1));
+    else if (s < knuckleEnd) {
+      const u = s - deckEnd;
+      h = k.lipHeight - (rk - Math.sqrt(rk * rk - u * u));
+    } else if (s < straightEnd) h = k.lipHeight - knuckleDrop - (s - knuckleEnd) * slopeAlpha;
+    else {
+      const u = end - s; // distance still to go to the slope
+      h = rb - Math.sqrt(rb * rb - u * u);
+    }
     if (side > 0) {
       const t = 1 - side / k.sideTaper;
       h *= t * t * (3 - 2 * t); // smoothstep, so the sides roll off rather than cliff

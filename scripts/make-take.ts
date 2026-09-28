@@ -18,7 +18,7 @@ const slopeConfig: SlopeConfig = {
   length: 400,
   width: 120,
   pitch: 0.28,
-  kicker: { z: -30, x: 0, width: 8, lipHeight: 3, lipAngle: 0.5, deckLength: 6, landingLength: 24, sideTaper: 2 },
+  kicker: { z: -10, x: 0, width: 10, lipHeight: 5.5, lipAngle: 0.5, deckLength: 5, sideTaper: 3, landingAngle: 0.3, knuckleRadius: 5, runoutRadius: 18 },
 };
 
 const rng = createRng(SEED);

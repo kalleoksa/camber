@@ -25,13 +25,10 @@ const drop: Terrain = {
 };
 
 // The kicker the game places (main.ts), for airs off a lip.
-const kickerSlope = createSlope({
-  length: 400,
-  width: 120,
-  pitch: 0.28,
-  kicker: { z: -30, x: 0, width: 8, lipHeight: 3, lipAngle: 0.5, deckLength: 6, landingLength: 24, sideTaper: 2 },
-});
-const KICKER_RUN_IN = 11.7; // m from the kicker's start to the lip, for this config
+const KICKER = { z: -10, x: 0, width: 10, lipHeight: 5.5, lipAngle: 0.5, deckLength: 5, sideTaper: 3, landingAngle: 0.3, knuckleRadius: 5, runoutRadius: 18 };
+const kickerSlope = createSlope({ length: 400, width: 120, pitch: 0.28, kicker: KICKER });
+// m from the kicker's start to the lip: the transition is an arc with H = R(1 − cos θ).
+const KICKER_RUN_IN = (KICKER.lipHeight / (1 - Math.cos(KICKER.lipAngle))) * Math.sin(KICKER.lipAngle);
 
 const deg = (r: number): string => `${Math.round((r * 180) / Math.PI)}°`;
 const forward = vec3();
@@ -135,7 +132,7 @@ function kicker(name: string, pop: boolean, lx = 0, checkAt = Infinity): void {
   const state = spawn(kickerSlope);
   const input = neutralInput();
   for (let i = 0; i < 20 / TICK_DT && state.mode !== 'airborne' || i < 120; i++) {
-    const s = -30 - state.position.z;
+    const s = KICKER.z - state.position.z;
     input.rt = pop && s > KICKER_RUN_IN - 4 && s < KICKER_RUN_IN - 0.6 ? 1 : 0;
     input.lx = pop && s > KICKER_RUN_IN - 4 ? lx : 0;
     tick(state, input, params, kickerSlope, TICK_DT);
