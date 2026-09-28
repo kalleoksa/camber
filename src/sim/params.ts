@@ -43,6 +43,8 @@ export const params = {
     spinMax: 9.0, // rad/s cap
     axisTiltMax: 1.1, // rad, max cork axis lerp
     spinTakeoff: 7.0, // rad/s at full stick on takeoff
+    shiftyMax: 0.9, // rad of board yaw against the body on LB/RB
+    shiftyRate: 8.0, // 1/s, board swinging out and back — held at contact, it's judged
   },
   land: {
     clean: 0.44, // rad ≈ 25°

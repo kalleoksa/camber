@@ -147,6 +147,9 @@ welded together.
 - **Only a pop sets rotation.** Riding off a lip without popping carries the carve's
   yaw rate onto a flat axis; the stick does not launch a spin nobody wound up. In-air
   authority still applies from there.
+- **Shifty** (LB/RB) yaws the board under the body toward ±`air.shiftyMax` at
+  `air.shiftyRate`. Drawn board and landing test are `spinFrame ∘ shifty ∘ tweakOffset`,
+  so a shifty held into contact is judged like any other off-axis board.
 - Grab held → `air.tuckMultiplier` (~1.25) faster spin. Extended → slower. This is real
   and it's the main mid-air expression tool.
 

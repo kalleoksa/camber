@@ -28,6 +28,7 @@ let lyTarget = 0;
 let rtTarget = 0;
 let rxTarget = 0;
 let ryTarget = 0;
+let shifty = 0; // -1 LB, 0, +1 RB
 
 for (let i = 0; i < SECONDS / TICK_DT; i++) {
   if (i % 48 === 0) {
@@ -38,6 +39,8 @@ for (let i = 0; i < SECONDS / TICK_DT; i++) {
     const grab = next(rng) < 0.4;
     rxTarget = grab ? next(rng) * 2 - 1 : 0;
     ryTarget = grab ? next(rng) * 2 - 1 : 0;
+    const roll = next(rng);
+    shifty = roll < 0.15 ? -1 : roll < 0.3 ? 1 : 0;
   }
   lx = dampScalar(lx, lxTarget, 6, TICK_DT);
   ly = dampScalar(ly, lyTarget, 4, TICK_DT);
@@ -51,6 +54,8 @@ for (let i = 0; i < SECONDS / TICK_DT; i++) {
   frame.rt = rt;
   frame.rx = rx;
   frame.ry = ry;
+  frame.lb = shifty < 0;
+  frame.rb = shifty > 0;
   frames.push(frame);
 }
 

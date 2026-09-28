@@ -26,6 +26,7 @@ const DRIVER_RANGE: Record<keyof RigDrivers, { min: number; max: number }> = {
   kneeSplay: { min: -1.2, max: 1.4 },
   stanceScale: { min: 0.7, max: 1.4 },
   boardLift: { min: 0, max: 0.7 },
+  shifty: { min: -1.2, max: 1.2 },
 };
 
 export type Readout = {

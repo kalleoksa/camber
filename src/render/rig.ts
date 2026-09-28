@@ -39,6 +39,7 @@ export type RigDrivers = {
    * looks like. Zero on snow, where the board is on the ground and the hips do the work.
    */
   boardLift: number;
+  shifty: number; // rad, board yawed under the body about its own centre
 };
 
 export function neutralDrivers(): RigDrivers {
@@ -64,6 +65,7 @@ export function neutralDrivers(): RigDrivers {
     kneeSplay: 0.5,
     stanceScale: 1,
     boardLift: 0,
+    shifty: 0,
   };
 }
 
@@ -257,6 +259,13 @@ export function createRig(): Rig {
       } else {
         board.quaternion.identity();
         board.position.set(0, 0, 0);
+      }
+      // Shifty yaws the whole (tweaked) board about its centre, under the hips — the same
+      // spinFrame ∘ shifty ∘ tweak order the sim judges.
+      if (d.shifty !== 0) {
+        tmpQuat.setFromAxisAngle(yAxis, d.shifty);
+        board.quaternion.premultiply(tmpQuat);
+        board.position.applyQuaternion(tmpQuat);
       }
       board.position.y += lift;
 

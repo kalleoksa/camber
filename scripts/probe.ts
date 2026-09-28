@@ -47,6 +47,7 @@ function report(name: string, state: RiderState, terrain: Terrain, input: InputS
     if (state.airTime > letGoAt) {
       input.rx = 0;
       input.ry = 0;
+      input.rb = false;
     }
     tweak = state.tweak;
     tick(state, input, params, terrain, TICK_DT);
@@ -65,8 +66,11 @@ function report(name: string, state: RiderState, terrain: Terrain, input: InputS
   );
 }
 
-/** Right stick held through the air: `rx`/`ry` pick the spot, magnitude past tweakEnter shoves. */
-function pop(name: string, lx: number, ly: number, rx = 0, ry = 0, letGoAt = Infinity): void {
+/**
+ * Right stick held through the air: `rx`/`ry` pick the spot, magnitude past tweakEnter
+ * shoves. `shifty` holds RB.
+ */
+function pop(name: string, lx: number, ly: number, rx = 0, ry = 0, letGoAt = Infinity, shifty = false): void {
   const state = spawn(slope);
   const input = neutralInput();
   run(state, slope, input, 2);
@@ -79,6 +83,7 @@ function pop(name: string, lx: number, ly: number, rx = 0, ry = 0, letGoAt = Inf
   const air = neutralInput();
   air.rx = rx;
   air.ry = ry;
+  air.rb = shifty;
   report(name, state, slope, air, letGoAt);
 }
 
@@ -113,6 +118,9 @@ pop('indy, no tweak', 0, 0, 0.5, -0.1);
 pop('method held to contact', 0, 0, -1, 0.05);
 pop('method, let go 0.3 s', 0, 0, -1, 0.05, 0.3);
 pop('360 + indy (tuck)', 1, 0, 0.5, -0.1);
+pop('mute', 0, 0, 0.5, 0.1);
+pop('shifty held to contact', 0, 0, 0, 0, Infinity, true);
+pop('shifty, let go 0.3 s', 0, 0, 0, 0, 0.3, true);
 rideOff('ride off, flat', 0);
 rideOff('ride off, carving', 0.6);
 carve('toe edge held', 1);

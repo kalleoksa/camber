@@ -27,6 +27,8 @@ const boardUp = vec3();
 const course = vec3();
 const axis = vec3();
 const tweakQ = quat();
+const shiftyQ = quat();
+const UP = vec3(0, 1, 0);
 const composed = quat();
 
 export function stepAirborne(
@@ -54,6 +56,11 @@ export function stepAirborne(
   if (state.spinRate < -params.air.spinMax) state.spinRate = -params.air.spinMax;
 
   updateGrab(state, input, params, dt);
+
+  // Shifty: board yawed under a still body. Buttons, so it's all or nothing in intent;
+  // the spring is what makes it a motion rather than a snap.
+  const shiftyTarget = ((input.rb ? 1 : 0) - (input.lb ? 1 : 0)) * params.air.shiftyMax;
+  state.shifty = dampScalar(state.shifty, shiftyTarget, params.air.shiftyRate, dt);
 
   // A grab tucks the body in and spins faster; shoving the board out on a tweak extends
   // it and spins slower. Scales what the board does, not the rate the stick is steering.
@@ -111,11 +118,17 @@ function updateGrab(state: RiderState, input: InputSnapshot, params: Params, dt:
   state.tweak = dampScalar(state.tweak, tweakTarget, rate, dt);
 }
 
-/** Drawn board = spinFrame ∘ tweakOffset. What the landing test must read (§6, §7.4). */
+/**
+ * Drawn board = spinFrame ∘ shifty ∘ tweakOffset. What the landing test must read (§6,
+ * §7.4). The shifty yaws the board under the body; the tweak then pivots it about the
+ * grab point in that yawed frame — the same order the rig draws it in.
+ */
 function composeBoard(out: Quat, state: RiderState, params: Params): Quat {
+  setFromAxisAngle(shiftyQ, UP, state.shifty);
   tweakAxis(axis, state.grabEdge, state.grabT);
   setFromAxisAngle(tweakQ, axis, state.tweak * params.grab.tweakDepthMax);
-  return multiply(out, state.spinFrame, tweakQ);
+  multiply(out, state.spinFrame, shiftyQ);
+  return multiply(out, out, tweakQ);
 }
 
 /**
@@ -134,6 +147,7 @@ function land(state: RiderState, params: Params, n: Vec3): void {
   axisY(boardUp, composed);
   state.grip = 0;
   state.tweak = 0;
+  state.shifty = 0;
   projectOntoPlane(boardForward, n);
   normalize(boardForward);
 

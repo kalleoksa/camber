@@ -37,6 +37,7 @@ export type RiderView = {
   grabFront: boolean;
   grip: number;
   tweak: number;
+  shifty: number;
 };
 
 function shortestAngleLerp(a: number, b: number, t: number): number {
@@ -68,6 +69,7 @@ const view: RiderView = {
   grabFront: true,
   grip: 0,
   tweak: 0,
+  shifty: 0,
 };
 
 function lerpInto(out: Vec3, a: Vec3, b: Vec3, t: number): void {
@@ -101,6 +103,7 @@ export function interpolateRider(prev: RiderState, cur: RiderState, alpha: numbe
   view.grabFront = cur.grabFront;
   view.grip = prev.grip + (cur.grip - prev.grip) * alpha;
   view.tweak = prev.tweak + (cur.tweak - prev.tweak) * alpha;
+  view.shifty = prev.shifty + (cur.shifty - prev.shifty) * alpha;
   view.course =
     Math.abs(cur.velocity.x) + Math.abs(cur.velocity.z) > 1e-4
       ? Math.atan2(cur.velocity.x, cur.velocity.z)
@@ -273,7 +276,7 @@ export function createScene(cfg: SlopeConfig, terrain: Terrain, camera: THREE.Pe
     base.spineTwist = 0;
     base.headYaw = 0;
 
-    grabBody(body, view.grabEdge, view.tweak);
+    grabBody(body, view.grabEdge, view.grabT, view.tweak);
     for (const k of BODY_KEYS) drivers[k] = base[k] + (body[k] - base[k]) * view.grip;
     // Wind-up and lead ride on top of whatever the grab asks for, not under it.
     drivers.spineTwist += twist;
@@ -287,6 +290,7 @@ export function createScene(cfg: SlopeConfig, terrain: Terrain, camera: THREE.Pe
     drivers.backHandT = front ? neutral.backHandT : view.grabT;
     drivers.backGrip = front ? 0 : view.grip;
     drivers.tweak = view.tweak;
+    drivers.shifty = view.shifty;
     drivers.stanceScale = neutral.stanceScale;
   };
 

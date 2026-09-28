@@ -38,7 +38,9 @@
     "extendMultiplier": 0.85,
     "spinMax": 9,
     "axisTiltMax": 1.1,
-    "spinTakeoff": 7
+    "spinTakeoff": 7,
+    "shiftyMax": 0.9,
+    "shiftyRate": 8
   },
   "land": {
     "clean": 0.44,

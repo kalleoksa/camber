@@ -43,6 +43,7 @@ export type RiderState = {
   grabFront: boolean; // which hand — picked from t at the moment of reaching, then held
   grip: number; // 0 = hand at rest, 1 = locked to the board
   tweak: number; // 0..1 of grab.tweakDepthMax, about the grab point
+  shifty: number; // rad, board yaw about its own up, independent of the body
 
   groundNormal: Vec3; // smoothed, what the board is slaved to
   scrub: number; // m/s² the edge is removing from lateral velocity — drives spray and edge bite
@@ -80,6 +81,7 @@ export function createRiderState(spawn: Spawn): RiderState {
     grabFront: true,
     grip: 0,
     tweak: 0,
+    shifty: 0,
     groundNormal: vec3(0, 1, 0),
     scrub: 0,
     clearance: 0,
@@ -111,6 +113,7 @@ export function resetRiderState(state: RiderState): void {
   state.grabFront = true;
   state.grip = 0;
   state.tweak = 0;
+  state.shifty = 0;
   state.scrub = 0;
   state.heading = spawn.heading;
   state.headingTarget = spawn.heading;
@@ -143,6 +146,7 @@ export function copyRiderState(dst: RiderState, src: RiderState): void {
   dst.grabFront = src.grabFront;
   dst.grip = src.grip;
   dst.tweak = src.tweak;
+  dst.shifty = src.shifty;
   dst.heading = src.heading;
   dst.headingTarget = src.headingTarget;
   dst.edge = src.edge;
