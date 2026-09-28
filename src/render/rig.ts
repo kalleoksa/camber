@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { BOARD_HALF, BOARD_LENGTH, edgePoint, tweakAxis } from '../sim/board.ts';
 import type { Params } from '../sim/params.ts';
 
 /**
@@ -68,27 +69,6 @@ export function neutralDrivers(): RigDrivers {
 
 export function copyDrivers(dst: RigDrivers, src: RigDrivers): void {
   for (const key of Object.keys(dst) as (keyof RigDrivers)[]) dst[key] = src[key];
-}
-
-/** Max board rotation about the grab point at full tweak. Anatomy clamps it below this. */
-const TWEAK_MAX = 1.15; // rad
-const BOARD_LENGTH = 1.55;
-const BOARD_HALF = BOARD_LENGTH / 2;
-const EDGE_X = 0.145; // m, just outside the deck so the hand wraps the edge
-
-/**
- * A grab is a coordinate on the board, not one of eight buttons (§7.3). `edge` picks
- * which rail continuously, `t` runs tail (0) to nose (1).
- */
-export function edgePoint(out: THREE.Vector3, edge: number, t: number): THREE.Vector3 {
-  // state.edge is + for toe, and the toe side is board-local −X.
-  out.set(-edge * EDGE_X, 0.035, (t * 2 - 1) * (BOARD_HALF - 0.06));
-  return out;
-}
-
-/** Which hand can reach: split at the midpoint between the bindings (§7.3). */
-export function handForT(t: number): 'front' | 'back' {
-  return t >= 0.5 ? 'front' : 'back';
 }
 
 function bone(color: number, thickness: number): THREE.Mesh {
@@ -238,7 +218,7 @@ export function createRig(): Rig {
   const hipQuat = new THREE.Quaternion();
   const spineQuat = new THREE.Quaternion();
   const tmpQuat = new THREE.Quaternion();
-  const tweakAxis = new THREE.Vector3();
+  const axis = new THREE.Vector3();
   const xAxis = new THREE.Vector3(1, 0, 0);
   const yAxis = new THREE.Vector3(0, 1, 0);
   const zAxis = new THREE.Vector3(0, 0, 1);
@@ -249,6 +229,9 @@ export function createRig(): Rig {
   };
 
   const strain = { front: 0, back: 0 };
+  // Which hand the tweak pivots about. Remembered, so a board still springing back after
+  // the hand lets go keeps its pivot instead of jumping to the other hand's rest point.
+  let pivotFront = true;
 
   return {
     root,
@@ -260,16 +243,16 @@ export function createRig(): Rig {
       const halfStance = (r.stanceWidth * d.stanceScale) / 2;
 
       // 1. Board, with the tweak applied about the active grab point.
-      const grip = Math.max(d.frontGrip, d.backGrip);
-      const useFront = d.frontGrip >= d.backGrip;
-      edgePoint(grab, useFront ? d.frontHandEdge : d.backHandEdge, useFront ? d.frontHandT : d.backHandT);
+      if (d.frontGrip !== d.backGrip) pivotFront = d.frontGrip > d.backGrip;
+      const pivotEdge = pivotFront ? d.frontHandEdge : d.backHandEdge;
+      const pivotT = pivotFront ? d.frontHandT : d.backHandT;
+      edgePoint(grab, pivotEdge, pivotT);
       const lift = Math.max(0, d.boardLift);
-      const tweakAngle = d.tweak * grip * TWEAK_MAX;
+      // Same rotation the sim composes for the landing test (§7.4) — axis from board.ts.
+      const tweakAngle = d.tweak * params.grab.tweakDepthMax;
       if (tweakAngle > 1e-4) {
-        // Shove is about the axis through the grab point, perpendicular to the board's
-        // length and to the direction the legs push.
-        tweakAxis.set(grab.z, 0, -grab.x).normalize();
-        board.quaternion.setFromAxisAngle(tweakAxis, tweakAngle);
+        tweakAxis(axis, pivotEdge, pivotT);
+        board.quaternion.setFromAxisAngle(axis, tweakAngle);
         board.position.copy(grab).applyQuaternion(board.quaternion).negate().add(grab);
       } else {
         board.quaternion.identity();

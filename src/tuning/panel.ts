@@ -45,6 +45,7 @@ export type Readout = {
 export type PanelHandlers = {
   onPoseMode(on: boolean): void;
   onAnchor(name: string): void;
+  onWriteAnchor(name: string): void;
   onSavePose(): void;
   onLoadPose(json: string): void;
   onReset(): void;
@@ -127,6 +128,9 @@ export function createPanel(
       options: Object.fromEntries(ANCHOR_NAMES.map((n) => [n, n])),
     })
     .on('change', (ev) => handlers.onAnchor(String(ev.value)));
+  // Overwrites the selected anchor with the sliders, live — play blends toward it at once.
+  // Session only: save the pose and paste it into poses.ts to keep it.
+  pose.addButton({ title: 'write to anchor' }).on('click', () => handlers.onWriteAnchor(poseState.anchor));
   pose.addButton({ title: 'save pose' }).on('click', handlers.onSavePose);
   pose.addButton({ title: 'load pose' }).on('click', () => pickFile(handlers.onLoadPose));
 

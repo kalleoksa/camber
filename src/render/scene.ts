@@ -5,6 +5,7 @@ import type { LandingRead, RiderMode, RiderState } from '../sim/state.ts';
 import type { SlopeConfig, Terrain } from '../sim/terrain.ts';
 import { createContact } from '../sim/terrain.ts';
 import { length, vec3, type Vec3 } from '../sim/vec3.ts';
+import { BODY_KEYS, grabBody } from './poses.ts';
 import { createRig, neutralDrivers, type RigDrivers } from './rig.ts';
 
 /**
@@ -30,6 +31,12 @@ export type RiderView = {
   impact: number;
   absorb: number;
   bailTime: number;
+  spinRate: number;
+  grabEdge: number;
+  grabT: number;
+  grabFront: boolean;
+  grip: number;
+  tweak: number;
 };
 
 function shortestAngleLerp(a: number, b: number, t: number): number {
@@ -55,6 +62,12 @@ const view: RiderView = {
   impact: 0,
   absorb: 0,
   bailTime: 0,
+  spinRate: 0,
+  grabEdge: 0,
+  grabT: 0.5,
+  grabFront: true,
+  grip: 0,
+  tweak: 0,
 };
 
 function lerpInto(out: Vec3, a: Vec3, b: Vec3, t: number): void {
@@ -82,6 +95,12 @@ export function interpolateRider(prev: RiderState, cur: RiderState, alpha: numbe
   view.impact = cur.impact;
   view.absorb = cur.absorb;
   view.bailTime = cur.bailTime;
+  view.spinRate = cur.spinRate;
+  view.grabEdge = prev.grabEdge + (cur.grabEdge - prev.grabEdge) * alpha;
+  view.grabT = prev.grabT + (cur.grabT - prev.grabT) * alpha;
+  view.grabFront = cur.grabFront;
+  view.grip = prev.grip + (cur.grip - prev.grip) * alpha;
+  view.tweak = prev.tweak + (cur.tweak - prev.tweak) * alpha;
   view.course =
     Math.abs(cur.velocity.x) + Math.abs(cur.velocity.z) > 1e-4
       ? Math.atan2(cur.velocity.x, cur.velocity.z)
@@ -190,7 +209,16 @@ export function createScene(cfg: SlopeConfig, terrain: Terrain, camera: THREE.Pe
   const rig = createRig();
   scene.add(rig.root);
   const drivers = neutralDrivers();
+  const neutral = neutralDrivers();
+  const base = neutralDrivers();
+  const body = neutralDrivers();
+  // Render-side spring memory (§7.6): position and velocity per driven channel.
+  let hipY = 0;
   let hipVel = 0;
+  let twist = 0;
+  let twistVel = 0;
+  let head = 0;
+  let headVel = 0;
   let springTime = 0;
 
   const roll = new THREE.Quaternion();
@@ -198,6 +226,69 @@ export function createScene(cfg: SlopeConfig, terrain: Terrain, camera: THREE.Pe
   const zAxis = new THREE.Vector3(0, 0, 1);
   const tumbleAxis = new THREE.Vector3(1, 0.3, 0).normalize();
   let tumbleAngle = 0;
+
+  /**
+   * Gameplay → drivers. Every channel is a spring toward a target, never a direct write
+   * of anything that moves (§7.6). The grab blends the body toward the anchors by grip;
+   * hands and tweak come straight from the sim so the drawn board is the judged board.
+   */
+  const driveFromSim = (view: RiderView, params: Params, dt: number): void => {
+    const r = params.rig;
+    const grounded = view.mode === 'grounded';
+    const airborne = view.mode === 'airborne';
+
+    const absorb = view.absorb > 0 ? view.impact * r.absorbPerImpact : 0;
+    const hipTarget = -view.compress * r.crouchDepth - absorb;
+
+    // §7.7. Charging with the stick pushed winds the shoulders against the spin that's
+    // coming (the spin will be −edge, so the wind-up is +edge); the pop releases it and
+    // the same spring carries it through into a lead. Head looks where the board will be.
+    const spinFraction = Math.max(-1, Math.min(1, view.spinRate / params.air.spinTakeoff));
+    const twistTarget = grounded
+      ? view.edge * view.compress * r.counterRotation
+      : airborne
+        ? spinFraction * r.shoulderLead
+        : 0;
+    const headTarget = airborne ? Math.max(-r.headTurnMax, Math.min(r.headTurnMax, view.spinRate * r.headLead)) : 0;
+
+    // Semi-implicit: a = ω²(target − x) − 2ζωv.
+    const wh = r.hipStiffness;
+    const ws = r.spineStiffness;
+    springTime += dt;
+    while (springTime >= SPRING_DT) {
+      springTime -= SPRING_DT;
+      hipVel += (wh * wh * (hipTarget - hipY) - 2 * r.hipDamping * wh * hipVel) * SPRING_DT;
+      hipY += hipVel * SPRING_DT;
+      twistVel += (ws * ws * (twistTarget - twist) - 2 * r.spineDamping * ws * twistVel) * SPRING_DT;
+      twist += twistVel * SPRING_DT;
+      headVel += (ws * ws * (headTarget - head) - 2 * r.spineDamping * ws * headVel) * SPRING_DT;
+      head += headVel * SPRING_DT;
+    }
+
+    base.hipX = grounded ? view.edge * r.edgeHipShift : 0; // in the air lx is spin, not lean
+    base.hipY = hipY;
+    base.hipZ = view.stance * r.stanceHipShift;
+    base.spineSide = view.stance * r.stanceSpineSide;
+    base.spineBend = r.spineBendBase + view.compress * r.compressSpineBend;
+    base.spineTwist = 0;
+    base.headYaw = 0;
+
+    grabBody(body, view.grabEdge, view.tweak);
+    for (const k of BODY_KEYS) drivers[k] = base[k] + (body[k] - base[k]) * view.grip;
+    // Wind-up and lead ride on top of whatever the grab asks for, not under it.
+    drivers.spineTwist += twist;
+    drivers.headYaw += head;
+
+    const front = view.grabFront;
+    drivers.frontHandEdge = front ? view.grabEdge : neutral.frontHandEdge;
+    drivers.frontHandT = front ? view.grabT : neutral.frontHandT;
+    drivers.frontGrip = front ? view.grip : 0;
+    drivers.backHandEdge = front ? neutral.backHandEdge : view.grabEdge;
+    drivers.backHandT = front ? neutral.backHandT : view.grabT;
+    drivers.backGrip = front ? 0 : view.grip;
+    drivers.tweak = view.tweak;
+    drivers.stanceScale = neutral.stanceScale;
+  };
 
   return {
     renderer,
@@ -231,27 +322,8 @@ export function createScene(cfg: SlopeConfig, terrain: Terrain, camera: THREE.Pe
         rig.root.quaternion.multiply(tumble);
       }
 
-      // Pose mode leaves the drivers alone — they are the thing being authored. In play,
-      // only the ones the sim already owns are mapped; grabs and tweak stay unwired until
-      // the gate passes (§7.8, step 2 before step 3).
-      if (!poseMode) {
-        const absorb = view.absorb > 0 ? view.impact * r.absorbPerImpact : 0;
-        const target = -view.compress * r.crouchDepth - absorb;
-        // One critically-damped spring rather than assigning hip height (§7.6).
-        // Semi-implicit: a = ω²(target − x) − 2ζωv.
-        const w = r.hipStiffness;
-        springTime += dt;
-        while (springTime >= SPRING_DT) {
-          springTime -= SPRING_DT;
-          const acc = w * w * (target - drivers.hipY) - 2 * r.hipDamping * w * hipVel;
-          hipVel += acc * SPRING_DT;
-          drivers.hipY += hipVel * SPRING_DT;
-        }
-        drivers.hipX = view.edge * r.edgeHipShift;
-        drivers.hipZ = view.stance * r.stanceHipShift;
-        drivers.spineSide = view.stance * r.stanceSpineSide;
-        drivers.spineBend = r.spineBendBase + view.compress * r.compressSpineBend;
-      }
+      // Pose mode leaves the drivers alone — they are the thing being authored.
+      if (!poseMode) driveFromSim(view, params, dt);
 
       rig.apply(drivers, params);
     },

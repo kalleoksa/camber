@@ -21,24 +21,36 @@ const frames: InputSnapshot[] = [];
 let lx = 0;
 let ly = 0;
 let rt = 0;
+let rx = 0;
+let ry = 0;
 let lxTarget = 0;
 let lyTarget = 0;
 let rtTarget = 0;
+let rxTarget = 0;
+let ryTarget = 0;
 
 for (let i = 0; i < SECONDS / TICK_DT; i++) {
   if (i % 48 === 0) {
     lxTarget = next(rng) * 2 - 1;
     lyTarget = (next(rng) * 2 - 1) * 0.6;
     rtTarget = next(rng) < 0.3 ? next(rng) : 0;
+    // Grabs, some deep enough to tweak, so the determinism check covers the grab path.
+    const grab = next(rng) < 0.4;
+    rxTarget = grab ? next(rng) * 2 - 1 : 0;
+    ryTarget = grab ? next(rng) * 2 - 1 : 0;
   }
   lx = dampScalar(lx, lxTarget, 6, TICK_DT);
   ly = dampScalar(ly, lyTarget, 4, TICK_DT);
   rt = dampScalar(rt, rtTarget, 8, TICK_DT);
+  rx = dampScalar(rx, rxTarget, 10, TICK_DT);
+  ry = dampScalar(ry, ryTarget, 10, TICK_DT);
 
   const frame = neutralInput();
   frame.lx = lx;
   frame.ly = ly;
   frame.rt = rt;
+  frame.rx = rx;
+  frame.ry = ry;
   frames.push(frame);
 }
 

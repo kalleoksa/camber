@@ -524,10 +524,13 @@ export const params = {
     yawAuthority: 3.2,      // rad/s
   },
   grab: {
+    commit: 0.35,           // right-stick magnitude past which the hand reaches
+    edgeSharpness: 2.0,     // stick X gain onto the edge coordinate
     reachTime: 0.12,        // s, hand travel to the board once the stick commits
     releaseTime: 0.09,      // s, hand back to rest
     tweakEnter: 0.55,       // stick magnitude past which the tweak starts
-    tweakDepthMax: 1.0,     // rad of board rotation about the grab point at full push
+    tweakDepthMax: 1.15,    // rad of board rotation about the grab point at full push
+    tweakRate: 10.0,        // 1/s, board shoved out toward the stick's depth
     tweakRecover: 14.0,     // 1/s, board springs back to spinFrame on release
   },
   rig: {
@@ -540,7 +543,7 @@ export const params = {
     kneeSplay: 0.5,         // rad, pole vector out from forward
     hipStiffness: 9.5,      // ω rad/s, vertical and lateral hip spring (90 was ω²)
     hipDamping: 1.0,        // ζ, 1.0 = critically damped
-    spineStiffness: 55.0,   // ω
+    spineStiffness: 7.4,    // ω rad/s (55 was ω²)
     spineDamping: 1.0,      // ζ
     counterRotation: 0.7,   // rad of spine twist against a wound-up spin at full charge
     shoulderLead: 0.25,     // rad, shoulders ahead of the board in flight

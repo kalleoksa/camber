@@ -194,6 +194,10 @@ const panel = createPanel(params, readout, view.drivers, {
       panel.refresh();
     }
   },
+  onWriteAnchor: (name) => {
+    const anchor = ANCHORS[name];
+    if (anchor && name !== 'neutral') copyDrivers(anchor, view.drivers);
+  },
   onSavePose: () => download('pose.json', JSON.stringify(view.drivers, null, 2)),
   onLoadPose: (json) => {
     const loaded = { ...neutralDrivers(), ...(JSON.parse(json) as Partial<RigDrivers>) };

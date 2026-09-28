@@ -28,13 +28,21 @@ export type RiderState = {
 
   /**
    * Board orientation. Grounded it is rebuilt from heading and the contact normal each
-   * tick; airborne it integrates angular velocity. Milestone 4 composes tweakOffset on
-   * top of this for what gets drawn and for the landing test.
+   * tick; airborne it integrates angular velocity. The tweak composes on top of this for
+   * what gets drawn and for the landing test — never welded into it (§7.4).
    */
   spinFrame: Quat;
   spinAxis: Vec3; // board-local, set at takeoff
   spinRate: number; // rad/s about spinAxis
   airYaw: number; // rad of board yaw accumulated this air
+
+  // The active grab (§7.3). Coordinate and hand persist after release so a tweak still
+  // springing back keeps its pivot.
+  grabEdge: number; // -1 heel .. +1 toe
+  grabT: number; // 0 tail .. 1 nose
+  grabFront: boolean; // which hand — picked from t at the moment of reaching, then held
+  grip: number; // 0 = hand at rest, 1 = locked to the board
+  tweak: number; // 0..1 of grab.tweakDepthMax, about the grab point
 
   groundNormal: Vec3; // smoothed, what the board is slaved to
   scrub: number; // m/s² the edge is removing from lateral velocity — drives spray and edge bite
@@ -67,6 +75,11 @@ export function createRiderState(spawn: Spawn): RiderState {
     spinAxis: vec3(0, 1, 0),
     spinRate: 0,
     airYaw: 0,
+    grabEdge: 0,
+    grabT: 0.5,
+    grabFront: true,
+    grip: 0,
+    tweak: 0,
     groundNormal: vec3(0, 1, 0),
     scrub: 0,
     clearance: 0,
@@ -93,6 +106,11 @@ export function resetRiderState(state: RiderState): void {
   setXYZ(state.spinAxis, 0, 1, 0);
   state.spinRate = 0;
   state.airYaw = 0;
+  state.grabEdge = 0;
+  state.grabT = 0.5;
+  state.grabFront = true;
+  state.grip = 0;
+  state.tweak = 0;
   state.scrub = 0;
   state.heading = spawn.heading;
   state.headingTarget = spawn.heading;
@@ -120,6 +138,11 @@ export function copyRiderState(dst: RiderState, src: RiderState): void {
   copyInto(dst.spinAxis, src.spinAxis);
   dst.spinRate = src.spinRate;
   dst.airYaw = src.airYaw;
+  dst.grabEdge = src.grabEdge;
+  dst.grabT = src.grabT;
+  dst.grabFront = src.grabFront;
+  dst.grip = src.grip;
+  dst.tweak = src.tweak;
   dst.heading = src.heading;
   dst.headingTarget = src.headingTarget;
   dst.edge = src.edge;

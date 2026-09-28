@@ -80,6 +80,16 @@ export const params = {
     grip: 0.3, // multiplier on gripEdge
     yawAuthority: 3.2, // rad/s
   },
+  grab: {
+    commit: 0.35, // right-stick magnitude past which the hand goes for the board
+    edgeSharpness: 2.0, // stick X gain onto the edge coordinate — >30° off vertical is a full rail
+    reachTime: 0.12, // s, hand travel to the board once the stick commits
+    releaseTime: 0.09, // s, hand back to rest
+    tweakEnter: 0.55, // stick magnitude past which the tweak starts
+    tweakDepthMax: 1.15, // rad of board rotation about the grab point at full push
+    tweakRate: 10.0, // 1/s, board shoved out toward the stick's depth
+    tweakRecover: 14.0, // 1/s, board springs back to spinFrame on release — sets how forgiving §6 is
+  },
   rig: {
     thigh: 0.44, // m
     shin: 0.44, // m
@@ -101,6 +111,12 @@ export const params = {
     stanceSpineSide: 0.3, // rad of spine lean into a press
     spineBendBase: 0.18, // rad of forward fold standing
     compressSpineBend: 0.25, // rad of extra fold at full compress
+    spineStiffness: 7.4, // ω, rad/s, spine twist and head spring — design's 55 read as ω² (§7.6)
+    spineDamping: 1.0, // ζ
+    counterRotation: 0.7, // rad of spine twist against the coming spin at full charge
+    shoulderLead: 0.25, // rad, shoulders ahead of the board at full takeoff spin
+    headLead: 0.18, // s, head looks where the board will be this far ahead
+    headTurnMax: 1.2, // rad, neck limit on that look
   },
   spray: {
     rate: 900, // particles/s at full scrub

@@ -1,6 +1,7 @@
 import type { InputSnapshot } from '../../input/snapshot.ts';
 import type { Params } from '../params.ts';
-import { axisY, axisZ, multiply, normalizeQuat, quat, setFromAxisAngle } from '../quat.ts';
+import { tweakAxis } from '../board.ts';
+import { axisY, axisZ, multiply, normalizeQuat, quat, setFromAxisAngle, type Quat } from '../quat.ts';
 import type { RiderState } from '../state.ts';
 import { createContact, type Terrain } from '../terrain.ts';
 import {
@@ -24,6 +25,9 @@ const spin = quat();
 const boardForward = vec3();
 const boardUp = vec3();
 const course = vec3();
+const axis = vec3();
+const tweakQ = quat();
+const composed = quat();
 
 export function stepAirborne(
   state: RiderState,
@@ -49,11 +53,18 @@ export function stepAirborne(
   if (state.spinRate > params.air.spinMax) state.spinRate = params.air.spinMax;
   if (state.spinRate < -params.air.spinMax) state.spinRate = -params.air.spinMax;
 
+  updateGrab(state, input, params, dt);
+
+  // A grab tucks the body in and spins faster; shoving the board out on a tweak extends
+  // it and spins slower. Scales what the board does, not the rate the stick is steering.
+  const body = params.air.tuckMultiplier + (params.air.extendMultiplier - params.air.tuckMultiplier) * state.tweak;
+  const rate = state.spinRate * (1 + (body - 1) * state.grip);
+
   // Body-fixed axis, so this is a local-space rotation. Never snapped, never quantized.
-  setFromAxisAngle(spin, state.spinAxis, state.spinRate * dt);
+  setFromAxisAngle(spin, state.spinAxis, rate * dt);
   multiply(state.spinFrame, state.spinFrame, spin);
   normalizeQuat(state.spinFrame);
-  state.airYaw += Math.abs(state.spinRate) * dt;
+  state.airYaw += Math.abs(rate) * dt;
 
   v.y -= params.world.gravity * dt;
   clampLength(v, params.world.terminalSpeed);
@@ -72,6 +83,42 @@ export function stepAirborne(
 }
 
 /**
+ * Right stick is a point on the board (§7.3): direction picks where, magnitude past
+ * `grab.commit` reaches for it, past `grab.tweakEnter` shoves the board out. The hand is
+ * chosen from `t` when it starts reaching and kept until it lets go, so sliding along the
+ * board mid-grab doesn't swap hands.
+ */
+function updateGrab(state: RiderState, input: InputSnapshot, params: Params, dt: number): void {
+  const g = params.grab;
+  const m = Math.min(1, Math.sqrt(input.rx * input.rx + input.ry * input.ry));
+  let tweakTarget = 0;
+
+  if (m > g.commit) {
+    const edge = (input.rx / m) * g.edgeSharpness;
+    state.grabEdge = edge > 1 ? 1 : edge < -1 ? -1 : edge;
+    state.grabT = 0.5 + 0.5 * (input.ry / m);
+    if (state.grip === 0) state.grabFront = state.grabT >= 0.5;
+    state.grip = Math.min(1, state.grip + dt / g.reachTime);
+    // Only a hand that has hold of the board can shove it.
+    if (m > g.tweakEnter) tweakTarget = ((m - g.tweakEnter) / (1 - g.tweakEnter)) * state.grip;
+  } else {
+    state.grip = Math.max(0, state.grip - dt / g.releaseTime);
+  }
+
+  // Recovery is its own rate and does not wait for the hand: letting go always starts
+  // pulling the board back, which is the wager in §6.
+  const rate = tweakTarget > state.tweak ? g.tweakRate : g.tweakRecover;
+  state.tweak = dampScalar(state.tweak, tweakTarget, rate, dt);
+}
+
+/** Drawn board = spinFrame ∘ tweakOffset. What the landing test must read (§6, §7.4). */
+function composeBoard(out: Quat, state: RiderState, params: Params): Quat {
+  tweakAxis(axis, state.grabEdge, state.grabT);
+  setFromAxisAngle(tweakQ, axis, state.tweak * params.grab.tweakDepthMax);
+  return multiply(out, state.spinFrame, tweakQ);
+}
+
+/**
  * Design §6. The whole thing turns on two angles, and it is deliberately the only place
  * rotation is ever corrected. Resist adding a rotation-count check — the angle contains it.
  */
@@ -80,8 +127,13 @@ function land(state: RiderState, params: Params, n: Vec3): void {
 
   state.impact = Math.abs(dot(v, n));
 
-  axisZ(boardForward, state.spinFrame);
-  axisY(boardUp, state.spinFrame);
+  // A method still hanging off axis at contact fails θ and φ both — hold it for style,
+  // pull it back in time, or eat it.
+  composeBoard(composed, state, params);
+  axisZ(boardForward, composed);
+  axisY(boardUp, composed);
+  state.grip = 0;
+  state.tweak = 0;
   projectOntoPlane(boardForward, n);
   normalize(boardForward);
 

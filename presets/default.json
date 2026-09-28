@@ -76,6 +76,16 @@
     "grip": 0.3,
     "yawAuthority": 3.2
   },
+  "grab": {
+    "commit": 0.35,
+    "edgeSharpness": 2,
+    "reachTime": 0.12,
+    "releaseTime": 0.09,
+    "tweakEnter": 0.55,
+    "tweakDepthMax": 1.15,
+    "tweakRate": 10,
+    "tweakRecover": 14
+  },
   "rig": {
     "thigh": 0.44,
     "shin": 0.44,
@@ -96,7 +106,13 @@
     "stanceHipShift": 0.14,
     "stanceSpineSide": 0.3,
     "spineBendBase": 0.18,
-    "compressSpineBend": 0.25
+    "compressSpineBend": 0.25,
+    "spineStiffness": 7.4,
+    "spineDamping": 1,
+    "counterRotation": 0.7,
+    "shoulderLead": 0.25,
+    "headLead": 0.18,
+    "headTurnMax": 1.2
   },
   "spray": {
     "rate": 900,

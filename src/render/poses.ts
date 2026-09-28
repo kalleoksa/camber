@@ -6,14 +6,15 @@ import { neutralDrivers, type RigDrivers } from './rig.ts';
  * be 60% of the way to `method` while spinning and pressing tail and it still resolves.
  * If one of these ever needs a *timeline*, it has become a clip and the invariant broke.
  *
- * Starting points, not finished poses. The milestone 4 gate is that you can reach a
- * method you're happy with from the sliders — use video reference, including your own.
+ * Starting points, not finished poses. Tune them in pose mode against video reference,
+ * including your own — "write to anchor" updates the live copy, "save pose" exports it
+ * for pasting back here.
  */
 function pose(overrides: Partial<RigDrivers>): RigDrivers {
   return { ...neutralDrivers(), ...overrides };
 }
 
-export const ANCHORS: Record<string, RigDrivers> = {
+const anchors = {
   neutral: neutralDrivers(),
 
   /** Knees deep, weight centred — the pop wind-up. */
@@ -88,4 +89,42 @@ export const ANCHORS: Record<string, RigDrivers> = {
   }),
 };
 
+export const ANCHORS: Record<string, RigDrivers> = anchors;
 export const ANCHOR_NAMES = Object.keys(ANCHORS);
+
+/**
+ * The drivers a grab anchor contributes: where the body goes. Hands, grip and tweak are
+ * not in here — those come from the sim's grab, so the anchor can't disagree with the
+ * physics about where the hand is or how far the board is out.
+ */
+export const BODY_KEYS = [
+  'hipX',
+  'hipY',
+  'hipZ',
+  'hipYaw',
+  'hipPitch',
+  'hipRoll',
+  'spineBend',
+  'spineSide',
+  'spineTwist',
+  'headYaw',
+  'headPitch',
+  'kneeSplay',
+  'boardLift',
+] as const satisfies readonly (keyof RigDrivers)[];
+
+/**
+ * Body pose for a grab at `edge`, `tweak` deep. Toe side leans on indy, heel side on
+ * melon, and a heel grab shoved out becomes a method — the same edge and hand as a melon,
+ * which is exactly the difference (§2). Continuous in both, so between-grabs resolve.
+ * Reads the live anchors, so a pose written from pose mode shows up in play immediately.
+ */
+export function grabBody(out: RigDrivers, edge: number, tweak: number): RigDrivers {
+  const toe = Math.min(1, Math.max(0, (1 + edge) / 2));
+  const methodness = (1 - toe) * tweak;
+  for (const k of BODY_KEYS) {
+    const grab = anchors.melon[k] + (anchors.indy[k] - anchors.melon[k]) * toe;
+    out[k] = grab + (anchors.method[k] - grab) * methodness;
+  }
+  return out;
+}
