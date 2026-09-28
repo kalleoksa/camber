@@ -174,6 +174,11 @@ welded together.
   to contact overspins. `air.takeoffWindow` (0.1 s) lets a stick that arrives just after
   the trigger still count as the wind-up; it only ever strengthens the spin. Both new
   params at 0 restore the old coast.
+- **Cork deadzone.** Stick Y at takeoff is also the tail press, so |Y| under
+  `air.corkDeadzone` (0.5) is a flat spin; past it the tilt rescales to the full cork.
+  Found on a recorded 720 off the kicker: a thumb pressing tail at −0.41 while throwing
+  the spin had tilted the axis 26°, which also switched off in-air levelling, and the
+  board came down 28° off the landing — sketchy on a spin that was 4° from perfect.
 - **Only a pop sets rotation.** Riding off a lip without popping carries the carve's
   yaw rate onto a flat axis; the stick does not launch a spin nobody wound up, and the
   spin starts disarmed if the thumb is still in the carve.

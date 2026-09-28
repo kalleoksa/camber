@@ -15,7 +15,7 @@ export const TAKE_VERSION = 2;
  * it replays as it was ridden. Anything not listed falls back to the default.
  */
 // spinArmBand 2: |stick| is always under it, so the spin is always armed — no disarm.
-const BEFORE_PARAM = { air: { checkRate: 0, takeoffWindow: 0, spinCarveReject: 0, spinArmBand: 2, levelRate: 0 } } as unknown as Params;
+const BEFORE_PARAM = { air: { checkRate: 0, takeoffWindow: 0, spinCarveReject: 0, spinArmBand: 2, levelRate: 0, corkDeadzone: 0 } } as unknown as Params;
 
 /**
  * Everything needed to reproduce a run: the world, the params it was recorded under,

@@ -211,7 +211,13 @@ export function takeoffSpinRate(state: RiderState, input: InputSnapshot, params:
  * pop, so a stick that arrives a frame after the trigger still counts as the wind-up.
  */
 export function setTakeoffSpin(state: RiderState, input: InputSnapshot, params: Params): void {
-  const tilt = Math.min(1, Math.max(-1, input.ly)) * params.air.axisTiltMax;
+  // Stick Y is also stance — a tail press is how you ollie — so a thumb pressing tail while
+  // throwing a hard spin sideways is normal and must not be read as a cork. Only past
+  // `air.corkDeadzone` does the axis tilt, rescaled so full stick is still a full cork.
+  const ly = Math.min(1, Math.max(-1, input.ly));
+  const dead = params.air.corkDeadzone;
+  const cork = Math.abs(ly) <= dead ? 0 : (Math.sign(ly) * (Math.abs(ly) - dead)) / (1 - dead);
+  const tilt = cork * params.air.axisTiltMax;
   state.spinAxis.x = 0;
   state.spinAxis.y = dm.cos(tilt);
   state.spinAxis.z = dm.sin(tilt);

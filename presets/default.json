@@ -41,6 +41,7 @@
     "extendMultiplier": 0.85,
     "spinMax": 9,
     "axisTiltMax": 1.1,
+    "corkDeadzone": 0.5,
     "spinTakeoff": 9,
     "takeoffWindow": 0.1,
     "checkRate": 6,
