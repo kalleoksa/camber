@@ -524,7 +524,13 @@ pop is the entry to a nollie; keep those two systems composable.
 ## 10. Park format
 
 **Stand-in until milestone 7:** one table-top in `SlopeConfig.kicker` (main.ts), built into
-the heightfield — circular transition to the lip, flat deck, landing ramp. Two things it
+the heightfield — circular transition to the lip, flat deck, landing ramp. **Sidelines are landable, and that is intended** (decided by play). The landing test
+reads the contact normal wherever the board touches down, so the kicker's side taper — up
+to ~36° across — lands clean when the board matches it: a recorded 695° came down 7.4 m
+off centre on the side slope, clean. Keep the sides as a slope, not a wall, and don't
+special-case "off the landing" in the test.
+
+Two things it
 needed in the sim: grounded detaches when the surface turns away under the board
 (`air.detachSpeed`), or the deck catches the rider at the lip every tick; and in flight the
 board's pitch/roll relax toward the ground beneath (`air.levelRate`), or every straight air
