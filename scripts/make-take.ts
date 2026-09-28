@@ -8,8 +8,8 @@ import { createContact, createSlope, type SlopeConfig } from '../src/sim/terrain
 import { dampScalar } from '../src/sim/vec3.ts';
 
 /**
- * Synthesises a stand-in for a human take so the determinism check can run in CI
- * without a gamepad. Replace it with a real recorded take whenever one is worth keeping.
+ * Synthesises a take that exercises every input — grabs, tweaks, shifty — so the
+ * determinism check covers paths a real ride may not. takes/hill-run.json is the real one.
  */
 const SEED = 1;
 const SECONDS = 12;
@@ -72,6 +72,6 @@ const take = buildTake({
   frames,
 });
 
-const path = new URL('../takes/hill-run.json', import.meta.url);
+const path = new URL('../takes/synthetic.json', import.meta.url);
 writeFileSync(path, JSON.stringify(take));
-console.log(`wrote ${take.frames.length} ticks -> takes/hill-run.json`);
+console.log(`wrote ${take.frames.length} ticks -> takes/synthetic.json`);
