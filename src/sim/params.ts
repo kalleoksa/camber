@@ -47,6 +47,7 @@ export const params = {
     spinMax: 9.0, // rad/s cap
     axisTiltMax: 1.1, // rad, max cork axis lerp
     corkDeadzone: 0.5, // |stick Y| below this at takeoff is a flat spin — Y is also the tail press
+    corkRecover: 4.0, // 1/s, coming out of a cork once stick Y is centred: axis back to flat, board righted
     spinTakeoff: 9.0, // rad/s at full whip on takeoff — overspins a full pop on purpose; centre to check
     takeoffWindow: 0.1, // s after a pop the stick still sets spin at full authority — 0 = trigger tick only
     checkRate: 6.0, // 1/s, spin decay with the stick centred; leftover rotation ≈ rate/checkRate. 0 = coast

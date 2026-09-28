@@ -104,6 +104,7 @@ export function stepAirborne(
   state.clearance = p.y - contact.height;
   damp(state.groundNormal, contact.normal, params.ground.normalSmoothing, dt);
   levelBoard(state, params, dt);
+  recoverCork(state, input, params, dt);
 
   if (state.clearance > 0) return;
 
@@ -144,13 +145,36 @@ function levelBoard(state: RiderState, params: Params, dt: number): void {
   const tilt = Math.abs(state.spinAxis.z) / dm.sin(params.air.levelTiltMax);
   const weight = 1 - Math.min(1, tilt);
   if (weight <= 0) return;
+  levelBoardUp(state, rate * weight, dt);
+}
+
+/**
+ * Coming out of a cork. A spin about a fixed tilted axis only brings the board back
+ * upright after whole turns — at a 540 it is tipped over by twice the tilt — so a cork
+ * that lands fakie has to change axis in the air, which is what a rider does: go off
+ * axis, then open up and come back flat for the landing. Holding stick Y keeps the cork,
+ * as holding X keeps the spin; centring it swings the body-fixed spin axis back to board
+ * up and rights the board toward the ground below, the spin itself untouched.
+ */
+function recoverCork(state: RiderState, input: InputSnapshot, params: Params, dt: number): void {
+  const rate = params.air.corkRecover;
+  if (rate <= 0 || state.popWindow > 0 || state.spinAxis.z === 0) return;
+  if (Math.abs(input.ly) > params.air.corkDeadzone) return;
+  const k = 1 - dm.exp(-rate * dt);
+  state.spinAxis.z *= 1 - k;
+  state.spinAxis.y = Math.sqrt(Math.max(0, 1 - state.spinAxis.z * state.spinAxis.z));
+  levelBoardUp(state, rate, dt);
+}
+
+/** Board up toward the ground below, about a world axis perpendicular to it — spin untouched. */
+function levelBoardUp(state: RiderState, rate: number, dt: number): void {
   axisY(boardUp, state.spinFrame);
   cross(levelAxis, boardUp, state.groundNormal);
   const s = length(levelAxis);
   if (s < 1e-9) return;
   const angle = dm.atan2(s, dot(boardUp, state.groundNormal));
   scale(levelAxis, 1 / s);
-  setFromAxisAngle(levelQ, levelAxis, angle * (1 - dm.exp(-rate * weight * dt)));
+  setFromAxisAngle(levelQ, levelAxis, angle * (1 - dm.exp(-rate * dt)));
   // World-frame rotation, so it goes on the left.
   multiply(state.spinFrame, levelQ, state.spinFrame);
   normalizeQuat(state.spinFrame);

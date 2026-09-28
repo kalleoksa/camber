@@ -181,6 +181,13 @@ welded together.
   ever fighting the spin. The first version levelled board up and had to switch off for
   corks; a recorded cork 360 off the kicker, 6° from a full turn, then landed 42° nose-high
   (the lip-to-landing angle) and sketchy. It lands clean under this rule.
+- **Coming out of a cork.** A spin about a fixed tilted axis only returns the board
+  upright after whole turns; at any half turn — a cork 180 or 540 landing fakie — it is
+  tipped over by twice the tilt, so those were impossible. Riders go off axis and then
+  open up. Holding stick Y keeps the cork, as holding X keeps the spin; centring it
+  swings the spin axis back to board up and rights the board toward the ground below at
+  `air.corkRecover`, the spin untouched. A cork 540 now lands fakie if you come out in
+  time, and bails if you don't.
 - **Cork deadzone.** Stick Y at takeoff is also the tail press, so |Y| under
   `air.corkDeadzone` (0.5) is a flat spin; past it the tilt rescales to the full cork.
   Found on a recorded 720 off the kicker: a thumb pressing tail at −0.41 while throwing

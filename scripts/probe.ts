@@ -53,11 +53,13 @@ function report(
   input: InputSnapshot,
   letGoAt = Infinity,
   checkAt = Infinity,
+  corkFor = Infinity,
 ): void {
   let rotated = 0;
   let tweak = 0;
   for (let i = 0; i < 6 / TICK_DT && state.mode === 'airborne'; i++) {
     if (state.airTime > checkAt) input.lx = 0;
+    if (state.airTime > corkFor) input.ly = 0;
     if (state.airTime > letGoAt) {
       input.rx = 0;
       input.ry = 0;
@@ -128,7 +130,7 @@ function rideOff(name: string, edge: number): void {
 }
 
 /** Straight at the kicker; optionally pop at the lip with a spin, checked at `checkAt`. */
-function kicker(name: string, pop: boolean, lx = 0, checkAt = Infinity, ly = 0): void {
+function kicker(name: string, pop: boolean, lx = 0, checkAt = Infinity, ly = 0, corkFor = Infinity): void {
   const state = spawn(kickerSlope);
   const input = neutralInput();
   for (let i = 0; i < 20 / TICK_DT && state.mode !== 'airborne' || i < 120; i++) {
@@ -140,7 +142,8 @@ function kicker(name: string, pop: boolean, lx = 0, checkAt = Infinity, ly = 0):
   }
   const air = neutralInput();
   air.lx = lx;
-  report(name, state, kickerSlope, air, Infinity, checkAt);
+  air.ly = ly;
+  report(name, state, kickerSlope, air, Infinity, checkAt, corkFor);
 }
 
 console.log('move                   landing  rotated     riding  speed');
@@ -164,6 +167,8 @@ kicker('kicker, straight', false);
 kicker('kicker, popped', true);
 kicker('kicker 360, check 0.55', true, 1, 0.55);
 kicker('kicker 540, check 0.9', true, 1, 0.9);
-kicker('kicker cork 360', true, 1, 0.55, 0.8);
+kicker('kicker cork 360', true, 1, 0.55, 0.8, 0.4);
+kicker('kicker cork 540 fakie', true, 1, 0.9, 0.9, 0.7);
+kicker('cork 540 never out', true, 1, 0.9, 0.9);
 carve('toe edge held', 1);
 carve('heel edge held', -1);
