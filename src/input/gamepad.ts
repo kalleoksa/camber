@@ -22,9 +22,24 @@ function pressed(pad: Gamepad, buttonIndex: number): boolean {
   return button ? button.pressed || button.value > BUTTON_THRESHOLD : false;
 }
 
-/** Xbox layout. Stick Y is inverted here so positive is up everywhere downstream. */
-export function pollGamepad(index = 0, out: InputSnapshot = neutralInput()): InputSnapshot {
-  const pad = navigator.getGamepads()[index];
+/**
+ * The pad to read: the first connected one, preferring the browser's standard mapping.
+ * Slot 0 alone is not enough — macOS often puts a DualSense in a later slot, and an
+ * unmapped duplicate of the same pad can sit in front of it.
+ */
+function activePad(): Gamepad | null {
+  let fallback: Gamepad | null = null;
+  for (const pad of navigator.getGamepads()) {
+    if (!pad?.connected) continue;
+    if (pad.mapping === 'standard') return pad;
+    fallback ??= pad;
+  }
+  return fallback;
+}
+
+/** Standard (Xbox-position) layout. Stick Y is inverted so positive is up downstream. */
+export function pollGamepad(out: InputSnapshot = neutralInput()): InputSnapshot {
+  const pad = activePad();
   if (!pad) return Object.assign(out, neutralInput());
 
   const [lx, ly] = deadzoneStick(pad.axes[0] ?? 0, -(pad.axes[1] ?? 0));
@@ -45,6 +60,12 @@ export function pollGamepad(index = 0, out: InputSnapshot = neutralInput()): Inp
   return out;
 }
 
-export function gamepadConnected(index = 0): boolean {
-  return navigator.getGamepads()[index] != null;
+/**
+ * For the status panel. A non-standard mapping means the browser doesn't know the pad's
+ * layout, so buttons and axes may land in the wrong place — Chrome or Safari fix that.
+ */
+export function padStatus(): string {
+  const pad = activePad();
+  if (!pad) return 'none — press a button';
+  return `${pad.mapping === 'standard' ? '' : 'NON-STANDARD '}#${pad.index} ${pad.id.slice(0, 40)}`;
 }

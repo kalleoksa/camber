@@ -1,5 +1,5 @@
 import { createLoop, TICK_DT } from './core/loop.ts';
-import { pollGamepad } from './input/gamepad.ts';
+import { padStatus, pollGamepad } from './input/gamepad.ts';
 import {
   buildTake,
   createRecorder,
@@ -50,6 +50,7 @@ let cursor: ReplayCursor | null = null;
 const readout: Readout = {
   mode: state.mode,
   session: 'live',
+  pad: '—',
   speed: 0,
   tick: 0,
   clearance: 0,
@@ -84,7 +85,7 @@ function step(): void {
   if (poseMode) return;
   copyRiderState(previous, state);
 
-  let input = quantizeInput(pollGamepad(0, liveInput), tickInput);
+  let input = quantizeInput(pollGamepad(liveInput), tickInput);
   if (cursor) {
     const frame = cursor.next();
     if (!frame) {
@@ -130,6 +131,7 @@ function render(alpha: number): void {
   view.renderer.render(view.scene, chase.camera);
 
   if (++refreshCounter % 6 === 0) {
+    readout.pad = padStatus();
     readout.mode = state.mode;
     readout.speed = length(state.velocity);
     readout.tick = state.tick;

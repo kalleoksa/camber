@@ -32,6 +32,7 @@ const DRIVER_RANGE: Record<keyof RigDrivers, { min: number; max: number }> = {
 export type Readout = {
   mode: string;
   session: string;
+  pad: string;
   speed: number;
   tick: number;
   clearance: number;
@@ -97,6 +98,7 @@ export function createPanel(
 
   const status = pane.addFolder({ title: 'status' });
   status.addBinding(readout, 'session', { readonly: true });
+  status.addBinding(readout, 'pad', { readonly: true });
   status.addBinding(readout, 'mode', { readonly: true });
   status.addBinding(readout, 'speed', { readonly: true, format: (v: number) => v.toFixed(2) });
   status.addBinding(readout, 'tick', { readonly: true, format: (v: number) => v.toFixed(0) });
