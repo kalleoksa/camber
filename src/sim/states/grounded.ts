@@ -224,12 +224,14 @@ export function corkStick(ly: number, params: Params): number {
 
 /**
  * The rotation the stick asks for, board-local rad/s: X spins about board up, Y flips
- * about the board's long axis — for a rider facing the toe edge that is the backflip axis,
- * and stick back (the tail press) is a backflip. A diagonal is a cork, its tilt falling out
- * of the ratio. One vector, so spin, cork, rodeo and flip are one rule, not four.
+ * about the board's lateral (toe–heel) axis — across the direction of travel, so the nose
+ * comes up and over toward the tail. Stick back, the tail press, is a backflip: negative
+ * about +X tips board up toward the tail. (Not about the board's length — that is a barrel
+ * roll.) A diagonal mixes the two, its tilt falling out of the ratio. One vector, so spin,
+ * flip and everything off-axis between are one rule, not four.
  */
 export function stickRotation(out: Vec3, yawRate: number, input: InputSnapshot, params: Params): Vec3 {
-  return set(out, 0, yawRate, corkStick(input.ly, params) * params.air.flipRate);
+  return set(out, corkStick(input.ly, params) * params.air.flipRate, yawRate, 0);
 }
 
 /**

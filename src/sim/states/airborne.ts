@@ -171,14 +171,16 @@ function levelBoard(state: RiderState, params: Params, dt: number): void {
  */
 function recoverCork(state: RiderState, input: InputSnapshot, params: Params, dt: number): void {
   const rate = params.air.corkRecover;
-  if (rate <= 0 || state.popWindow > 0 || state.spinAxis.z === 0) return;
+  const flips = params.air.flipRate > 0;
+  // The off-axis part lives in X under the flip rule, in Z under the older one.
+  if (rate <= 0 || state.popWindow > 0 || (flips ? state.spinAxis.x : state.spinAxis.z) === 0) return;
   if (Math.abs(input.ly) > params.air.corkDeadzone) return;
   const k = 1 - dm.exp(-rate * dt);
-  if (params.air.flipRate > 0) {
+  if (flips) {
     // Only the flip part unwinds; the spin part is left exactly as it was, so letting go
     // mid-flip can't turn the flip's momentum into yaw nobody asked for.
     set(spinW, state.spinAxis.x * state.spinRate, state.spinAxis.y * state.spinRate, state.spinAxis.z * state.spinRate);
-    spinW.z *= 1 - k;
+    spinW.x *= 1 - k;
     setRotation(state, spinW, params);
     // Opening up only rights a board that is already coming round: within
     // `air.corkRightMax` of the ground below. Past that the flip has to finish on its own

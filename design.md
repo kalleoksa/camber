@@ -183,8 +183,10 @@ welded together.
   (the lip-to-landing angle) and sketchy. It lands clean under this rule.
 - **Flips: the stick is a rotation, not a rate plus a tilt.** At the pop the stick sets
   a board-local rotation vector: X spins about board up (`air.spinTakeoff`), Y — past the
-  cork deadzone — flips about the board's long axis (`air.flipRate`), which for a rider
-  facing the toe edge is the backflip axis; stick back, the tail press, is a backflip.
+  cork deadzone — flips about the board's lateral, toe–heel axis (`air.flipRate`): across
+  the direction of travel, so on a backflip the nose comes up and over toward the tail.
+  Stick back, the tail press, is a backflip. (The first version flipped about the board's
+  length, which played as a barrel roll.)
   The axis is the vector's direction and the rate its length, so sideways is a flat spin,
   straight back or forward a flip, a diagonal a cork, and a diagonal held long enough a
   double cork — one rule, as this section always asked. The older rule (X sets the rate,
