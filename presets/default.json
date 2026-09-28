@@ -43,7 +43,7 @@
     "spinMax": 9,
     "axisTiltMax": 1.1,
     "corkDeadzone": 0.5,
-    "corkRecover": 4,
+    "corkRecover": 6,
     "spinTakeoff": 9,
     "takeoffWindow": 0.1,
     "checkRate": 6,
