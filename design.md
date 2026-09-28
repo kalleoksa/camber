@@ -144,6 +144,16 @@ welded together.
   360° that was the only repeatable trick — a 180 needed the stick inside a ~6% band you
   cannot see. One consistent scale plus a real response rate makes the whole range
   reachable: half stick is a 180, full stick is a 360, and mid-air stick moves it.
+- **Checking the spin.** Two recorded takes showed every spin under-rotated: with a
+  centred stick coasting, rotation was air time × stick rate and nothing else, so a 360
+  existed only on a full-charge pop (0.92 s of air) and typical 0.7–0.84 s airs came up
+  30–90° short with no way to recover. Now a centred stick *checks* the spin at
+  `air.checkRate` (leftover ≈ rate / checkRate), and `air.spinTakeoff` is raised to 9 so
+  full stick overspins and the player opens up to spot the landing — a 360 lands from
+  ~0.70 s of air, a 180 from ~0.6 s. Holding the stick still holds the spin; holding it
+  to contact overspins. `air.takeoffWindow` (0.1 s) lets a stick that arrives just after
+  the trigger still count as the wind-up; it only ever strengthens the spin. Both new
+  params at 0 restore the old coast.
 - **Only a pop sets rotation.** Riding off a lip without popping carries the carve's
   yaw rate onto a flat axis; the stick does not launch a spin nobody wound up. In-air
   authority still applies from there.
@@ -489,7 +499,9 @@ export const params = {
     extendMultiplier: 0.85, // spin rate while stretched
     spinMax: 9.0,           // rad/s cap
     axisTiltMax: 1.1,       // rad, max cork axis lerp
-    spinTakeoff: 7.0,       // rad/s at full stick on takeoff
+    spinTakeoff: 9.0,       // rad/s at full stick on takeoff (was 7, see §5)
+    takeoffWindow: 0.1,     // s after a pop the stick still counts as takeoff
+    checkRate: 6.0,         // 1/s, spin decay with the stick centred; 0 = coast
   },
   land: {
     clean: 0.44,            // rad ≈ 25°

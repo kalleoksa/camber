@@ -38,7 +38,9 @@
     "extendMultiplier": 0.85,
     "spinMax": 9,
     "axisTiltMax": 1.1,
-    "spinTakeoff": 7,
+    "spinTakeoff": 9,
+    "takeoffWindow": 0.1,
+    "checkRate": 6,
     "shiftyMax": 0.9,
     "shiftyRate": 8
   },

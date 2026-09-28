@@ -8,6 +8,15 @@ import { copyInput, neutralInput, quantizeInput, type InputSnapshot } from './sn
 export const TAKE_VERSION = 1;
 
 /**
+ * For params that switched on new behaviour: the value that reproduces the sim from
+ * before the param existed. A take that predates one gets this, not today's default, so
+ * it replays as it was ridden. Anything not listed falls back to the default.
+ */
+const BEFORE_PARAM: { [G in keyof Params]?: Partial<Params[G]> } = {
+  air: { checkRate: 0, takeoffWindow: 0 },
+};
+
+/**
  * Everything needed to reproduce a run: the world, the params it was recorded under,
  * and one input snapshot per tick. Params travel with the take so a take recorded
  * before a tuning session still replays exactly as it was ridden.
@@ -105,8 +114,10 @@ export function buildTake(opts: {
 export function simulateTake(take: Take): { hashes: string[]; state: RiderState } {
   const terrain = createSlope(take.terrain);
   const state = createRiderState(take.spawn);
-  // A take recorded before a param existed gets the default for it, not undefined.
+  // A take recorded before a param existed gets the pre-param value where one is listed,
+  // else the default — never undefined.
   const takeParams = cloneParams(defaultParams);
+  applyParams(takeParams, BEFORE_PARAM as Params);
   applyParams(takeParams, take.params);
   const hashes: string[] = [];
   for (const frame of take.frames) {

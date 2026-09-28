@@ -3,6 +3,7 @@ import type { Params } from '../params.ts';
 import { tweakAxis } from '../board.ts';
 import { axisY, axisZ, multiply, normalizeQuat, quat, setFromAxisAngle, type Quat } from '../quat.ts';
 import type { RiderState } from '../state.ts';
+import { setTakeoffSpin } from './grounded.ts';
 import { createContact, type Terrain } from '../terrain.ts';
 import {
   addScaled,
@@ -45,12 +46,21 @@ export function stepAirborne(
   state.compress = dampScalar(state.compress, input.rt, params.pop.compressResponse, dt);
 
   // Stick position means the same thing in the air as it did at takeoff: spin speed.
-  // `air.authority` is how fast the board answers a stick change, so takeoff still sets
-  // where you start and a short air can't fully retarget. Centred stick coasts — that is
-  // how you hold a rotation you already have.
-  if (input.lx !== 0) {
+  // Just after a pop it still *is* takeoff — the window forgives a stick that lands a
+  // frame after the trigger. After that, `air.authority` is how fast the board answers a
+  // stick change, so a short air can't fully retarget. Holding the stick holds the spin;
+  // centring it checks the spin at `air.checkRate` — opening up to spot the landing.
+  // Checking only ever removes rotation, so takeoff still decides how much you have.
+  if (state.popWindow > 0) {
+    // Only a stronger stick counts: a late wind-up is forgiven, a flick already released
+    // is not taken back.
+    state.popWindow = Math.max(0, state.popWindow - dt);
+    if (Math.abs(input.lx * params.air.spinTakeoff) > Math.abs(state.spinRate)) setTakeoffSpin(state, input, params);
+  } else if (input.lx !== 0) {
     const target = -input.lx * params.air.spinTakeoff;
     state.spinRate += (target - state.spinRate) * (1 - Math.exp(-params.air.authority * dt));
+  } else {
+    state.spinRate *= Math.exp(-params.air.checkRate * dt);
   }
   if (state.spinRate > params.air.spinMax) state.spinRate = params.air.spinMax;
   if (state.spinRate < -params.air.spinMax) state.spinRate = -params.air.spinMax;

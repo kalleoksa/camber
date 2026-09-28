@@ -40,10 +40,18 @@ function run(state: RiderState, terrain: Terrain, input: InputSnapshot, seconds:
  * Rides until the first touchdown, then a second more, and reports how it came out.
  * `letGoAt` drops the right stick after that many seconds of air — a grab released early.
  */
-function report(name: string, state: RiderState, terrain: Terrain, input: InputSnapshot, letGoAt = Infinity): void {
+function report(
+  name: string,
+  state: RiderState,
+  terrain: Terrain,
+  input: InputSnapshot,
+  letGoAt = Infinity,
+  checkAt = Infinity,
+): void {
   let rotated = 0;
   let tweak = 0;
   for (let i = 0; i < 6 / TICK_DT && state.mode === 'airborne'; i++) {
+    if (state.airTime > checkAt) input.lx = 0;
     if (state.airTime > letGoAt) {
       input.rx = 0;
       input.ry = 0;
@@ -66,11 +74,14 @@ function report(name: string, state: RiderState, terrain: Terrain, input: InputS
   );
 }
 
+type Air = { lx?: number; ly?: number; rx?: number; ry?: number; letGoAt?: number; checkAt?: number; shifty?: boolean };
+
 /**
- * Right stick held through the air: `rx`/`ry` pick the spot, magnitude past tweakEnter
- * shoves. `shifty` holds RB.
+ * Full pop. Left stick held into the air until `checkAt` s, then centred to check the
+ * spin. Right stick held (`rx`/`ry` pick the spot, past tweakEnter shoves) and RB for
+ * `shifty`, both released at `letGoAt`.
  */
-function pop(name: string, lx: number, ly: number, rx = 0, ry = 0, letGoAt = Infinity, shifty = false): void {
+function pop(name: string, { lx = 0, ly = 0, rx = 0, ry = 0, letGoAt = Infinity, checkAt = Infinity, shifty = false }: Air = {}): void {
   const state = spawn(slope);
   const input = neutralInput();
   run(state, slope, input, 2);
@@ -81,10 +92,11 @@ function pop(name: string, lx: number, ly: number, rx = 0, ry = 0, letGoAt = Inf
   input.ly = ly;
   tick(state, input, params, slope, TICK_DT);
   const air = neutralInput();
+  air.lx = lx;
   air.rx = rx;
   air.ry = ry;
   air.rb = shifty;
-  report(name, state, slope, air, letGoAt);
+  report(name, state, slope, air, letGoAt, checkAt);
 }
 
 function carve(name: string, edge: number): void {
@@ -110,17 +122,19 @@ function rideOff(name: string, edge: number): void {
 }
 
 console.log('move                   landing  rotated     riding  speed');
-pop('straight air', 0, 0);
-pop('180 (half stick)', 0.5, 0);
-pop('360 (full stick)', 1, 0);
-pop('cork 180', 0.5, 1);
-pop('indy, no tweak', 0, 0, 0.5, -0.1);
-pop('method held to contact', 0, 0, -1, 0.05);
-pop('method, let go 0.3 s', 0, 0, -1, 0.05, 0.3);
-pop('360 + indy (tuck)', 1, 0, 0.5, -0.1);
-pop('mute', 0, 0, 0.5, 0.1);
-pop('shifty held to contact', 0, 0, 0, 0, Infinity, true);
-pop('shifty, let go 0.3 s', 0, 0, 0, 0, 0.3, true);
+pop('straight air');
+pop('180, check 0.55 s', { lx: 0.5, checkAt: 0.55 });
+pop('180, never check', { lx: 0.5 });
+pop('360, check 0.57 s', { lx: 1, checkAt: 0.57 });
+pop('360, never check', { lx: 1 });
+pop('cork 180', { lx: 0.5, ly: 1, checkAt: 0.55 });
+pop('indy, no tweak', { rx: 0.5, ry: -0.1 });
+pop('method held to contact', { rx: -1, ry: 0.05 });
+pop('method, let go 0.3 s', { rx: -1, ry: 0.05, letGoAt: 0.3 });
+pop('360 + indy, check 0.42', { lx: 1, rx: 0.5, ry: -0.1, checkAt: 0.42 });
+pop('mute', { rx: 0.5, ry: 0.1 });
+pop('shifty held to contact', { shifty: true });
+pop('shifty, let go 0.3 s', { shifty: true, letGoAt: 0.3 });
 rideOff('ride off, flat', 0);
 rideOff('ride off, carving', 0.6);
 carve('toe edge held', 1);

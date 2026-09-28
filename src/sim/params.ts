@@ -42,7 +42,9 @@ export const params = {
     extendMultiplier: 0.85, // spin rate while stretched
     spinMax: 9.0, // rad/s cap
     axisTiltMax: 1.1, // rad, max cork axis lerp
-    spinTakeoff: 7.0, // rad/s at full stick on takeoff
+    spinTakeoff: 9.0, // rad/s at full stick on takeoff — overspins a full pop on purpose; centre to check
+    takeoffWindow: 0.1, // s after a pop the stick still sets spin at full authority — 0 = trigger tick only
+    checkRate: 6.0, // 1/s, spin decay with the stick centred; leftover rotation ≈ rate/checkRate. 0 = coast
     shiftyMax: 0.9, // rad of board yaw against the body on LB/RB
     shiftyRate: 8.0, // 1/s, board swinging out and back — held at contact, it's judged
   },

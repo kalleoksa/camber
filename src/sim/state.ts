@@ -49,6 +49,7 @@ export type RiderState = {
   scrub: number; // m/s² the edge is removing from lateral velocity — drives spray and edge bite
   clearance: number; // m above the contact point
   airTime: number; // s since leaving the ground
+  popWindow: number; // s left in which the stick still counts as takeoff
 
   landing: LandingRead; // result of the most recent touchdown
   impact: number; // m/s of normal velocity absorbed at that touchdown
@@ -86,6 +87,7 @@ export function createRiderState(spawn: Spawn): RiderState {
     scrub: 0,
     clearance: 0,
     airTime: 0,
+    popWindow: 0,
     landing: 'none',
     impact: 0,
     absorb: 0,
@@ -123,6 +125,7 @@ export function resetRiderState(state: RiderState): void {
   state.charge = 0;
   state.clearance = 0;
   state.airTime = 0;
+  state.popWindow = 0;
   state.landing = 'none';
   state.impact = 0;
   state.absorb = 0;
@@ -156,6 +159,7 @@ export function copyRiderState(dst: RiderState, src: RiderState): void {
   dst.scrub = src.scrub;
   dst.clearance = src.clearance;
   dst.airTime = src.airTime;
+  dst.popWindow = src.popWindow;
   dst.landing = src.landing;
   dst.impact = src.impact;
   dst.absorb = src.absorb;

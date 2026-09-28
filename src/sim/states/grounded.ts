@@ -178,6 +178,15 @@ function enterAir(state: RiderState): void {
  */
 function popTakeoff(state: RiderState, input: InputSnapshot, params: Params): void {
   enterAir(state);
+  state.popWindow = params.air.takeoffWindow;
+  setTakeoffSpin(state, input, params);
+}
+
+/**
+ * Stick → spin axis and rate, as at takeoff. Also used for `air.takeoffWindow` after the
+ * pop, so a stick that arrives a frame after the trigger still counts as the wind-up.
+ */
+export function setTakeoffSpin(state: RiderState, input: InputSnapshot, params: Params): void {
   const tilt = Math.min(1, Math.max(-1, input.ly)) * params.air.axisTiltMax;
   state.spinAxis.x = 0;
   state.spinAxis.y = Math.cos(tilt);
@@ -195,6 +204,7 @@ function popTakeoff(state: RiderState, input: InputSnapshot, params: Params): vo
  */
 function rideOff(state: RiderState, headingRate: number): void {
   enterAir(state);
+  state.popWindow = 0;
   state.spinAxis.x = 0;
   state.spinAxis.y = 1;
   state.spinAxis.z = 0;
