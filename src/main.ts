@@ -47,7 +47,14 @@ import { length } from './sim/vec3.ts';
 import { createPanel, download, type Readout } from './tuning/panel.ts';
 
 const SEED = 1;
-const slopeConfig: SlopeConfig = { length: 400, width: 120, pitch: 0.28 };
+const slopeConfig: SlopeConfig = {
+  length: 400,
+  width: 120,
+  pitch: 0.28,
+  // One table-top, 30 m down: straight airs, popped airs and a checked 360 all land on the
+  // landing ramp (simulated). Stand-in until park.json in milestone 7.
+  kicker: { z: -30, x: 0, width: 8, lipHeight: 3, lipAngle: 0.5, deckLength: 6, landingLength: 24, sideTaper: 2 },
+};
 
 const terrain = createSlope(slopeConfig);
 const spawn = {

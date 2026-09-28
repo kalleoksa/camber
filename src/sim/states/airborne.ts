@@ -9,6 +9,7 @@ import {
   addScaled,
   clampLength,
   copyInto,
+  cross,
   damp,
   dampScalar,
   dot,
@@ -33,6 +34,8 @@ const shiftyQ = quat();
 const UP = vec3(0, 1, 0);
 const LATERAL = vec3(-1, 0, 0); // pitch axis: positive raises the nose, as the rig draws it
 const LONG = vec3(0, 0, 1);
+const levelAxis = vec3();
+const levelQ = quat();
 const composed = quat();
 
 export function stepAirborne(
@@ -100,12 +103,39 @@ export function stepAirborne(
   terrain.sample(p.x, p.z, contact);
   state.clearance = p.y - contact.height;
   damp(state.groundNormal, contact.normal, params.ground.normalSmoothing, dt);
+  levelBoard(state, params, dt);
 
   if (state.clearance > 0) return;
 
   p.y = contact.height;
   state.clearance = 0;
   land(state, params, contact.normal);
+}
+
+/**
+ * The rider brings the board's pitch and roll round to the ground beneath — legs doing
+ * what they do off a kicker, where the lip leaves the board nose-high and the landing is
+ * steeper than the slope. Without it every straight air off a lip lands nose-high and
+ * sketchy. The rotation is about a world axis perpendicular to board up, so the spin's
+ * yaw is untouched; a cork is left alone, since its tilt is the trick — levelling fades
+ * out as the spin axis tilts toward `air.levelTiltMax`.
+ */
+function levelBoard(state: RiderState, params: Params, dt: number): void {
+  const rate = params.air.levelRate;
+  if (rate <= 0) return;
+  const tilt = Math.abs(state.spinAxis.z) / dm.sin(params.air.levelTiltMax);
+  const weight = 1 - Math.min(1, tilt);
+  if (weight <= 0) return;
+  axisY(boardUp, state.spinFrame);
+  cross(levelAxis, boardUp, state.groundNormal);
+  const s = length(levelAxis);
+  if (s < 1e-9) return;
+  const angle = dm.atan2(s, dot(boardUp, state.groundNormal));
+  scale(levelAxis, 1 / s);
+  setFromAxisAngle(levelQ, levelAxis, angle * (1 - dm.exp(-rate * weight * dt)));
+  // World-frame rotation, so it goes on the left.
+  multiply(state.spinFrame, levelQ, state.spinFrame);
+  normalizeQuat(state.spinFrame);
 }
 
 /**

@@ -504,6 +504,14 @@ pop is the entry to a nollie; keep those two systems composable.
 
 ## 10. Park format
 
+**Stand-in until milestone 7:** one table-top in `SlopeConfig.kicker` (main.ts), built into
+the heightfield — circular transition to the lip, flat deck, landing ramp. Two things it
+needed in the sim: grounded detaches when the surface turns away under the board
+(`air.detachSpeed`), or the deck catches the rider at the lip every tick; and in flight the
+board's pitch/roll relax toward the ground beneath (`air.levelRate`), or every straight air
+lands nose-high off the lip's angle. Popping at the lip adds ~0.6 s and ~8 m, so the landing
+is sized for popped airs; impact on those stays ~13 m/s until the table is taller.
+
 ```json
 {
   "spawn": { "position": [0, 40, 0], "heading": 0 },

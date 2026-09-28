@@ -170,7 +170,13 @@ function snowTexture(): THREE.Texture {
 
 function slopeMesh(cfg: SlopeConfig, terrain: Terrain): THREE.Mesh {
   const runOut = 20;
-  const geometry = new THREE.PlaneGeometry(cfg.width, cfg.length + runOut, 64, 256);
+  // ~0.75 m cells: fine enough that the kicker's transition and side taper read as curves.
+  const geometry = new THREE.PlaneGeometry(
+    cfg.width,
+    cfg.length + runOut,
+    Math.round(cfg.width / 0.75),
+    Math.round((cfg.length + runOut) / 0.75),
+  );
   geometry.rotateX(-Math.PI / 2);
   geometry.translate(0, 0, runOut - (cfg.length + runOut) / 2);
 

@@ -24,6 +24,15 @@ const drop: Terrain = {
   },
 };
 
+// The kicker the game places (main.ts), for airs off a lip.
+const kickerSlope = createSlope({
+  length: 400,
+  width: 120,
+  pitch: 0.28,
+  kicker: { z: -30, x: 0, width: 8, lipHeight: 3, lipAngle: 0.5, deckLength: 6, landingLength: 24, sideTaper: 2 },
+});
+const KICKER_RUN_IN = 11.7; // m from the kicker's start to the lip, for this config
+
 const deg = (r: number): string => `${Math.round((r * 180) / Math.PI)}°`;
 const forward = vec3();
 
@@ -121,6 +130,21 @@ function rideOff(name: string, edge: number): void {
   report(name, state, drop, input);
 }
 
+/** Straight at the kicker; optionally pop at the lip with a spin, checked at `checkAt`. */
+function kicker(name: string, pop: boolean, lx = 0, checkAt = Infinity): void {
+  const state = spawn(kickerSlope);
+  const input = neutralInput();
+  for (let i = 0; i < 20 / TICK_DT && state.mode !== 'airborne' || i < 120; i++) {
+    const s = -30 - state.position.z;
+    input.rt = pop && s > KICKER_RUN_IN - 4 && s < KICKER_RUN_IN - 0.6 ? 1 : 0;
+    input.lx = pop && s > KICKER_RUN_IN - 4 ? lx : 0;
+    tick(state, input, params, kickerSlope, TICK_DT);
+  }
+  const air = neutralInput();
+  air.lx = lx;
+  report(name, state, kickerSlope, air, Infinity, checkAt);
+}
+
 console.log('move                   landing  rotated     riding  speed');
 pop('straight air');
 pop('180, check 0.55 s', { lx: 0.5, checkAt: 0.55 });
@@ -138,5 +162,9 @@ pop('shifty held to contact', { shifty: true });
 pop('shifty, let go 0.3 s', { shifty: true, letGoAt: 0.3 });
 rideOff('ride off, flat', 0);
 rideOff('ride off, carving', 0.6);
+kicker('kicker, straight', false);
+kicker('kicker, popped', true);
+kicker('kicker 360, check 0.55', true, 1, 0.55);
+kicker('kicker 540, check 0.9', true, 1, 0.9);
 carve('toe edge held', 1);
 carve('heel edge held', -1);

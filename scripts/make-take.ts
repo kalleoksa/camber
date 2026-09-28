@@ -13,7 +13,13 @@ import { dampScalar } from '../src/sim/vec3.ts';
  */
 const SEED = 1;
 const SECONDS = 12;
-const slopeConfig: SlopeConfig = { length: 400, width: 120, pitch: 0.28 };
+// Same kicker as main.ts, so the determinism check covers the lip and landing paths too.
+const slopeConfig: SlopeConfig = {
+  length: 400,
+  width: 120,
+  pitch: 0.28,
+  kicker: { z: -30, x: 0, width: 8, lipHeight: 3, lipAngle: 0.5, deckLength: 6, landingLength: 24, sideTaper: 2 },
+};
 
 const rng = createRng(SEED);
 const frames: InputSnapshot[] = [];

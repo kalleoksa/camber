@@ -34,6 +34,8 @@
   "air": {
     "detachClearance": 0.12,
     "detachSpeed": 1.5,
+    "levelRate": 3,
+    "levelTiltMax": 0.3,
     "authority": 1.2,
     "tuckMultiplier": 1.25,
     "extendMultiplier": 0.85,
