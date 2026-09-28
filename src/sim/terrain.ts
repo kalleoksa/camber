@@ -1,4 +1,5 @@
 import { normalize, vec3, type Vec3 } from './vec3.ts';
+import * as dm from './dmath.ts';
 
 export type SurfaceType = 'snow' | 'rail' | 'wall';
 
@@ -31,7 +32,7 @@ export function createContact(): Contact {
  * that drifts wide is pushed back to the fall line instead of off the edge.
  */
 export function createSlope(cfg: SlopeConfig): Terrain {
-  const slope = Math.tan(cfg.pitch);
+  const slope = dm.tan(cfg.pitch);
   const half = cfg.width * 0.5;
   const bankHeight = cfg.width * 0.06;
   const bankWidth = cfg.width * 0.3;

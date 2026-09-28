@@ -1,5 +1,6 @@
 import { copyQuat, quat, type Quat } from './quat.ts';
 import { copy, vec3, type Vec3 } from './vec3.ts';
+import * as dm from './dmath.ts';
 
 export type RiderMode = 'grounded' | 'airborne' | 'railed' | 'walled' | 'bailed';
 
@@ -175,9 +176,9 @@ export function copyRiderState(dst: RiderState, src: RiderState): void {
  */
 function yawFrame(out: Quat, heading: number): Quat {
   out.x = 0;
-  out.y = Math.sin(heading / 2);
+  out.y = dm.sin(heading / 2);
   out.z = 0;
-  out.w = Math.cos(heading / 2);
+  out.w = dm.cos(heading / 2);
   return out;
 }
 

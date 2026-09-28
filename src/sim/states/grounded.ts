@@ -16,6 +16,7 @@ import {
   vec3,
   wrapAngle,
 } from '../vec3.ts';
+import * as dm from '../dmath.ts';
 
 const contact = createContact();
 const forward = vec3();
@@ -26,12 +27,12 @@ const heelSide = vec3();
  * ln 5, so `speedFactor` reaches 0.8 exactly at `ground.speedFactorKnee` — that is what
  * the parameter means, not a tunable of its own.
  */
-const KNEE_AT_80 = Math.log(5);
+const KNEE_AT_80 = dm.log(5);
 
 /** Rises fast, then plateaus, and is 0 at a standstill: you cannot turn without speed. */
 function speedFactor(speed: number, knee: number): number {
   if (knee <= 0) return 1;
-  return 1 - Math.exp((-KNEE_AT_80 * speed) / knee);
+  return 1 - dm.exp((-KNEE_AT_80 * speed) / knee);
 }
 
 export function stepGrounded(
@@ -52,7 +53,7 @@ export function stepGrounded(
   // Finish off a landing correction, if one is pending, before the carve reads heading.
   if (state.absorb > 0) {
     const delta = wrapAngle(state.headingTarget - state.heading);
-    state.heading = wrapAngle(state.heading + delta * (1 - Math.exp(-params.land.headingSnap * dt)));
+    state.heading = wrapAngle(state.heading + delta * (1 - dm.exp(-params.land.headingSnap * dt)));
   }
 
   // Tangential component of gravity on the contact plane: g*(down − n*(down·n)).
@@ -64,7 +65,7 @@ export function stepGrounded(
 
   // Board basis in the contact plane. For a regular rider travelling nose-first the toe
   // side is to the right of travel, which is `forward × n`, not `n × forward`.
-  set(forward, Math.sin(state.heading), 0, Math.cos(state.heading));
+  set(forward, dm.sin(state.heading), 0, dm.cos(state.heading));
   projectOntoPlane(forward, n);
   normalize(forward);
   cross(toeSide, forward, n);
@@ -83,12 +84,12 @@ export function stepGrounded(
   const stanceMag = Math.min(Math.abs(state.stance), 1);
 
   // The one curve carving lives on: flat base skids, a set edge locks.
-  let grip = g.gripFlat + (g.gripEdge - g.gripFlat) * Math.pow(edgeMag, g.gripCurve);
+  let grip = g.gripFlat + (g.gripEdge - g.gripFlat) * dm.pow(edgeMag, g.gripCurve);
   grip *= 1 - stanceMag * g.stanceGripLoss;
   grip *= 1 - input.lt * g.brakeGripLoss;
 
   const speedBefore = Math.sqrt(vf * vf + vl * vl);
-  const vlAfter = vl * Math.exp(-Math.max(grip, 0) * dt);
+  const vlAfter = vl * dm.exp(-Math.max(grip, 0) * dt);
   const scrubbed = Math.abs(vl) - Math.abs(vlAfter);
 
   // Invariant 2: the edge *rotates* the velocity vector toward the board. Holding the
@@ -189,8 +190,8 @@ function popTakeoff(state: RiderState, input: InputSnapshot, params: Params): vo
 export function setTakeoffSpin(state: RiderState, input: InputSnapshot, params: Params): void {
   const tilt = Math.min(1, Math.max(-1, input.ly)) * params.air.axisTiltMax;
   state.spinAxis.x = 0;
-  state.spinAxis.y = Math.cos(tilt);
-  state.spinAxis.z = Math.sin(tilt);
+  state.spinAxis.y = dm.cos(tilt);
+  state.spinAxis.z = dm.sin(tilt);
 
   // Negative because a positive rotation about board up swings the nose to the heel side.
   const rate = -input.lx * params.air.spinTakeoff;

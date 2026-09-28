@@ -20,6 +20,7 @@ import {
   wrapAngle,
   type Vec3,
 } from '../vec3.ts';
+import * as dm from '../dmath.ts';
 
 const contact = createContact();
 const spin = quat();
@@ -58,9 +59,9 @@ export function stepAirborne(
     if (Math.abs(input.lx * params.air.spinTakeoff) > Math.abs(state.spinRate)) setTakeoffSpin(state, input, params);
   } else if (input.lx !== 0) {
     const target = -input.lx * params.air.spinTakeoff;
-    state.spinRate += (target - state.spinRate) * (1 - Math.exp(-params.air.authority * dt));
+    state.spinRate += (target - state.spinRate) * (1 - dm.exp(-params.air.authority * dt));
   } else {
-    state.spinRate *= Math.exp(-params.air.checkRate * dt);
+    state.spinRate *= dm.exp(-params.air.checkRate * dt);
   }
   if (state.spinRate > params.air.spinMax) state.spinRate = params.air.spinMax;
   if (state.spinRate < -params.air.spinMax) state.spinRate = -params.air.spinMax;
@@ -174,10 +175,10 @@ function land(state: RiderState, params: Params, n: Vec3): void {
   if (courseSpeed > params.ground.pivotSpeed) {
     normalize(course);
     const cos = Math.min(1, Math.max(-1, dot(boardForward, course)));
-    theta = Math.acos(cos);
+    theta = dm.acos(cos);
     if (theta > Math.PI / 2) theta = Math.PI - theta; // fold: switch landings are legal
   }
-  const phi = Math.acos(Math.min(1, Math.max(-1, dot(boardUp, n))));
+  const phi = dm.acos(Math.min(1, Math.max(-1, dot(boardUp, n))));
 
   if (theta < params.land.clean && phi < params.land.rollClean) {
     state.landing = 'clean';
@@ -219,5 +220,5 @@ function land(state: RiderState, params: Params, n: Vec3): void {
  */
 function planeHeading(b: Vec3, n: Vec3): number {
   const s = b.y / n.y;
-  return Math.atan2(b.x - n.x * s, b.z - n.z * s);
+  return dm.atan2(b.x - n.x * s, b.z - n.z * s);
 }

@@ -15,6 +15,10 @@ Reference document for the sim model. Read with `CLAUDE.md`.
 - `edge` = signed −1..1. Negative = heel edge, positive = toe edge. 0 = flat base.
 - `stance` = signed −1..1 weight along board. −1 = full tail, +1 = full nose.
 - Regular stance assumed. Switch is `heading` 180° from velocity, not a separate mode.
+- Sim math: `exp`, `log`, `pow`, `sin`, `cos`, `tan`, `acos`, `atan2` come from
+  `src/sim/dmath.ts`, never `Math`. Engine versions differ in the last bit between ARM and
+  x86 (a take recorded on an M-series Mac drifted in CI within seconds), and determinism
+  has to hold across machines. `npm run check-math` enforces it in CI.
 
 ---
 

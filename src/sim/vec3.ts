@@ -1,3 +1,4 @@
+import * as dm from './dmath.ts';
 export type Vec3 = { x: number; y: number; z: number };
 
 export function vec3(x = 0, y = 0, z = 0): Vec3 {
@@ -78,7 +79,7 @@ export function clampLength(out: Vec3, max: number): Vec3 {
 
 /** Frame-rate independent exponential approach: moves `out` toward `target` at `rate` 1/s. */
 export function damp(out: Vec3, target: Vec3, rate: number, dt: number): Vec3 {
-  const t = 1 - Math.exp(-rate * dt);
+  const t = 1 - dm.exp(-rate * dt);
   out.x += (target.x - out.x) * t;
   out.y += (target.y - out.y) * t;
   out.z += (target.z - out.z) * t;
@@ -86,5 +87,5 @@ export function damp(out: Vec3, target: Vec3, rate: number, dt: number): Vec3 {
 }
 
 export function dampScalar(current: number, target: number, rate: number, dt: number): number {
-  return current + (target - current) * (1 - Math.exp(-rate * dt));
+  return current + (target - current) * (1 - dm.exp(-rate * dt));
 }

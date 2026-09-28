@@ -1,4 +1,5 @@
 import { type Vec3 } from './vec3.ts';
+import * as dm from './dmath.ts';
 
 export type Quat = { x: number; y: number; z: number; w: number };
 
@@ -24,11 +25,11 @@ export function copyQuat(out: Quat, a: Quat): Quat {
 
 export function setFromAxisAngle(out: Quat, axis: Vec3, angle: number): Quat {
   const half = angle * 0.5;
-  const s = Math.sin(half);
+  const s = dm.sin(half);
   out.x = axis.x * s;
   out.y = axis.y * s;
   out.z = axis.z * s;
-  out.w = Math.cos(half);
+  out.w = dm.cos(half);
   return out;
 }
 
@@ -136,10 +137,10 @@ export function slerp(out: Quat, a: Quat, b: Quat, t: number): Quat {
   let ka = 1 - t;
   let kb = t;
   if (cos < 0.9995) {
-    const angle = Math.acos(cos);
-    const sin = Math.sin(angle);
-    ka = Math.sin(ka * angle) / sin;
-    kb = Math.sin(kb * angle) / sin;
+    const angle = dm.acos(cos);
+    const sin = dm.sin(angle);
+    ka = dm.sin(ka * angle) / sin;
+    kb = dm.sin(kb * angle) / sin;
   }
   out.x = a.x * ka + bx * kb;
   out.y = a.y * ka + by * kb;
