@@ -46,6 +46,8 @@ export const params = {
     extendMultiplier: 0.85, // spin rate while stretched
     spinMax: 9.0, // rad/s cap
     axisTiltMax: 1.1, // rad, max cork axis lerp
+    corkRightMax: 1.2, // rad, board within this of the ground below is righted when you open up; further, it isn't
+    flipRate: 6.0, // rad/s about the board's long axis at full stick Y — back is a backflip. 0 = older rule, no flips
     corkDeadzone: 0.5, // |stick Y| below this at takeoff is a flat spin — Y is also the tail press
     corkRecover: 6.0, // 1/s (was 4, raised by play), coming out of a cork once stick Y is centred: axis back to flat, board righted
     spinTakeoff: 9.0, // rad/s at full whip on takeoff — overspins a full pop on purpose; centre to check

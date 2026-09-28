@@ -10,11 +10,13 @@ import {
   damp,
   dampScalar,
   dot,
+  length,
   normalize,
   projectOntoPlane,
   set,
   vec3,
   wrapAngle,
+  type Vec3,
 } from '../vec3.ts';
 import * as dm from '../dmath.ts';
 
@@ -22,6 +24,7 @@ const contact = createContact();
 const forward = vec3();
 const toeSide = vec3();
 const heelSide = vec3();
+const rotation = vec3();
 
 /**
  * ln 5, so `speedFactor` reaches 0.8 exactly at `ground.speedFactorKnee` — that is what
@@ -212,7 +215,46 @@ export function takeoffSpinRate(state: RiderState, input: InputSnapshot, params:
  * Stick → spin axis and rate, as at takeoff. Also used for `air.takeoffWindow` after the
  * pop, so a stick that arrives a frame after the trigger still counts as the wind-up.
  */
+/** Stick Y past `air.corkDeadzone`, rescaled to −1..1 — below it a tail press stays one. */
+export function corkStick(ly: number, params: Params): number {
+  const y = Math.min(1, Math.max(-1, ly));
+  const dead = params.air.corkDeadzone;
+  return Math.abs(y) <= dead ? 0 : (Math.sign(y) * (Math.abs(y) - dead)) / (1 - dead);
+}
+
+/**
+ * The rotation the stick asks for, board-local rad/s: X spins about board up, Y flips
+ * about the board's long axis — for a rider facing the toe edge that is the backflip axis,
+ * and stick back (the tail press) is a backflip. A diagonal is a cork, its tilt falling out
+ * of the ratio. One vector, so spin, cork, rodeo and flip are one rule, not four.
+ */
+export function stickRotation(out: Vec3, yawRate: number, input: InputSnapshot, params: Params): Vec3 {
+  return set(out, 0, yawRate, corkStick(input.ly, params) * params.air.flipRate);
+}
+
+/**
+ * Axis and rate from a board-local rotation vector. The rate carries the sign and the axis
+ * keeps y ≥ 0, so a flat spin reads exactly as it always has; clamped to `air.spinMax`.
+ */
+export function setRotation(state: RiderState, w: Vec3, params: Params): void {
+  const m = length(w);
+  if (m < 1e-12) {
+    set(state.spinAxis, 0, 1, 0);
+    state.spinRate = 0;
+    return;
+  }
+  const sign = w.y < 0 ? -1 : 1;
+  set(state.spinAxis, (sign * w.x) / m, (sign * w.y) / m, (sign * w.z) / m);
+  state.spinRate = Math.min(params.air.spinMax, Math.max(-params.air.spinMax, sign * m));
+}
+
 export function setTakeoffSpin(state: RiderState, input: InputSnapshot, params: Params): void {
+  if (params.air.flipRate > 0) {
+    setRotation(state, stickRotation(rotation, takeoffSpinRate(state, input, params), input, params), params);
+    return;
+  }
+  // Older rule, kept so takes recorded under it replay: X sets the rate, Y only tilts the
+  // axis, capped at axisTiltMax — which is why a straight flip was unreachable.
   // Stick Y is also stance — a tail press is how you ollie — so a thumb pressing tail while
   // throwing a hard spin sideways is normal and must not be read as a cork. Only past
   // `air.corkDeadzone` does the axis tilt, rescaled so full stick is still a full cork.

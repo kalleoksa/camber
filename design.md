@@ -29,7 +29,7 @@ Xbox-layout gamepad. Analog everywhere it matters.
 | Input | Grounded | Airborne | Railed |
 |---|---|---|---|
 | Left stick X | Edge angle (target) | Spin rate about spin axis | Balance correction |
-| Left stick Y | Stance: nose / tail press | Spin axis tilt → cork / off-axis | Nose / tail press shift |
+| Left stick Y | Stance: nose / tail press | Flip (back = backflip); with X, cork | Nose / tail press shift |
 | RT (analog) | Compress; **release = pop** | Absorb (prepare landing) | Compress; release = pop off |
 | LT | Brake / heel scrub | — | — |
 | Right stick | — | Grab: position on the board (§7.3); **push past the grab = tweak** | — |
@@ -181,6 +181,19 @@ welded together.
   ever fighting the spin. The first version levelled board up and had to switch off for
   corks; a recorded cork 360 off the kicker, 6° from a full turn, then landed 42° nose-high
   (the lip-to-landing angle) and sketchy. It lands clean under this rule.
+- **Flips: the stick is a rotation, not a rate plus a tilt.** At the pop the stick sets
+  a board-local rotation vector: X spins about board up (`air.spinTakeoff`), Y — past the
+  cork deadzone — flips about the board's long axis (`air.flipRate`), which for a rider
+  facing the toe edge is the backflip axis; stick back, the tail press, is a backflip.
+  The axis is the vector's direction and the rate its length, so sideways is a flat spin,
+  straight back or forward a flip, a diagonal a cork, and a diagonal held long enough a
+  double cork — one rule, as this section always asked. The older rule (X sets the rate,
+  Y only tilts the axis, capped at `axisTiltMax`) made a straight flip unreachable; takes
+  recorded under it replay with `flipRate` 0. In the air the stick is read against the
+  current axis: held it holds the rotation, eased it slows it, it can't swing the axis.
+  Opening up (Y centred) unwinds only the flip part, leaving the spin part as it was, and
+  rights the board only when it is already within `air.corkRightMax` of the ground — so a
+  flip let go upside down does not land itself, and flips need timing where corks forgive.
 - **Coming out of a cork.** A spin about a fixed tilted axis only returns the board
   upright after whole turns; at any half turn — a cork 180 or 540 landing fakie — it is
   tipped over by twice the tilt, so those were impossible. Riders go off axis and then

@@ -3,7 +3,7 @@ import type { Params } from '../params.ts';
 import { boardAttitude } from '../grabs.ts';
 import { axisY, axisZ, multiply, normalizeQuat, quat, rotate, setFromAxisAngle, type Quat } from '../quat.ts';
 import type { RiderState } from '../state.ts';
-import { setTakeoffSpin, takeoffSpinRate } from './grounded.ts';
+import { corkStick, setRotation, setTakeoffSpin, stickRotation, takeoffSpinRate } from './grounded.ts';
 import { createContact, type Terrain } from '../terrain.ts';
 import {
   addScaled,
@@ -17,6 +17,7 @@ import {
   normalize,
   projectOntoPlane,
   scale,
+  set,
   vec3,
   wrapAngle,
   type Vec3,
@@ -35,6 +36,8 @@ const UP = vec3(0, 1, 0);
 const LATERAL = vec3(-1, 0, 0); // pitch axis: positive raises the nose, as the rig draws it
 const LONG = vec3(0, 0, 1);
 const levelAxis = vec3();
+const stickW = vec3();
+const spinW = vec3();
 const levelQ = quat();
 const composed = quat();
 
@@ -61,14 +64,24 @@ export function stepAirborne(
   // neither steered nor checked. Coming back through centre arms it; from then on the law
   // above applies unchanged.
   if (!state.spinArmed && Math.abs(input.lx) < params.air.spinArmBand) state.spinArmed = true;
+  const flips = params.air.flipRate > 0;
   if (state.popWindow > 0) {
     // Only a stronger stick counts: a late wind-up is forgiven, a flick already released
     // is not taken back. Read as a whip, same as the pop itself.
     state.popWindow = Math.max(0, state.popWindow - dt);
-    if (Math.abs(takeoffSpinRate(state, input, params)) > Math.abs(state.spinRate)) setTakeoffSpin(state, input, params);
+    const asked = flips
+      ? length(stickRotation(stickW, takeoffSpinRate(state, input, params), input, params))
+      : Math.abs(takeoffSpinRate(state, input, params));
+    if (asked > Math.abs(state.spinRate)) setTakeoffSpin(state, input, params);
   } else if (!state.spinArmed) {
     // coast
-  } else if (input.lx !== 0) {
+  } else if (flips && (input.lx !== 0 || corkStick(input.ly, params) !== 0)) {
+    // The stick read against the axis already turning: held, it holds the rotation — spin,
+    // flip or the cork between — and eased, it slows it. It cannot swing the axis mid-air.
+    stickRotation(stickW, -input.lx * params.air.spinTakeoff, input, params);
+    const target = dot(stickW, state.spinAxis);
+    state.spinRate += (target - state.spinRate) * (1 - dm.exp(-params.air.authority * dt));
+  } else if (!flips && input.lx !== 0) {
     const target = -input.lx * params.air.spinTakeoff;
     state.spinRate += (target - state.spinRate) * (1 - dm.exp(-params.air.authority * dt));
   } else {
@@ -161,8 +174,21 @@ function recoverCork(state: RiderState, input: InputSnapshot, params: Params, dt
   if (rate <= 0 || state.popWindow > 0 || state.spinAxis.z === 0) return;
   if (Math.abs(input.ly) > params.air.corkDeadzone) return;
   const k = 1 - dm.exp(-rate * dt);
-  state.spinAxis.z *= 1 - k;
-  state.spinAxis.y = Math.sqrt(Math.max(0, 1 - state.spinAxis.z * state.spinAxis.z));
+  if (params.air.flipRate > 0) {
+    // Only the flip part unwinds; the spin part is left exactly as it was, so letting go
+    // mid-flip can't turn the flip's momentum into yaw nobody asked for.
+    set(spinW, state.spinAxis.x * state.spinRate, state.spinAxis.y * state.spinRate, state.spinAxis.z * state.spinRate);
+    spinW.z *= 1 - k;
+    setRotation(state, spinW, params);
+    // Opening up only rights a board that is already coming round: within
+    // `air.corkRightMax` of the ground below. Past that the flip has to finish on its own
+    // momentum — otherwise any flip, let go upside down, would land itself.
+    axisY(boardUp, state.spinFrame);
+    if (dot(boardUp, state.groundNormal) < dm.cos(params.air.corkRightMax)) return;
+  } else {
+    state.spinAxis.z *= 1 - k;
+    state.spinAxis.y = Math.sqrt(Math.max(0, 1 - state.spinAxis.z * state.spinAxis.z));
+  }
   levelBoardUp(state, rate, dt);
 }
 
