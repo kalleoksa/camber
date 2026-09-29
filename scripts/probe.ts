@@ -245,6 +245,45 @@ function wall(name: string, aim: number, along: number, pop: 'none' | 'transitio
 }
 
 
+/**
+ * The park's corner: set up on the far side, carve across the takeoff at `aim` rad and pop
+ * at the lip. Reports where the air comes down — the side landing's normal leans across.
+ */
+const parkSlope = createSlope(SLOPESTYLE);
+function corner(name: string, side: number, aim: number): void {
+  const c = SLOPESTYLE.corners?.[0];
+  if (!c) return;
+  const lip = c.z - (c.lipHeight / (1 - Math.cos(c.lipAngle))) * Math.sin(c.lipAngle);
+  const state = spawn(parkSlope);
+  const input = neutralInput();
+  const n = createContact();
+  let popped = false;
+  for (let i = 0; i < 30 / TICK_DT; i++) {
+    const { x, z } = state.position;
+    let target = Math.PI;
+    if (z < c.z + 30 && z > c.z + 5) target = Math.PI + Math.max(-0.5, Math.min(0.5, 0.15 * (x + side * 2.5)));
+    else if (z <= c.z + 5) target = Math.PI - side * aim;
+    const was = state.mode;
+    if (was === 'grounded') {
+      const err = Math.atan2(Math.sin(target - state.heading), Math.cos(target - state.heading));
+      input.lx = Math.max(-1, Math.min(1, -3 * err));
+      input.rt = z < lip + 4 && z > lip + 0.6 ? 1 : 0;
+    } else input.lx = input.rt = 0;
+    tick(state, input, params, parkSlope, TICK_DT);
+    if (was === 'grounded' && state.mode === 'airborne' && z < lip + 1) popped = true;
+    if (popped && was === 'airborne' && state.mode !== 'airborne') {
+      parkSlope.sample(state.position.x, state.position.z, n);
+      const where = Math.abs(n.normal.x) > 0.2 ? 'side landing' : Math.abs(state.position.x - c.x) < c.deckWidth / 2 ? 'deck / forward landing' : 'run-out';
+      console.log(
+        `${name.padEnd(26)} ${where}, ${(lip - state.position.z).toFixed(1)} m past the lip, ${state.landing}, impact ${state.impact.toFixed(1)}`,
+      );
+      return;
+    }
+  }
+  console.log(`${name.padEnd(26)} never came down`);
+}
+
+
 pop('straight air');
 pop('180, check 0.55 s', { lx: 0.5, checkAt: 0.55 });
 pop('180, never check', { lx: 0.5 });
@@ -287,3 +326,6 @@ wall('wall, too shallow', 0.4, 0.3);
 wall('wall, pop on transition', 0.6, 0.5, 'transition');
 wall('wall, pop, along the face', 0.6, 0.2, 'transition');
 wall('wall, ollie in from flat', 0.6, 0.5, 'flat');
+corner('corner, straight', 0, 0);
+corner('corner, frontside (toe side)', 1, 0.3);
+corner('corner, backside (heel side)', -1, 0.3);

@@ -27,6 +27,7 @@ export type SlopeConfig = {
   /** Legacy single kicker, kept so takes recorded with it replay. New terrain uses `kickers`. */
   kicker?: KickerConfig;
   kickers?: KickerConfig[];
+  corners?: CornerConfig[];
   rails?: RailConfig[];
   walls?: WallConfig[];
   /**
@@ -36,6 +37,27 @@ export type SlopeConfig = {
    * steep pitch builds it.
    */
   grades?: GradeConfig[];
+};
+
+/**
+ * A corner (hip) jump: a straight takeoff up the fall line to a lip, a flat deck, and
+ * landings falling away on both sides and ahead. Come into the takeoff angled left or
+ * right and the air carries you over the side landing — frontside one way, backside the
+ * other. The landing profile is the kicker's (knuckle, straight, run-out), measured from
+ * the deck's edge, so the corners of the deck round off instead of meeting in a crease.
+ */
+export type CornerConfig = {
+  z: number; // m, where the transition starts
+  x: number; // m, centre across the slope
+  width: number; // m of takeoff
+  lipHeight: number; // m above the slope
+  lipAngle: number; // rad, takeoff angle relative to the slope
+  deckLength: number; // m of flat deck past the lip
+  deckWidth: number; // m of flat deck across — the side landings start at its edges
+  sideTaper: number; // m over which the takeoff's sides and the side landings' uphill ends fall away
+  landingAngle: number; // rad the landings fall away below the slope
+  knuckleRadius: number; // m
+  runoutRadius: number; // m
 };
 
 export type GradeConfig = {
@@ -111,6 +133,7 @@ export function createSlope(cfg: SlopeConfig): Terrain {
 
   const kickers = (cfg.kickers ?? (cfg.kicker ? [cfg.kicker] : [])).map(kickerProfile);
   const walls = (cfg.walls ?? []).map(wallProfile);
+  const corners = (cfg.corners ?? []).map(cornerProfile);
   const grades = gradeProfile(cfg.pitch, cfg.grades ?? []);
 
   // Summed from 0, so a single feature gives exactly its own height — old takes keep their hashes.
@@ -118,6 +141,7 @@ export function createSlope(cfg: SlopeConfig): Terrain {
     let h = 0;
     for (let i = 0; i < kickers.length; i++) h += kickers[i]?.(x, z) ?? 0;
     for (let i = 0; i < walls.length; i++) h += walls[i]?.(x, z) ?? 0;
+    for (let i = 0; i < corners.length; i++) h += corners[i]?.(x, z) ?? 0;
     if (grades) h += grades(x, z);
     return h;
   };
@@ -270,5 +294,63 @@ function gradeProfile(pitch: number, grades: GradeConfig[]): Profile | null {
       drop += (step[i] ?? 0) * ramp;
     }
     return -drop;
+  };
+}
+
+/** Corner height above the slope: max of the takeoff and the three-sided landing. */
+function cornerProfile(c: CornerConfig): Profile {
+  const radius = c.lipHeight / (1 - dm.cos(c.lipAngle));
+  const runIn = radius * dm.sin(c.lipAngle);
+  const deckEnd = runIn + c.deckLength;
+  const halfDeck = c.deckWidth * 0.5;
+
+  // Landing as a function of distance d past the deck's edge, as on a park kicker.
+  const alpha = c.landingAngle;
+  const rk = c.knuckleRadius;
+  const rb = c.runoutRadius;
+  const knuckleLen = rk * dm.sin(alpha);
+  const knuckleDrop = rk * (1 - dm.cos(alpha));
+  const runoutLen = rb * dm.sin(alpha);
+  const runoutRise = rb * (1 - dm.cos(alpha));
+  const steep = dm.tan(alpha);
+  const straightLen = Math.max(0, c.lipHeight - knuckleDrop - runoutRise) / steep;
+  const straightEnd = knuckleLen + straightLen;
+  const end = straightEnd + runoutLen;
+  const landing = (d: number): number => {
+    if (d <= 0) return c.lipHeight;
+    if (d >= end) return 0;
+    if (d < knuckleLen) return c.lipHeight - (rk - Math.sqrt(rk * rk - d * d));
+    if (d < straightEnd) return c.lipHeight - knuckleDrop - (d - knuckleLen) * steep;
+    const u = end - d;
+    return rb - Math.sqrt(rb * rb - u * u);
+  };
+
+  return (x: number, z: number): number => {
+    const s = c.z - z;
+    if (s <= 0 || s >= deckEnd + end) return 0;
+    const dx = Math.abs(x - c.x);
+    if (dx >= halfDeck + end) return 0;
+
+    // Takeoff: the kicker's arc, sides rolled off.
+    let takeoff = 0;
+    const side = dx - c.width * 0.5;
+    if (s < runIn && side < c.sideTaper) {
+      takeoff = radius - Math.sqrt(radius * radius - s * s);
+      if (side > 0) {
+        const t = 1 - side / c.sideTaper;
+        takeoff *= t * t * (3 - 2 * t);
+      }
+    }
+
+    // Deck and landings, from the lip on; uphill of it the side landings fade in so their
+    // ends slope rather than stand as walls beside the takeoff.
+    const outX = Math.max(0, dx - halfDeck);
+    const outS = Math.max(0, s - deckEnd);
+    let land = landing(Math.sqrt(outX * outX + outS * outS));
+    if (s < runIn) {
+      const t = Math.max(0, 1 - (runIn - s) / c.sideTaper);
+      land *= t * t * (3 - 2 * t);
+    }
+    return takeoff > land ? takeoff : land;
   };
 }

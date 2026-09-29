@@ -7,7 +7,7 @@ import { params } from '../src/sim/params.ts';
  * hill-run.json is a real ride; synthetic.json covers inputs a real ride may skip. Both the
  * sim hashes and the render-side spring hashes are checked.
  */
-const names = ['hill-run.json', 'synthetic.json', 'rail.json', 'park.json'];
+const names = ['hill-run.json', 'synthetic.json', 'rail.json', 'park.json', 'corner.json'];
 const takes = names.map((name) => JSON.parse(readFileSync(new URL(`../takes/${name}`, import.meta.url), 'utf8')) as Take);
 
 const failures: string[] = [];

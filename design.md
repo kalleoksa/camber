@@ -771,7 +771,10 @@ because `tweakOffset` reaches the landing test.
 | 6 | Wallrides + butters | First pass in, started before M5's gate by choice — gate: both chain into and out of other states without a hitch |
 
 The test terrain is a small slopestyle line in `src/park/slopestyle.ts` — rails, a wall,
-two kickers, a last rail, with near-flat decks (`grades`) holding speed between them.
+two kickers, a last rail and a corner, with near-flat decks (`grades`) holding speed
+between them. The corner (`corners` in the slope config) is a straight takeoff onto a long
+narrow deck with landings falling away on both sides and ahead: carve across the takeoff
+toward your toes for the frontside landing, toward your heels for the backside one.
 Hand-placed data; milestone 7 moves it to `park.json`.
 
 ---

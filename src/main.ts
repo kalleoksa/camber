@@ -48,7 +48,7 @@ import { length } from './sim/vec3.ts';
 import { createPanel, download, type Readout } from './tuning/panel.ts';
 
 const SEED = 1;
-// The slopestyle park (src/park/slopestyle.ts): rails, a wall, two kickers, a last rail.
+// The slopestyle park (src/park/slopestyle.ts): rails, a wall, two kickers, a last rail, a corner.
 const slopeConfig: SlopeConfig = SLOPESTYLE;
 
 const terrain = createSlope(slopeConfig);

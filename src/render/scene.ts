@@ -42,6 +42,7 @@ export type RiderView = {
   tweak: number;
   shifty: number;
   balance: number;
+  slide: number;
 };
 
 function shortestAngleLerp(a: number, b: number, t: number): number {
@@ -74,6 +75,7 @@ const view: RiderView = {
   tweak: 0,
   shifty: 0,
   balance: 0,
+  slide: 0,
 };
 
 function lerpInto(out: Vec3, a: Vec3, b: Vec3, t: number): void {
@@ -108,6 +110,7 @@ export function interpolateRider(prev: RiderState, cur: RiderState, alpha: numbe
   view.tweak = prev.tweak + (cur.tweak - prev.tweak) * alpha;
   view.shifty = prev.shifty + (cur.shifty - prev.shifty) * alpha;
   view.balance = prev.balance + (cur.balance - prev.balance) * alpha;
+  view.slide = cur.slide;
   view.course =
     Math.abs(cur.velocity.x) + Math.abs(cur.velocity.z) > 1e-4
       ? Math.atan2(cur.velocity.x, cur.velocity.z)
@@ -317,6 +320,7 @@ export function createScene(cfg: SlopeConfig, terrain: Terrain, camera: THREE.Pe
   const roll = new THREE.Quaternion();
   const tumble = new THREE.Quaternion();
   const zAxis = new THREE.Vector3(0, 0, 1);
+  const railAxis = new THREE.Vector3();
   const tumbleAxis = new THREE.Vector3(1, 0.3, 0).normalize();
   let tumbleAngle = 0;
 
@@ -344,8 +348,13 @@ export function createScene(cfg: SlopeConfig, terrain: Terrain, camera: THREE.Pe
     base.hipY = secondary.hipY;
     // On snow the hips lean into the edge; on a rail they carry the balance — the lean you
     // are fighting is the one you see. In the air lx is spin, not lean.
-    base.hipX = grounded ? view.edge * r.edgeHipShift : view.mode === 'railed' ? view.balance * r.railLean : 0;
-    base.hipZ = view.stance * r.stanceHipShift;
+    // The rail's side (the way a positive lean falls) is −cos(slide) on board X and
+    // sin(slide) on board Z, so the hips shift toward the side you are falling to.
+    const railed = view.mode === 'railed';
+    const c = railed ? Math.cos(view.slide) : 0;
+    const sn = railed ? Math.sin(view.slide) : 0;
+    base.hipX = grounded ? view.edge * r.edgeHipShift : railed ? -c * view.balance * r.railLean : 0;
+    base.hipZ = view.stance * r.stanceHipShift + sn * view.balance * r.railLean;
     base.spineSide = view.stance * r.stanceSpineSide;
     base.spineBend = r.spineBendBase + view.compress * r.compressSpineBend;
 
@@ -403,6 +412,14 @@ export function createScene(cfg: SlopeConfig, terrain: Terrain, camera: THREE.Pe
       if (view.mode === 'grounded' || view.mode === 'walled') {
         // Local +X is the heel side (design §1), so a toe edge tips −X down.
         roll.setFromAxisAngle(zAxis, view.edge * params.rig.edgeRoll);
+        rig.root.quaternion.multiply(roll);
+      }
+      if (view.mode === 'railed') {
+        // Tip the whole rider about the rail toward the side the lean is falling to —
+        // the balance you are fighting, readable at a glance. The rail in board-local
+        // axes is (sin slide, 0, cos slide).
+        railAxis.set(Math.sin(view.slide), 0, Math.cos(view.slide));
+        roll.setFromAxisAngle(railAxis, view.balance * params.rig.railTilt);
         rig.root.quaternion.multiply(roll);
       }
       if (view.mode === 'bailed') {

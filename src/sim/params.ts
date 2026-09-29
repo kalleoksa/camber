@@ -216,7 +216,8 @@ export const params = {
     stanceSpineSide: 0.3, // rad of spine lean into a press
     spineBendBase: 0.18, // rad of forward fold standing
     compressSpineBend: 0.25, // rad of extra fold at full compress
-    railLean: 0.18, // m of hip shift at full rail balance — the lean you're fighting, drawn
+    railLean: 0.25, // m of hip shift at full rail balance — the lean you're fighting, drawn
+    railTilt: 0.35, // rad the rider tips about the rail at full balance, toward the side they're falling to
     spineStiffness: 55.0, // ω² for the spine twist and head springs, like hipStiffness — ω ≈ 7.4 rad/s
     spineDamping: 1.0, // ζ
     counterRotation: 0.7, // rad of spine twist against the coming spin at full charge
