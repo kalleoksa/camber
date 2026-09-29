@@ -79,8 +79,16 @@ const jib3 = jibTable(-134, 20);
 const k1 = kickerSection(-208, { lipHeight: 2.5, deckLength: 8 }, { lipHeight: 3, deckLength: 10 });
 const k2 = kickerSection(k1.end - 28, { lipHeight: 2.5, deckLength: 8 }, { lipHeight: 3, deckLength: 10 });
 const k3 = kickerSection(k2.end - 28, { lipHeight: 3, deckLength: 10.5 }, { lipHeight: 3.5, deckLength: 12.5 });
+// Below the course: the corner and the quarter pipe, sized for the ~18-20 m/s the kicker
+// line hands on. The corner's takeoff is straight, so the air carries mostly forward: the
+// deck runs long so its side landings sit beside the flight, not behind it.
+const CORNER = { x: 0, width: 8, lipHeight: 5, lipAngle: 0.45, deckLength: 24, deckWidth: 4, sideTaper: 3, landingAngle: 0.5, knuckleRadius: 5, runoutRadius: 18 };
+const QUARTER = { x: 0, width: 26, height: 5.5, angle: 1.45, radius: 4.5, deck: 3, sideTaper: 3 };
 const cornerZ = k3.end - 25;
-const quarterZ = cornerZ - 55;
+const QUARTER_RUN = 40; // m from the corner's landings to the pipe: a drop to build speed, then a flat bottom
+const cornerRunIn = (CORNER.lipHeight / (1 - Math.cos(CORNER.lipAngle))) * Math.sin(CORNER.lipAngle);
+const cornerEnd = cornerZ - cornerRunIn - CORNER.deckLength - 15; // its landings back on the slope
+const quarterZ = cornerEnd - QUARTER_RUN;
 
 export const SOCHI: SlopeConfig = {
   length: Math.ceil(-quarterZ + 40),
@@ -102,6 +110,8 @@ export const SOCHI: SlopeConfig = {
     ...k1.grades,
     ...k2.grades,
     ...k3.grades,
+    { z: cornerEnd, pitch: drop, blend: 8 }, // down to the quarter pipe
+    { z: quarterZ + 10, pitch: 0, blend: 8 }, // its flat bottom
   ],
   rails: [
     // Jib 1: ride-on down box, kinked rail, flat rail, curved box — all on one table.
@@ -123,7 +133,7 @@ export const SOCHI: SlopeConfig = {
   ],
   kickers: [jib1, jib2, jib3, ...k1.kickers, ...k2.kickers, ...k3.kickers],
   corners: [
-    { z: cornerZ, x: 0, width: 6, lipHeight: 3.5, lipAngle: 0.45, deckLength: 12, deckWidth: 3, sideTaper: 3, landingAngle: 0.45, knuckleRadius: 3, runoutRadius: 14 },
+    { z: cornerZ, ...CORNER },
   ],
-  quarters: [{ z: quarterZ, x: 0, width: 16, height: 3.5, angle: 1.45, radius: 3, deck: 3, sideTaper: 3 }],
+  quarters: [{ z: quarterZ, ...QUARTER }],
 };
