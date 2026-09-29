@@ -57,6 +57,7 @@ export type Readout = {
 
 export type PanelHandlers = {
   onPoseMode(on: boolean): void;
+  onDressed(on: boolean): void;
   onAnchor(name: string): void;
   onStepAnchor(delta: number): void;
   onWriteAnchor(): void;
@@ -130,6 +131,11 @@ export function createPanel(
   status.addBinding(readout, 'rotated', { readonly: true, format: (v: number) => `${v.toFixed(0)}°` });
   status.addBinding(readout, 'landing', { readonly: true });
   status.addBinding(readout, 'determinism', { readonly: true });
+
+  // Dressed rider or the bare segments; ?look=bare starts bare.
+  const look = { dressed: new URLSearchParams(location.search).get('look') !== 'bare' };
+  status.addBinding(look, 'dressed').on('change', (ev) => handlers.onDressed(ev.value));
+  handlers.onDressed(look.dressed);
 
   const take = pane.addFolder({ title: 'take' });
   take.addButton({ title: 'reset (Y)' }).on('click', handlers.onReset);

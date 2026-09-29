@@ -153,6 +153,7 @@ export type SceneView = {
    * moving horizon and invites reading a flat board as resting on the ground.
    */
   setStage(clean: boolean): void;
+  setDressed(on: boolean): void;
   resize(): void;
 };
 
@@ -435,7 +436,7 @@ export function createScene(cfg: SlopeConfig, terrain: Terrain, camera: THREE.Pe
     if (trick) {
       // A press tips the board onto its contact point: nose press, nose down.
       drivers.boardPitch -= view.railContact * r.pressPitch;
-      pinZ = view.railContact * BOARD_HALF;
+      pinZ = view.railContact * params.rail.boardHalf; // where the sim put the contact
     }
     drivers.tweakRoll = a.roll;
     drivers.shifty = view.shifty;
@@ -511,6 +512,10 @@ export function createScene(cfg: SlopeConfig, terrain: Terrain, camera: THREE.Pe
       scene.background = clean ? stageColour : skyColour;
       // Reach diagnostics belong to authoring, not to play.
       rig.showReach(clean);
+    },
+
+    setDressed(on) {
+      rig.setDressed(on);
     },
 
     resize() {

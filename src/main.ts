@@ -400,6 +400,7 @@ function finishRecording(): void {
 const orbit = createPoseOrbit(chase.camera, view.renderer.domElement);
 
 const panel = createPanel(params, readout, view.drivers, preview, {
+  onDressed: (on) => view.setDressed(on),
   onPoseMode: (on) => {
     // Leaving pose mode mid-preview would leave a half-blended pose in the document.
     if (!on) {

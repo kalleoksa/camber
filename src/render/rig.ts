@@ -1,5 +1,7 @@
 import * as THREE from 'three';
-import type { Params } from '../sim/params.ts';
+import { params as defaults, type Params } from '../sim/params.ts';
+import { aimShaft, BOARD, createBinding, createDeck } from './board.ts';
+import { dress } from './outfit.ts';
 
 /**
  * The rider, inverted from a normal character rig (design §7.1): the feet are bolted to
@@ -227,9 +229,12 @@ export function gripWeight(body: number, delay: number): number {
   return smoothstep((body - d) / (1 - d));
 }
 
-const BOARD_LENGTH = 1.55;
-export const BOARD_HALF = BOARD_LENGTH / 2;
-const EDGE_X = 0.145; // m, just outside the deck so the hand wraps the edge
+/** Tip distance from the stance centre, for pinning a pressed tip. The drawn board (board.ts). */
+export const BOARD_HALF = BOARD.length / 2;
+// Grab geometry stays at the board the anchors were authored on (1.55 m, 0.29 m at the
+// edges), so resizing the drawn board doesn't move a single hand.
+const GRAB_HALF = 0.775;
+const EDGE_X = 0.145; // m, the edge the hand wraps
 
 /** Fraction of `t` at each end over which the two edge splines converge on the tip. */
 const TIP_TAPER = 0.15;
@@ -251,7 +256,7 @@ export function edgePoint(out: THREE.Vector3, edge: number, t: number): THREE.Ve
   const fromTip = Math.min(t, 1 - t);
   const taper = Math.min(Math.max(fromTip / TIP_TAPER, 0), 1);
   // state.edge is + for toe, and the toe side is board-local −X.
-  out.set(-edge * EDGE_X * taper, 0.035, (t * 2 - 1) * (BOARD_HALF - 0.06));
+  out.set(-edge * EDGE_X * taper, 0.035, (t * 2 - 1) * (GRAB_HALF - 0.06));
   return out;
 }
 
@@ -412,6 +417,8 @@ export type Rig = {
   /** Foot separation the leg solve produced. A diagnostic — the board is derived from it. */
   readonly stance: number;
   apply(drivers: RigDrivers, params: Params): void;
+  /** Dressed rider (outfit.ts) or the bare segments the poses were authored on. */
+  setDressed(on: boolean): void;
 };
 
 const SKIN = 0x2f6ee2;
@@ -430,18 +437,7 @@ export function createRig(): Rig {
   const board = new THREE.Group();
   root.add(board);
 
-  const deck = new THREE.Mesh(
-    new THREE.BoxGeometry(0.26, 0.02, BOARD_LENGTH),
-    new THREE.MeshStandardMaterial({ color: DARK, roughness: 0.4 }),
-  );
-  deck.position.y = 0.02;
-  board.add(deck);
-  const nose = new THREE.Mesh(
-    new THREE.BoxGeometry(0.2, 0.022, 0.14),
-    new THREE.MeshStandardMaterial({ color: 0xe2582f, roughness: 0.4 }),
-  );
-  nose.position.set(0, 0.02, BOARD_HALF - 0.09);
-  board.add(nose);
+  board.add(createDeck());
 
   const pelvis = new THREE.Mesh(
     new THREE.BoxGeometry(0.26, 0.14, 0.22),
@@ -495,11 +491,10 @@ export function createRig(): Rig {
   gapB.visible = false;
   let reachOverlay = false;
 
-  const bootF = new THREE.Mesh(
-    new THREE.BoxGeometry(0.15, 0.12, 0.28),
-    new THREE.MeshStandardMaterial({ color: DARK, roughness: 0.7 }),
-  );
-  const bootB = bootF.clone();
+  const bindF = createBinding(BOARD.stanceFront, 1);
+  const bindB = createBinding(BOARD.stanceBack, -1);
+  const bootF = bindF.group;
+  const bootB = bindB.group;
 
   for (const part of [pelvis, torso, head, thighL, shinL, thighR, shinR, armLU, armLL, armRU, armRL, mittF, mittB]) {
     part.castShadow = true;
@@ -507,6 +502,13 @@ export function createRig(): Rig {
   }
   root.add(gapF, gapB);
   board.add(bootF, bootB);
+
+  const outfit = dress(
+    { pelvis, torso, head, thighs: [thighL, thighR], shins: [shinL, shinR], upperArms: [armLU, armRU], forearms: [armLL, armRL], mitts: [mittF, mittB] },
+    defaults.rig,
+  );
+  // Hiding a segment's material, not the mesh, keeps its outfit children drawn.
+  const bare = [pelvis, torso, head, visor, thighL, shinL, thighR, shinR, armLU, armLL, armRU, armRL, mittF, mittB];
 
   // Scratch, all reused — this runs every frame.
   const hipCentre = new THREE.Vector3();
@@ -562,6 +564,10 @@ export function createRig(): Rig {
     },
     get stance() {
       return effectiveStance;
+    },
+    setDressed(on: boolean): void {
+      for (const m of bare) (m.material as THREE.Material).visible = !on;
+      for (const piece of outfit.pieces) piece.visible = on;
     },
 
     apply(d, params) {
@@ -745,6 +751,10 @@ export function createRig(): Rig {
       solveTwoBone(kneeB, hipR, footB, r.thigh, r.shin, pole);
       placeBone(thighR, hipR, kneeB, r.thigh);
       placeBone(shinR, kneeB, footB, r.shin);
+      // Boot shafts follow the shins, in the board's frame.
+      tmpQuat.copy(board.quaternion).invert();
+      aimShaft(bindF, dir.subVectors(kneeF, footF).applyQuaternion(tmpQuat));
+      aimShaft(bindB, dir.subVectors(kneeB, footB).applyQuaternion(tmpQuat));
       effectiveStance = halfStance * 2;
     },
   };
