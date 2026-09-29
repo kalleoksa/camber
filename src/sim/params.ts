@@ -107,6 +107,7 @@ export const params = {
     captureRise: 0.3, // fraction of speed rising away from the rail past which it won't catch
     fallSpeed: 1.5, // m/s off the side when the lean is lost
     stallPush: 1.0, // m/s off the side on a stall
+    rideOn: 0.1, // m: from the snow you only catch a rail or box whose top is this close above you — taller takes a pop
     boxStability: 0.4, // instability multiplier on a box — a wide flat top is far easier to hold
   },
   wall: {

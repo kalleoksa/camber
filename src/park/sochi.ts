@@ -104,8 +104,8 @@ export const SOCHI: SlopeConfig = {
     ...k3.grades,
   ],
   rails: [
-    // Jib 1: down box, kinked rail, flat rail, curved box — all on one table.
-    { points: [pt(jib1, -8, 2.0, 0.2), pt(jib1, -8, 18, 0.2)], width: 0.5 },
+    // Jib 1: ride-on down box, kinked rail, flat rail, curved box — all on one table.
+    { points: [pt(jib1, -8, 2.0, 0.08), pt(jib1, -8, 18, 0.08)], width: 0.5 }, // ride-on: low enough to roll onto
     { points: [pt(jib1, -3, 2.0, 0.35), pt(jib1, -3, 9, 0.7), pt(jib1, -3, 18, 0.7)] },
     { points: [pt(jib1, 3, 3.0, 0.5), pt(jib1, 3, 18, 0.5)] },
     { points: [pt(jib1, 8, 2.0, 0.25), pt(jib1, 9, 8, 0.25), pt(jib1, 9.3, 13, 0.25), pt(jib1, 9, 18, 0.25)], width: 0.5 },
