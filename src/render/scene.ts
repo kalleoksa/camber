@@ -195,16 +195,30 @@ function gridColumns(cfg: SlopeConfig): number[] {
   return xs.filter((x, i) => Math.abs(x) <= half && (i === 0 || x - (xs[i - 1] ?? -Infinity) > 0.02));
 }
 
+/** Grid rows down the slope, likewise: 0.1 m across a quarter pipe's face, which runs across X. */
+function gridRows(cfg: SlopeConfig, runOut: number): number[] {
+  const zs: number[] = [];
+  const coarse = Math.round((cfg.length + runOut) / 0.75);
+  for (let j = 0; j <= coarse; j++) zs.push(runOut - ((cfg.length + runOut) * j) / coarse);
+  for (const q of cfg.quarters ?? []) {
+    const span = q.radius + q.deck + 2 * q.height + 1;
+    for (let z = q.z + 0.5; z >= q.z - span; z -= 0.1) zs.push(z);
+  }
+  zs.sort((p, q) => q - p);
+  return zs.filter((z, j) => j === 0 || (zs[j - 1] ?? Infinity) - z > 0.02);
+}
+
 function slopeMesh(cfg: SlopeConfig, terrain: Terrain): THREE.Mesh {
   const runOut = 20;
   const xs = gridColumns(cfg);
-  const rows = Math.round((cfg.length + runOut) / 0.75);
+  const zs = gridRows(cfg, runOut);
+  const rows = zs.length - 1;
   const cols = xs.length;
   const positions = new Float32Array(cols * (rows + 1) * 3);
   const uvs = new Float32Array(cols * (rows + 1) * 2);
   const contact = createContact();
   for (let j = 0; j <= rows; j++) {
-    const z = runOut - ((cfg.length + runOut) * j) / rows;
+    const z = zs[j] ?? 0;
     for (let i = 0; i < cols; i++) {
       const x = xs[i] ?? 0;
       const k = j * cols + i;

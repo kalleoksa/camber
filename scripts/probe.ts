@@ -295,6 +295,38 @@ function corner(name: string, side: number, aim: number): void {
 }
 
 
+/**
+ * The park's quarter pipe, ridden straight in from the top of the run. Optionally pops on
+ * the face. Reports how high above the coping the air goes and how it comes back down.
+ */
+function quarter(name: string, pop: boolean): void {
+  const q = SLOPESTYLE.quarters?.[0];
+  if (!q) return;
+  const state = spawn(parkSlope);
+  const input = neutralInput();
+  const c = createContact();
+  const copingZ = q.z - 3.3;
+  const coping = parkSlope.sample(q.x, copingZ, c).height;
+  let peak = -Infinity;
+  let flying = false;
+  for (let i = 0; i < 40 / TICK_DT; i++) {
+    const inside = state.position.z < q.z + 1;
+    const was = state.mode;
+    input.lx = was === 'grounded' && !inside ? Math.max(-1, Math.min(1, -3 * Math.atan2(Math.sin(Math.PI - state.heading), Math.cos(Math.PI - state.heading)) - 0.1 * state.position.x)) : 0;
+    input.rt = pop && was === 'grounded' && inside && state.groundNormal.y > 0.3 ? 1 : 0;
+    tick(state, input, params, parkSlope, TICK_DT);
+    if (inside && was === 'grounded' && state.mode === 'airborne') flying = true;
+    if (flying && state.mode === 'airborne') peak = Math.max(peak, state.position.y - coping);
+    if (flying && was === 'airborne' && state.mode !== 'airborne') {
+      const where = state.position.z > copingZ ? 'back on the face' : 'on the deck';
+      console.log(`${name.padEnd(26)} ${peak.toFixed(1)} m above the coping, came down ${where}, ${state.landing}`);
+      return;
+    }
+  }
+  console.log(`${name.padEnd(26)} never aired`);
+}
+
+
 pop('straight air');
 pop('180, check 0.55 s', { lx: 0.5, checkAt: 0.55 });
 pop('180, never check', { lx: 0.5 });
@@ -342,3 +374,5 @@ wall('wall, pop off, along it', 0.6, 0.2, 'face');
 corner('corner, straight', 0, 0);
 corner('corner, frontside (toe side)', 1, 0.3);
 corner('corner, backside (heel side)', -1, 0.3);
+quarter('quarter pipe, rolled in', false);
+quarter('quarter pipe, pop on face', true);

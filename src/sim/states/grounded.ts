@@ -27,6 +27,7 @@ const toeSide = vec3();
 const heelSide = vec3();
 const rotation = vec3();
 const wallUp = vec3(); // up the face, in the contact plane
+const faceNormal = vec3(); // the surface under the board at the start of the tick
 
 /**
  * ln 5, so `speedFactor` reaches 0.8 exactly at `ground.speedFactorKnee` — that is what
@@ -67,13 +68,16 @@ export function stepGrounded(
   // Entry only as the face comes up under the board — the smoothed normal still says gentle
   // snow. Once a wall has let go, sliding back down it at full gravity would otherwise pick
   // speed back up and re-enter every other tick.
+  // Walls only: a quarter pipe is ridden at full gravity.
   const minNy = dm.cos(params.wall.minAngle);
-  const steep = n.y < minNy;
+  const steep = n.y < minNy && contact.surface === 'wall';
   const moving = length(v) >= params.wall.minSpeed;
   const arriving = state.groundNormal.y >= minNy;
   if (state.mode === 'grounded' && steep && moving && arriving) state.mode = 'walled';
   else if (state.mode === 'walled' && !(steep && moving)) state.mode = 'grounded';
   const walled = state.mode === 'walled';
+  const fromQuarter = contact.surface === 'quarter';
+  set(faceNormal, n.x, n.y, n.z);
 
   // Tangential component of gravity on the contact plane: g*(down − n*(down·n)).
   const gravity = params.world.gravity * (walled ? params.wall.gravityScale : 1);
@@ -165,8 +169,10 @@ export function stepGrounded(
     // an air off the face like any other. Keyed on the wall surface, not on steepness
     // alone, so a kicker lip still launches.
     set(wallUp, -n.x * n.y, 1 - n.y * n.y, -n.z * n.y);
-    const onFace =
-      !walled && contact.surface === 'wall' && n.y < dm.cos(params.wall.popAngle) && dot(v, wallUp) >= 0;
+    // A quarter pipe the same, all the way up: popping on the face while climbing adds to
+    // the climb, so the air off the top goes higher.
+    const lift = (!walled && contact.surface === 'wall') || contact.surface === 'quarter';
+    const onFace = lift && n.y < dm.cos(params.wall.popAngle) && dot(v, wallUp) >= 0;
     if (onFace) {
       normalize(wallUp);
       addScaled(v, wallUp, impulse * params.wall.popScale);
@@ -189,6 +195,18 @@ export function stepGrounded(
   // rollover. Without the second, a kicker's deck would catch the rider every tick and
   // re-project the launch flat, because per tick the rise is only centimetres.
   if (state.clearance > params.air.detachClearance || dot(v, contact.normal) > params.air.detachSpeed) {
+    // Off the top of a quarter pipe: its real top is vertical, so the horizontal speed that
+    // the heightfield's not-quite-vertical face leaves pointing over the deck is dropped and
+    // the air comes straight up and back into the pipe, drifting in at `wall.vertReturn` so
+    // it lands on the face. Speed along the coping stays.
+    if (fromQuarter && faceNormal.y < minNy) {
+      const hl = Math.sqrt(faceNormal.x * faceNormal.x + faceNormal.z * faceNormal.z);
+      const into = -(v.x * faceNormal.x + v.z * faceNormal.z) / hl + params.wall.vertReturn;
+      if (into > 0) {
+        v.x += (faceNormal.x / hl) * into;
+        v.z += (faceNormal.z / hl) * into;
+      }
+    }
     rideOff(state, input, params, -yaw);
     return;
   }

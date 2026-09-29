@@ -2,7 +2,7 @@ import { normalize, vec3, type Vec3 } from './vec3.ts';
 import * as dm from './dmath.ts';
 import { buildRail, type Rail, type RailConfig } from './rails.ts';
 
-export type SurfaceType = 'snow' | 'rail' | 'wall';
+export type SurfaceType = 'snow' | 'rail' | 'wall' | 'quarter';
 
 export type Contact = {
   height: number;
@@ -28,6 +28,7 @@ export type SlopeConfig = {
   kicker?: KickerConfig;
   kickers?: KickerConfig[];
   corners?: CornerConfig[];
+  quarters?: QuarterConfig[];
   rails?: RailConfig[];
   walls?: WallConfig[];
   /**
@@ -58,6 +59,24 @@ export type CornerConfig = {
   landingAngle: number; // rad the landings fall away below the slope
   knuckleRadius: number; // m
   runoutRadius: number; // m
+};
+
+/**
+ * A quarter pipe across the fall line, facing uphill: ride down into it, up a transition
+ * that steepens to `angle` near vertical, and air out above the deck. A heightfield can't
+ * be vertical, so the sim treats a departure from a quarter-pipe face as leaving a vertical
+ * top — the horizontal speed carrying you over the deck is dropped (grounded.ts) and the
+ * air comes back into the pipe.
+ */
+export type QuarterConfig = {
+  z: number; // m, where the transition starts (downhill is −Z)
+  x: number; // m, centre across the slope
+  width: number; // m
+  height: number; // m above the slope at the coping
+  angle: number; // rad of the face at the top — near π/2
+  radius: number; // m, transition radius
+  deck: number; // m of flat deck behind the coping
+  sideTaper: number; // m over which the sides roll off
 };
 
 export type GradeConfig = {
@@ -134,6 +153,7 @@ export function createSlope(cfg: SlopeConfig): Terrain {
   const kickers = (cfg.kickers ?? (cfg.kicker ? [cfg.kicker] : [])).map(kickerProfile);
   const walls = (cfg.walls ?? []).map(wallProfile);
   const corners = (cfg.corners ?? []).map(cornerProfile);
+  const quarters = (cfg.quarters ?? []).map(quarterProfile);
   const grades = gradeProfile(cfg.pitch, cfg.grades ?? []);
 
   // Summed from 0, so a single feature gives exactly its own height — old takes keep their hashes.
@@ -142,6 +162,7 @@ export function createSlope(cfg: SlopeConfig): Terrain {
     for (let i = 0; i < kickers.length; i++) h += kickers[i]?.(x, z) ?? 0;
     for (let i = 0; i < walls.length; i++) h += walls[i]?.(x, z) ?? 0;
     for (let i = 0; i < corners.length; i++) h += corners[i]?.(x, z) ?? 0;
+    for (let i = 0; i < quarters.length; i++) h += quarters[i]?.(x, z) ?? 0;
     if (grades) h += grades(x, z);
     return h;
   };
@@ -179,6 +200,7 @@ export function createSlope(cfg: SlopeConfig): Terrain {
 
       out.surface = 'snow';
       for (let i = 0; i < walls.length; i++) if ((walls[i]?.(x, z) ?? 0) > 0) out.surface = 'wall';
+      for (let i = 0; i < quarters.length; i++) if ((quarters[i]?.(x, z) ?? 0) > 0) out.surface = 'quarter';
       return out;
     },
   };
@@ -352,5 +374,32 @@ function cornerProfile(c: CornerConfig): Profile {
       land *= t * t * (3 - 2 * t);
     }
     return takeoff > land ? takeoff : land;
+  };
+}
+
+/** Quarter-pipe height above the slope: transition arc, near-vertical face, deck, back drop. */
+function quarterProfile(q: QuarterConfig): Profile {
+  const r = q.radius;
+  const arcLen = r * dm.sin(q.angle);
+  const arcRise = r * (1 - dm.cos(q.angle));
+  const steep = dm.tan(q.angle);
+  const faceEnd = arcLen + Math.max(0, q.height - arcRise) / steep;
+  const deckEnd = faceEnd + q.deck;
+  const backEnd = deckEnd + q.height / steep;
+  return (x: number, z: number): number => {
+    const s = q.z - z;
+    if (s <= 0 || s >= backEnd) return 0;
+    const side = Math.abs(x - q.x) - q.width * 0.5;
+    if (side >= q.sideTaper) return 0;
+    let h: number;
+    if (s < arcLen) h = r - Math.sqrt(r * r - s * s);
+    else if (s < faceEnd) h = arcRise + (s - arcLen) * steep;
+    else if (s < deckEnd) h = q.height;
+    else h = q.height - (s - deckEnd) * steep;
+    if (side > 0) {
+      const t = 1 - side / q.sideTaper;
+      h *= t * t * (3 - 2 * t);
+    }
+    return h;
   };
 }

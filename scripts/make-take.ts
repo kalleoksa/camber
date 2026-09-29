@@ -158,7 +158,8 @@ console.log(`wrote ${take.frames.length} ticks -> takes/synthetic.json`);
 }
 
 // The whole park straight down, rolling both kickers, then carved across into the corner
-// and popped over its side landing — covers the corner's takeoff, deck and landings.
+// and popped over its side landing, then back across into the quarter pipe with a pop on
+// its face — covers the corner's takeoff, deck and landings and the quarter pipe's air.
 {
   const parkTerrain = createSlope(SLOPESTYLE);
   const corner = SLOPESTYLE.corners?.[0];
@@ -167,22 +168,31 @@ console.log(`wrote ${take.frames.length} ticks -> takes/synthetic.json`);
   const cornerFrames: InputSnapshot[] = [];
   const lip = corner ? corner.z - (corner.lipHeight / (1 - Math.cos(corner.lipAngle))) * Math.sin(corner.lipAngle) : 0;
   let landed = 'none';
-  for (let i = 0; i < 24 / TICK_DT; i++) {
+  let cornerDone = false;
+  const quarter = SLOPESTYLE.quarters?.[0];
+  for (let i = 0; i < 32 / TICK_DT; i++) {
     const frame = neutralInput();
     const { x, z } = state.position;
     let target = Math.PI;
-    if (corner && z < corner.z + 30 && z > corner.z + 5) target = Math.PI + Math.max(-0.5, Math.min(0.5, 0.15 * (x + 2.5)));
+    if (cornerDone) target = Math.PI + Math.max(-0.5, Math.min(0.5, 0.15 * x));
+    else if (corner && z < corner.z + 30 && z > corner.z + 5) target = Math.PI + Math.max(-0.5, Math.min(0.5, 0.15 * (x + 2.5)));
     else if (corner && z <= corner.z + 5) target = Math.PI - 0.3;
-    if (state.mode === 'grounded') {
+    const inQuarter = quarter !== undefined && z < quarter.z + 1;
+    if (state.mode === 'grounded' && !inQuarter) {
       const err = Math.atan2(Math.sin(target - state.heading), Math.cos(target - state.heading));
       frame.lx = Math.max(-1, Math.min(1, -3 * err));
       if (z < lip + 4 && z > lip + 0.6) frame.rt = 1;
     }
+    // Charge rolling into the quarter pipe, pop halfway up the face.
+    if (state.mode === 'grounded' && inQuarter) frame.rt = state.groundNormal.y > 0.5 ? 1 : 0;
     const q = quantizeInput(frame);
     const was = state.mode;
     tick(state, q, params, parkTerrain, TICK_DT);
     cornerFrames.push(q);
-    if (was === 'airborne' && state.mode !== 'airborne' && z < lip) landed = state.landing;
+    if (was === 'airborne' && state.mode !== 'airborne' && z < lip && !cornerDone) {
+      landed = state.landing;
+      cornerDone = true;
+    }
   }
   const cornerTake = buildTake({ seed: SEED, dt: TICK_DT, spawn, terrain: SLOPESTYLE, params, frames: cornerFrames });
   writeFileSync(new URL('../takes/corner.json', import.meta.url), JSON.stringify(cornerTake));

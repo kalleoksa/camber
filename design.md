@@ -776,6 +776,11 @@ two kickers, a last rail and a corner, with near-flat decks (`grades`) holding s
 between them. The corner (`corners` in the slope config) is a straight takeoff onto a long
 narrow deck with landings falling away on both sides and ahead: carve across the takeoff
 toward your toes for the frontside landing, toward your heels for the backside one.
+At the bottom is a quarter pipe (`quarters`), facing uphill, ridden at full gravity — the
+wallride's reduced gravity applies to wall surfaces only. A heightfield can't be vertical,
+so leaving a quarter-pipe face drops the horizontal speed that would carry you over the
+deck and adds `wall.vertReturn` back into the pipe: airs go straight up and land back on
+the face. Popping on the face adds to the climb, like the pop onto a wall.
 Hand-placed data; milestone 7 moves it to `park.json`.
 
 ---

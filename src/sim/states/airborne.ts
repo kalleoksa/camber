@@ -125,7 +125,7 @@ export function stepAirborne(
 
   p.y = contact.height;
   state.clearance = 0;
-  land(state, params, contact.normal);
+  land(state, params, contact.normal, contact.surface === 'wall');
 }
 
 /**
@@ -259,7 +259,7 @@ function composeBoard(out: Quat, state: RiderState, params: Params): Quat {
  * Design §6. The whole thing turns on two angles, and it is deliberately the only place
  * rotation is ever corrected. Resist adding a rotation-count check — the angle contains it.
  */
-function land(state: RiderState, params: Params, n: Vec3): void {
+function land(state: RiderState, params: Params, n: Vec3, onWall: boolean): void {
   const v = state.velocity;
 
   state.impact = Math.abs(dot(v, n));
@@ -293,7 +293,7 @@ function land(state: RiderState, params: Params, n: Vec3): void {
   }
   // Flying into a wall fast enough sticks: the board is slaved to the face, so only the
   // heading angle is judged — the roll test would bail every ollie onto a wall.
-  const wall = n.y < dm.cos(params.wall.minAngle) && courseSpeed >= params.wall.minSpeed;
+  const wall = onWall && n.y < dm.cos(params.wall.minAngle) && courseSpeed >= params.wall.minSpeed;
   const phi = wall ? 0 : dm.acos(Math.min(1, Math.max(-1, dot(boardUp, n))));
 
   if (theta < params.land.clean && phi < params.land.rollClean) {

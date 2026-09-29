@@ -111,6 +111,7 @@ export const params = {
     gravityScale: 0.35, // fraction of gravity while walled
     drag: 3.0, // m/s² while walled
     popScale: 0.5, // fraction of the pop that goes up the face when popping onto a wall — the rest is absorbed by the stick
+    vertReturn: 0.6, // m/s back into the pipe on leaving a quarter-pipe top, so the air lands on the face, not the coping
     popAngle: 0.35, // rad from up: on a wall's transition steeper than this, a pop drives you up the face instead of off it
   },
   butter: {
