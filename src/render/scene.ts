@@ -10,6 +10,8 @@ import { BODY_KEYS, grabBody } from './poses.ts';
 import { butterAmount } from '../sim/states/grounded.ts';
 import { BOARD_HALF, createRig, edgePoint, gripWeight, mirrorDrivers, neutralDrivers, smoothstep, type RigDrivers } from './rig.ts';
 import type { Secondary } from './secondary.ts';
+import { flutter } from './toon.ts';
+import { TICK_DT } from '../core/loop.ts';
 
 /**
  * The hip spring moved to `secondary.ts` and is stepped on the sim tick, which is what makes
@@ -35,6 +37,7 @@ export type RiderView = {
   impact: number;
   absorb: number;
   bailTime: number;
+  time: number; // s of sim time, interpolated — drives cloth flutter, so replay matches
   grabEdge: number;
   grabT: number;
   grabFront: boolean;
@@ -71,6 +74,7 @@ const view: RiderView = {
   impact: 0,
   absorb: 0,
   bailTime: 0,
+  time: 0,
   grabEdge: 0,
   grabT: 0.5,
   grabFront: true,
@@ -104,6 +108,7 @@ export function interpolateRider(prev: RiderState, cur: RiderState, alpha: numbe
   view.compress = prev.compress + (cur.compress - prev.compress) * alpha;
   view.scrub = cur.scrub;
   view.speed = length(cur.velocity);
+  view.time = (prev.tick + (cur.tick - prev.tick) * alpha) * TICK_DT;
   view.mode = cur.mode;
   view.landing = cur.landing;
   view.impact = cur.impact;
@@ -503,6 +508,14 @@ export function createScene(cfg: SlopeConfig, terrain: Terrain, camera: THREE.Pe
       }
 
       rig.apply(drivers, params);
+
+      // Cloth (9c): springs from Secondary, flutter from sim time and speed. Still in pose
+      // mode, so the pose being authored isn't blowing about.
+      const still = poseMode;
+      rig.cloth.skirt.rotation.set(still ? 0 : secondary.skirtX, 0, still ? 0 : secondary.skirtZ);
+      rig.cloth.hood.rotation.set(still ? 0 : secondary.hoodX, 0, still ? 0 : secondary.hoodZ);
+      flutter.uTime.value = view.time;
+      flutter.uAmp.value = still ? 0 : Math.min(view.speed * params.cloth.flutterPerSpeed, params.cloth.flutterMax);
     },
 
     setStage(clean) {

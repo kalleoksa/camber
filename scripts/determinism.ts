@@ -51,6 +51,15 @@ takes.forEach((take, i) => {
   if (stiffened.hashes.join() !== base.hashes.join()) {
     failures.push(`${name}: a render-side spring param changed the sim — secondary motion has leaked into it`);
   }
+  // The same for cloth (9c): its springs must reach the spring stream and nothing else.
+  const clothier: Take = { ...take, params: { ...take.params, cloth: { ...params.cloth, ...take.params.cloth, skirtStiffness: 30 } } };
+  const flapped = simulateTake(clothier);
+  if (flapped.secondaryHashes.join() === base.secondaryHashes.join()) {
+    failures.push(`${name}: changing the skirt spring changed nothing — the cloth isn't in the spring stream`);
+  }
+  if (flapped.hashes.join() !== base.hashes.join()) {
+    failures.push(`${name}: a cloth param changed the sim — cloth has leaked into it`);
+  }
 });
 
 // A tuning session mutates the live params. Each take carries its own, so it must not care.
@@ -58,6 +67,7 @@ params.ground.gripEdge *= 1.7;
 params.world.gravity += 3;
 params.camera.distance = 12;
 params.rig.hipStiffness *= 3;
+params.cloth.skirtStiffness *= 2;
 takes.forEach((take, i) => {
   const after = verifyTake(take);
   if (!after.ok) {

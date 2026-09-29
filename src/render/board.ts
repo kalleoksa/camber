@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { lcg, toon } from './toon.ts';
 
 /**
  * Board and bindings, drawn only. Board local: +Z nose, +Y up, +X heel side; the rider
@@ -78,15 +79,6 @@ function rise(z: number): number {
   if (z > b.noseRiseFrom) y += b.noseRise * ((z - b.noseRiseFrom) / (NOSE_END - b.noseRiseFrom)) ** 2.2;
   if (z < -CONTACT) y += b.tailRise * ((-z - CONTACT) / (-TAIL_END - CONTACT)) ** 2;
   return y;
-}
-
-/** Small seeded LCG so the graphics come out the same every load. Render-only. */
-function lcg(seed: number): () => number {
-  let x = seed >>> 0;
-  return () => {
-    x = (Math.imul(x, 1664525) + 1013904223) >>> 0;
-    return x / 4294967296;
-  };
 }
 
 /** Canvas `v` (0 tail … 1 nose) to pixel row, with nose at the top the way CanvasTexture maps it. */
@@ -203,14 +195,14 @@ export function createDeck(): THREE.Group {
   group.add(
     mesh(
       strip((z, s) => [s ? halfWidth(z) : -halfWidth(z), yBase(z) + b.thickness, z], true),
-      new THREE.MeshStandardMaterial({ map: topsheet(), roughness: 0.35 }),
+      toon(0xffffff, { map: topsheet() }),
     ),
     mesh(
       strip((z, s) => [s ? halfWidth(z) : -halfWidth(z), yBase(z), z], false),
-      new THREE.MeshStandardMaterial({ map: baseGraphic(), roughness: 0.5 }),
+      toon(0xffffff, { map: baseGraphic() }),
     ),
   );
-  const wall = new THREE.MeshStandardMaterial({ color: b.side, roughness: 0.4, side: THREE.DoubleSide });
+  const wall = toon(b.side, { twoSided: true });
   group.add(
     mesh(strip((z, s) => [halfWidth(z), yBase(z) + (s ? b.thickness : 0), z], false), wall),
     mesh(strip((z, s) => [-halfWidth(z), yBase(z) + (s ? b.thickness : 0), z], true), wall),
@@ -218,15 +210,14 @@ export function createDeck(): THREE.Group {
   return group;
 }
 
-function part(geometry: THREE.BufferGeometry, color: number, roughness = 0.6, twoSided = false): THREE.Mesh {
-  const material = new THREE.MeshStandardMaterial({ color, roughness, side: twoSided ? THREE.DoubleSide : THREE.FrontSide });
-  const mesh = new THREE.Mesh(geometry, material);
+function part(geometry: THREE.BufferGeometry, color: number, twoSided = false): THREE.Mesh {
+  const mesh = new THREE.Mesh(geometry, toon(color, { twoSided }));
   mesh.castShadow = true;
   return mesh;
 }
 
 function blob(color: number, x: number, y: number, z: number, sx: number, sy: number, sz: number): THREE.Mesh {
-  const mesh = part(new THREE.SphereGeometry(1, 16, 10), color, 0.8);
+  const mesh = part(new THREE.SphereGeometry(1, 16, 10), color);
   mesh.position.set(x, y, z);
   mesh.scale.set(sx, sy, sz);
   return mesh;
@@ -262,12 +253,12 @@ function highbackShell(cx: number, r: number, y0: number, y1: number): THREE.Mes
   g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
   g.setIndex(idx);
   g.computeVertexNormals();
-  return part(g, BOARD.chassis, 0.5, true);
+  return part(g, BOARD.chassis, true);
 }
 
 /** A band arched over the foot: across it along board-local Z, `width` along the foot. */
 function strapArc(ry: number, rz: number, width: number, color: number): THREE.Mesh {
-  const mesh = part(new THREE.CylinderGeometry(1, 1, width, 18, 1, true, 0, Math.PI), color, 0.5, true);
+  const mesh = part(new THREE.CylinderGeometry(1, 1, width, 18, 1, true, 0, Math.PI), color, true);
   mesh.rotation.z = Math.PI / 2; // axis along the foot, the half-arc over the top
   mesh.scale.set(ry, 1, rz);
   return mesh;
@@ -290,10 +281,10 @@ export function createBinding(angle: number, outside: 1 | -1): Binding {
   const deckTop = b.bottom + b.thickness - 0.09; // relative to the ankle point
 
   // Chassis: base, footbed, two side walls rising to a heel cup.
-  const base = part(new THREE.BoxGeometry(0.27, 0.012, 0.155), b.chassis, 0.5);
+  const base = part(new THREE.BoxGeometry(0.27, 0.012, 0.155), b.chassis);
   base.position.set(-0.01, deckTop + 0.006, 0);
   g.add(base);
-  const footbed = part(new THREE.BoxGeometry(0.26, 0.006, 0.135), b.footbed, 0.9);
+  const footbed = part(new THREE.BoxGeometry(0.26, 0.006, 0.135), b.footbed);
   footbed.position.set(-0.015, deckTop + 0.015, 0);
   g.add(footbed);
   const wall = new THREE.Shape();
@@ -311,20 +302,20 @@ export function createBinding(angle: number, outside: 1 | -1): Binding {
   wall.holes.push(window);
   const wallGeometry = new THREE.ExtrudeGeometry(wall, { depth: 0.01, bevelEnabled: false });
   for (const side of [1, -1]) {
-    const w = part(wallGeometry, b.chassis, 0.5);
+    const w = part(wallGeometry, b.chassis);
     w.position.set(0, deckTop + 0.006, side > 0 ? 0.068 : -0.078);
     g.add(w);
   }
-  const heelCup = part(new THREE.CylinderGeometry(0.076, 0.076, 0.08, 16, 1, true, 0, Math.PI), b.chassis, 0.5, true);
+  const heelCup = part(new THREE.CylinderGeometry(0.076, 0.076, 0.08, 16, 1, true, 0, Math.PI), b.chassis, true);
   heelCup.position.set(0.06, deckTop + 0.046, 0);
   g.add(heelCup);
 
   // Boot lower: outsole, midsole, the foot. Fixed in the binding.
   const soleBottom = deckTop + 0.018;
-  const outsole = part(new THREE.BoxGeometry(0.31, 0.014, 0.112), b.outsole, 0.9);
+  const outsole = part(new THREE.BoxGeometry(0.31, 0.014, 0.112), b.outsole);
   outsole.position.set(-0.025, soleBottom + 0.007, 0);
   g.add(outsole);
-  const midsole = part(new THREE.BoxGeometry(0.3, 0.022, 0.108), b.midsole, 0.8);
+  const midsole = part(new THREE.BoxGeometry(0.3, 0.022, 0.108), b.midsole);
   midsole.position.set(-0.025, soleBottom + 0.025, 0);
   g.add(midsole);
   g.add(blob(b.boot, -0.085, soleBottom + 0.058, 0, 0.1, 0.045, 0.056)); // toe box
@@ -332,14 +323,14 @@ export function createBinding(angle: number, outside: 1 | -1): Binding {
 
   // Boot shaft and highback pivot at the ankle and follow the shin (rig.ts aims them).
   const shaft = new THREE.Group();
-  const upper = part(new THREE.CylinderGeometry(0.066, 0.07, 0.19, 16), b.boot, 0.7);
+  const upper = part(new THREE.CylinderGeometry(0.066, 0.07, 0.19, 16), b.boot);
   upper.position.set(0.02, 0.07, 0);
   shaft.add(upper);
-  const collar = part(new THREE.CylinderGeometry(0.068, 0.066, 0.035, 16), b.collar, 0.9);
+  const collar = part(new THREE.CylinderGeometry(0.068, 0.066, 0.035, 16), b.collar);
   collar.position.set(0.022, 0.18, 0);
   shaft.add(collar);
   for (const [y, x] of [[0.125, 0.0], [0.06, -0.035]] as const) {
-    const dial = part(new THREE.CylinderGeometry(0.014, 0.016, 0.014, 12), b.collar, 0.5);
+    const dial = part(new THREE.CylinderGeometry(0.014, 0.016, 0.014, 12), b.collar);
     dial.rotation.x = Math.PI / 2;
     dial.position.set(x + 0.02, y, outside * 0.068);
     shaft.add(dial);
@@ -350,7 +341,7 @@ export function createBinding(angle: number, outside: 1 | -1): Binding {
   // Straps: a wide ankle strap across the instep with its ratchet outside, a toe cap.
   const ankleTilt = new THREE.Group();
   ankleTilt.add(strapArc(0.078, 0.078, 0.065, b.strap));
-  const ratchet = part(new THREE.BoxGeometry(0.05, 0.018, 0.012), b.ratchet, 0.4);
+  const ratchet = part(new THREE.BoxGeometry(0.05, 0.018, 0.012), b.ratchet);
   ratchet.position.set(0.035, 0, outside * 0.08);
   ankleTilt.add(ratchet);
   ankleTilt.position.set(-0.035, soleBottom + 0.05, 0);

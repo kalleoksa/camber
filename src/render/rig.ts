@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { params as defaults, type Params } from '../sim/params.ts';
 import { aimShaft, BOARD, createBinding, createDeck } from './board.ts';
 import { dress } from './outfit.ts';
+import { outlineAll } from './toon.ts';
 
 /**
  * The rider, inverted from a normal character rig (design §7.1): the feet are bolted to
@@ -419,6 +420,8 @@ export type Rig = {
   apply(drivers: RigDrivers, params: Params): void;
   /** Dressed rider (outfit.ts) or the bare segments the poses were authored on. */
   setDressed(on: boolean): void;
+  /** Pivots the cloth springs turn (9c): the jacket skirt at the waist, the hood at the neck. */
+  cloth: { skirt: THREE.Object3D; hood: THREE.Object3D };
 };
 
 const SKIN = 0x2f6ee2;
@@ -507,6 +510,10 @@ export function createRig(): Rig {
     { pelvis, torso, head, thighs: [thighL, thighR], shins: [shinL, shinR], upperArms: [armLU, armRU], forearms: [armLL, armRL], mitts: [mittF, mittB] },
     defaults.rig,
   );
+  // Toon outlines on everything dressed and on the board and bindings; the bare segments
+  // keep their plain look, since they are the authoring view.
+  outlineAll(board);
+  for (const piece of outfit.pieces) outlineAll(piece);
   // Hiding a segment's material, not the mesh, keeps its outfit children drawn.
   const bare = [pelvis, torso, head, visor, thighL, shinL, thighR, shinR, armLU, armLL, armRU, armRL, mittF, mittB];
 
@@ -565,6 +572,7 @@ export function createRig(): Rig {
     get stance() {
       return effectiveStance;
     },
+    cloth: { skirt: outfit.skirt, hood: outfit.hood },
     setDressed(on: boolean): void {
       for (const m of bare) (m.material as THREE.Material).visible = !on;
       for (const piece of outfit.pieces) piece.visible = on;
