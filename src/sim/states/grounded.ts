@@ -216,7 +216,11 @@ export function stepGrounded(
         v.z += (faceNormal.z / hl) * into;
       }
     }
-    rideOff(state, input, params, -yaw);
+    // Leaving the top is the takeoff on a quarter pipe: the pop went into the climb, so the
+    // stick at the lip sets the spin as it would at a pop — a turn in the wall's plane,
+    // nose up to nose down for a 180.
+    if (fromQuarter && faceNormal.y < minNy && params.wall.lipTakeoff > 0) popTakeoff(state, input, params);
+    else rideOff(state, input, params, -yaw);
     return;
   }
 

@@ -856,7 +856,10 @@ At the bottom is a quarter pipe (`quarters`), facing uphill, ridden at full grav
 wallride's reduced gravity applies to wall surfaces only. A heightfield can't be vertical,
 so leaving a quarter-pipe face drops the horizontal speed that would carry you over the
 deck and adds `wall.vertReturn` back into the pipe: airs go straight up and land back on
-the face. Popping on the face adds to the climb, like the pop onto a wall.
+the face. Popping on the face adds to the climb, like the pop onto a wall. Because that
+pop goes into the climb, leaving the top is the takeoff (`wall.lipTakeoff`): the stick at
+the lip sets the spin as it would at a pop, within `air.takeoffWindow`. The spin turns in
+the wall's plane, so every 180 lands: nose down forward, nose up fakie.
 Hand-placed data; milestone 7 moves it to `park.json`.
 
 ---
