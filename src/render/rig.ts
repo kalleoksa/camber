@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { params as defaults, type Params } from '../sim/params.ts';
 import { aimShaft, BOARD, createBinding, createDeck } from './board.ts';
 import { dress } from './outfit.ts';
+import { outlineAll } from './toon.ts';
 
 /**
  * The rider, inverted from a normal character rig (design §7.1): the feet are bolted to
@@ -125,7 +126,10 @@ export function neutralDrivers(): RigDrivers {
     frontShoulderSwing: 0.35,
     frontShoulderOut: 0.25,
     frontElbow: 0.5,
-    frontElbowPole: 0,
+    // ≈π: the elbow bend axis in solveArmFK flips with the side, so the front arm needs its
+    // pole swept half round to bend forward like the back one. Every authored anchor already
+    // does this; at 0 the front hand hung back between the legs.
+    frontElbowPole: -3.1,
     backShoulderSwing: 0.35,
     backShoulderOut: 0.25,
     backElbow: 0.5,
@@ -166,9 +170,13 @@ export function mirrorDrivers(d: RigDrivers): void {
   t = d.frontElbow;
   d.frontElbow = d.backElbow;
   d.backElbow = t;
+  // Poles don't just trade places. The FK bend axis flips with the side (see the neutral
+  // front pole), so a free arm's mirror is π − pole; a gripping arm's pole turns the IK
+  // elbow about the shoulder→hand line, whose mirror is −pole. Blended by grip, so the
+  // elbow doesn't jump as the hand commits. Grips are already swapped above.
   t = d.frontElbowPole;
-  d.frontElbowPole = d.backElbowPole;
-  d.backElbowPole = t;
+  d.frontElbowPole = Math.PI * (1 - Math.min(d.frontGrip, 1)) - d.backElbowPole;
+  d.backElbowPole = Math.PI * (1 - Math.min(d.backGrip, 1)) - t;
 }
 
 export function copyDrivers(dst: RigDrivers, src: RigDrivers): void {
@@ -419,6 +427,8 @@ export type Rig = {
   apply(drivers: RigDrivers, params: Params): void;
   /** Dressed rider (outfit.ts) or the bare segments the poses were authored on. */
   setDressed(on: boolean): void;
+  /** Pivots the cloth springs turn (9c): the jacket skirt at the waist, the hood at the neck. */
+  cloth: { skirt: THREE.Object3D; hood: THREE.Object3D };
 };
 
 const SKIN = 0x2f6ee2;
@@ -507,6 +517,10 @@ export function createRig(): Rig {
     { pelvis, torso, head, thighs: [thighL, thighR], shins: [shinL, shinR], upperArms: [armLU, armRU], forearms: [armLL, armRL], mitts: [mittF, mittB] },
     defaults.rig,
   );
+  // Toon outlines on everything dressed and on the board and bindings; the bare segments
+  // keep their plain look, since they are the authoring view.
+  outlineAll(board);
+  for (const piece of outfit.pieces) outlineAll(piece);
   // Hiding a segment's material, not the mesh, keeps its outfit children drawn.
   const bare = [pelvis, torso, head, visor, thighL, shinL, thighR, shinR, armLU, armLL, armRU, armRL, mittF, mittB];
 
@@ -565,6 +579,7 @@ export function createRig(): Rig {
     get stance() {
       return effectiveStance;
     },
+    cloth: { skirt: outfit.skirt, hood: outfit.hood },
     setDressed(on: boolean): void {
       for (const m of bare) (m.material as THREE.Material).visible = !on;
       for (const piece of outfit.pieces) piece.visible = on;

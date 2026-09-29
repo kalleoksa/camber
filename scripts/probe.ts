@@ -398,6 +398,25 @@ kicker('cork held: double cork', true, 1, 0.9, 0.9);
 kicker('kicker backflip', true, 0, Infinity, -1, 1.0);
 kicker('kicker frontflip', true, 0, Infinity, 1, 1.0);
 kicker('backflip let go early', true, 0, Infinity, -1, 0.4);
+/**
+ * Dropped flat onto the slope from `height`, moving at 10 m/s along it — the impact test
+ * alone (§6). `absorb` holds RT all the way down, the legs-bent landing.
+ */
+function dropTest(height: number, absorb: boolean): void {
+  const state = spawn(slope);
+  state.mode = 'airborne';
+  state.position.y += height;
+  state.velocity.x = 0;
+  state.velocity.y = -10 * Math.sin(0.28);
+  state.velocity.z = -10 * Math.cos(0.28);
+  const input = neutralInput();
+  input.rt = absorb ? 1 : 0;
+  for (let i = 0; i < 6 / TICK_DT && state.mode === 'airborne'; i++) tick(state, input, params, slope, TICK_DT);
+  console.log(`drop ${String(height).padStart(2)} m${absorb ? ', absorbed' : '         '}  impact ${state.impact.toFixed(1)} m/s -> ${state.landing}`);
+}
+for (const h of [4, 8, 10, 12, 16, 20]) dropTest(h, false);
+for (const h of [10, 12, 16, 20]) dropTest(h, true);
+
 rail('50-50, hands off');
 rail('50-50, balanced', { balanced: true });
 rail('boardslide, hands off', { slide: 1.5 });

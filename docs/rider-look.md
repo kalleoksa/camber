@@ -1,6 +1,6 @@
 # Rider look — plan (milestone 9a–9c)
 
-Status: 9a first pass built (`src/render/outfit.ts`); 9b–9c planned. Implements `docs/visual-identity.md` §6 steps 9a–9c.
+Status: 9a–9c first pass built (`outfit.ts`, `board.ts`, `toon.ts`, cloth in `secondary.ts`). Gates are yours. Implements `docs/visual-identity.md` §6 steps 9a–9c.
 The constraints there (render-side only, no cloth solver, replay reproduces cloth, bare
 silhouette view kept) apply unchanged and are not repeated here.
 
@@ -25,6 +25,21 @@ Decision taken: **procedural**. No mesh files, no modelling tool, no new depende
   reloads). They aren't in Tweakpane yet.
 - `status → dressed` toggles the dressed view; `?look=bare` starts bare. The reach overlay
   tints the bare segments only.
+
+- **9b as built:**
+  - `MeshToonMaterial` with a 3-step ramp.
+  - Inverted-hull outlines, pushed out in view space so the width holds at any distance
+    and limb scale.
+  - Seeded, tileable camo on the pants from your reference, with UVs in metres along each
+    tube so the patches keep their size.
+  - The board and bindings are toon too; the terrain isn't.
+- **9c as built:**
+  - The jacket skirt (pivot at the waist) and the hood (pivot at the neck) are 2-axis
+    springs on the fixed tick in `Secondary`. The skirt is blown back by travel in the
+    board frame; the hood trails the spin; both kick on the landing tick.
+  - Shell flutter is a vertex offset from sim time and speed only.
+  - Params live in `params.cloth`. The determinism check has a cloth vacuity test: a skirt
+    spring change moves the spring hashes and leaves the sim alone.
 
 ## 1. Body: one skinned mesh, bones placed from the existing solve (upgrade path)
 

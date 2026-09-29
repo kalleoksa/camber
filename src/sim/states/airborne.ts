@@ -306,9 +306,15 @@ function land(state: RiderState, params: Params, n: Vec3, onWall: boolean): void
   const wall = onWall && n.y < dm.cos(params.wall.minAngle) && courseSpeed >= params.wall.minSpeed;
   const phi = wall ? 0 : dm.acos(Math.min(1, Math.max(-1, dot(boardUp, n))));
 
-  if (theta < params.land.clean && phi < params.land.rollClean) {
+  // Impact: how hard you came down, judged apart from the angles. Absorbing (RT held,
+  // `compress`) raises both limits. Flying onto a wall is an entry, not a landing.
+  const give = 1 + params.land.absorbGain * state.compress;
+  const hard = !wall && state.impact >= params.land.impactSketchy * give;
+  const broken = !wall && state.impact >= params.land.impactBail * give;
+
+  if (!broken && !hard && theta < params.land.clean && phi < params.land.rollClean) {
     state.landing = 'clean';
-  } else if (theta < params.land.sketchy && phi < params.land.rollSketchy) {
+  } else if (!broken && theta < params.land.sketchy && phi < params.land.rollSketchy) {
     state.landing = 'sketchy';
   } else {
     state.mode = 'bailed';

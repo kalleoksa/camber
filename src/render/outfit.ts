@@ -1,8 +1,9 @@
 import * as THREE from 'three';
+import { camo, toon } from './toon.ts';
 
 /**
  * The dressed rider, step 9a (docs/rider-look.md): a park silhouette from your references —
- * black beanie with the goggles pushed up on it, a boxy two-tone raglan shell (teal yoke,
+ * an olive ribbed fisherman beanie with the goggles pushed up on it, a boxy two-tone raglan shell (teal yoke,
  * sleeves and hood over a rust body) ending just below the hips, wide straight-leg olive
  * pants breaking softly over the boot, oversized mitts.
  *
@@ -17,11 +18,20 @@ import * as THREE from 'three';
 export const OUTFIT = {
   jacket: 0xa9521f, // rust body
   yoke: 0x14545e, // teal shoulders, sleeves, hood
-  pants: 0x5b6a3a, // olive — ref: wide straight-leg shell pant
-  beanie: 0x16181b, // black
+  pants: 0x5a6236, // olive drab ground of the camo — ref: wide straight-leg shell pant
+  camo: [0x9a8a62, 0x6e8a3a, 0x434a2a], // khaki, light green, dark: the patches over it
+  camoRepeat: [1.5, 2.4], // tiles round a leg, and per metre along it: patches about hand-sized
+  beanie: 0x5f7431, // olive, ribbed — ref: shallow fisherman beanie with a deep cuff
+  beanieRibs: 56, // ribs round the head
+  patch: 0x121314, // the woven label on the cuff, plain
   mitt: 0x1b1f24,
-  strap: 0x1b1f24,
-  lens: 0xc9d6de, // mirror
+  // Goggles, from your reference: white frame and strap with black edges, dark lens.
+  goggleFrame: 0xf2f2f2,
+  lens: 0x3b3d44,
+  strap: 0xf0f0f0,
+  strapEdge: 0x16171a,
+  goggleWidth: 0.19, // m across the lens, round the head
+  goggleHeight: 0.075, // m, a big cylindrical lens
   face: 0xf0d9b5,
 
   thighTop: 0.115, // m radius at the hip
@@ -60,19 +70,46 @@ function dome(out: Profile, r: number, y: number, facing: 1 | -1): void {
  * placeBone). The domes come out round at that length; limb lengths only change when the
  * rig params are tuned.
  */
-function tube(profile: Profile, len: number, color: number): THREE.Mesh {
+function tube(profile: Profile, len: number, material: THREE.Material): THREE.Mesh {
   const points = profile.map(([r, y]) => new THREE.Vector2(Math.max(r, 0), y));
   const geometry = new THREE.LatheGeometry(points, 16);
+  // Lathe UVs run by point count, so a stretch with few points smears a pattern along it.
+  // V in metres up the segment instead: camo patches keep their size everywhere.
+  const pos = geometry.getAttribute('position');
+  const uv = geometry.getAttribute('uv');
+  for (let i = 0; i < pos.count; i++) uv.setY(i, pos.getY(i));
+  uv.needsUpdate = true;
   geometry.scale(1, 1 / len, 1);
-  return new THREE.Mesh(geometry, cloth(color));
+  return new THREE.Mesh(geometry, material);
 }
 
-function cloth(color: number): THREE.MeshStandardMaterial {
-  return new THREE.MeshStandardMaterial({ color, roughness: 0.85 });
-}
+/** Shared cloth materials: shells flutter (9c), the rest don't. Built once, on first dress. */
+const cloth = (() => {
+  let made: Record<'pants' | 'jacket' | 'yoke' | 'beanie' | 'patch' | 'mitt' | 'strap' | 'strapEdge' | 'frame' | 'lens' | 'face', THREE.Material> | null = null;
+  return () => {
+    if (made) return made;
+    const o = OUTFIT;
+    const pattern = camo({ ground: o.pants, blobs: o.camo });
+    pattern.repeat.set(o.camoRepeat[0] ?? 1, o.camoRepeat[1] ?? 1);
+    made = {
+      pants: toon(0xffffff, { map: pattern, flutter: true }),
+      jacket: toon(o.jacket, { flutter: true }),
+      yoke: toon(o.yoke, { flutter: true }),
+      beanie: toon(0xffffff, { map: ribs(o.beanie, o.beanieRibs) }),
+      patch: toon(o.patch),
+      mitt: toon(o.mitt),
+      strap: toon(o.strap, { twoSided: true }),
+      strapEdge: toon(o.strapEdge, { twoSided: true }),
+      frame: toon(o.goggleFrame, { twoSided: true }),
+      lens: toon(o.lens, { twoSided: true }),
+      face: toon(o.face),
+    };
+    return made;
+  };
+})();
 
-function blob(color: number, x: number, y: number, z: number, sx: number, sy: number, sz: number): THREE.Mesh {
-  const mesh = new THREE.Mesh(new THREE.SphereGeometry(1, 16, 12), cloth(color));
+function blob(material: THREE.Material, x: number, y: number, z: number, sx: number, sy: number, sz: number): THREE.Mesh {
+  const mesh = new THREE.Mesh(new THREE.SphereGeometry(1, 16, 12), material);
   mesh.position.set(x, y, z);
   mesh.scale.set(sx, sy, sz);
   return mesh;
@@ -84,7 +121,7 @@ function thigh(len: number): THREE.Mesh {
   dome(p, o.thighTop, 0, -1);
   p.push([o.thighTop * 0.97, len * 0.35], [o.knee * 1.02, len * 0.75]);
   dome(p, o.knee, len, 1);
-  return tube(p, len, o.pants);
+  return tube(p, len, cloth().pants);
 }
 
 function shin(len: number): THREE.Mesh {
@@ -102,7 +139,7 @@ function shin(len: number): THREE.Mesh {
     p.push([o.stackBase + o.stackAmp * bunch * (0.6 + 0.4 * t), from + (to - from) * t]);
   }
   p.push([o.hem, len + 0.045], [o.hem * 0.85, len + 0.06], [0, len + 0.06]);
-  return tube(p, len, o.pants);
+  return tube(p, len, cloth().pants);
 }
 
 function upperArm(len: number): THREE.Mesh {
@@ -111,7 +148,7 @@ function upperArm(len: number): THREE.Mesh {
   dome(p, o.sleeveTop, 0, -1);
   p.push([o.sleeveTop * 0.95, len * 0.4]);
   dome(p, o.elbow, len, 1);
-  return tube(p, len, o.yoke);
+  return tube(p, len, cloth().yoke);
 }
 
 function forearm(len: number): THREE.Mesh {
@@ -125,25 +162,44 @@ function forearm(len: number): THREE.Mesh {
     p.push([o.elbow + (o.cuff - o.elbow) * t + 0.006 * Math.sin(t * Math.PI * 4), len * (0.55 + 0.27 * t)]);
   }
   p.push([o.cuff * 0.6, len * 0.84], [0, len * 0.84]);
-  return tube(p, len, o.yoke);
+  return tube(p, len, cloth().yoke);
 }
 
 /** Rust body: boxy, hem drawn in a little by its cinch, open at the top under the yoke. */
+/** Rust body from the waist up, open at the top under the yoke. */
 function jacket(spine: number): THREE.Mesh {
   const o = OUTFIT;
   const p: Profile = [
-    [0, -o.jacketHem],
-    [o.jacketWaist * 0.98, -o.jacketHem],
-    [o.jacketWaist * 1.06, -o.jacketHem * 0.6],
+    [0, -0.01],
+    [o.jacketWaist * 1.03, -0.01],
     [o.jacketWaist * 1.03, 0.02],
     [o.jacketChest, spine * 0.45],
     [o.jacketChest, spine * (o.yokeFrom + 0.04)],
     [0, spine * (o.yokeFrom + 0.04)],
   ];
-  const mesh = tube(p, 1, o.jacket);
+  const mesh = tube(p, 1, cloth().jacket);
   mesh.scale.set(o.jacketDepth, 1, o.jacketWidth);
   return mesh;
 }
+
+/**
+ * The skirt: waist to hem, hung from a pivot at the waist so the cloth springs (9c) can
+ * swing it. Boxy, the hem drawn in a little by its cinch; open at the top, inside the body.
+ */
+function skirt(): THREE.Mesh {
+  const o = OUTFIT;
+  const p: Profile = [
+    [0, -o.jacketHem - SKIRT_PIVOT],
+    [o.jacketWaist * 0.98, -o.jacketHem - SKIRT_PIVOT],
+    [o.jacketWaist * 1.06, -o.jacketHem * 0.6 - SKIRT_PIVOT],
+    [o.jacketWaist * 1.035, 0.05 - SKIRT_PIVOT],
+    [o.jacketWaist * 0.9, 0.05 - SKIRT_PIVOT],
+  ];
+  const mesh = tube(p, 1, cloth().jacket);
+  mesh.scale.set(o.jacketDepth, 1, o.jacketWidth);
+  return mesh;
+}
+const SKIRT_PIVOT = 0.02; // m up the spine from the hips: the waist the skirt hangs from
 
 /** Teal yoke over the shoulders into the collar, the raglan line the reference reads by. */
 function yoke(spine: number): THREE.Mesh {
@@ -157,9 +213,58 @@ function yoke(spine: number): THREE.Mesh {
     [0.075, spine * 1.13],
     [0, spine * 1.13],
   ];
-  const mesh = tube(p, 1, o.yoke);
+  const mesh = tube(p, 1, cloth().yoke);
   mesh.scale.set(o.jacketDepth, 1, o.jacketWidth);
   return mesh;
+}
+
+/**
+ * Goggles pushed up on the beanie: a wide strap with dark edges right round the head, and a
+ * cylindrical lens in a white frame wrapped round the front (−X). Built round the head's
+ * axis, then tipped back as one piece.
+ */
+/** Rib knit: soft light-dark bands, one per rib, tiled round a beanie. */
+function ribs(color: number, count: number): THREE.CanvasTexture {
+  const c = document.createElement('canvas');
+  c.width = 16;
+  c.height = 4;
+  const g = c.getContext('2d');
+  if (!g) throw new Error('2d canvas unavailable');
+  const base = new THREE.Color(color);
+  for (let x = 0; x < 16; x++) {
+    const k = 0.78 + 0.22 * Math.sin((x / 16) * Math.PI); // raised in the middle of each rib
+    g.fillStyle = `#${base.clone().multiplyScalar(k).getHexString()}`;
+    g.fillRect(x, 0, 1, 4);
+  }
+  const t = new THREE.CanvasTexture(c);
+  t.wrapS = THREE.RepeatWrapping;
+  t.wrapT = THREE.RepeatWrapping;
+  t.repeat.set(count, 1);
+  t.colorSpace = THREE.SRGBColorSpace;
+  return t;
+}
+
+function goggles(): THREE.Group {
+  const o = OUTFIT;
+  const c = cloth();
+  const g = new THREE.Group();
+  const R = 0.118; // m, strap radius round the beanie — clear of the cuff where it tips down at the back
+  const ring = (r: number, h: number, y: number, m: THREE.Material): THREE.Mesh => {
+    const mesh = new THREE.Mesh(new THREE.CylinderGeometry(r, r, h, 24, 1, true), m);
+    mesh.position.y = y;
+    return mesh;
+  };
+  g.add(ring(R, 0.04, 0, c.strap), ring(R + 0.001, 0.004, 0.019, c.strapEdge), ring(R + 0.001, 0.004, -0.019, c.strapEdge));
+  // Arcs centred on −X: Cylinder theta puts x = r·sin θ, so the front is θ = −π/2.
+  const arc = (r: number, w: number, h: number, m: THREE.Material): THREE.Mesh => {
+    const half = w / (2 * r);
+    return new THREE.Mesh(new THREE.CylinderGeometry(r, r, h, 20, 1, true, -Math.PI / 2 - half, 2 * half), m);
+  };
+  g.add(arc(R + 0.012, o.goggleWidth + 0.012, o.goggleHeight + 0.014, c.frame));
+  g.add(arc(R + 0.016, o.goggleWidth, o.goggleHeight, c.lens));
+  g.position.set(0.006, 0.098, 0);
+  g.rotation.z = -0.3; // front up: pushed up onto the forehead
+  return g;
 }
 
 /** The rig's segments, as rig.ts builds them. Limb meshes are unit-tall along +Y. */
@@ -174,11 +279,11 @@ export type Segments = {
   mitts: THREE.Mesh[];
 };
 
-export type Outfit = { pieces: THREE.Object3D[] };
+/** `skirt` and `hood` are the pivots the cloth springs turn (scene.ts, from Secondary). */
+export type Outfit = { pieces: THREE.Object3D[]; skirt: THREE.Object3D; hood: THREE.Object3D };
 
 /** Hang the outfit on the rig's segments. Rest lengths come from the rig params at load. */
 export function dress(seg: Segments, lengths: { thigh: number; shin: number; upperArm: number; forearm: number; spine: number }): Outfit {
-  const o = OUTFIT;
   const pieces: THREE.Object3D[] = [];
   const hang = (parent: THREE.Object3D, piece: THREE.Object3D): void => {
     parent.add(piece);
@@ -189,36 +294,40 @@ export function dress(seg: Segments, lengths: { thigh: number; shin: number; upp
   for (const m of seg.shins) hang(m, shin(lengths.shin));
   for (const m of seg.upperArms) hang(m, upperArm(lengths.upperArm));
   for (const m of seg.forearms) hang(m, forearm(lengths.forearm));
-  for (const m of seg.mitts) hang(m, blob(o.mitt, 0, 0, 0, 0.06, 0.066, 0.055));
+  const c = cloth();
+  for (const m of seg.mitts) hang(m, blob(c.mitt, 0, 0, 0, 0.06, 0.066, 0.055));
 
-  // Seat of the pants, and the jacket with a big hood bunched behind the neck (+X is the
-  // heel side, behind the rider, who faces −X).
-  hang(seg.pelvis, blob(o.pants, 0, 0, 0, 0.15, 0.13, 0.21));
+  // Seat of the pants; the jacket body, its skirt on a pivot at the waist, and the hood on a
+  // pivot at the back of the neck (+X is the heel side, behind the rider, who faces −X).
+  hang(seg.pelvis, blob(c.pants, 0, 0, 0, 0.15, 0.13, 0.21));
   hang(seg.torso, jacket(lengths.spine));
   hang(seg.torso, yoke(lengths.spine));
-  hang(seg.torso, blob(o.yoke, 0.11, lengths.spine * 1.0, 0, 0.09, 0.1, 0.14));
+  const skirtPivot = new THREE.Group();
+  skirtPivot.position.y = SKIRT_PIVOT;
+  skirtPivot.add(skirt());
+  hang(seg.torso, skirtPivot);
+  const hoodPivot = new THREE.Group();
+  hoodPivot.position.set(0.07, lengths.spine * 1.02, 0);
+  hoodPivot.add(blob(c.yoke, 0.04, -0.02, 0, 0.09, 0.1, 0.14));
+  hang(seg.torso, hoodPivot);
 
-  // Head: face, black beanie with a folded band, goggles pushed up onto the beanie.
-  hang(seg.head, blob(o.face, 0, 0, 0, 0.095, 0.11, 0.095));
-  const beanie = new THREE.Mesh(new THREE.SphereGeometry(0.106, 16, 8, 0, Math.PI * 2, 0, Math.PI / 2), cloth(o.beanie));
-  beanie.position.set(0.008, 0.02, 0);
-  beanie.scale.set(1, 1.2, 1);
-  hang(seg.head, beanie);
-  const band = new THREE.Mesh(new THREE.CylinderGeometry(0.109, 0.109, 0.05, 16), cloth(o.beanie));
-  band.position.set(0.006, 0.035, 0);
-  hang(seg.head, band);
-  const strap = new THREE.Mesh(new THREE.CylinderGeometry(0.112, 0.112, 0.03, 16, 1, true), cloth(o.strap));
-  strap.position.set(0.006, 0.075, 0);
-  strap.rotation.z = -0.25; // tilted back with the goggles up
-  hang(seg.head, strap);
-  const lens = new THREE.Mesh(
-    new THREE.BoxGeometry(0.04, 0.06, 0.17),
-    new THREE.MeshStandardMaterial({ color: o.lens, roughness: 0.15, metalness: 0.6 }),
-  );
-  lens.position.set(-0.098, 0.065, 0);
-  lens.rotation.z = -0.35;
-  hang(seg.head, lens);
+  // Head: face, a shallow fisherman beanie sitting above the ears with a deep cuff and its
+  // label, goggles pushed up onto the crown.
+  hang(seg.head, blob(c.face, 0, 0, 0, 0.095, 0.11, 0.095));
+  const crown = new THREE.Mesh(new THREE.SphereGeometry(0.106, 20, 8, 0, Math.PI * 2, 0, Math.PI / 2), c.beanie);
+  crown.position.set(0.006, 0.07, 0);
+  crown.scale.set(1, 0.8, 1);
+  hang(seg.head, crown);
+  const cuff = new THREE.Mesh(new THREE.CylinderGeometry(0.109, 0.113, 0.056, 20), c.beanie);
+  cuff.position.set(0.006, 0.048, 0);
+  hang(seg.head, cuff);
+  // Label on the cuff, off to the side of the front as worn.
+  const patch = new THREE.Mesh(new THREE.BoxGeometry(0.006, 0.028, 0.026), c.patch);
+  patch.position.set(0.006 - 0.113 * Math.cos(0.5), 0.046, 0.113 * Math.sin(0.5));
+  patch.rotation.y = 0.5;
+  hang(seg.head, patch);
+  hang(seg.head, goggles());
 
-  for (const piece of pieces) piece.castShadow = true;
-  return { pieces };
+  for (const piece of pieces) piece.traverse((o) => (o.castShadow = true));
+  return { pieces, skirt: skirtPivot, hood: hoodPivot };
 }

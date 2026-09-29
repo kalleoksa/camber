@@ -77,6 +77,11 @@ export const params = {
     sketchySpeedLoss: 0.25, // fraction
     absorbTime: 0.22, // s
     headingSnap: 18.0, // 1/s, heading correction onto velocity — fast, but not a teleport
+    // Impact (§6): m/s of velocity into the landing surface. Past impactSketchy the knees
+    // buckle — sketchy at best; past impactBail it's a bail however well the board lines up.
+    impactSketchy: 13.0, // m/s
+    impactBail: 17.0, // m/s
+    absorbGain: 0.25, // both limits × (1 + this·compress): RT held coming down is a legs-bent landing
   },
   bail: {
     drag: 16.0, // m/s² while tumbling
@@ -245,6 +250,22 @@ export const params = {
     shoulderLead: 0.25, // rad, shoulders ahead of the board at full takeoff spin
     headLead: 0.18, // s, head looks where the board will be this far ahead
     headTurnMax: 1.2, // rad, neck limit on that look
+  },
+  // Cloth (9c): springs on the fixed tick in render/secondary.ts, so replay reproduces
+  // them; they change the spring hash, not the sim. Angles in rad, rates in rad/s.
+  cloth: {
+    skirtStiffness: 90.0, // ω² of the jacket skirt about the waist
+    skirtDamping: 0.35, // ζ — under-damped, so it swings past and settles
+    skirtWind: 0.03, // rad of swing per m/s of travel, blown back
+    skirtMax: 0.55, // rad, the most the wind holds it out
+    skirtImpact: 0.35, // rad/s kick per m/s of landing impact
+    hoodStiffness: 60.0, // ω² of the hood about the back of the neck
+    hoodDamping: 0.3, // ζ
+    hoodLag: 0.06, // rad the hood trails per rad/s of spin
+    hoodMax: 0.5, // rad
+    hoodImpact: 0.4, // rad/s kick per m/s of landing impact
+    flutterPerSpeed: 0.00045, // m of shell flutter per m/s of speed — a pure function of sim time, no state
+    flutterMax: 0.008, // m
   },
   spray: {
     rate: 900, // particles/s at full scrub
