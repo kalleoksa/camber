@@ -23,8 +23,13 @@ export const OUTFIT = {
   camoRepeat: [1.5, 2.4], // tiles round a leg, and per metre along it: patches about hand-sized
   beanie: 0x16181b, // black
   mitt: 0x1b1f24,
-  strap: 0x1b1f24,
-  lens: 0xc9d6de, // mirror
+  // Goggles, from your reference: white frame and strap with black edges, dark lens.
+  goggleFrame: 0xf2f2f2,
+  lens: 0x3b3d44,
+  strap: 0xf0f0f0,
+  strapEdge: 0x16171a,
+  goggleWidth: 0.19, // m across the lens, round the head
+  goggleHeight: 0.075, // m, a big cylindrical lens
   face: 0xf0d9b5,
 
   thighTop: 0.115, // m radius at the hip
@@ -78,7 +83,7 @@ function tube(profile: Profile, len: number, material: THREE.Material): THREE.Me
 
 /** Shared cloth materials: shells flutter (9c), the rest don't. Built once, on first dress. */
 const cloth = (() => {
-  let made: Record<'pants' | 'jacket' | 'yoke' | 'beanie' | 'mitt' | 'strap' | 'lens' | 'face', THREE.Material> | null = null;
+  let made: Record<'pants' | 'jacket' | 'yoke' | 'beanie' | 'mitt' | 'strap' | 'strapEdge' | 'frame' | 'lens' | 'face', THREE.Material> | null = null;
   return () => {
     if (made) return made;
     const o = OUTFIT;
@@ -91,7 +96,9 @@ const cloth = (() => {
       beanie: toon(o.beanie),
       mitt: toon(o.mitt),
       strap: toon(o.strap, { twoSided: true }),
-      lens: toon(o.lens),
+      strapEdge: toon(o.strapEdge, { twoSided: true }),
+      frame: toon(o.goggleFrame, { twoSided: true }),
+      lens: toon(o.lens, { twoSided: true }),
       face: toon(o.face),
     };
     return made;
@@ -208,6 +215,34 @@ function yoke(spine: number): THREE.Mesh {
   return mesh;
 }
 
+/**
+ * Goggles pushed up on the beanie: a wide strap with dark edges right round the head, and a
+ * cylindrical lens in a white frame wrapped round the front (−X). Built round the head's
+ * axis, then tipped back as one piece.
+ */
+function goggles(): THREE.Group {
+  const o = OUTFIT;
+  const c = cloth();
+  const g = new THREE.Group();
+  const R = 0.113; // m, strap radius round the beanie
+  const ring = (r: number, h: number, y: number, m: THREE.Material): THREE.Mesh => {
+    const mesh = new THREE.Mesh(new THREE.CylinderGeometry(r, r, h, 24, 1, true), m);
+    mesh.position.y = y;
+    return mesh;
+  };
+  g.add(ring(R, 0.04, 0, c.strap), ring(R + 0.001, 0.004, 0.019, c.strapEdge), ring(R + 0.001, 0.004, -0.019, c.strapEdge));
+  // Arcs centred on −X: Cylinder theta puts x = r·sin θ, so the front is θ = −π/2.
+  const arc = (r: number, w: number, h: number, m: THREE.Material): THREE.Mesh => {
+    const half = w / (2 * r);
+    return new THREE.Mesh(new THREE.CylinderGeometry(r, r, h, 20, 1, true, -Math.PI / 2 - half, 2 * half), m);
+  };
+  g.add(arc(R + 0.012, o.goggleWidth + 0.012, o.goggleHeight + 0.014, c.frame));
+  g.add(arc(R + 0.016, o.goggleWidth, o.goggleHeight, c.lens));
+  g.position.set(0.006, 0.072, 0);
+  g.rotation.z = -0.3; // front up: pushed up onto the forehead
+  return g;
+}
+
 /** The rig's segments, as rig.ts builds them. Limb meshes are unit-tall along +Y. */
 export type Segments = {
   pelvis: THREE.Mesh;
@@ -261,14 +296,7 @@ export function dress(seg: Segments, lengths: { thigh: number; shin: number; upp
   const band = new THREE.Mesh(new THREE.CylinderGeometry(0.109, 0.109, 0.05, 16), c.beanie);
   band.position.set(0.006, 0.035, 0);
   hang(seg.head, band);
-  const strap = new THREE.Mesh(new THREE.CylinderGeometry(0.112, 0.112, 0.03, 16, 1, true), c.strap);
-  strap.position.set(0.006, 0.075, 0);
-  strap.rotation.z = -0.25; // tilted back with the goggles up
-  hang(seg.head, strap);
-  const lens = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.06, 0.17), c.lens);
-  lens.position.set(-0.098, 0.065, 0);
-  lens.rotation.z = -0.35;
-  hang(seg.head, lens);
+  hang(seg.head, goggles());
 
   for (const piece of pieces) piece.traverse((o) => (o.castShadow = true));
   return { pieces, skirt: skirtPivot, hood: hoodPivot };
