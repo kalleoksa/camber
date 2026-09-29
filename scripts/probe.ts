@@ -216,13 +216,15 @@ function butter(name: string, ly: number, hold: number, rollFor = 1): void {
 
 /** The park's wall with nothing else in the way: carve over at `aim` rad and ride it. */
 const wallSlope = createSlope({ ...SLOPESTYLE, kickers: [], rails: [] });
-function wall(name: string, aim: number, along: number, pop: 'none' | 'transition' | 'flat' = 'none'): void {
+function wall(name: string, aim: number, along: number, pop: 'none' | 'transition' | 'flat' | 'face' = 'none'): void {
   const state = spawn(wallSlope);
   const input = neutralInput();
   const c = createContact();
   let walled = 0;
   let top = 0;
   let speedOn = 0;
+  let airFrom = 0; // height of an air launched from the face
+  let airPeak = 0;
   for (let i = 0; i < 9 / TICK_DT && state.position.z > -85; i++) {
     const onIt = state.mode === 'walled' || (state.position.x > 10.5 && state.mode === 'grounded');
     const target = onIt ? Math.PI - along : state.position.z < -30 ? Math.PI - aim : Math.PI;
@@ -231,8 +233,16 @@ function wall(name: string, aim: number, along: number, pop: 'none' | 'transitio
     // Charge on the way in, let go on the transition or just before it on flat snow.
     const ny = wallSlope.sample(state.position.x, state.position.z, c).normal.y;
     const x = state.position.x;
-    input.rt = pop === 'transition' ? (x > 8 && ny > 0.6 ? 1 : 0) : pop === 'flat' ? (x > 7 && x < 9.2 ? 1 : 0) : 0;
+    input.rt =
+      pop === 'transition' ? (x > 8 && ny > 0.6 ? 1 : 0)
+      : pop === 'flat' ? (x > 7 && x < 9.2 ? 1 : 0)
+      : pop === 'face' ? (x > 8 && walled < 0.3 ? 1 : 0)
+      : 0;
+    const was = state.mode;
     tick(state, input, params, wallSlope, TICK_DT);
+    const up = state.position.y - wallSlope.sample(0, state.position.z, c).height;
+    if (was === 'walled' && state.mode === 'airborne') airFrom = airPeak = up;
+    if (airFrom > 0 && state.mode === 'airborne') airPeak = Math.max(airPeak, up);
     if (state.mode === 'walled') {
       if (walled === 0) speedOn = length(state.velocity);
       walled += TICK_DT;
@@ -240,7 +250,8 @@ function wall(name: string, aim: number, along: number, pop: 'none' | 'transitio
     }
   }
   console.log(
-    `${name.padEnd(26)} ${walled > 0 ? `walled ${walled.toFixed(2)} s, on at ${speedOn.toFixed(1)} m/s, up ${top.toFixed(1)} m` : 'never walled'}`,
+    `${name.padEnd(26)} ${walled > 0 ? `walled ${walled.toFixed(2)} s, on at ${speedOn.toFixed(1)} m/s, up ${top.toFixed(1)} m` : 'never walled'}` +
+      (airFrom > 0 ? `, air off the face from ${airFrom.toFixed(1)} m to ${airPeak.toFixed(1)} m, came down ${state.mode === 'bailed' ? 'bailed' : state.landing}` : ''),
   );
 }
 
@@ -326,6 +337,8 @@ wall('wall, too shallow', 0.4, 0.3);
 wall('wall, pop on transition', 0.6, 0.5, 'transition');
 wall('wall, pop, along the face', 0.6, 0.2, 'transition');
 wall('wall, ollie in from flat', 0.6, 0.5, 'flat');
+wall('wall, pop off the face', 0.6, 0.5, 'face');
+wall('wall, pop off, along it', 0.6, 0.2, 'face');
 corner('corner, straight', 0, 0);
 corner('corner, frontside (toe side)', 1, 0.3);
 corner('corner, backside (heel side)', -1, 0.3);

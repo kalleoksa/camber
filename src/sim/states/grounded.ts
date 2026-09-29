@@ -160,11 +160,13 @@ export function stepGrounded(
     const bias = 1 - state.stance * params.pop.stanceBias;
     const impulse = (params.pop.base + params.pop.charged * state.compress) * bias;
     state.charge = 0;
-    // Popping on a wall's transition or face, heading up or along it, drives you up the
-    // face and keeps you on it — that is how you get onto a wall — instead of off it.
-    // Keyed on the wall surface, not on steepness alone, so a kicker lip still launches.
+    // Popping on a wall's transition on the way in, heading up or along it, drives you up
+    // the face and keeps you on it — that is how you get onto a wall. Once walled, a pop is
+    // an air off the face like any other. Keyed on the wall surface, not on steepness
+    // alone, so a kicker lip still launches.
     set(wallUp, -n.x * n.y, 1 - n.y * n.y, -n.z * n.y);
-    const onFace = contact.surface === 'wall' && n.y < dm.cos(params.wall.popAngle) && dot(v, wallUp) >= 0;
+    const onFace =
+      !walled && contact.surface === 'wall' && n.y < dm.cos(params.wall.popAngle) && dot(v, wallUp) >= 0;
     if (onFace) {
       normalize(wallUp);
       addScaled(v, wallUp, impulse * params.wall.popScale);

@@ -539,8 +539,9 @@ two changes. Entry needs the smoothed ground normal still gentle — the face ar
 the board — so a wall that has let go doesn't re-grab while you slide back down it. Walls
 are terrain (`walls` in the slope config): transition arc, straight face at `angle`, flat
 top, back face, ends faded in; their surface reads as `wall`. Popping on a wall's
-transition (steeper than `wall.popAngle`) while heading up or along it drives you up the
-face by `wall.popScale` of the pop instead of launching you off it, and flying into a face
+transition on the way in (steeper than `wall.popAngle`, not yet walled) while heading up or
+along it drives you up the face by `wall.popScale` of the pop instead of launching you off
+it; once walled, a pop is an ordinary air off the face, along its normal, and flying into a face
 fast enough sticks — only the heading angle is judged, since the board is slaved to it.
 
 **Butter.** `|stance| > butter.press` while grounded and below `butter.maxSpeed` (faded in
