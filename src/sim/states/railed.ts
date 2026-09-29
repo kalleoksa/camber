@@ -131,7 +131,7 @@ function leaveRail(state: RiderState): void {
  * the air and from snow. The entry seeds the balance — a sideways miss leans you, sideways
  * speed starts the lean moving — and a perfect entry still starts `rail.minImbalance` off.
  */
-export function tryCapture(state: RiderState, params: Params, terrain: Terrain): boolean {
+export function tryCapture(state: RiderState, params: Params, terrain: Terrain, fromSnow: boolean): boolean {
   const r = params.rail;
   const p = state.position;
   const v = state.velocity;
@@ -144,6 +144,8 @@ export function tryCapture(state: RiderState, params: Params, terrain: Terrain):
     const reach = r.captureRadius + rail.width * 0.5; // a box catches across its whole top
     if (hit.dist2 > reach * reach) continue;
     railAt(rail, hit.s, railPos, tan);
+    // Riding along the snow, only a ride-on step catches you; anything taller takes a pop.
+    if (fromSnow && railPos.y - p.y > r.rideOn) continue;
     const speed = Math.sqrt(dot(v, v));
     if (speed < r.stallSpeed) continue;
     const along = dot(v, tan);

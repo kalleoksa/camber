@@ -195,7 +195,7 @@ export function stepGrounded(
   }
 
   addScaled(p, v, dt);
-  if (tryCapture(state, params, terrain)) return;
+  if (tryCapture(state, params, terrain, true)) return;
 
   terrain.sample(p.x, p.z, contact);
   state.clearance = p.y - contact.height;

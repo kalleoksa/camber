@@ -114,7 +114,7 @@ export function stepAirborne(
   clampLength(v, params.world.terminalSpeed);
   addScaled(p, v, dt);
   state.airTime += dt;
-  if (tryCapture(state, params, terrain)) return;
+  if (tryCapture(state, params, terrain, false)) return;
 
   terrain.sample(p.x, p.z, contact);
   state.clearance = p.y - contact.height;
