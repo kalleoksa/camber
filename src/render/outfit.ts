@@ -3,7 +3,7 @@ import { camo, toon } from './toon.ts';
 
 /**
  * The dressed rider, step 9a (docs/rider-look.md): a park silhouette from your references —
- * black beanie with the goggles pushed up on it, a boxy two-tone raglan shell (teal yoke,
+ * an olive ribbed fisherman beanie with the goggles pushed up on it, a boxy two-tone raglan shell (teal yoke,
  * sleeves and hood over a rust body) ending just below the hips, wide straight-leg olive
  * pants breaking softly over the boot, oversized mitts.
  *
@@ -21,7 +21,9 @@ export const OUTFIT = {
   pants: 0x5a6236, // olive drab ground of the camo — ref: wide straight-leg shell pant
   camo: [0x9a8a62, 0x6e8a3a, 0x434a2a], // khaki, light green, dark: the patches over it
   camoRepeat: [1.5, 2.4], // tiles round a leg, and per metre along it: patches about hand-sized
-  beanie: 0x16181b, // black
+  beanie: 0x5f7431, // olive, ribbed — ref: shallow fisherman beanie with a deep cuff
+  beanieRibs: 56, // ribs round the head
+  patch: 0x121314, // the woven label on the cuff, plain
   mitt: 0x1b1f24,
   // Goggles, from your reference: white frame and strap with black edges, dark lens.
   goggleFrame: 0xf2f2f2,
@@ -83,7 +85,7 @@ function tube(profile: Profile, len: number, material: THREE.Material): THREE.Me
 
 /** Shared cloth materials: shells flutter (9c), the rest don't. Built once, on first dress. */
 const cloth = (() => {
-  let made: Record<'pants' | 'jacket' | 'yoke' | 'beanie' | 'mitt' | 'strap' | 'strapEdge' | 'frame' | 'lens' | 'face', THREE.Material> | null = null;
+  let made: Record<'pants' | 'jacket' | 'yoke' | 'beanie' | 'patch' | 'mitt' | 'strap' | 'strapEdge' | 'frame' | 'lens' | 'face', THREE.Material> | null = null;
   return () => {
     if (made) return made;
     const o = OUTFIT;
@@ -93,7 +95,8 @@ const cloth = (() => {
       pants: toon(0xffffff, { map: pattern, flutter: true }),
       jacket: toon(o.jacket, { flutter: true }),
       yoke: toon(o.yoke, { flutter: true }),
-      beanie: toon(o.beanie),
+      beanie: toon(0xffffff, { map: ribs(o.beanie, o.beanieRibs) }),
+      patch: toon(o.patch),
       mitt: toon(o.mitt),
       strap: toon(o.strap, { twoSided: true }),
       strapEdge: toon(o.strapEdge, { twoSided: true }),
@@ -220,11 +223,32 @@ function yoke(spine: number): THREE.Mesh {
  * cylindrical lens in a white frame wrapped round the front (−X). Built round the head's
  * axis, then tipped back as one piece.
  */
+/** Rib knit: soft light-dark bands, one per rib, tiled round a beanie. */
+function ribs(color: number, count: number): THREE.CanvasTexture {
+  const c = document.createElement('canvas');
+  c.width = 16;
+  c.height = 4;
+  const g = c.getContext('2d');
+  if (!g) throw new Error('2d canvas unavailable');
+  const base = new THREE.Color(color);
+  for (let x = 0; x < 16; x++) {
+    const k = 0.78 + 0.22 * Math.sin((x / 16) * Math.PI); // raised in the middle of each rib
+    g.fillStyle = `#${base.clone().multiplyScalar(k).getHexString()}`;
+    g.fillRect(x, 0, 1, 4);
+  }
+  const t = new THREE.CanvasTexture(c);
+  t.wrapS = THREE.RepeatWrapping;
+  t.wrapT = THREE.RepeatWrapping;
+  t.repeat.set(count, 1);
+  t.colorSpace = THREE.SRGBColorSpace;
+  return t;
+}
+
 function goggles(): THREE.Group {
   const o = OUTFIT;
   const c = cloth();
   const g = new THREE.Group();
-  const R = 0.113; // m, strap radius round the beanie
+  const R = 0.118; // m, strap radius round the beanie — clear of the cuff where it tips down at the back
   const ring = (r: number, h: number, y: number, m: THREE.Material): THREE.Mesh => {
     const mesh = new THREE.Mesh(new THREE.CylinderGeometry(r, r, h, 24, 1, true), m);
     mesh.position.y = y;
@@ -238,7 +262,7 @@ function goggles(): THREE.Group {
   };
   g.add(arc(R + 0.012, o.goggleWidth + 0.012, o.goggleHeight + 0.014, c.frame));
   g.add(arc(R + 0.016, o.goggleWidth, o.goggleHeight, c.lens));
-  g.position.set(0.006, 0.072, 0);
+  g.position.set(0.006, 0.098, 0);
   g.rotation.z = -0.3; // front up: pushed up onto the forehead
   return g;
 }
@@ -287,15 +311,21 @@ export function dress(seg: Segments, lengths: { thigh: number; shin: number; upp
   hoodPivot.add(blob(c.yoke, 0.04, -0.02, 0, 0.09, 0.1, 0.14));
   hang(seg.torso, hoodPivot);
 
-  // Head: face, black beanie with a folded band, goggles pushed up onto the beanie.
+  // Head: face, a shallow fisherman beanie sitting above the ears with a deep cuff and its
+  // label, goggles pushed up onto the crown.
   hang(seg.head, blob(c.face, 0, 0, 0, 0.095, 0.11, 0.095));
-  const beanie = new THREE.Mesh(new THREE.SphereGeometry(0.106, 16, 8, 0, Math.PI * 2, 0, Math.PI / 2), c.beanie);
-  beanie.position.set(0.008, 0.02, 0);
-  beanie.scale.set(1, 1.2, 1);
-  hang(seg.head, beanie);
-  const band = new THREE.Mesh(new THREE.CylinderGeometry(0.109, 0.109, 0.05, 16), c.beanie);
-  band.position.set(0.006, 0.035, 0);
-  hang(seg.head, band);
+  const crown = new THREE.Mesh(new THREE.SphereGeometry(0.106, 20, 8, 0, Math.PI * 2, 0, Math.PI / 2), c.beanie);
+  crown.position.set(0.006, 0.07, 0);
+  crown.scale.set(1, 0.8, 1);
+  hang(seg.head, crown);
+  const cuff = new THREE.Mesh(new THREE.CylinderGeometry(0.109, 0.113, 0.056, 20), c.beanie);
+  cuff.position.set(0.006, 0.048, 0);
+  hang(seg.head, cuff);
+  // Label on the cuff, off to the side of the front as worn.
+  const patch = new THREE.Mesh(new THREE.BoxGeometry(0.006, 0.028, 0.026), c.patch);
+  patch.position.set(0.006 - 0.113 * Math.cos(0.5), 0.046, 0.113 * Math.sin(0.5));
+  patch.rotation.y = 0.5;
+  hang(seg.head, patch);
   hang(seg.head, goggles());
 
   for (const piece of pieces) piece.traverse((o) => (o.castShadow = true));
