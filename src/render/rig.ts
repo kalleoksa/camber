@@ -229,9 +229,12 @@ export function gripWeight(body: number, delay: number): number {
   return smoothstep((body - d) / (1 - d));
 }
 
-const BOARD_LENGTH = BOARD.length;
-export const BOARD_HALF = BOARD_LENGTH / 2;
-const EDGE_X = 0.145; // m, just outside the deck so the hand wraps the edge
+/** Tip distance from the stance centre, for pinning a pressed tip. The drawn board (board.ts). */
+export const BOARD_HALF = BOARD.length / 2;
+// Grab geometry stays at the board the anchors were authored on (1.55 m, 0.29 m at the
+// edges), so resizing the drawn board doesn't move a single hand.
+const GRAB_HALF = 0.775;
+const EDGE_X = 0.145; // m, the edge the hand wraps
 
 /** Fraction of `t` at each end over which the two edge splines converge on the tip. */
 const TIP_TAPER = 0.15;
@@ -253,7 +256,7 @@ export function edgePoint(out: THREE.Vector3, edge: number, t: number): THREE.Ve
   const fromTip = Math.min(t, 1 - t);
   const taper = Math.min(Math.max(fromTip / TIP_TAPER, 0), 1);
   // state.edge is + for toe, and the toe side is board-local −X.
-  out.set(-edge * EDGE_X * taper, 0.035, (t * 2 - 1) * (BOARD_HALF - 0.06));
+  out.set(-edge * EDGE_X * taper, 0.035, (t * 2 - 1) * (GRAB_HALF - 0.06));
   return out;
 }
 

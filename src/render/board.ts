@@ -6,15 +6,16 @@ import * as THREE from 'three';
  * numbers — so shape is free to look right.
  */
 export const BOARD = {
-  // A 156 directional freeride shape, from your spec sheet. Board Z is centred on the
-  // stance, not the board: the setback puts the nose further out than the tail.
-  length: 1.56, // m tip to tip — rig.ts BOARD_LENGTH
+  // A directional freeride shape from your spec sheet, sized up past the 160W to suit the
+  // rider's height and bulk. Board Z is centred on the stance, not the board: the setback
+  // puts the nose further out than the tail.
+  length: 1.62, // m tip to tip
   setback: 0.04, // m the stance sits back from the board's middle
-  waist: 0.252, // m wide at the waist, the middle of the sidecut
-  sidecutDepth: 0.0211, // m per edge, waist to contact points
-  runningLength: 1.12, // m between contact points, centred on the stance
-  noseWidth: 0.3002, // m, widest point of the nose
-  tailWidth: 0.2882, // m, widest point of the tail — the taper
+  waist: 0.264, // m wide at the waist, the middle of the sidecut
+  sidecutDepth: 0.0222, // m per edge, waist to contact points
+  runningLength: 1.17, // m between contact points, centred on the stance
+  noseWidth: 0.316, // m, widest point of the nose
+  tailWidth: 0.304, // m, widest point of the tail — the taper
   noseRise: 0.07, // m of rocker at the nose tip
   noseRiseFrom: 0.3, // m ahead of stance centre where the rocker starts
   tailRise: 0.045, // m of kick at the tail end
