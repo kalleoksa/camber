@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { params as defaults, type Params } from '../sim/params.ts';
+import { BOARD, createBinding, createDeck } from './board.ts';
 import { dress } from './outfit.ts';
 
 /**
@@ -228,7 +229,7 @@ export function gripWeight(body: number, delay: number): number {
   return smoothstep((body - d) / (1 - d));
 }
 
-const BOARD_LENGTH = 1.55;
+const BOARD_LENGTH = BOARD.length;
 export const BOARD_HALF = BOARD_LENGTH / 2;
 const EDGE_X = 0.145; // m, just outside the deck so the hand wraps the edge
 
@@ -433,18 +434,7 @@ export function createRig(): Rig {
   const board = new THREE.Group();
   root.add(board);
 
-  const deck = new THREE.Mesh(
-    new THREE.BoxGeometry(0.26, 0.02, BOARD_LENGTH),
-    new THREE.MeshStandardMaterial({ color: DARK, roughness: 0.4 }),
-  );
-  deck.position.y = 0.02;
-  board.add(deck);
-  const nose = new THREE.Mesh(
-    new THREE.BoxGeometry(0.2, 0.022, 0.14),
-    new THREE.MeshStandardMaterial({ color: 0xe2582f, roughness: 0.4 }),
-  );
-  nose.position.set(0, 0.02, BOARD_HALF - 0.09);
-  board.add(nose);
+  board.add(createDeck());
 
   const pelvis = new THREE.Mesh(
     new THREE.BoxGeometry(0.26, 0.14, 0.22),
@@ -498,11 +488,8 @@ export function createRig(): Rig {
   gapB.visible = false;
   let reachOverlay = false;
 
-  const bootF = new THREE.Mesh(
-    new THREE.BoxGeometry(0.15, 0.12, 0.28),
-    new THREE.MeshStandardMaterial({ color: DARK, roughness: 0.7 }),
-  );
-  const bootB = bootF.clone();
+  const bootF = createBinding(BOARD.stanceFront);
+  const bootB = createBinding(BOARD.stanceBack);
 
   for (const part of [pelvis, torso, head, thighL, shinL, thighR, shinR, armLU, armLL, armRU, armRL, mittF, mittB]) {
     part.castShadow = true;
