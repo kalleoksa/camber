@@ -45,6 +45,7 @@ export type RiderView = {
   shifty: number;
   balance: number;
   slide: number;
+  railContact: number;
 };
 
 function shortestAngleLerp(a: number, b: number, t: number): number {
@@ -80,6 +81,7 @@ const view: RiderView = {
   shifty: 0,
   balance: 0,
   slide: 0,
+  railContact: 0,
 };
 
 function lerpInto(out: Vec3, a: Vec3, b: Vec3, t: number): void {
@@ -117,6 +119,7 @@ export function interpolateRider(prev: RiderState, cur: RiderState, alpha: numbe
   view.shifty = prev.shifty + (cur.shifty - prev.shifty) * alpha;
   view.balance = prev.balance + (cur.balance - prev.balance) * alpha;
   view.slide = cur.slide;
+  view.railContact = prev.railContact + (cur.railContact - prev.railContact) * alpha;
   view.course =
     Math.abs(cur.velocity.x) + Math.abs(cur.velocity.z) > 1e-4
       ? Math.atan2(cur.velocity.x, cur.velocity.z)
@@ -350,9 +353,10 @@ export function createScene(cfg: SlopeConfig, terrain: Terrain, camera: THREE.Pe
 
   const neutral = neutralDrivers();
   const base = neutralDrivers();
-  // Butter tip-up scratch: the board pitch pivots on the hand point (rig.ts), so the root is
-  // shifted to put the pressed end back on the snow.
-  let butterTip = 0;
+  // Tip-up scratch: the board pitch pivots on the hand point (rig.ts), so the root is shifted
+  // to keep one board point where the sim put it — the pressed tip of a butter on the snow,
+  // the contact point of a press over the rail. `pinZ` is that point on board Z; 0 is none.
+  let pinZ = 0;
   const tip = new THREE.Vector3();
   const pivot = new THREE.Vector3();
   const pitchQuat = new THREE.Quaternion();
@@ -374,12 +378,21 @@ export function createScene(cfg: SlopeConfig, terrain: Terrain, camera: THREE.Pe
     // are fighting is the one you see. In the air lx is spin, not lean.
     // The rail's side (the way a positive lean falls) is −cos(slide) on board X and
     // sin(slide) on board Z, so the hips shift toward the side you are falling to.
+    // In the rail trick model the balance is already over the edges (+ heel, board +X) and
+    // the hips sit over the contact point instead of following the stick.
     const railed = view.mode === 'railed';
+    const trick = railed && params.rail.trickModel >= 0.5;
     const c = railed ? Math.cos(view.slide) : 0;
     const sn = railed ? Math.sin(view.slide) : 0;
-    base.hipX = grounded ? view.edge * r.edgeHipShift : railed ? -c * view.balance * r.railLean : 0;
-    base.hipZ = view.stance * r.stanceHipShift + sn * view.balance * r.railLean;
-    base.spineSide = view.stance * r.stanceSpineSide;
+    if (trick) {
+      base.hipX = view.balance * r.railLean;
+      base.hipZ = view.railContact * r.pressHipShift;
+      base.spineSide = view.railContact * r.stanceSpineSide;
+    } else {
+      base.hipX = grounded ? view.edge * r.edgeHipShift : railed ? -c * view.balance * r.railLean : 0;
+      base.hipZ = view.stance * r.stanceHipShift + sn * view.balance * r.railLean;
+      base.spineSide = view.stance * r.stanceSpineSide;
+    }
     base.spineBend = r.spineBendBase + view.compress * r.compressSpineBend;
 
     // Body leads, hand commits later — the grab path stays reachable the whole way (rig.ts).
@@ -416,8 +429,14 @@ export function createScene(cfg: SlopeConfig, terrain: Terrain, camera: THREE.Pe
     const a = boardAttitude(view.grabEdge, view.grabT, view.grip, view.tweak, params);
     // A butter tips the board onto the pressed end: nose press is nose down.
     const butter = grounded ? butterAmount(view.stance, view.speed, params) : 0;
-    butterTip = butter > 0 ? Math.sign(view.stance) : 0;
+    const butterTip = butter > 0 ? Math.sign(view.stance) : 0;
     drivers.boardPitch = (view.grabSwitch ? -a.pitch : a.pitch) - butterTip * butter * params.butter.pitch;
+    pinZ = butterTip * BOARD_HALF;
+    if (trick) {
+      // A press tips the board onto its contact point: nose press, nose down.
+      drivers.boardPitch -= view.railContact * r.pressPitch;
+      pinZ = view.railContact * BOARD_HALF;
+    }
     drivers.tweakRoll = a.roll;
     drivers.shifty = view.shifty;
     drivers.stanceScale = neutral.stanceScale;
@@ -456,7 +475,9 @@ export function createScene(cfg: SlopeConfig, terrain: Terrain, camera: THREE.Pe
         // Tip the whole rider about the rail toward the side the lean is falling to —
         // the balance you are fighting, readable at a glance. The rail in board-local
         // axes is (sin slide, 0, cos slide).
-        railAxis.set(Math.sin(view.slide), 0, Math.cos(view.slide));
+        // Trick model: the lean is over the edges, so the tip is about the board's own axis.
+        if (params.rail.trickModel >= 0.5) railAxis.set(0, 0, -1);
+        else railAxis.set(Math.sin(view.slide), 0, Math.cos(view.slide));
         roll.setFromAxisAngle(railAxis, view.balance * params.rig.railTilt);
         rig.root.quaternion.multiply(roll);
       }
@@ -466,16 +487,16 @@ export function createScene(cfg: SlopeConfig, terrain: Terrain, camera: THREE.Pe
       }
 
       // Pose mode leaves the drivers alone — they are the thing being authored.
-      butterTip = 0;
+      pinZ = 0;
       if (!poseMode) driveFromSim(view, params, secondary);
-      if (butterTip !== 0) {
+      if (pinZ !== 0) {
         // Where the pressed tip ends up after the rig pitches the board about the hand
         // point, and the root moved back by that much so the tip stays on the snow.
         const useFront = drivers.frontGrip >= drivers.backGrip;
         edgePoint(pivot, useFront ? drivers.frontHandEdge : drivers.backHandEdge, useFront ? drivers.frontHandT : drivers.backHandT);
         pitchQuat.setFromAxisAngle(lateral, drivers.boardPitch);
-        tip.set(0, 0, butterTip * BOARD_HALF).sub(pivot).applyQuaternion(pitchQuat).add(pivot);
-        tip.z -= butterTip * BOARD_HALF;
+        tip.set(0, 0, pinZ).sub(pivot).applyQuaternion(pitchQuat).add(pivot);
+        tip.z -= pinZ;
         tip.applyQuaternion(rig.root.quaternion);
         rig.root.position.sub(tip);
       }

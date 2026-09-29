@@ -28,8 +28,8 @@ Xbox-layout gamepad. Analog everywhere it matters.
 
 | Input | Grounded | Airborne | Railed |
 |---|---|---|---|
-| Left stick X | Edge angle (target) | Spin rate about spin axis | Balance correction |
-| Left stick Y | Stance: nose / tail press | Flip (back = backflip); with X, cork | Nose / tail press shift |
+| Left stick X | Edge angle (target) | Spin rate about spin axis | Weight shift (screen space): lean + contact |
+| Left stick Y | Stance: nose / tail press | Flip (back = backflip); with X, cork | Weight shift (screen space): lean + contact |
 | RT (analog) | Compress; **release = pop** | Absorb (prepare landing) | Compress; release = pop off |
 | LT | Brake / heel scrub | — | — |
 | Right stick | — | Grab: position on the board (§7.3); **push past the grab = tweak** | — |
@@ -571,6 +571,26 @@ not.
   The entry seeds it — lateral miss (`rail.entryOffsetGain`), sideways speed
   (`rail.entryVelGain`), never less than `rail.minImbalance`. `|b| > rail.balanceMax` → BAILED.
   Winnable but never free: hands off falls in ~1.2–1.6 s.
+- **Trick model** (`rail.trickModel` 1; takes before it replay with 0, the model above).
+  Presses and slides come from where the weight sits, not from spinning:
+  - The left stick is a weight shift in screen space (X toward the rail's side, Y toward
+    travel), split onto the board by the slide angle. So a 50-50, a boardslide and
+    riding switch all read the same way on the stick.
+  - Across the board it fights the **lean over the edges** (`balance`, + heel):
+    `b'' = λb − c·b' + correctionGain·w_heel + rail.slidePull·sin slide`, with `|contact|`
+    in place of `|stance|` in λ. The slide term is the rail grabbing the board while the
+    body keeps going: a boardslide pitches you toward travel, and holding it takes a steady
+    push back.
+  - Along the board it moves the **contact point** (−1 tail … +1 nose), a damped spring
+    (`rail.pressStiffness`, `rail.pressDamping`) toward `rail.pressMax·w_along`. Past
+    `rail.pressTip` the end outweighs you (`rail.tipInstability`) and must be fought back;
+    `|contact| ≥ 1` slips off that end → BAILED. A nose press is a 50-50 with the contact
+    forward; a noseslide is a boardslide with it forward.
+  - Capture seeds the contact from where along the board the rail was met and the lean
+    from the miss across it; sideways speed starts both moving.
+  - The board sits with its contact point over the rail. Render tips it onto that point
+    (`rig.pressPitch`) and puts the hips over it (`rig.pressHipShift`).
+  - LB/RB still turn the slide angle.
 - Exit: pop (carries rail momentum + pop), ride off the end (retain state, re-enter
   AIRBORNE), or bail.
 

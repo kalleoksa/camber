@@ -53,14 +53,18 @@ export function stepRailed(state: RiderState, input: InputSnapshot, params: Para
   // Slide angle, turned by LB/RB.
   state.slide = wrapAngle(state.slide + ((input.rb ? 1 : 0) - (input.lb ? 1 : 0)) * r.slideRate * dt);
 
-  // Balance: b'' = λ·b − c·b' + gain·lx. λ grows with a board across the rail and with a press.
   const rail = terrain.rails[state.railIndex];
   const box = rail !== undefined && rail.width > 0 ? r.boxStability : 1;
-  const lambda = r.instability * box * (1 + r.slideDrift * sinSlide + r.pressDrift * Math.abs(state.stance));
-  const acc =
-    lambda * state.balance - 2 * r.balanceDamping * Math.sqrt(lambda) * state.balanceVel + r.correctionGain * input.lx;
-  state.balanceVel += acc * dt;
-  state.balance += state.balanceVel * dt;
+  const trick = r.trickModel >= 0.5;
+  if (trick) stepTrick(state, input, params, box, dt);
+  else {
+    // Balance: b'' = λ·b − c·b' + gain·lx. λ grows with a board across the rail and with a press.
+    const lambda = r.instability * box * (1 + r.slideDrift * sinSlide + r.pressDrift * Math.abs(state.stance));
+    const acc =
+      lambda * state.balance - 2 * r.balanceDamping * Math.sqrt(lambda) * state.balanceVel + r.correctionGain * input.lx;
+    state.balanceVel += acc * dt;
+    state.balance += state.balanceVel * dt;
+  }
 
   state.railS += state.railDir * state.railSpeed * dt;
   state.scrub = 0;
@@ -78,15 +82,31 @@ export function stepRailed(state: RiderState, input: InputSnapshot, params: Para
   setFromBasis(state.spinFrame, heel, U, F);
   state.heading = dm.atan2(F.x, F.z);
 
+  // Trick model: the board sits with its contact point over the rail, not its middle.
   const p = state.position;
-  set(p, railPos.x + U.x * r.rideHeight, railPos.y + U.y * r.rideHeight, railPos.z + U.z * r.rideHeight);
+  const back = trick ? state.railContact * r.boardHalf : 0;
+  set(p, railPos.x - F.x * back + U.x * r.rideHeight, railPos.y - F.y * back + U.y * r.rideHeight, railPos.z - F.z * back + U.z * r.rideHeight);
   set(v, T.x * state.railSpeed, T.y * state.railSpeed, T.z * state.railSpeed);
+  // The side you fall to: the rail's side in the old model, over an edge in the trick model.
+  const fall = trick ? heel : S;
+
+  if (trick && Math.abs(state.railContact) >= 1) {
+    // Rail past a tip: the board slips off that end and you go down on the other side.
+    const end = state.railContact > 0 ? 1 : -1;
+    v.x -= F.x * end * r.fallSpeed;
+    v.z -= F.z * end * r.fallSpeed;
+    leaveRail(state);
+    state.mode = 'bailed';
+    state.landing = 'bail';
+    state.bailTime = 0;
+    return;
+  }
 
   if (Math.abs(state.balance) > r.balanceMax) {
     // Lean lost: off the side and down.
     const side = state.balance > 0 ? 1 : -1;
-    v.x += S.x * side * r.fallSpeed;
-    v.z += S.z * side * r.fallSpeed;
+    v.x += fall.x * side * r.fallSpeed;
+    v.z += fall.z * side * r.fallSpeed;
     leaveRail(state);
     state.mode = 'bailed';
     state.landing = 'bail';
@@ -111,18 +131,56 @@ export function stepRailed(state: RiderState, input: InputSnapshot, params: Para
     // Off the end keeps the speed; a stall drops you off the side you lean to.
     if (!offEnd) {
       const side = state.balance > 0 ? 1 : -1;
-      v.x += S.x * side * r.stallPush;
-      v.z += S.z * side * r.stallPush;
+      v.x += fall.x * side * r.stallPush;
+      v.z += fall.z * side * r.stallPush;
     }
     leaveRail(state);
     rideOff(state, input, params, 0);
   }
 }
 
+/**
+ * Trick model. The stick is where you put your weight, in screen space — X toward the
+ * rail's side S, Y toward travel T — split onto the board by the slide angle, so a
+ * 50-50, a boardslide and switch all read the same way:
+ * - across the board (toward heel) it fights the lean over the edges, the old balance;
+ * - along the board it moves the contact point: a nose or tail press is a shift, and past
+ *   `pressTip` the end outweighs you and runs away.
+ * A board across the rail is grabbed by it while the body keeps going, so a slide pitches
+ * you toward travel and holding it takes a steady push back.
+ */
+function stepTrick(state: RiderState, input: InputSnapshot, params: Params, box: number, dt: number): void {
+  const r = params.rail;
+  const c = dm.cos(state.slide);
+  const s = dm.sin(state.slide);
+  // w = lx·S + ly·T against F = c·T + s·S and heel = U × F = s·T − c·S.
+  const wAlong = input.lx * s + input.ly * c;
+  const wHeel = input.ly * s - input.lx * c;
+  const contact = state.railContact;
+
+  const lambda = r.instability * box * (1 + r.slideDrift * Math.abs(s) + r.pressDrift * Math.abs(contact));
+  const acc =
+    lambda * state.balance -
+    2 * r.balanceDamping * Math.sqrt(lambda) * state.balanceVel +
+    r.correctionGain * wHeel +
+    r.slidePull * s;
+  state.balanceVel += acc * dt;
+  state.balance += state.balanceVel * dt;
+
+  const k = r.pressStiffness;
+  let cAcc = k * (r.pressMax * wAlong - contact) - 2 * r.pressDamping * Math.sqrt(k) * state.railContactVel;
+  const over = Math.abs(contact) - r.pressTip;
+  if (over > 0) cAcc += r.tipInstability * over * (contact > 0 ? 1 : -1);
+  state.railContactVel += cAcc * dt;
+  state.railContact += state.railContactVel * dt;
+}
+
 function leaveRail(state: RiderState): void {
   state.railIndex = -1;
   state.balance = 0;
   state.balanceVel = 0;
+  state.railContact = 0;
+  state.railContactVel = 0;
 }
 
 /**
@@ -160,12 +218,36 @@ export function tryCapture(state: RiderState, params: Params, terrain: Terrain, 
 
     axisZ(F, state.spinFrame);
     state.slide = dm.atan2(dot(F, S), dot(F, T));
-    const offset = (p.x - railPos.x) * S.x + (p.y - railPos.y) * S.y + (p.z - railPos.z) * S.z;
-    const lateral = dot(v, S);
-    let b = (r.entryOffsetGain * offset) / reach;
-    if (Math.abs(b) < r.minImbalance) b = (lateral >= 0 ? 1 : -1) * r.minImbalance;
-    state.balance = b;
-    state.balanceVel = (r.entryVelGain * lateral) / Math.abs(along);
+    const along_ = along >= 0 ? along : -along;
+    if (r.trickModel >= 0.5) {
+      // The board as it meets the rail, flattened onto it: the miss along the board is the
+      // contact point, the miss across it the lean; sideways speed starts both moving.
+      const c = dm.cos(state.slide);
+      const sn = dm.sin(state.slide);
+      set(F, T.x * c + S.x * sn, T.y * c + S.y * sn, T.z * c + S.z * sn);
+      cross(heel, U, F);
+      const dx = p.x - railPos.x;
+      const dy = p.y - railPos.y;
+      const dz = p.z - railPos.z;
+      const dAlong = dx * F.x + dy * F.y + dz * F.z;
+      const dHeel = dx * heel.x + dy * heel.y + dz * heel.z;
+      // Velocity off the rail's line, on the board's axes.
+      const vHeel = dot(v, heel) - along * sn * dir;
+      const vAlong = dot(v, F) - along * c * dir;
+      let b = (r.entryOffsetGain * dHeel) / reach;
+      if (Math.abs(b) < r.minImbalance) b = (vHeel >= 0 ? 1 : -1) * r.minImbalance;
+      state.balance = b;
+      state.balanceVel = (r.entryVelGain * vHeel) / along_;
+      state.railContact = Math.max(-0.95, Math.min(0.95, -dAlong / r.boardHalf));
+      state.railContactVel = (-r.entryVelGain * vAlong) / r.boardHalf;
+    } else {
+      const offset = (p.x - railPos.x) * S.x + (p.y - railPos.y) * S.y + (p.z - railPos.z) * S.z;
+      const lateral = dot(v, S);
+      let b = (r.entryOffsetGain * offset) / reach;
+      if (Math.abs(b) < r.minImbalance) b = (lateral >= 0 ? 1 : -1) * r.minImbalance;
+      state.balance = b;
+      state.balanceVel = (r.entryVelGain * lateral) / along_;
+    }
 
     state.mode = 'railed';
     state.railS = hit.s;

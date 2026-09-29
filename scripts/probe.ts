@@ -167,15 +167,23 @@ function rail(name: string, { balanced = false, slide = 0, press = 0, offset = 0
   let exit = 'missed';
   let exitSpeed = 0;
   let maxLean = 0;
+  let maxContact = 0;
   for (let i = 0; i < 12 / TICK_DT; i++) {
     const was = state.mode;
-    input.ly = press;
     input.rb = slide > 0 && state.mode === 'railed' && Math.abs(state.slide) < slide;
-    input.lx = balanced && state.mode === 'railed' ? Math.max(-1, Math.min(1, -(1.2 * state.balance + 0.5 * state.balanceVel))) : 0;
+    // The thumb is a weight shift in screen space: correction across the board plus the
+    // press along it, rotated back onto the stick by the slide angle.
+    const h = balanced && state.mode === 'railed' ? -(1.5 * state.balance + 0.5 * state.balanceVel) : 0;
+    const c = Math.cos(state.slide);
+    const sn = Math.sin(state.slide);
+    const clamp = (x: number): number => Math.max(-1, Math.min(1, x));
+    input.lx = state.mode === 'railed' ? clamp(-h * c + press * sn) : 0;
+    input.ly = state.mode === 'railed' ? clamp(h * sn + press * c) : press;
     tick(state, input, params, railSlope, TICK_DT);
     if (state.mode === 'railed') {
       onFor += TICK_DT;
       maxLean = Math.max(maxLean, Math.abs(state.balance));
+      maxContact = Math.max(maxContact, Math.abs(state.railContact));
     }
     if (was === 'railed' && state.mode !== 'railed') {
       exit = state.mode === 'bailed' ? 'fell off' : 'rode off the end';
@@ -183,7 +191,7 @@ function rail(name: string, { balanced = false, slide = 0, press = 0, offset = 0
       break;
     }
   }
-  console.log(`${name.padEnd(26)} ${exit.padEnd(16)} ${onFor.toFixed(2)} s on, lean max ${maxLean.toFixed(2)}, off at ${exitSpeed.toFixed(1)} m/s`);
+  console.log(`${name.padEnd(26)} ${exit.padEnd(16)} ${onFor.toFixed(2)} s on, lean max ${maxLean.toFixed(2)}, contact max ${maxContact.toFixed(2)}, off at ${exitSpeed.toFixed(1)} m/s`);
 }
 
 console.log('move                   landing  rotated     riding  speed');
@@ -394,7 +402,11 @@ rail('50-50, hands off');
 rail('50-50, balanced', { balanced: true });
 rail('boardslide, hands off', { slide: 1.5 });
 rail('boardslide, balanced', { balanced: true, slide: 1.5 });
-rail('tailslide, balanced', { balanced: true, press: -1 });
+rail('tail press, balanced', { balanced: true, press: -1 });
+rail('nose press, balanced', { balanced: true, press: 1 });
+rail('half nose press, balanced', { balanced: true, press: 0.5 });
+rail('nose press, off-centre', { balanced: true, press: 1, offset: 0.3 });
+rail('noseslide, balanced', { balanced: true, slide: 1.5, press: 1 });
 carve('toe edge held', 1);
 carve('heel edge held', -1);
 butter('nose butter 180', 1, 1);
