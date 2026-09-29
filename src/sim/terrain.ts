@@ -154,6 +154,7 @@ export function createSlope(cfg: SlopeConfig): Terrain {
       normalize(out.normal);
 
       out.surface = 'snow';
+      for (let i = 0; i < walls.length; i++) if ((walls[i]?.(x, z) ?? 0) > 0) out.surface = 'wall';
       return out;
     },
   };

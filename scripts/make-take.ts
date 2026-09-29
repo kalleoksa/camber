@@ -119,7 +119,7 @@ console.log(`wrote ${take.frames.length} ticks -> takes/synthetic.json`);
 
 // A scripted run down the slopestyle park, so the determinism check covers butters, the
 // walled state and grade changes: a nose butter 180 and a tail butter back, over to the
-// wall and up it, back across, and an ollie on the deck.
+// wall and a pop onto it, back across, and an ollie on the deck.
 {
   const parkTerrain = createSlope(SLOPESTYLE);
   const spawn = { position: { x: 0, y: parkTerrain.sample(0, 0, createContact()).height + 0.2, z: 0 }, heading: Math.PI };
@@ -145,6 +145,7 @@ console.log(`wrote ${take.frames.length} ticks -> takes/synthetic.json`);
     } else if (state.mode === 'walled' || (x > 10.5 && z > -60)) frame.lx = steer(Math.PI - 0.5);
     else if (z < -30 && z > -60) frame.lx = steer(Math.PI - 0.6);
     else frame.lx = steer(Math.PI + Math.max(-0.4, Math.min(0.4, 0.08 * x)));
+    if (x > 8 && x < 10.4 && z > -75) frame.rt = 1; // charge in, pop on the wall's transition
     if (t > 9.3 && t < 9.6) frame.rt = 1; // an ollie on the deck after the wall
     const q = quantizeInput(frame);
     tick(state, q, params, parkTerrain, TICK_DT);

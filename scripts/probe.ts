@@ -216,7 +216,7 @@ function butter(name: string, ly: number, hold: number, rollFor = 1): void {
 
 /** The park's wall with nothing else in the way: carve over at `aim` rad and ride it. */
 const wallSlope = createSlope({ ...SLOPESTYLE, kickers: [], rails: [] });
-function wall(name: string, aim: number, along: number): void {
+function wall(name: string, aim: number, along: number, pop: 'none' | 'transition' | 'flat' = 'none'): void {
   const state = spawn(wallSlope);
   const input = neutralInput();
   const c = createContact();
@@ -228,6 +228,10 @@ function wall(name: string, aim: number, along: number): void {
     const target = onIt ? Math.PI - along : state.position.z < -30 ? Math.PI - aim : Math.PI;
     const err = Math.atan2(Math.sin(target - state.heading), Math.cos(target - state.heading));
     input.lx = Math.max(-1, Math.min(1, -3 * err));
+    // Charge on the way in, let go on the transition or just before it on flat snow.
+    const ny = wallSlope.sample(state.position.x, state.position.z, c).normal.y;
+    const x = state.position.x;
+    input.rt = pop === 'transition' ? (x > 8 && ny > 0.6 ? 1 : 0) : pop === 'flat' ? (x > 7 && x < 9.2 ? 1 : 0) : 0;
     tick(state, input, params, wallSlope, TICK_DT);
     if (state.mode === 'walled') {
       if (walled === 0) speedOn = length(state.velocity);
@@ -280,3 +284,6 @@ butter('press at speed, no butter', 1, 0.6, 3.5);
 wall('wall, steep approach', 0.6, 0.5);
 wall('wall, along the face', 0.6, 0.3);
 wall('wall, too shallow', 0.4, 0.3);
+wall('wall, pop on transition', 0.6, 0.5, 'transition');
+wall('wall, pop, along the face', 0.6, 0.2, 'transition');
+wall('wall, ollie in from flat', 0.6, 0.5, 'flat');

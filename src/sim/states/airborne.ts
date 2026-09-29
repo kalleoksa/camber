@@ -291,7 +291,10 @@ function land(state: RiderState, params: Params, n: Vec3): void {
     theta = dm.acos(cos);
     if (theta > Math.PI / 2) theta = Math.PI - theta; // fold: switch landings are legal
   }
-  const phi = dm.acos(Math.min(1, Math.max(-1, dot(boardUp, n))));
+  // Flying into a wall fast enough sticks: the board is slaved to the face, so only the
+  // heading angle is judged — the roll test would bail every ollie onto a wall.
+  const wall = n.y < dm.cos(params.wall.minAngle) && courseSpeed >= params.wall.minSpeed;
+  const phi = wall ? 0 : dm.acos(Math.min(1, Math.max(-1, dot(boardUp, n))));
 
   if (theta < params.land.clean && phi < params.land.rollClean) {
     state.landing = 'clean';
@@ -320,7 +323,7 @@ function land(state: RiderState, params: Params, n: Vec3): void {
   projectOntoPlane(v, n);
   if (state.landing === 'sketchy') scale(v, 1 - params.land.sketchySpeedLoss);
 
-  state.mode = 'grounded';
+  state.mode = wall ? 'walled' : 'grounded';
   state.airTime = 0;
   state.spinRate = 0;
   state.absorb = params.land.absorbTime;

@@ -21,7 +21,7 @@ export const SLOPESTYLE: SlopeConfig = {
     { points: [[7, 0.5, -28], [7, 0.5, -38], [7, 0.9, -48]] },
     { points: [[0, 0.7, -212], [0, 0.7, -232]] },
   ],
-  walls: [{ x: 10, side: 1, z: -55, length: 18, height: 3, angle: 1.25, radius: 2.5, top: 1, taper: 3 }],
+  walls: [{ x: 10, side: 1, z: -55, length: 18, height: 3, angle: 1.35, radius: 1.2, top: 1, taper: 3 }],
   kickers: [
     { z: -82, x: 0, width: 8, lipHeight: 3.5, lipAngle: 0.5, deckLength: 3, sideTaper: 3, landingAngle: 0.3, knuckleRadius: 4, runoutRadius: 14 },
     { z: -142, x: 0, width: 10, lipHeight: 6, lipAngle: 0.5, deckLength: 5, sideTaper: 3, landingAngle: 0.3, knuckleRadius: 5, runoutRadius: 18 },

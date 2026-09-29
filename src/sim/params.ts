@@ -92,13 +92,13 @@ export const params = {
     stallSpeed: 1.0, // m/s below which you drop off the side
     // Balance: an unstable lean, like standing on an edge — deterministic, seeded only by
     // the entry (open question 4). b'' = λ·b − c·b' + correctionGain·lx.
-    instability: 8.0, // λ, 1/s² at a centred 50-50 — hands off, a lean runs away in ~1 s
+    instability: 4.0, // λ, 1/s² at a centred 50-50 — hands off, a lean runs away in ~1 s
     slideDrift: 1.0, // λ × (1 + this·|sin slide|): a boardslide is less stable
     pressDrift: 1.0, // λ × (1 + this·|stance|): so is a nose or tail press
     balanceDamping: 0.3, // ζ against the lean's own rate
     correctionGain: 8.0, // 1/s² per unit of stick X — gain/λ is the furthest lean you can still save
     balanceMax: 1.0, // lean past which you fall off
-    entryOffsetGain: 0.6, // lean at capture per captureRadius of sideways miss
+    entryOffsetGain: 0.3, // lean at capture per captureRadius of sideways miss
     entryVelGain: 0.8, // lean rate at capture per unit of sideways/along speed ratio
     minImbalance: 0.05, // a perfect entry still starts this far off — balance is never free
     captureRise: 0.3, // fraction of speed rising away from the rail past which it won't catch
@@ -110,6 +110,8 @@ export const params = {
     minSpeed: 8.0, // m/s, below which the wall lets go and full gravity takes you back down
     gravityScale: 0.35, // fraction of gravity while walled
     drag: 3.0, // m/s² while walled
+    popScale: 0.5, // fraction of the pop that goes up the face when popping onto a wall — the rest is absorbed by the stick
+    popAngle: 0.35, // rad from up: on a wall's transition steeper than this, a pop drives you up the face instead of off it
   },
   butter: {
     press: 0.65, // |stance| where a press starts to become a butter

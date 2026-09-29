@@ -26,6 +26,7 @@ const forward = vec3();
 const toeSide = vec3();
 const heelSide = vec3();
 const rotation = vec3();
+const wallUp = vec3(); // up the face, in the contact plane
 
 /**
  * ln 5, so `speedFactor` reaches 0.8 exactly at `ground.speedFactorKnee` — that is what
@@ -156,13 +157,24 @@ export function stepGrounded(
   if (state.absorb > 0) state.absorb = Math.max(0, state.absorb - dt);
 
   if (chargePop(state, input, params, dt)) {
-    // Along the contact normal, not world up — ramp geometry then needs no special case.
     const bias = 1 - state.stance * params.pop.stanceBias;
-    addScaled(v, n, (params.pop.base + params.pop.charged * state.compress) * bias);
+    const impulse = (params.pop.base + params.pop.charged * state.compress) * bias;
     state.charge = 0;
-    popTakeoff(state, input, params);
-    addScaled(p, v, dt);
-    return;
+    // Popping on a wall's transition or face, heading up or along it, drives you up the
+    // face and keeps you on it — that is how you get onto a wall — instead of off it.
+    // Keyed on the wall surface, not on steepness alone, so a kicker lip still launches.
+    set(wallUp, -n.x * n.y, 1 - n.y * n.y, -n.z * n.y);
+    const onFace = contact.surface === 'wall' && n.y < dm.cos(params.wall.popAngle) && dot(v, wallUp) >= 0;
+    if (onFace) {
+      normalize(wallUp);
+      addScaled(v, wallUp, impulse * params.wall.popScale);
+    } else {
+      // Along the contact normal, not world up — ramp geometry then needs no special case.
+      addScaled(v, n, impulse);
+      popTakeoff(state, input, params);
+      addScaled(p, v, dt);
+      return;
+    }
   }
 
   addScaled(p, v, dt);
