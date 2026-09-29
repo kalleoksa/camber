@@ -88,7 +88,7 @@ export const ANCHORS: Record<string, RigDrivers> = {
     frontShoulderSwing: 0,
     frontShoulderOut: -0.22,
     frontElbow: 1.05,
-    frontElbowPole: 2.83, // the free arm routed round, which is what the pole is for
+    frontElbowPole: -3.45, // the free arm routed round, which is what the pole is for (was 2.83: same angle, −2π, so blends from neutral's −π take the short way)
     backShoulderSwing: 0.49,
   }),
 
@@ -288,7 +288,7 @@ export const ANCHORS: Record<string, RigDrivers> = {
     frontShoulderSwing: -0.16,
     frontShoulderOut: -0.5,
     frontElbow: 1.07,
-    frontElbowPole: 2.96, // free arm routed right round, same trick as indy and stalefish
+    frontElbowPole: -3.32, // free arm routed right round, same trick as indy and stalefish (was 2.96, −2π as above)
     spineBend: 0,
   }),
 

@@ -126,7 +126,10 @@ export function neutralDrivers(): RigDrivers {
     frontShoulderSwing: 0.35,
     frontShoulderOut: 0.25,
     frontElbow: 0.5,
-    frontElbowPole: 0,
+    // ≈π: the elbow bend axis in solveArmFK flips with the side, so the front arm needs its
+    // pole swept half round to bend forward like the back one. Every authored anchor already
+    // does this; at 0 the front hand hung back between the legs.
+    frontElbowPole: -3.1,
     backShoulderSwing: 0.35,
     backShoulderOut: 0.25,
     backElbow: 0.5,
@@ -167,9 +170,13 @@ export function mirrorDrivers(d: RigDrivers): void {
   t = d.frontElbow;
   d.frontElbow = d.backElbow;
   d.backElbow = t;
+  // Poles don't just trade places. The FK bend axis flips with the side (see the neutral
+  // front pole), so a free arm's mirror is π − pole; a gripping arm's pole turns the IK
+  // elbow about the shoulder→hand line, whose mirror is −pole. Blended by grip, so the
+  // elbow doesn't jump as the hand commits. Grips are already swapped above.
   t = d.frontElbowPole;
-  d.frontElbowPole = d.backElbowPole;
-  d.backElbowPole = t;
+  d.frontElbowPole = Math.PI * (1 - Math.min(d.frontGrip, 1)) - d.backElbowPole;
+  d.backElbowPole = Math.PI * (1 - Math.min(d.backGrip, 1)) - t;
 }
 
 export function copyDrivers(dst: RigDrivers, src: RigDrivers): void {
