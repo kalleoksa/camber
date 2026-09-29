@@ -1,9 +1,11 @@
 import { writeFileSync } from 'node:fs';
 import { TICK_DT } from '../src/core/loop.ts';
 import { buildTake } from '../src/input/recorder.ts';
-import { neutralInput, type InputSnapshot } from '../src/input/snapshot.ts';
+import { neutralInput, quantizeInput, type InputSnapshot } from '../src/input/snapshot.ts';
 import { params } from '../src/sim/params.ts';
+import { tick } from '../src/sim/rider.ts';
 import { createRng, next } from '../src/sim/rng.ts';
+import { createRiderState } from '../src/sim/state.ts';
 import { createContact, createSlope, type SlopeConfig } from '../src/sim/terrain.ts';
 import { dampScalar } from '../src/sim/vec3.ts';
 
@@ -81,3 +83,35 @@ const take = buildTake({
 const path = new URL('../takes/synthetic.json', import.meta.url);
 writeFileSync(path, JSON.stringify(take));
 console.log(`wrote ${take.frames.length} ticks -> takes/synthetic.json`);
+
+// A scripted rail run, so the determinism check covers the railed state: ride down, ollie
+// onto the rail, balance with some wobble, turn into a boardslide and back, press, and pop
+// off. Inputs are decided from a live sim as they're recorded — the take stores only them.
+{
+  const railConfig: SlopeConfig = { length: 400, width: 120, pitch: 0.28, rails: [{ points: [[0, 0.6, -14], [0, 0.6, -40]] }] };
+  const railTerrain = createSlope(railConfig);
+  const spawn = { position: { x: 0, y: railTerrain.sample(0, 0, createContact()).height + 0.2, z: 0 }, heading: Math.PI };
+  const state = createRiderState(spawn);
+  const railFrames: InputSnapshot[] = [];
+  const wobble = createRng(7);
+  let onRail = 0;
+  for (let i = 0; i < 7 / TICK_DT; i++) {
+    const frame = neutralInput();
+    if (state.mode === 'grounded' && state.position.z < -9 && state.position.z > -12.5) frame.rt = 1;
+    if (state.mode === 'railed') {
+      onRail += TICK_DT;
+      const noise = (next(wobble) - 0.5) * 0.6;
+      frame.lx = Math.max(-1, Math.min(1, -(1.2 * state.balance + 0.5 * state.balanceVel) + noise));
+      frame.rb = onRail > 0.1 && onRail < 0.4;
+      frame.lb = onRail > 0.5 && onRail < 0.8;
+      frame.ly = onRail > 0.8 && onRail < 1.0 ? -0.8 : 0;
+      frame.rt = onRail > 0.95 && onRail < 1.15 ? 1 : 0;
+    }
+    const q = quantizeInput(frame);
+    tick(state, q, params, railTerrain, TICK_DT);
+    railFrames.push(q);
+  }
+  const railTake = buildTake({ seed: SEED, dt: TICK_DT, spawn, terrain: railConfig, params, frames: railFrames });
+  writeFileSync(new URL('../takes/rail.json', import.meta.url), JSON.stringify(railTake));
+  console.log(`wrote ${railTake.frames.length} ticks -> takes/rail.json (${onRail.toFixed(2)} s on the rail)`);
+}

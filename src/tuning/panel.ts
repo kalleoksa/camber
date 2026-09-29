@@ -39,6 +39,7 @@ const DRIVER_RANGE: Record<keyof RigDrivers, { min: number; max: number }> = {
 
 export type Readout = {
   mode: string;
+  rail: string;
   session: string;
   pad: string;
   padRaw: string;
@@ -118,6 +119,7 @@ export function createPanel(
   status.addBinding(readout, 'pad', { readonly: true });
   status.addBinding(readout, 'padRaw', { readonly: true, label: 'pad raw' });
   status.addBinding(readout, 'mode', { readonly: true });
+  status.addBinding(readout, 'rail', { readonly: true });
   status.addBinding(readout, 'speed', { readonly: true, format: (v: number) => v.toFixed(2) });
   status.addBinding(readout, 'tick', { readonly: true, format: (v: number) => v.toFixed(0) });
   status.addBinding(readout, 'clearance', { readonly: true, format: (v: number) => v.toFixed(2) });

@@ -506,16 +506,23 @@ not.
 
 ## 8. Rails
 
-- Rails are catmull-rom splines in `park.json`, with a `width` and `type` (round/flat/tube).
-- On attach, position is constrained to the spline; velocity keeps only its tangential
-  component. Speed carried in ≈ speed carried through, minus `rail.friction`.
-- **Slide angle** is board heading relative to spline tangent, held by the player:
-  0° = 50-50, 90° = boardslide, plus `stance` offset for nose/tailslide. Continuous, not
-  a menu — a 70° slide is a legitimate thing to be doing.
-- **Balance** is a signed scalar drifting under seeded noise scaled by
-  `rail.driftBase * (1 + |slideAngle|)` and by how far off-centre the stance is.
-  Left stick X counters it. Exceeding `rail.balanceMax` → BAILED.
-  Balance must be *winnable but never free* — that tension is the whole feature.
+- Rails are polylines of straight segments (`rails` in the slope config, carried by the
+  take), points as (x, height above snow, z). Curves from short segments until M7 needs
+  splines.
+- On attach, position is constrained to the rail; velocity keeps only its tangential
+  component. Speed then follows gravity along the rail minus `rail.friction`, scaled up by
+  `rail.slideFriction` the further the board is turned across.
+- Capture: within `rail.captureRadius`, travelling within `rail.captureAngle` of the rail
+  line, not rising faster than `rail.captureRise` of speed. From air or snow.
+- **Slide angle** starts from how the board met the rail; LB/RB turn it at
+  `rail.slideRate`. 0 = 50-50, ±π/2 = boardslide, stance press = nose/tailslide.
+  Continuous, not a menu.
+- **Balance** is deterministic, no noise: an unstable lean
+  `b'' = λb − c·b' + rail.correctionGain·lx`, with
+  `λ = rail.instability·(1 + rail.slideDrift·|sin slide| + rail.pressDrift·|stance|)`.
+  The entry seeds it — lateral miss (`rail.entryOffsetGain`), sideways speed
+  (`rail.entryVelGain`), never less than `rail.minImbalance`. `|b| > rail.balanceMax` → BAILED.
+  Winnable but never free: hands off falls in ~1.2–1.6 s.
 - Exit: pop (carries rail momentum + pop), ride off the end (retain state, re-enter
   AIRBORNE), or bail.
 
@@ -751,7 +758,7 @@ because `tweakOffset` reaches the landing test.
 | 2 | Carving | Gate passed |
 | 3 | Air | Gate passed 2026-09 — spins with check, corks, flips, landing tolerance tuned by play |
 | 4 | Grabs + rig | Gate passed 2026-09 — authored anchors, grabs/tweak/shifty wired, pose-mode anchor editing |
-| 5 | Rails | Next. Balance is deterministic from entry and stance (open question 4, decided) |
+| 5 | Rails | First pass in — gate is a feel test: 50-50, boardslide, tailslide distinct; balance winnable not free |
 
 ---
 

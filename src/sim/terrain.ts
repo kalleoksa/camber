@@ -1,5 +1,6 @@
 import { normalize, vec3, type Vec3 } from './vec3.ts';
 import * as dm from './dmath.ts';
+import { buildRail, type Rail, type RailConfig } from './rails.ts';
 
 export type SurfaceType = 'snow' | 'rail' | 'wall';
 
@@ -15,6 +16,8 @@ export type Contact = {
  */
 export type Terrain = {
   sample(x: number, z: number, out: Contact): Contact;
+  /** Rails in world space, built from the config. Empty when there are none. */
+  rails: readonly Rail[];
 };
 
 export type SlopeConfig = {
@@ -22,6 +25,7 @@ export type SlopeConfig = {
   width: number; // m along X
   pitch: number; // rad, fall line points toward -Z
   kicker?: KickerConfig;
+  rails?: RailConfig[];
 };
 
 /**
@@ -121,7 +125,11 @@ export function createSlope(cfg: SlopeConfig): Terrain {
     return h;
   };
 
+  const heightAt = (x: number, z: number): number => z * slope + bank(x) + kickerHeight(x, z);
+  const rails = (cfg.rails ?? []).map((r) => buildRail(r, heightAt));
+
   return {
+    rails,
     sample(x, z, out) {
       out.height = z * slope + bank(x);
 

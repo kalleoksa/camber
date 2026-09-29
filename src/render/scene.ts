@@ -40,6 +40,7 @@ export type RiderView = {
   grip: number;
   tweak: number;
   shifty: number;
+  balance: number;
 };
 
 function shortestAngleLerp(a: number, b: number, t: number): number {
@@ -71,6 +72,7 @@ const view: RiderView = {
   grip: 0,
   tweak: 0,
   shifty: 0,
+  balance: 0,
 };
 
 function lerpInto(out: Vec3, a: Vec3, b: Vec3, t: number): void {
@@ -104,6 +106,7 @@ export function interpolateRider(prev: RiderState, cur: RiderState, alpha: numbe
   view.grip = prev.grip + (cur.grip - prev.grip) * alpha;
   view.tweak = prev.tweak + (cur.tweak - prev.tweak) * alpha;
   view.shifty = prev.shifty + (cur.shifty - prev.shifty) * alpha;
+  view.balance = prev.balance + (cur.balance - prev.balance) * alpha;
   view.course =
     Math.abs(cur.velocity.x) + Math.abs(cur.velocity.z) > 1e-4
       ? Math.atan2(cur.velocity.x, cur.velocity.z)
@@ -214,6 +217,40 @@ function slopeMarkers(cfg: SlopeConfig, terrain: Terrain): THREE.Group {
   return group;
 }
 
+/** Rails as square bars along their segments — the sim's rail line is the bar's top. */
+function railMeshes(terrain: Terrain): THREE.Group {
+  const group = new THREE.Group();
+  const material = new THREE.MeshStandardMaterial({ color: 0x8a939c, roughness: 0.35, metalness: 0.8 });
+  const postMaterial = new THREE.MeshStandardMaterial({ color: 0x3a4148, roughness: 0.6 });
+  const size = 0.08;
+  const a = new THREE.Vector3();
+  const b = new THREE.Vector3();
+  const contact = createContact();
+  for (const rail of terrain.rails) {
+    for (let i = 1; i < rail.count; i++) {
+      a.set(rail.x[i - 1] ?? 0, (rail.y[i - 1] ?? 0) - size / 2, rail.z[i - 1] ?? 0);
+      b.set(rail.x[i] ?? 0, (rail.y[i] ?? 0) - size / 2, rail.z[i] ?? 0);
+      const len = a.distanceTo(b);
+      const bar = new THREE.Mesh(new THREE.BoxGeometry(size, size, len), material);
+      bar.position.copy(a).add(b).multiplyScalar(0.5);
+      bar.lookAt(b);
+      bar.castShadow = true;
+      group.add(bar);
+    }
+    // A post at each point, down to the snow.
+    for (let i = 0; i < rail.count; i++) {
+      const x = rail.x[i] ?? 0;
+      const z = rail.z[i] ?? 0;
+      const ground = terrain.sample(x, z, contact).height;
+      const h = Math.max(0.05, (rail.y[i] ?? 0) - size - ground);
+      const post = new THREE.Mesh(new THREE.BoxGeometry(0.06, h, 0.06), postMaterial);
+      post.position.set(x, ground + h / 2, z);
+      group.add(post);
+    }
+  }
+  return group;
+}
+
 export function createScene(cfg: SlopeConfig, terrain: Terrain, camera: THREE.PerspectiveCamera): SceneView {
   const renderer = new THREE.WebGLRenderer({ antialias: true });
   renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
@@ -233,6 +270,8 @@ export function createScene(cfg: SlopeConfig, terrain: Terrain, camera: THREE.Pe
   const markers = slopeMarkers(cfg, terrain);
   scene.add(slope);
   scene.add(markers);
+  const rails = railMeshes(terrain);
+  scene.add(rails);
   const skyColour = new THREE.Color(0x9db6cc);
   const stageColour = new THREE.Color(0xeef2f6);
   const fog = scene.fog;
@@ -262,7 +301,9 @@ export function createScene(cfg: SlopeConfig, terrain: Terrain, camera: THREE.Pe
     const grounded = view.mode === 'grounded';
 
     base.hipY = secondary.hipY;
-    base.hipX = grounded ? view.edge * r.edgeHipShift : 0; // in the air lx is spin, not lean
+    // On snow the hips lean into the edge; on a rail they carry the balance — the lean you
+    // are fighting is the one you see. In the air lx is spin, not lean.
+    base.hipX = grounded ? view.edge * r.edgeHipShift : view.mode === 'railed' ? view.balance * r.railLean : 0;
     base.hipZ = view.stance * r.stanceHipShift;
     base.spineSide = view.stance * r.stanceSpineSide;
     base.spineBend = r.spineBendBase + view.compress * r.compressSpineBend;
