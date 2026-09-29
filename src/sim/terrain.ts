@@ -127,6 +127,12 @@ export type KickerConfig = {
   knuckleRadius?: number; // m, convex roll from deck into landing
   runoutRadius?: number; // m, concave roll from landing back onto the slope
   landingLength?: number; // m, legacy straight ramp only
+  /**
+   * m of table across, when it is wider than the takeoff — a narrow kicker built on a wide
+   * table, as parks build them. The table's uphill face fades in over `sideTaper` beside
+   * the takeoff. Leave it out and the table is the takeoff's width.
+   */
+  deckWidth?: number;
 };
 
 export function createContact(): Contact {
@@ -156,13 +162,15 @@ export function createSlope(cfg: SlopeConfig): Terrain {
   const quarters = (cfg.quarters ?? []).map(quarterProfile);
   const grades = gradeProfile(cfg.pitch, cfg.grades ?? []);
 
-  // Summed from 0, so a single feature gives exactly its own height — old takes keep their hashes.
+  // Features merge by max, so twin kickers can share a table; each is ≥ 0, so where only
+  // one is present this is exactly its height and old takes keep their hashes. Grade
+  // changes reshape the slope under all of them, so they add.
   const featureHeight = (x: number, z: number): number => {
     let h = 0;
-    for (let i = 0; i < kickers.length; i++) h += kickers[i]?.(x, z) ?? 0;
-    for (let i = 0; i < walls.length; i++) h += walls[i]?.(x, z) ?? 0;
-    for (let i = 0; i < corners.length; i++) h += corners[i]?.(x, z) ?? 0;
-    for (let i = 0; i < quarters.length; i++) h += quarters[i]?.(x, z) ?? 0;
+    for (let i = 0; i < kickers.length; i++) h = Math.max(h, kickers[i]?.(x, z) ?? 0);
+    for (let i = 0; i < walls.length; i++) h = Math.max(h, walls[i]?.(x, z) ?? 0);
+    for (let i = 0; i < corners.length; i++) h = Math.max(h, corners[i]?.(x, z) ?? 0);
+    for (let i = 0; i < quarters.length; i++) h = Math.max(h, quarters[i]?.(x, z) ?? 0);
     if (grades) h += grades(x, z);
     return h;
   };
@@ -235,9 +243,37 @@ function kickerProfile(k: KickerConfig): Profile {
   const straightEnd = knuckleEnd + straightLen;
   const end = park ? straightEnd + runoutLen : deckEnd + (k.landingLength ?? 0);
 
+  // Deck and landing height at s ≥ runIn, park landing only (a wide table implies one).
+  const tableHeight = (s: number): number => {
+    if (s < deckEnd) return k.lipHeight;
+    if (s < knuckleEnd) {
+      const u = s - deckEnd;
+      return k.lipHeight - (rk - Math.sqrt(rk * rk - u * u));
+    }
+    if (s < straightEnd) return k.lipHeight - knuckleDrop - (s - knuckleEnd) * slopeAlpha;
+    const u = end - s;
+    return rb - Math.sqrt(rb * rb - u * u);
+  };
+
+  const deckHalf = (k.deckWidth ?? k.width) * 0.5;
+  const fade = (t: number): number => (t <= 0 ? 0 : t >= 1 ? 1 : t * t * (3 - 2 * t));
+
   return (x: number, z: number): number => {
     const s = k.z - z;
     if (s <= 0 || s >= end) return 0;
+    if (k.deckWidth !== undefined) {
+      // Takeoff at its own width; table and landing at the deck's, its uphill face fading
+      // in beside the takeoff. The wider of the two wins.
+      const dx = Math.abs(x - k.x);
+      let takeoff = 0;
+      if (s < runIn) takeoff = (radius - Math.sqrt(radius * radius - s * s)) * fade(1 - (dx - k.width * 0.5) / k.sideTaper);
+      let table = 0;
+      if (s >= runIn - k.sideTaper) {
+        const along = s < runIn ? k.lipHeight * fade(1 - (runIn - s) / k.sideTaper) : tableHeight(s);
+        table = along * fade(1 - (dx - deckHalf) / k.sideTaper);
+      }
+      return takeoff > table ? takeoff : table;
+    }
     const side = Math.abs(x - k.x) - k.width * 0.5;
     if (side >= k.sideTaper) return 0;
     let h: number;

@@ -59,6 +59,13 @@ export type RiderState = {
   grabEdge: number; // -1 heel .. +1 toe
   grabT: number; // 0 tail .. 1 nose
   grabFront: boolean; // which hand — picked from t at the moment of reaching, then held
+  /**
+   * Reached while travelling tail first: the grab is the switch version of whatever the stick
+   * asked for — mirrored nose-for-tail, so the same stick is the same named grab either way.
+   */
+  grabSwitch: boolean;
+  /** Riding tail first, latched with `ground.switchSpeed` of hysteresis. The sticks follow it. */
+  switchRide: boolean;
   grip: number; // 0 = hand at rest, 1 = locked to the board
   tweak: number; // 0..1 of grab.tweakDepthMax, about the grab point
   shifty: number; // rad, board yaw about its own up, independent of the body
@@ -110,6 +117,8 @@ export function createRiderState(spawn: Spawn): RiderState {
     grabEdge: 0,
     grabT: 0.5,
     grabFront: true,
+    grabSwitch: false,
+    switchRide: false,
     grip: 0,
     tweak: 0,
     shifty: 0,
@@ -153,6 +162,8 @@ export function resetRiderState(state: RiderState): void {
   state.grabEdge = 0;
   state.grabT = 0.5;
   state.grabFront = true;
+  state.grabSwitch = false;
+  state.switchRide = false;
   state.grip = 0;
   state.tweak = 0;
   state.shifty = 0;
@@ -197,6 +208,8 @@ export function copyRiderState(dst: RiderState, src: RiderState): void {
   dst.grabEdge = src.grabEdge;
   dst.grabT = src.grabT;
   dst.grabFront = src.grabFront;
+  dst.grabSwitch = src.grabSwitch;
+  dst.switchRide = src.switchRide;
   dst.grip = src.grip;
   dst.tweak = src.tweak;
   dst.shifty = src.shifty;

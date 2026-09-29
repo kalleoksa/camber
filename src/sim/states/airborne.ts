@@ -41,6 +41,7 @@ const stickW = vec3();
 const spinW = vec3();
 const levelQ = quat();
 const composed = quat();
+const grabForward = vec3();
 
 export function stepAirborne(
   state: RiderState,
@@ -225,7 +226,14 @@ function updateGrab(state: RiderState, input: InputSnapshot, params: Params, dt:
     const edge = (input.rx / m) * g.edgeSharpness;
     state.grabEdge = edge > 1 ? 1 : edge < -1 ? -1 : edge;
     state.grabT = 0.5 + 0.5 * (input.ry / m);
-    if (state.grip === 0) state.grabFront = state.grabT >= 0.5;
+    if (state.grip === 0) {
+      state.grabFront = state.grabT >= 0.5;
+      // Travelling tail first as the hand goes: the switch version of the grab. The stick
+      // is read against the direction of travel, so up is the leading end either way.
+      axisZ(grabForward, state.spinFrame);
+      const v = state.velocity;
+      state.grabSwitch = params.grab.switchMirror > 0 && grabForward.x * v.x + grabForward.z * v.z < 0;
+    }
     state.grip = Math.min(1, state.grip + dt / g.reachTime);
     // Only a hand that has hold of the board can shove it.
     if (m > g.tweakEnter) tweakTarget = ((m - g.tweakEnter) / (1 - g.tweakEnter)) * state.grip;
@@ -248,7 +256,9 @@ function updateGrab(state: RiderState, input: InputSnapshot, params: Params, dt:
 function composeBoard(out: Quat, state: RiderState, params: Params): Quat {
   const a = boardAttitude(state.grabEdge, state.grabT, state.grip, state.tweak, params);
   setFromAxisAngle(shiftyQ, UP, state.shifty);
-  setFromAxisAngle(pitchQ, LATERAL, a.pitch);
+  // A switch grab is the mirror image nose-for-tail: pitch turns over, roll about the
+  // board's length doesn't.
+  setFromAxisAngle(pitchQ, LATERAL, state.grabSwitch ? -a.pitch : a.pitch);
   setFromAxisAngle(rollQ, LONG, a.roll * params.grab.tweakRollMax);
   multiply(out, state.spinFrame, shiftyQ);
   multiply(out, out, pitchQ);

@@ -40,7 +40,8 @@ export function createChaseCamera(params: Params): ChaseCamera {
   };
 
   const rollTarget = (view: RiderView, p: Params): number =>
-    (view.mode === 'grounded' || view.mode === 'walled') ? -view.edge * p.camera.rollGain : 0;
+    // Edge is the board's, so riding switch it leans the other way for the same turn.
+    view.mode === 'grounded' || view.mode === 'walled' ? -view.edge * (view.switchRide ? -1 : 1) * p.camera.rollGain : 0;
 
   const frame = (view: RiderView, p: Params): void => {
     camera.lookAt(look);

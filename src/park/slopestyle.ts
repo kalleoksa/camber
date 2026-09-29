@@ -10,12 +10,14 @@ import type { SlopeConfig } from '../sim/terrain.ts';
 export const SLOPESTYLE: SlopeConfig = {
   length: 400,
   width: 120,
-  pitch: 0.28,
+  // Every pitch here is 0.06 steeper than it was tuned at, to carry snow friction (μ 0.06)
+  // and ride as it did before friction existed.
+  pitch: 0.34,
   grades: [
-    { z: -22, pitch: 0.04, blend: 8 },
-    { z: -118, pitch: 0.28, blend: 8 },
-    { z: -138, pitch: 0.04, blend: 8 },
-    { z: -200, pitch: 0.02, blend: 8 },
+    { z: -22, pitch: 0.1, blend: 8 },
+    { z: -118, pitch: 0.34, blend: 8 },
+    { z: -138, pitch: 0.1, blend: 8 },
+    { z: -200, pitch: 0.07, blend: 8 },
   ],
   rails: [
     { points: [[-7, 0.6, -28], [-7, 0.6, -48]] },

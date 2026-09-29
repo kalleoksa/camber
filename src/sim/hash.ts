@@ -73,6 +73,8 @@ export function hashState(state: RiderState, into: Hasher = shared): string {
   into.push(state.grabEdge);
   into.push(state.grabT);
   into.push(state.grabFront ? 1 : 0);
+  into.push(state.grabSwitch ? 1 : 0);
+  into.push(state.switchRide ? 1 : 0);
   into.push(state.grip);
   into.push(state.tweak);
   into.push(state.shifty);

@@ -17,6 +17,9 @@ export const params = {
     pivotSpeed: 2.5, // m/s below which skid-pivot is allowed
     pivotYaw: 1.1, // rad/s, low-authority skid pivot at a standstill
     drag: 0.0016, // quadratic, 1/m
+    switchEdges: 1, // 1: riding switch, the sticks follow the direction of travel — right turns right on the edge that's on the right, up presses the leading end
+    switchSpeed: 0.5, // m/s of travel along the board before riding switch (or back) latches
+    friction: 0.06, // Coulomb μ of a waxed base on groomed snow — decel μ·g on the normal load. Per surface later (powder)
     edgeDrag: 0.35, // fraction of scrubbed speed lost outright at full edge
     stanceYawGain: 0.55, // extra yaw authority at full nose/tail press
     stanceGripLoss: 0.35, // grip lost at full press
@@ -104,6 +107,7 @@ export const params = {
     captureRise: 0.3, // fraction of speed rising away from the rail past which it won't catch
     fallSpeed: 1.5, // m/s off the side when the lean is lost
     stallPush: 1.0, // m/s off the side on a stall
+    boxStability: 0.4, // instability multiplier on a box — a wide flat top is far easier to hold
   },
   wall: {
     minAngle: 1.13, // rad ≈ 65° from up — surface steeper than this, fast enough, is a wallride
@@ -129,6 +133,7 @@ export const params = {
    */
   grab: {
     commit: 0.35, // right-stick magnitude past which the hand goes for the board
+    switchMirror: 1, // 1: a grab reached riding switch is the switch version — same stick, same named grab, mirrored
     edgeSharpness: 2.0, // stick X gain onto the edge coordinate — >30° off vertical is a full rail
     tweakEnter: 0.55, // stick magnitude past which the tweak starts
     tweakRate: 10.0, // 1/s, board shoved out toward the stick's depth

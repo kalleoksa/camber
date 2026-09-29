@@ -28,8 +28,11 @@ export function tick(
     state.resetLatch = false;
   }
 
-  state.edge = dampScalar(state.edge, input.lx, params.ground.edgeResponse, dt);
-  state.stance = dampScalar(state.stance, input.ly, params.ground.stanceResponse, dt);
+  // Riding switch the sticks follow the direction of travel, not the board: right is the
+  // edge on the right of travel (the heel), up presses the leading end (the tail).
+  const dir = params.ground.switchEdges > 0 && state.switchRide ? -1 : 1;
+  state.edge = dampScalar(state.edge, input.lx * dir, params.ground.edgeResponse, dt);
+  state.stance = dampScalar(state.stance, input.ly * dir, params.ground.stanceResponse, dt);
 
   // The baseline takeoff measures the spin whip against — "the carve you are already
   // holding". Its own rate rather than a reuse of `state.edge`, so widening the whip window

@@ -54,7 +54,9 @@ export function stepRailed(state: RiderState, input: InputSnapshot, params: Para
   state.slide = wrapAngle(state.slide + ((input.rb ? 1 : 0) - (input.lb ? 1 : 0)) * r.slideRate * dt);
 
   // Balance: b'' = λ·b − c·b' + gain·lx. λ grows with a board across the rail and with a press.
-  const lambda = r.instability * (1 + r.slideDrift * sinSlide + r.pressDrift * Math.abs(state.stance));
+  const rail = terrain.rails[state.railIndex];
+  const box = rail !== undefined && rail.width > 0 ? r.boxStability : 1;
+  const lambda = r.instability * box * (1 + r.slideDrift * sinSlide + r.pressDrift * Math.abs(state.stance));
   const acc =
     lambda * state.balance - 2 * r.balanceDamping * Math.sqrt(lambda) * state.balanceVel + r.correctionGain * input.lx;
   state.balanceVel += acc * dt;
@@ -65,7 +67,6 @@ export function stepRailed(state: RiderState, input: InputSnapshot, params: Para
   state.clearance = 0;
   damp(state.groundNormal, U, params.ground.normalSmoothing, dt);
 
-  const rail = terrain.rails[state.railIndex];
   const offEnd = !rail || state.railS < 0 || state.railS > rail.length;
   if (!offEnd) frame(state, terrain, state.railS, state.railDir);
 
@@ -140,7 +141,8 @@ export function tryCapture(state: RiderState, params: Params, terrain: Terrain):
     const hit = nearestOnRail(rail, p.x, p.y - r.rideHeight, p.z);
     // Not at an end: a rider who just rode off the end would otherwise catch it again.
     if (hit.s <= 0 || hit.s >= rail.length) continue;
-    if (hit.dist2 > r.captureRadius * r.captureRadius) continue;
+    const reach = r.captureRadius + rail.width * 0.5; // a box catches across its whole top
+    if (hit.dist2 > reach * reach) continue;
     railAt(rail, hit.s, railPos, tan);
     const speed = Math.sqrt(dot(v, v));
     if (speed < r.stallSpeed) continue;
@@ -158,7 +160,7 @@ export function tryCapture(state: RiderState, params: Params, terrain: Terrain):
     state.slide = dm.atan2(dot(F, S), dot(F, T));
     const offset = (p.x - railPos.x) * S.x + (p.y - railPos.y) * S.y + (p.z - railPos.z) * S.z;
     const lateral = dot(v, S);
-    let b = (r.entryOffsetGain * offset) / r.captureRadius;
+    let b = (r.entryOffsetGain * offset) / reach;
     if (Math.abs(b) < r.minImbalance) b = (lateral >= 0 ? 1 : -1) * r.minImbalance;
     state.balance = b;
     state.balanceVel = (r.entryVelGain * lateral) / Math.abs(along);

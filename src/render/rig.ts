@@ -132,6 +132,43 @@ export function neutralDrivers(): RigDrivers {
   };
 }
 
+/**
+ * Mirror a pose nose-for-tail, in place — a grab done riding switch is the regular grab's
+ * mirror image. Board-local Z flips: translations along it and rotations about the other
+ * two axes change sign, rotations about Z (pelvis pitch, spine bend, nod, tweak roll)
+ * don't, and the two arms trade places with their board coordinate reflected.
+ */
+export function mirrorDrivers(d: RigDrivers): void {
+  d.hipZ = -d.hipZ;
+  d.hipYaw = -d.hipYaw;
+  d.hipRoll = -d.hipRoll;
+  d.spineSide = -d.spineSide;
+  d.spineTwist = -d.spineTwist;
+  d.headYaw = -d.headYaw;
+  d.boardPitch = -d.boardPitch;
+  let t = d.frontHandEdge;
+  d.frontHandEdge = d.backHandEdge;
+  d.backHandEdge = t;
+  t = d.frontHandT;
+  d.frontHandT = 1 - d.backHandT;
+  d.backHandT = 1 - t;
+  t = d.frontGrip;
+  d.frontGrip = d.backGrip;
+  d.backGrip = t;
+  t = d.frontShoulderSwing;
+  d.frontShoulderSwing = d.backShoulderSwing;
+  d.backShoulderSwing = t;
+  t = d.frontShoulderOut;
+  d.frontShoulderOut = d.backShoulderOut;
+  d.backShoulderOut = t;
+  t = d.frontElbow;
+  d.frontElbow = d.backElbow;
+  d.backElbow = t;
+  t = d.frontElbowPole;
+  d.frontElbowPole = d.backElbowPole;
+  d.backElbowPole = t;
+}
+
 export function copyDrivers(dst: RigDrivers, src: RigDrivers): void {
   for (const key of Object.keys(dst) as (keyof RigDrivers)[]) dst[key] = src[key];
 }
