@@ -7,7 +7,8 @@ import { createContact } from '../sim/terrain.ts';
 import { length, vec3, type Vec3 } from '../sim/vec3.ts';
 import { boardAttitude } from '../sim/grabs.ts';
 import { BODY_KEYS, grabBody } from './poses.ts';
-import { createRig, gripWeight, neutralDrivers, smoothstep, type RigDrivers } from './rig.ts';
+import { butterAmount } from '../sim/states/grounded.ts';
+import { BOARD_HALF, createRig, edgePoint, gripWeight, neutralDrivers, smoothstep, type RigDrivers } from './rig.ts';
 import type { Secondary } from './secondary.ts';
 
 /**
@@ -171,29 +172,62 @@ function snowTexture(): THREE.Texture {
   return texture;
 }
 
+/**
+ * Grid columns across the slope: ~0.75 m cells, fine enough that a kicker's transition and
+ * side taper read as curves, and 0.1 m across a wall so its face is a face and not a ramp.
+ * Walls run down the fall line, so only X needs the extra columns.
+ */
+function gridColumns(cfg: SlopeConfig): number[] {
+  const half = cfg.width / 2;
+  const xs: number[] = [];
+  const coarse = Math.round(cfg.width / 0.75);
+  for (let i = 0; i <= coarse; i++) xs.push(-half + (cfg.width * i) / coarse);
+  for (const w of cfg.walls ?? []) {
+    const span = w.radius + w.top + 2 * w.height + 1;
+    const from = Math.min(w.x, w.x + w.side * span) - 0.5;
+    const to = Math.max(w.x, w.x + w.side * span) + 0.5;
+    for (let x = from; x <= to; x += 0.1) xs.push(x);
+  }
+  xs.sort((p, q) => p - q);
+  return xs.filter((x, i) => Math.abs(x) <= half && (i === 0 || x - (xs[i - 1] ?? -Infinity) > 0.02));
+}
+
 function slopeMesh(cfg: SlopeConfig, terrain: Terrain): THREE.Mesh {
   const runOut = 20;
-  // ~0.75 m cells: fine enough that the kicker's transition and side taper read as curves.
-  const geometry = new THREE.PlaneGeometry(
-    cfg.width,
-    cfg.length + runOut,
-    Math.round(cfg.width / 0.75),
-    Math.round((cfg.length + runOut) / 0.75),
-  );
-  geometry.rotateX(-Math.PI / 2);
-  geometry.translate(0, 0, runOut - (cfg.length + runOut) / 2);
-
-  const position = geometry.attributes.position as THREE.BufferAttribute;
+  const xs = gridColumns(cfg);
+  const rows = Math.round((cfg.length + runOut) / 0.75);
+  const cols = xs.length;
+  const positions = new Float32Array(cols * (rows + 1) * 3);
+  const uvs = new Float32Array(cols * (rows + 1) * 2);
   const contact = createContact();
-  for (let i = 0; i < position.count; i++) {
-    const x = position.getX(i);
-    const z = position.getZ(i);
-    position.setY(i, terrain.sample(x, z, contact).height);
+  for (let j = 0; j <= rows; j++) {
+    const z = runOut - ((cfg.length + runOut) * j) / rows;
+    for (let i = 0; i < cols; i++) {
+      const x = xs[i] ?? 0;
+      const k = j * cols + i;
+      positions[k * 3] = x;
+      positions[k * 3 + 1] = terrain.sample(x, z, contact).height;
+      positions[k * 3 + 2] = z;
+      // World-scaled: one texture tile per 4 m, whatever the cell size.
+      uvs[k * 2] = x / 4;
+      uvs[k * 2 + 1] = z / 4;
+    }
   }
+  const index: number[] = [];
+  for (let j = 0; j < rows; j++) {
+    for (let i = 0; i < cols - 1; i++) {
+      const a = j * cols + i;
+      const b = a + cols;
+      index.push(a, a + 1, b, a + 1, b + 1, b); // counter-clockwise seen from above
+    }
+  }
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+  geometry.setAttribute('uv', new THREE.BufferAttribute(uvs, 2));
+  geometry.setIndex(index);
   geometry.computeVertexNormals();
 
   const texture = snowTexture();
-  texture.repeat.set(cfg.width / 4, (cfg.length + runOut) / 4);
   const material = new THREE.MeshStandardMaterial({ map: texture, roughness: 0.95, metalness: 0 });
   const mesh = new THREE.Mesh(geometry, material);
   mesh.receiveShadow = true;
@@ -288,6 +322,13 @@ export function createScene(cfg: SlopeConfig, terrain: Terrain, camera: THREE.Pe
 
   const neutral = neutralDrivers();
   const base = neutralDrivers();
+  // Butter tip-up scratch: the board pitch pivots on the hand point (rig.ts), so the root is
+  // shifted to put the pressed end back on the snow.
+  let butterTip = 0;
+  const tip = new THREE.Vector3();
+  const pivot = new THREE.Vector3();
+  const pitchQuat = new THREE.Quaternion();
+  const lateral = new THREE.Vector3(-1, 0, 0);
   const body = neutralDrivers();
 
   /**
@@ -298,7 +339,7 @@ export function createScene(cfg: SlopeConfig, terrain: Terrain, camera: THREE.Pe
    */
   const driveFromSim = (view: RiderView, params: Params, secondary: Secondary): void => {
     const r = params.rig;
-    const grounded = view.mode === 'grounded';
+    const grounded = view.mode === 'grounded' || view.mode === 'walled';
 
     base.hipY = secondary.hipY;
     // On snow the hips lean into the edge; on a rail they carry the balance — the lean you
@@ -326,7 +367,10 @@ export function createScene(cfg: SlopeConfig, terrain: Terrain, camera: THREE.Pe
     drivers.backGrip = front ? 0 : handWeight;
 
     const a = boardAttitude(view.grabEdge, view.grabT, view.grip, view.tweak, params);
-    drivers.boardPitch = a.pitch;
+    // A butter tips the board onto the pressed end: nose press is nose down.
+    const butter = grounded ? butterAmount(view.stance, view.speed, params) : 0;
+    butterTip = butter > 0 ? Math.sign(view.stance) : 0;
+    drivers.boardPitch = a.pitch - butterTip * butter * params.butter.pitch;
     drivers.tweakRoll = a.roll;
     drivers.shifty = view.shifty;
     drivers.stanceScale = neutral.stanceScale;
@@ -356,7 +400,7 @@ export function createScene(cfg: SlopeConfig, terrain: Terrain, camera: THREE.Pe
       rig.root.quaternion.set(q.x, q.y, q.z, q.w);
 
       // Edge roll is cosmetic and only means anything on snow.
-      if (view.mode === 'grounded') {
+      if (view.mode === 'grounded' || view.mode === 'walled') {
         // Local +X is the heel side (design §1), so a toe edge tips −X down.
         roll.setFromAxisAngle(zAxis, view.edge * params.rig.edgeRoll);
         rig.root.quaternion.multiply(roll);
@@ -367,7 +411,19 @@ export function createScene(cfg: SlopeConfig, terrain: Terrain, camera: THREE.Pe
       }
 
       // Pose mode leaves the drivers alone — they are the thing being authored.
+      butterTip = 0;
       if (!poseMode) driveFromSim(view, params, secondary);
+      if (butterTip !== 0) {
+        // Where the pressed tip ends up after the rig pitches the board about the hand
+        // point, and the root moved back by that much so the tip stays on the snow.
+        const useFront = drivers.frontGrip >= drivers.backGrip;
+        edgePoint(pivot, useFront ? drivers.frontHandEdge : drivers.backHandEdge, useFront ? drivers.frontHandT : drivers.backHandT);
+        pitchQuat.setFromAxisAngle(lateral, drivers.boardPitch);
+        tip.set(0, 0, butterTip * BOARD_HALF).sub(pivot).applyQuaternion(pitchQuat).add(pivot);
+        tip.z -= butterTip * BOARD_HALF;
+        tip.applyQuaternion(rig.root.quaternion);
+        rig.root.position.sub(tip);
+      }
 
       rig.apply(drivers, params);
     },

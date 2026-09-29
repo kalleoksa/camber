@@ -40,7 +40,7 @@ export function createChaseCamera(params: Params): ChaseCamera {
   };
 
   const rollTarget = (view: RiderView, p: Params): number =>
-    view.mode === 'grounded' ? -view.edge * p.camera.rollGain : 0;
+    (view.mode === 'grounded' || view.mode === 'walled') ? -view.edge * p.camera.rollGain : 0;
 
   const frame = (view: RiderView, p: Params): void => {
     camera.lookAt(look);

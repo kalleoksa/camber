@@ -43,23 +43,13 @@ import {
   type RiderState,
 } from './sim/state.ts';
 import { createContact, createSlope, type SlopeConfig } from './sim/terrain.ts';
+import { SLOPESTYLE } from './park/slopestyle.ts';
 import { length } from './sim/vec3.ts';
 import { createPanel, download, type Readout } from './tuning/panel.ts';
 
 const SEED = 1;
-const slopeConfig: SlopeConfig = {
-  length: 400,
-  width: 120,
-  pitch: 0.28,
-  // A park table-top 16 m down: 6 m lip, rounded knuckle, 16 m landing at 0.3 rad below
-  // the slope, rounded run-out. Moved down from 10 m after play: lip speeds of 10–12 m/s
-  // felt slow and the slowest air came up short onto the knuckle. Simulated: rolls reach
-  // the lip at ~12 m/s and pops at ~14, all landing on the landing — rolls at ~6 m/s
-  // impact, pops ~11. Stand-in until park.json in milestone 7.
-  kicker: { z: -16, x: 0, width: 10, lipHeight: 6, lipAngle: 0.5, deckLength: 5, sideTaper: 3, landingAngle: 0.3, knuckleRadius: 5, runoutRadius: 18 },
-  // A straight 26 m rail, 0.6 m up, right of the kicker line: carve over and ollie on.
-  rails: [{ points: [[14, 0.6, -14], [14, 0.6, -40]] }],
-};
+// The slopestyle park (src/park/slopestyle.ts): rails, a wall, two kickers, a last rail.
+const slopeConfig: SlopeConfig = SLOPESTYLE;
 
 const terrain = createSlope(slopeConfig);
 const spawn = {

@@ -106,16 +106,18 @@ export const params = {
     stallPush: 1.0, // m/s off the side on a stall
   },
   wall: {
-    minAngle: 1.13, // rad ≈ 65° from up
-    minSpeed: 8.0, // m/s
-    gravityScale: 0.35,
+    minAngle: 1.13, // rad ≈ 65° from up — surface steeper than this, fast enough, is a wallride
+    minSpeed: 8.0, // m/s, below which the wall lets go and full gravity takes you back down
+    gravityScale: 0.35, // fraction of gravity while walled
     drag: 3.0, // m/s² while walled
   },
   butter: {
-    threshold: 0.65, // |stance|
-    maxSpeed: 12.0, // m/s
-    grip: 0.3, // multiplier on gripEdge
-    yawAuthority: 3.2, // rad/s
+    press: 0.65, // |stance| where a press starts to become a butter
+    maxSpeed: 12.0, // m/s, above which there is no butter — you carve on a press instead
+    speedFade: 3.0, // m/s below maxSpeed over which the butter fades in
+    gripScale: 0.3, // grip multiplier at full butter — the board lets go sideways
+    yawRate: 3.2, // rad/s of pivot at full butter and full edge stick, independent of speed
+    pitch: 0.2, // rad the board tips onto the pressed end at full butter — render only
   },
   /**
    * Grab timing. `reach` and `release` are the real feel numbers — the rate the rider blends

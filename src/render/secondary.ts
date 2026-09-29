@@ -81,7 +81,7 @@ export function stepSecondary(sec: Secondary, state: RiderState, params: Params,
   // (the spin will be −edge, so the wind-up is +edge); the pop releases it and the same
   // spring carries it through into a lead in the direction of the spin. The head looks
   // where the board will be `headLead` seconds on.
-  const grounded = state.mode === 'grounded';
+  const grounded = state.mode === 'grounded' || state.mode === 'walled';
   const airborne = state.mode === 'airborne';
   const spinFraction = Math.max(-1, Math.min(1, state.spinRate / params.air.spinTakeoff));
   const twistTarget = grounded

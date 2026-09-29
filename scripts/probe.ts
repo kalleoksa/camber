@@ -6,6 +6,7 @@ import { tick } from '../src/sim/rider.ts';
 import { createRiderState, type RiderState } from '../src/sim/state.ts';
 import { createContact, createSlope, type Terrain } from '../src/sim/terrain.ts';
 import { length, vec3 } from '../src/sim/vec3.ts';
+import { SLOPESTYLE } from '../src/park/slopestyle.ts';
 
 /**
  * Headless readout of the canonical moves. Prints numbers, asserts nothing — whether they
@@ -185,6 +186,61 @@ function rail(name: string, { balanced = false, slide = 0, press = 0, offset = 0
 }
 
 console.log('move                   landing  rotated     riding  speed');
+
+/**
+ * Butter: roll off at low speed, then full press and full edge stick for `hold` s. Reports
+ * how far the board came round and where it ends up against the direction of travel —
+ * a butter 180 turns the board and not the rider's path, so that should read ~180°.
+ */
+function butter(name: string, ly: number, hold: number, rollFor = 1): void {
+  const state = spawn(slope);
+  const input = neutralInput();
+  run(state, slope, input, rollFor);
+  const before = length(state.velocity);
+  let turned = 0;
+  let prev = state.heading;
+  input.ly = ly;
+  input.lx = ly;
+  for (let i = 0; i < hold / TICK_DT; i++) {
+    tick(state, input, params, slope, TICK_DT);
+    turned += Math.atan2(Math.sin(state.heading - prev), Math.cos(state.heading - prev));
+    prev = state.heading;
+  }
+  const course = Math.atan2(state.velocity.x, state.velocity.z);
+  const rel = Math.atan2(Math.sin(state.heading - course), Math.cos(state.heading - course));
+  console.log(
+    `${name.padEnd(26)} ${before.toFixed(1)} -> ${length(state.velocity).toFixed(1)} m/s, ` +
+      `board turned ${deg(Math.abs(turned))}, ${deg(Math.abs(rel))} to travel`,
+  );
+}
+
+/** The park's wall with nothing else in the way: carve over at `aim` rad and ride it. */
+const wallSlope = createSlope({ ...SLOPESTYLE, kickers: [], rails: [] });
+function wall(name: string, aim: number, along: number): void {
+  const state = spawn(wallSlope);
+  const input = neutralInput();
+  const c = createContact();
+  let walled = 0;
+  let top = 0;
+  let speedOn = 0;
+  for (let i = 0; i < 9 / TICK_DT && state.position.z > -85; i++) {
+    const onIt = state.mode === 'walled' || (state.position.x > 10.5 && state.mode === 'grounded');
+    const target = onIt ? Math.PI - along : state.position.z < -30 ? Math.PI - aim : Math.PI;
+    const err = Math.atan2(Math.sin(target - state.heading), Math.cos(target - state.heading));
+    input.lx = Math.max(-1, Math.min(1, -3 * err));
+    tick(state, input, params, wallSlope, TICK_DT);
+    if (state.mode === 'walled') {
+      if (walled === 0) speedOn = length(state.velocity);
+      walled += TICK_DT;
+      top = Math.max(top, state.position.y - wallSlope.sample(0, state.position.z, c).height);
+    }
+  }
+  console.log(
+    `${name.padEnd(26)} ${walled > 0 ? `walled ${walled.toFixed(2)} s, on at ${speedOn.toFixed(1)} m/s, up ${top.toFixed(1)} m` : 'never walled'}`,
+  );
+}
+
+
 pop('straight air');
 pop('180, check 0.55 s', { lx: 0.5, checkAt: 0.55 });
 pop('180, never check', { lx: 0.5 });
@@ -218,3 +274,9 @@ rail('boardslide, balanced', { balanced: true, slide: 1.5 });
 rail('tailslide, balanced', { balanced: true, press: -1 });
 carve('toe edge held', 1);
 carve('heel edge held', -1);
+butter('nose butter 180', 1, 1);
+butter('tail butter 180', -1, 1);
+butter('press at speed, no butter', 1, 0.6, 3.5);
+wall('wall, steep approach', 0.6, 0.5);
+wall('wall, along the face', 0.6, 0.3);
+wall('wall, too shallow', 0.4, 0.3);

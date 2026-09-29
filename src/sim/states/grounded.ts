@@ -60,8 +60,22 @@ export function stepGrounded(
     state.heading = wrapAngle(state.heading + delta * (1 - dm.exp(-params.land.headingSnap * dt)));
   }
 
+  // Wallride (§9): a face steeper than `wall.minAngle`, taken fast enough, is ridden with
+  // gravity scaled down. Same ground model otherwise — the board is slaved to the wall, so a
+  // wallride is a very steep carve. Too slow, or back onto gentler snow, and it lets go.
+  // Entry only as the face comes up under the board — the smoothed normal still says gentle
+  // snow. Once a wall has let go, sliding back down it at full gravity would otherwise pick
+  // speed back up and re-enter every other tick.
+  const minNy = dm.cos(params.wall.minAngle);
+  const steep = n.y < minNy;
+  const moving = length(v) >= params.wall.minSpeed;
+  const arriving = state.groundNormal.y >= minNy;
+  if (state.mode === 'grounded' && steep && moving && arriving) state.mode = 'walled';
+  else if (state.mode === 'walled' && !(steep && moving)) state.mode = 'grounded';
+  const walled = state.mode === 'walled';
+
   // Tangential component of gravity on the contact plane: g*(down − n*(down·n)).
-  const gravity = params.world.gravity;
+  const gravity = params.world.gravity * (walled ? params.wall.gravityScale : 1);
   v.x += gravity * (n.x * n.y) * dt;
   v.y += gravity * (n.y * n.y - 1) * dt;
   v.z += gravity * (n.z * n.y) * dt;
@@ -93,6 +107,10 @@ export function stepGrounded(
   grip *= 1 - input.lt * g.brakeGripLoss;
 
   const speedBefore = Math.sqrt(vf * vf + vl * vl);
+  // Butter: a hard press at low speed goes up on the nose or tail. Grip lets go and the
+  // board pivots on the pressed end, so a ground 180 or 360 is there to be had.
+  const butter = walled ? 0 : butterAmount(state.stance, speedBefore, params);
+  grip *= 1 + (params.butter.gripScale - 1) * butter;
   const vlAfter = vl * dm.exp(-Math.max(grip, 0) * dt);
   const scrubbed = Math.abs(vl) - Math.abs(vlAfter);
 
@@ -101,13 +119,15 @@ export function stepGrounded(
   // `carveHold` blends between it and the friction-cone version that just eats the
   // lateral component — at 1.0 a carve is free, at 0.0 it is a skid.
   const vfRotated = Math.sign(vf) * Math.sqrt(Math.max(0, speedBefore * speedBefore - vlAfter * vlAfter));
-  vf += (vfRotated - vf) * g.carveHold;
+  // A butter is a pivot, not a carve: scrub is not handed back, so the board can come round
+  // while the rider keeps travelling the way they were going.
+  vf += (vfRotated - vf) * g.carveHold * (1 - butter);
   vl = vlAfter;
   state.scrub = scrubbed / dt;
 
   let speed = Math.sqrt(vf * vf + vl * vl);
   if (speed > 0) {
-    const drag = (g.drag * speed * speed + input.lt * g.brakeDecel) * dt;
+    const drag = (g.drag * speed * speed + input.lt * g.brakeDecel + (walled ? params.wall.drag : 0)) * dt;
     const carveCost = g.edgeDrag * edgeMag * scrubbed;
     const keep = Math.max(0, speed - drag - carveCost) / speed;
     vf *= keep;
@@ -127,6 +147,8 @@ export function stepGrounded(
     // Low-authority skid pivot so a stopped rider isn't stuck facing the wrong way.
     yaw += state.edge * g.pivotYaw * (1 - speed / g.pivotSpeed);
   }
+  // The butter pivot is not speed-scaled: on one end of the board you can turn on the spot.
+  yaw += state.edge * params.butter.yawRate * butter;
   // Increasing `heading` swings the nose toward `n × forward`, which is the heel side.
   // A toe-edge carve goes the other way, so positive edge subtracts.
   state.heading = wrapAngle(state.heading - yaw * dt);
@@ -160,6 +182,19 @@ export function stepGrounded(
   p.y = contact.height;
   state.clearance = 0;
   projectOntoPlane(v, contact.normal);
+}
+
+/**
+ * 0..1 of butter: how far |stance| is past `butter.press`, faded out toward `butter.maxSpeed`.
+ * Exported so render can tip the board onto the pressed end by the same amount.
+ */
+export function butterAmount(stance: number, speed: number, params: Params): number {
+  const b = params.butter;
+  const s = Math.abs(stance);
+  if (s <= b.press || speed >= b.maxSpeed) return 0;
+  const press = Math.min(1, (s - b.press) / (1 - b.press));
+  const fade = b.speedFade > 0 ? Math.min(1, (b.maxSpeed - speed) / b.speedFade) : 1;
+  return press * fade;
 }
 
 /**

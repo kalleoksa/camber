@@ -24,8 +24,42 @@ export type SlopeConfig = {
   length: number; // m along -Z
   width: number; // m along X
   pitch: number; // rad, fall line points toward -Z
+  /** Legacy single kicker, kept so takes recorded with it replay. New terrain uses `kickers`. */
   kicker?: KickerConfig;
+  kickers?: KickerConfig[];
   rails?: RailConfig[];
+  walls?: WallConfig[];
+  /**
+   * Grade changes down the run. From `z` on downhill the slope falls at `pitch` instead of
+   * what it fell at before, the change rounded over `blend` m so there is no kink to launch
+   * off. How a park keeps speed in check between features: a near-flat deck holds speed, a
+   * steep pitch builds it.
+   */
+  grades?: GradeConfig[];
+};
+
+export type GradeConfig = {
+  z: number; // m, centre of the change
+  pitch: number; // rad, the grade from here on
+  blend: number; // m over which the grade eases from the old pitch to this one
+};
+
+/**
+ * A wallride wall running down the fall line (§9): a circular transition from the slope up
+ * to a straight face at `angle`, a flat top, and a back face dropping at the same angle.
+ * Measured across the slope from `x`, rising toward `side`. The ends fade in over `taper`
+ * so it can be ridden onto from the end as well as the side. Terrain data, like a kicker.
+ */
+export type WallConfig = {
+  x: number; // m, where the transition starts
+  side: 1 | -1; // rises toward +X or −X
+  z: number; // m, uphill end
+  length: number; // m down the fall line
+  height: number; // m above the slope
+  angle: number; // rad of the face from horizontal — must pass wall.minAngle to wallride
+  radius: number; // m, transition radius
+  top: number; // m of flat top
+  taper: number; // m over which each end fades in
 };
 
 /**
@@ -75,33 +109,86 @@ export function createSlope(cfg: SlopeConfig): Terrain {
     return bankHeight * t * t;
   };
 
-  // Kicker profile along s, metres downhill past its start. The transition is a circular
-  // arc so the rider is loaded smoothly into the lip; its radius follows from lip height
-  // and angle (H = R(1 − cos θ), run-in L = R sin θ).
-  const k = cfg.kicker;
-  const radius = k ? k.lipHeight / (1 - dm.cos(k.lipAngle)) : 0;
-  const runIn = k ? radius * dm.sin(k.lipAngle) : 0;
-  const deckEnd = k ? runIn + k.deckLength : 0;
+  const kickers = (cfg.kickers ?? (cfg.kicker ? [cfg.kicker] : [])).map(kickerProfile);
+  const walls = (cfg.walls ?? []).map(wallProfile);
+  const grades = gradeProfile(cfg.pitch, cfg.grades ?? []);
+
+  // Summed from 0, so a single feature gives exactly its own height — old takes keep their hashes.
+  const featureHeight = (x: number, z: number): number => {
+    let h = 0;
+    for (let i = 0; i < kickers.length; i++) h += kickers[i]?.(x, z) ?? 0;
+    for (let i = 0; i < walls.length; i++) h += walls[i]?.(x, z) ?? 0;
+    if (grades) h += grades(x, z);
+    return h;
+  };
+
+  const heightAt = (x: number, z: number): number => z * slope + bank(x) + featureHeight(x, z);
+  const rails = (cfg.rails ?? []).map((r) => buildRail(r, heightAt));
+
+  return {
+    rails,
+    sample(x, z, out) {
+      out.height = z * slope + bank(x);
+
+      // Analytic gradient: dh/dx from the bank, dh/dz from the pitch.
+      const eps = 0.05;
+      const dhdx = (bank(x + eps) - bank(x - eps)) / (2 * eps);
+      out.normal.x = -dhdx;
+      out.normal.y = 1;
+      out.normal.z = -slope;
+
+      // Features on top, by central difference — only near one, so the plain slope stays
+      // bit-identical to before features existed and old takes keep their hashes.
+      const kh = featureHeight(x, z);
+      if (
+        kh !== 0 ||
+        featureHeight(x, z + eps) !== 0 ||
+        featureHeight(x, z - eps) !== 0 ||
+        featureHeight(x + eps, z) !== 0 ||
+        featureHeight(x - eps, z) !== 0
+      ) {
+        out.height += kh;
+        out.normal.x -= (featureHeight(x + eps, z) - featureHeight(x - eps, z)) / (2 * eps);
+        out.normal.z -= (featureHeight(x, z + eps) - featureHeight(x, z - eps)) / (2 * eps);
+      }
+      normalize(out.normal);
+
+      out.surface = 'snow';
+      return out;
+    },
+  };
+}
+
+type Profile = (x: number, z: number) => number;
+
+/**
+ * Kicker height above the slope, along s = metres downhill past its start. The transition
+ * is a circular arc so the rider is loaded smoothly into the lip; its radius follows from
+ * lip height and angle (H = R(1 − cos θ), run-in L = R sin θ).
+ */
+function kickerProfile(k: KickerConfig): Profile {
+  const radius = k.lipHeight / (1 - dm.cos(k.lipAngle));
+  const runIn = radius * dm.sin(k.lipAngle);
+  const deckEnd = runIn + k.deckLength;
 
   // Park landing geometry: knuckle arc, straight landing, run-out arc. Each arc turns
   // through `landingAngle`, so the knuckle drops Rk(1 − cos α) over Rk sin α and the
   // run-out the same with its own radius; the straight covers the height left between.
-  const alpha = k?.landingAngle ?? 0;
-  const park = k !== undefined && alpha > 0;
-  const rk = k?.knuckleRadius ?? 0;
-  const rb = k?.runoutRadius ?? 0;
+  const alpha = k.landingAngle ?? 0;
+  const park = alpha > 0;
+  const rk = k.knuckleRadius ?? 0;
+  const rb = k.runoutRadius ?? 0;
   const knuckleLen = park ? rk * dm.sin(alpha) : 0;
   const knuckleDrop = park ? rk * (1 - dm.cos(alpha)) : 0;
   const runoutLen = park ? rb * dm.sin(alpha) : 0;
   const runoutRise = park ? rb * (1 - dm.cos(alpha)) : 0;
   const slopeAlpha = park ? dm.tan(alpha) : 0;
-  const straightLen = park && k ? Math.max(0, k.lipHeight - knuckleDrop - runoutRise) / slopeAlpha : 0;
+  const straightLen = park ? Math.max(0, k.lipHeight - knuckleDrop - runoutRise) / slopeAlpha : 0;
   const knuckleEnd = deckEnd + knuckleLen;
   const straightEnd = knuckleEnd + straightLen;
-  const end = !k ? 0 : park ? straightEnd + runoutLen : deckEnd + (k.landingLength ?? 0);
+  const end = park ? straightEnd + runoutLen : deckEnd + (k.landingLength ?? 0);
 
-  const kickerHeight = (x: number, z: number): number => {
-    if (!k) return 0;
+  return (x: number, z: number): number => {
     const s = k.z - z;
     if (s <= 0 || s >= end) return 0;
     const side = Math.abs(x - k.x) - k.width * 0.5;
@@ -124,40 +211,63 @@ export function createSlope(cfg: SlopeConfig): Terrain {
     }
     return h;
   };
+}
 
-  const heightAt = (x: number, z: number): number => z * slope + bank(x) + kickerHeight(x, z);
-  const rails = (cfg.rails ?? []).map((r) => buildRail(r, heightAt));
+/** Wall height above the slope: transition arc, straight face, flat top, back face. */
+function wallProfile(w: WallConfig): Profile {
+  const r = w.radius;
+  const arcLen = r * dm.sin(w.angle);
+  const arcRise = r * (1 - dm.cos(w.angle));
+  const steep = dm.tan(w.angle);
+  const faceEnd = arcLen + Math.max(0, w.height - arcRise) / steep;
+  const topEnd = faceEnd + w.top;
+  const backEnd = topEnd + w.height / steep;
+  return (x: number, z: number): number => {
+    const u = (x - w.x) * w.side;
+    const s = w.z - z;
+    if (u <= 0 || u >= backEnd || s <= 0 || s >= w.length) return 0;
+    let h: number;
+    if (u < arcLen) h = r - Math.sqrt(r * r - u * u);
+    else if (u < faceEnd) h = arcRise + (u - arcLen) * steep;
+    else if (u < topEnd) h = w.height;
+    else h = w.height - (u - topEnd) * steep;
+    const end = Math.min(s, w.length - s);
+    if (end < w.taper) {
+      const t = end / w.taper;
+      h *= t * t * (3 - 2 * t);
+    }
+    return h;
+  };
+}
 
-  return {
-    rails,
-    sample(x, z, out) {
-      out.height = z * slope + bank(x);
-
-      // Analytic gradient: dh/dx from the bank, dh/dz from the pitch.
-      const eps = 0.05;
-      const dhdx = (bank(x + eps) - bank(x - eps)) / (2 * eps);
-      out.normal.x = -dhdx;
-      out.normal.y = 1;
-      out.normal.z = -slope;
-
-      // Kicker on top, by central difference — only near it, so the plain slope stays
-      // bit-identical to before the kicker existed and old takes keep their hashes.
-      const kh = kickerHeight(x, z);
-      if (
-        kh > 0 ||
-        kickerHeight(x, z + eps) > 0 ||
-        kickerHeight(x, z - eps) > 0 ||
-        kickerHeight(x + eps, z) > 0 ||
-        kickerHeight(x - eps, z) > 0
-      ) {
-        out.height += kh;
-        out.normal.x -= (kickerHeight(x + eps, z) - kickerHeight(x - eps, z)) / (2 * eps);
-        out.normal.z -= (kickerHeight(x, z + eps) - kickerHeight(x, z - eps)) / (2 * eps);
-      }
-      normalize(out.normal);
-
-      out.surface = 'snow';
-      return out;
-    },
+/**
+ * Height the grade changes add to the constant-pitch plane. The slope's tan ramps linearly
+ * across each blend, so its integral is a parabola there and a straight line past it —
+ * rounded in, constant grade out. Negative below a steepening, which is why the feature
+ * test in `sample` is `!== 0` rather than `> 0`. Null when there are none.
+ */
+function gradeProfile(pitch: number, grades: GradeConfig[]): Profile | null {
+  if (grades.length === 0) return null;
+  const at: number[] = [];
+  const blend: number[] = [];
+  const step: number[] = []; // change in tan(pitch) at each break
+  let prev = dm.tan(pitch);
+  for (const g of grades) {
+    const next = dm.tan(g.pitch);
+    at.push(-g.z);
+    blend.push(Math.max(g.blend, 1e-6));
+    step.push(next - prev);
+    prev = next;
+  }
+  return (_x: number, z: number): number => {
+    const s = -z; // m downhill
+    let drop = 0;
+    for (let i = 0; i < at.length; i++) {
+      const w = blend[i] ?? 1;
+      const u = s - (at[i] ?? 0);
+      const ramp = u <= -w / 2 ? 0 : u >= w / 2 ? u : ((u + w / 2) * (u + w / 2)) / (2 * w);
+      drop += (step[i] ?? 0) * ramp;
+    }
+    return -drop;
   };
 }

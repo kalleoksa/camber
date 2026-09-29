@@ -111,7 +111,7 @@ export function createSpray(): Spray {
         burstFired = false;
       }
 
-      if (view.mode === 'grounded' && view.scrub > 0) {
+      if ((view.mode === 'grounded' || view.mode === 'walled') && view.scrub > 0) {
         const intensity = Math.min(view.scrub / params.spray.scrubRef, 1);
         pending += intensity * params.spray.rate * dt;
         const edgeSign = view.edge >= 0 ? 1 : -1;
