@@ -293,9 +293,9 @@ it for style, pull it back in time, or eat it. That is the scoreless feedback pr
 from §11 solved in the physics instead of in a UI element — do not also stamp it on
 screen.
 
-**Planned: impact as a third test.** Today only the angles are judged, so an 18 m/s slam
-into the landing past a kicker's end reads clean if the board lines up. Add the speed into
-the surface, `impact = |v·n|` at contact (already computed), as a third row input:
+**Impact as a third test** (built; older takes replay with it off). Judged on angles
+alone, an 18 m/s slam into the landing past a kicker's end read clean if the board lined
+up. The speed into the surface, `impact = |v·n|` at contact, is now a third input:
 
 | Impact | Result |
 |---|---|
@@ -310,6 +310,10 @@ landings run 5–12 m/s, the overshoot that prompted this was 18, so roughly
 `impactSketchy` 13 and `impactBail` 17. The research (equivalent fall height, §10 notes)
 puts a real rider's comfortable limit near 1.5 m of fall — at the sim's gravity about
 7 m/s — but the game's airs are bigger than real ones, so start from play, not from that.
+As built, `absorbGain` is 0.25. Probe, dropping flat onto the slope at 10 m/s along it:
+4 m clean (11 m/s), 8 m sketchy (15.5), 10 m and up bail. Absorbed, 10–16 m is sketchy
+and 20 m still bails. Sochi landings stay clean (5–12 m/s); overshooting the corner to its
+deck (14.4) is sketchy.
 Walls and the quarter pipe are judged the same way; a wallride entry is not a landing.
 
 ---

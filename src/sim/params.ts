@@ -77,6 +77,11 @@ export const params = {
     sketchySpeedLoss: 0.25, // fraction
     absorbTime: 0.22, // s
     headingSnap: 18.0, // 1/s, heading correction onto velocity — fast, but not a teleport
+    // Impact (§6): m/s of velocity into the landing surface. Past impactSketchy the knees
+    // buckle — sketchy at best; past impactBail it's a bail however well the board lines up.
+    impactSketchy: 13.0, // m/s
+    impactBail: 17.0, // m/s
+    absorbGain: 0.25, // both limits × (1 + this·compress): RT held coming down is a legs-bent landing
   },
   bail: {
     drag: 16.0, // m/s² while tumbling
