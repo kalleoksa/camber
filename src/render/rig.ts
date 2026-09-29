@@ -1,5 +1,6 @@
 import * as THREE from 'three';
-import type { Params } from '../sim/params.ts';
+import { params as defaults, type Params } from '../sim/params.ts';
+import { dress } from './outfit.ts';
 
 /**
  * The rider, inverted from a normal character rig (design §7.1): the feet are bolted to
@@ -412,6 +413,8 @@ export type Rig = {
   /** Foot separation the leg solve produced. A diagnostic — the board is derived from it. */
   readonly stance: number;
   apply(drivers: RigDrivers, params: Params): void;
+  /** Dressed rider (outfit.ts) or the bare segments the poses were authored on. */
+  setDressed(on: boolean): void;
 };
 
 const SKIN = 0x2f6ee2;
@@ -508,6 +511,13 @@ export function createRig(): Rig {
   root.add(gapF, gapB);
   board.add(bootF, bootB);
 
+  const outfit = dress(
+    { pelvis, torso, head, thighs: [thighL, thighR], shins: [shinL, shinR], upperArms: [armLU, armRU], forearms: [armLL, armRL], mitts: [mittF, mittB] },
+    defaults.rig,
+  );
+  // Hiding a segment's material, not the mesh, keeps its outfit children drawn.
+  const bare = [pelvis, torso, head, visor, thighL, shinL, thighR, shinR, armLU, armLL, armRU, armRL, mittF, mittB];
+
   // Scratch, all reused — this runs every frame.
   const hipCentre = new THREE.Vector3();
   const hipL = new THREE.Vector3();
@@ -562,6 +572,10 @@ export function createRig(): Rig {
     },
     get stance() {
       return effectiveStance;
+    },
+    setDressed(on: boolean): void {
+      for (const m of bare) (m.material as THREE.Material).visible = !on;
+      for (const piece of outfit.pieces) piece.visible = on;
     },
 
     apply(d, params) {

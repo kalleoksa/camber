@@ -1,6 +1,6 @@
 # Rider look — plan (milestone 9a–9c)
 
-Status: planned, not implemented. Implements `docs/visual-identity.md` §6 steps 9a–9c.
+Status: 9a first pass built (`src/render/outfit.ts`); 9b–9c planned. Implements `docs/visual-identity.md` §6 steps 9a–9c.
 The constraints there (render-side only, no cloth solver, replay reproduces cloth, bare
 silhouette view kept) apply unchanged and are not repeated here.
 
@@ -8,7 +8,25 @@ Decision taken: **procedural**. No mesh files, no modelling tool, no new depende
 
 ---
 
-## 1. Body: one skinned mesh, bones placed from the existing solve
+## 0. As built (9a)
+
+- **Rigid pieces, not skinning.** Each piece is a lathe tube or blob parented to the rig's
+  existing segment mesh. Limb tubes have domed ends centred on the joints, so the thigh's
+  and the shin's domes are one sphere at the knee: a bend reads as a bent tube, not a gap.
+  No bones, no bind pose. Skinning (below) stays the upgrade path if knee/elbow creasing or
+  waist twist ever reads badly.
+- Silhouette from your references:
+  - Olive, wide straight-leg pant with a soft break over the boot.
+  - Boxy two-tone raglan shell ending just below the hips, with a teal yoke, sleeves and
+    hood over a rust body.
+  - Black beanie with the goggles pushed up on it.
+  - Oversized mitts.
+- Fit numbers and palette are the `OUTFIT` const in `outfit.ts`, edited in code (Vite
+  reloads). They aren't in Tweakpane yet.
+- `status → dressed` toggles the dressed view; `?look=bare` starts bare. The reach overlay
+  tints the bare segments only.
+
+## 1. Body: one skinned mesh, bones placed from the existing solve (upgrade path)
 
 `rig.ts` already computes every joint per frame — hips, knees, feet, chest, shoulders,
 elbows, hands, head — and `placeBone` aims a box from one joint to the next. Keep all of

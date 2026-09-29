@@ -153,6 +153,7 @@ export type SceneView = {
    * moving horizon and invites reading a flat board as resting on the ground.
    */
   setStage(clean: boolean): void;
+  setDressed(on: boolean): void;
   resize(): void;
 };
 
@@ -511,6 +512,10 @@ export function createScene(cfg: SlopeConfig, terrain: Terrain, camera: THREE.Pe
       scene.background = clean ? stageColour : skyColour;
       // Reach diagnostics belong to authoring, not to play.
       rig.showReach(clean);
+    },
+
+    setDressed(on) {
+      rig.setDressed(on);
     },
 
     resize() {
