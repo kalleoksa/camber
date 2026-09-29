@@ -293,6 +293,25 @@ it for style, pull it back in time, or eat it. That is the scoreless feedback pr
 from §11 solved in the physics instead of in a UI element — do not also stamp it on
 screen.
 
+**Planned: impact as a third test.** Today only the angles are judged, so an 18 m/s slam
+into the landing past a kicker's end reads clean if the board lines up. Add the speed into
+the surface, `impact = |v·n|` at contact (already computed), as a third row input:
+
+| Impact | Result |
+|---|---|
+| `impact < land.impactSketchy` | no change — the angles decide |
+| `< land.impactBail` | at best **sketchy**: knees buckle, speed penalty |
+| otherwise | **bail**, however well the board lines up |
+
+Absorb raises both limits: holding RT in the air (the airborne "absorb" in §2) as you come
+down scales them by `land.absorbGain`, so a big drop to flat is survivable if you prepare
+for it — a legs-bent landing, not a stiff one. Starting points from the probes: clean park
+landings run 5–12 m/s, the overshoot that prompted this was 18, so roughly
+`impactSketchy` 13 and `impactBail` 17. The research (equivalent fall height, §10 notes)
+puts a real rider's comfortable limit near 1.5 m of fall — at the sim's gravity about
+7 m/s — but the game's airs are bigger than real ones, so start from play, not from that.
+Walls and the quarter pipe are judged the same way; a wallride entry is not a landing.
+
 ---
 
 ## 7. The rider rig
