@@ -92,13 +92,13 @@ export const params = {
     stallSpeed: 1.0, // m/s below which you drop off the side
     // Balance: an unstable lean, like standing on an edge — deterministic, seeded only by
     // the entry (open question 4). b'' = λ·b − c·b' + correctionGain·lx.
-    instability: 8.0, // λ, 1/s² at a centred 50-50 — hands off, a lean runs away in ~1 s
+    instability: 4.0, // λ, 1/s² at a centred 50-50 — hands off, a lean runs away in ~1 s
     slideDrift: 1.0, // λ × (1 + this·|sin slide|): a boardslide is less stable
     pressDrift: 1.0, // λ × (1 + this·|stance|): so is a nose or tail press
     balanceDamping: 0.3, // ζ against the lean's own rate
     correctionGain: 8.0, // 1/s² per unit of stick X — gain/λ is the furthest lean you can still save
     balanceMax: 1.0, // lean past which you fall off
-    entryOffsetGain: 0.6, // lean at capture per captureRadius of sideways miss
+    entryOffsetGain: 0.3, // lean at capture per captureRadius of sideways miss
     entryVelGain: 0.8, // lean rate at capture per unit of sideways/along speed ratio
     minImbalance: 0.05, // a perfect entry still starts this far off — balance is never free
     captureRise: 0.3, // fraction of speed rising away from the rail past which it won't catch
@@ -106,16 +106,21 @@ export const params = {
     stallPush: 1.0, // m/s off the side on a stall
   },
   wall: {
-    minAngle: 1.13, // rad ≈ 65° from up
-    minSpeed: 8.0, // m/s
-    gravityScale: 0.35,
+    minAngle: 1.13, // rad ≈ 65° from up — surface steeper than this, fast enough, is a wallride
+    minSpeed: 8.0, // m/s, below which the wall lets go and full gravity takes you back down
+    gravityScale: 0.35, // fraction of gravity while walled
     drag: 3.0, // m/s² while walled
+    popScale: 0.5, // fraction of the pop that goes up the face when popping onto a wall — the rest is absorbed by the stick
+    vertReturn: 0.6, // m/s back into the pipe on leaving a quarter-pipe top, so the air lands on the face, not the coping
+    popAngle: 0.35, // rad from up: on a wall's transition steeper than this, a pop drives you up the face instead of off it
   },
   butter: {
-    threshold: 0.65, // |stance|
-    maxSpeed: 12.0, // m/s
-    grip: 0.3, // multiplier on gripEdge
-    yawAuthority: 3.2, // rad/s
+    press: 0.65, // |stance| where a press starts to become a butter
+    maxSpeed: 12.0, // m/s, above which there is no butter — you carve on a press instead
+    speedFade: 3.0, // m/s below maxSpeed over which the butter fades in
+    gripScale: 0.3, // grip multiplier at full butter — the board lets go sideways
+    yawRate: 3.2, // rad/s of pivot at full butter and full edge stick, independent of speed
+    pitch: 0.2, // rad the board tips onto the pressed end at full butter — render only
   },
   /**
    * Grab timing. `reach` and `release` are the real feel numbers — the rate the rider blends
@@ -212,7 +217,8 @@ export const params = {
     stanceSpineSide: 0.3, // rad of spine lean into a press
     spineBendBase: 0.18, // rad of forward fold standing
     compressSpineBend: 0.25, // rad of extra fold at full compress
-    railLean: 0.18, // m of hip shift at full rail balance — the lean you're fighting, drawn
+    railLean: 0.25, // m of hip shift at full rail balance — the lean you're fighting, drawn
+    railTilt: 0.35, // rad the rider tips about the rail at full balance, toward the side they're falling to
     spineStiffness: 55.0, // ω² for the spine twist and head springs, like hipStiffness — ω ≈ 7.4 rad/s
     spineDamping: 1.0, // ζ
     counterRotation: 0.7, // rad of spine twist against the coming spin at full charge

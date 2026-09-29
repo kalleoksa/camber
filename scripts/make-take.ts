@@ -6,6 +6,7 @@ import { params } from '../src/sim/params.ts';
 import { tick } from '../src/sim/rider.ts';
 import { createRng, next } from '../src/sim/rng.ts';
 import { createRiderState } from '../src/sim/state.ts';
+import { SLOPESTYLE } from '../src/park/slopestyle.ts';
 import { createContact, createSlope, type SlopeConfig } from '../src/sim/terrain.ts';
 import { dampScalar } from '../src/sim/vec3.ts';
 
@@ -114,4 +115,86 @@ console.log(`wrote ${take.frames.length} ticks -> takes/synthetic.json`);
   const railTake = buildTake({ seed: SEED, dt: TICK_DT, spawn, terrain: railConfig, params, frames: railFrames });
   writeFileSync(new URL('../takes/rail.json', import.meta.url), JSON.stringify(railTake));
   console.log(`wrote ${railTake.frames.length} ticks -> takes/rail.json (${onRail.toFixed(2)} s on the rail)`);
+}
+
+// A scripted run down the slopestyle park, so the determinism check covers butters, the
+// walled state and grade changes: a nose butter 180 and a tail butter back, over to the
+// wall and a pop onto it, back across, and an ollie on the deck.
+{
+  const parkTerrain = createSlope(SLOPESTYLE);
+  const spawn = { position: { x: 0, y: parkTerrain.sample(0, 0, createContact()).height + 0.2, z: 0 }, heading: Math.PI };
+  const state = createRiderState(spawn);
+  const parkFrames: InputSnapshot[] = [];
+  const seen = new Set<string>();
+  let butteredBack = false;
+  const steer = (target: number): number => {
+    const err = Math.atan2(Math.sin(target - state.heading), Math.cos(target - state.heading));
+    return Math.max(-1, Math.min(1, -3 * err));
+  };
+  for (let i = 0; i < 11 / TICK_DT; i++) {
+    const t = i * TICK_DT;
+    const frame = neutralInput();
+    const { x, z } = state.position;
+    if (t > 0.5 && t < 1.5) {
+      frame.ly = 1;
+      frame.lx = 1;
+    } else if (t >= 1.5 && !butteredBack) {
+      frame.ly = -1;
+      frame.lx = steer(Math.PI);
+      butteredBack = Math.abs(frame.lx) < 0.05;
+    } else if (state.mode === 'walled' || (x > 10.5 && z > -60)) frame.lx = steer(Math.PI - 0.5);
+    else if (z < -30 && z > -60) frame.lx = steer(Math.PI - 0.6);
+    else frame.lx = steer(Math.PI + Math.max(-0.4, Math.min(0.4, 0.08 * x)));
+    if (x > 8 && x < 10.4 && z > -75) frame.rt = 1; // charge in, pop on the wall's transition
+    if (t > 9.3 && t < 9.6) frame.rt = 1; // an ollie on the deck after the wall
+    const q = quantizeInput(frame);
+    tick(state, q, params, parkTerrain, TICK_DT);
+    parkFrames.push(q);
+    seen.add(state.mode);
+  }
+  const parkTake = buildTake({ seed: SEED, dt: TICK_DT, spawn, terrain: SLOPESTYLE, params, frames: parkFrames });
+  writeFileSync(new URL('../takes/park.json', import.meta.url), JSON.stringify(parkTake));
+  console.log(`wrote ${parkTake.frames.length} ticks -> takes/park.json (modes: ${[...seen].join(', ')})`);
+}
+
+// The whole park straight down, rolling both kickers, then carved across into the corner
+// and popped over its side landing, then back across into the quarter pipe with a pop on
+// its face — covers the corner's takeoff, deck and landings and the quarter pipe's air.
+{
+  const parkTerrain = createSlope(SLOPESTYLE);
+  const corner = SLOPESTYLE.corners?.[0];
+  const spawn = { position: { x: 0, y: parkTerrain.sample(0, 0, createContact()).height + 0.2, z: 0 }, heading: Math.PI };
+  const state = createRiderState(spawn);
+  const cornerFrames: InputSnapshot[] = [];
+  const lip = corner ? corner.z - (corner.lipHeight / (1 - Math.cos(corner.lipAngle))) * Math.sin(corner.lipAngle) : 0;
+  let landed = 'none';
+  let cornerDone = false;
+  const quarter = SLOPESTYLE.quarters?.[0];
+  for (let i = 0; i < 32 / TICK_DT; i++) {
+    const frame = neutralInput();
+    const { x, z } = state.position;
+    let target = Math.PI;
+    if (cornerDone) target = Math.PI + Math.max(-0.5, Math.min(0.5, 0.15 * x));
+    else if (corner && z < corner.z + 30 && z > corner.z + 5) target = Math.PI + Math.max(-0.5, Math.min(0.5, 0.15 * (x + 2.5)));
+    else if (corner && z <= corner.z + 5) target = Math.PI - 0.3;
+    const inQuarter = quarter !== undefined && z < quarter.z + 1;
+    if (state.mode === 'grounded' && !inQuarter) {
+      const err = Math.atan2(Math.sin(target - state.heading), Math.cos(target - state.heading));
+      frame.lx = Math.max(-1, Math.min(1, -3 * err));
+      if (z < lip + 4 && z > lip + 0.6) frame.rt = 1;
+    }
+    // Charge rolling into the quarter pipe, pop halfway up the face.
+    if (state.mode === 'grounded' && inQuarter) frame.rt = state.groundNormal.y > 0.5 ? 1 : 0;
+    const q = quantizeInput(frame);
+    const was = state.mode;
+    tick(state, q, params, parkTerrain, TICK_DT);
+    cornerFrames.push(q);
+    if (was === 'airborne' && state.mode !== 'airborne' && z < lip && !cornerDone) {
+      landed = state.landing;
+      cornerDone = true;
+    }
+  }
+  const cornerTake = buildTake({ seed: SEED, dt: TICK_DT, spawn, terrain: SLOPESTYLE, params, frames: cornerFrames });
+  writeFileSync(new URL('../takes/corner.json', import.meta.url), JSON.stringify(cornerTake));
+  console.log(`wrote ${cornerTake.frames.length} ticks -> takes/corner.json (corner landing: ${landed})`);
 }

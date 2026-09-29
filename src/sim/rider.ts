@@ -40,6 +40,7 @@ export function tick(
 
   switch (state.mode) {
     case 'grounded':
+    case 'walled':
       stepGrounded(state, input, params, terrain, dt);
       break;
     case 'airborne':
@@ -50,10 +51,6 @@ export function tick(
       break;
     case 'railed':
       stepRailed(state, input, params, terrain, dt);
-      break;
-    default:
-      // walled arrives in milestone 6.
-      stepAirborne(state, input, params, terrain, dt);
       break;
   }
 }

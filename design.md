@@ -534,12 +534,22 @@ not.
 `wall.minSpeed` (~8 m/s). While WALLED, gravity is scaled to `wall.gravityScale` (~0.35)
 and speed bleeds at `wall.drag`. Dropping below min speed slides you off downward, not a
 bail. Board is slaved to the wall normal, so a wallride is visually just a very steep
-carve — which is exactly what it is.
+carve — which is exactly what it is. As built: WALLED runs the grounded step with those
+two changes. Entry needs the smoothed ground normal still gentle — the face arriving under
+the board — so a wall that has let go doesn't re-grab while you slide back down it. Walls
+are terrain (`walls` in the slope config): transition arc, straight face at `angle`, flat
+top, back face, ends faded in; their surface reads as `wall`. Popping on a wall's
+transition on the way in (steeper than `wall.popAngle`, not yet walled) while heading up or
+along it drives you up the face by `wall.popScale` of the pop instead of launching you off
+it; once walled, a pop is an ordinary air off the face, along its normal, and flying into a face
+fast enough sticks — only the heading angle is judged, since the board is slaved to it.
 
-**Butter.** `|stance| > butter.threshold` while grounded and below `butter.maxSpeed`:
-contact reduces to nose or tail point, grip drops to `butter.grip`, and yaw authority
-rises sharply so ground 180s/360s are possible. Exit by re-centering. Nose press into a
-pop is the entry to a nollie; keep those two systems composable.
+**Butter.** `|stance| > butter.press` while grounded and below `butter.maxSpeed` (faded in
+over `butter.speedFade`): grip scales by `butter.gripScale`, the carve stops handing scrub
+back to forward speed, and the edge stick pivots the board at `butter.yawRate`,
+independent of speed — so a ground 180/360 turns the board, not the rider's path. Render
+tips the board onto the pressed end by `butter.pitch`. Exit by re-centering. Nose press
+into a pop is the entry to a nollie; the pop's stance bias already composes with it.
 
 ---
 
@@ -758,7 +768,20 @@ because `tweakOffset` reaches the landing test.
 | 2 | Carving | Gate passed |
 | 3 | Air | Gate passed 2026-09 — spins with check, corks, flips, landing tolerance tuned by play |
 | 4 | Grabs + rig | Gate passed 2026-09 — authored anchors, grabs/tweak/shifty wired, pose-mode anchor editing |
-| 5 | Rails | First pass in — gate is a feel test: 50-50, boardslide, tailslide distinct; balance winnable not free |
+| 5 | Rails | **Unfinished** — built, gate not yet played: 50-50, boardslide, tailslide distinct; balance winnable not free |
+| 6 | Wallrides + butters | First pass in, started before M5's gate by choice — gate: both chain into and out of other states without a hitch |
+
+The test terrain is a small slopestyle line in `src/park/slopestyle.ts` — rails, a wall,
+two kickers, a last rail and a corner, with near-flat decks (`grades`) holding speed
+between them. The corner (`corners` in the slope config) is a straight takeoff onto a long
+narrow deck with landings falling away on both sides and ahead: carve across the takeoff
+toward your toes for the frontside landing, toward your heels for the backside one.
+At the bottom is a quarter pipe (`quarters`), facing uphill, ridden at full gravity — the
+wallride's reduced gravity applies to wall surfaces only. A heightfield can't be vertical,
+so leaving a quarter-pipe face drops the horizontal speed that would carry you over the
+deck and adds `wall.vertReturn` back into the pipe: airs go straight up and land back on
+the face. Popping on the face adds to the climb, like the pop onto a wall.
+Hand-placed data; milestone 7 moves it to `park.json`.
 
 ---
 

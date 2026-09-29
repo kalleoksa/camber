@@ -191,7 +191,7 @@ export function gripWeight(body: number, delay: number): number {
 }
 
 const BOARD_LENGTH = 1.55;
-const BOARD_HALF = BOARD_LENGTH / 2;
+export const BOARD_HALF = BOARD_LENGTH / 2;
 const EDGE_X = 0.145; // m, just outside the deck so the hand wraps the edge
 
 /** Fraction of `t` at each end over which the two edge splines converge on the tip. */

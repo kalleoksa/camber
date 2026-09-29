@@ -6,6 +6,7 @@ import { tick } from '../src/sim/rider.ts';
 import { createRiderState, type RiderState } from '../src/sim/state.ts';
 import { createContact, createSlope, type Terrain } from '../src/sim/terrain.ts';
 import { length, vec3 } from '../src/sim/vec3.ts';
+import { SLOPESTYLE } from '../src/park/slopestyle.ts';
 
 /**
  * Headless readout of the canonical moves. Prints numbers, asserts nothing — whether they
@@ -185,6 +186,147 @@ function rail(name: string, { balanced = false, slide = 0, press = 0, offset = 0
 }
 
 console.log('move                   landing  rotated     riding  speed');
+
+/**
+ * Butter: roll off at low speed, then full press and full edge stick for `hold` s. Reports
+ * how far the board came round and where it ends up against the direction of travel —
+ * a butter 180 turns the board and not the rider's path, so that should read ~180°.
+ */
+function butter(name: string, ly: number, hold: number, rollFor = 1): void {
+  const state = spawn(slope);
+  const input = neutralInput();
+  run(state, slope, input, rollFor);
+  const before = length(state.velocity);
+  let turned = 0;
+  let prev = state.heading;
+  input.ly = ly;
+  input.lx = ly;
+  for (let i = 0; i < hold / TICK_DT; i++) {
+    tick(state, input, params, slope, TICK_DT);
+    turned += Math.atan2(Math.sin(state.heading - prev), Math.cos(state.heading - prev));
+    prev = state.heading;
+  }
+  const course = Math.atan2(state.velocity.x, state.velocity.z);
+  const rel = Math.atan2(Math.sin(state.heading - course), Math.cos(state.heading - course));
+  console.log(
+    `${name.padEnd(26)} ${before.toFixed(1)} -> ${length(state.velocity).toFixed(1)} m/s, ` +
+      `board turned ${deg(Math.abs(turned))}, ${deg(Math.abs(rel))} to travel`,
+  );
+}
+
+/** The park's wall with nothing else in the way: carve over at `aim` rad and ride it. */
+const wallSlope = createSlope({ ...SLOPESTYLE, kickers: [], rails: [] });
+function wall(name: string, aim: number, along: number, pop: 'none' | 'transition' | 'flat' | 'face' = 'none'): void {
+  const state = spawn(wallSlope);
+  const input = neutralInput();
+  const c = createContact();
+  let walled = 0;
+  let top = 0;
+  let speedOn = 0;
+  let airFrom = 0; // height of an air launched from the face
+  let airPeak = 0;
+  for (let i = 0; i < 9 / TICK_DT && state.position.z > -85; i++) {
+    const onIt = state.mode === 'walled' || (state.position.x > 10.5 && state.mode === 'grounded');
+    const target = onIt ? Math.PI - along : state.position.z < -30 ? Math.PI - aim : Math.PI;
+    const err = Math.atan2(Math.sin(target - state.heading), Math.cos(target - state.heading));
+    input.lx = Math.max(-1, Math.min(1, -3 * err));
+    // Charge on the way in, let go on the transition or just before it on flat snow.
+    const ny = wallSlope.sample(state.position.x, state.position.z, c).normal.y;
+    const x = state.position.x;
+    input.rt =
+      pop === 'transition' ? (x > 8 && ny > 0.6 ? 1 : 0)
+      : pop === 'flat' ? (x > 7 && x < 9.2 ? 1 : 0)
+      : pop === 'face' ? (x > 8 && walled < 0.3 ? 1 : 0)
+      : 0;
+    const was = state.mode;
+    tick(state, input, params, wallSlope, TICK_DT);
+    const up = state.position.y - wallSlope.sample(0, state.position.z, c).height;
+    if (was === 'walled' && state.mode === 'airborne') airFrom = airPeak = up;
+    if (airFrom > 0 && state.mode === 'airborne') airPeak = Math.max(airPeak, up);
+    if (state.mode === 'walled') {
+      if (walled === 0) speedOn = length(state.velocity);
+      walled += TICK_DT;
+      top = Math.max(top, state.position.y - wallSlope.sample(0, state.position.z, c).height);
+    }
+  }
+  console.log(
+    `${name.padEnd(26)} ${walled > 0 ? `walled ${walled.toFixed(2)} s, on at ${speedOn.toFixed(1)} m/s, up ${top.toFixed(1)} m` : 'never walled'}` +
+      (airFrom > 0 ? `, air off the face from ${airFrom.toFixed(1)} m to ${airPeak.toFixed(1)} m, came down ${state.mode === 'bailed' ? 'bailed' : state.landing}` : ''),
+  );
+}
+
+
+/**
+ * The park's corner: set up on the far side, carve across the takeoff at `aim` rad and pop
+ * at the lip. Reports where the air comes down — the side landing's normal leans across.
+ */
+const parkSlope = createSlope(SLOPESTYLE);
+function corner(name: string, side: number, aim: number): void {
+  const c = SLOPESTYLE.corners?.[0];
+  if (!c) return;
+  const lip = c.z - (c.lipHeight / (1 - Math.cos(c.lipAngle))) * Math.sin(c.lipAngle);
+  const state = spawn(parkSlope);
+  const input = neutralInput();
+  const n = createContact();
+  let popped = false;
+  for (let i = 0; i < 30 / TICK_DT; i++) {
+    const { x, z } = state.position;
+    let target = Math.PI;
+    if (z < c.z + 30 && z > c.z + 5) target = Math.PI + Math.max(-0.5, Math.min(0.5, 0.15 * (x + side * 2.5)));
+    else if (z <= c.z + 5) target = Math.PI - side * aim;
+    const was = state.mode;
+    if (was === 'grounded') {
+      const err = Math.atan2(Math.sin(target - state.heading), Math.cos(target - state.heading));
+      input.lx = Math.max(-1, Math.min(1, -3 * err));
+      input.rt = z < lip + 4 && z > lip + 0.6 ? 1 : 0;
+    } else input.lx = input.rt = 0;
+    tick(state, input, params, parkSlope, TICK_DT);
+    if (was === 'grounded' && state.mode === 'airborne' && z < lip + 1) popped = true;
+    if (popped && was === 'airborne' && state.mode !== 'airborne') {
+      parkSlope.sample(state.position.x, state.position.z, n);
+      const where = Math.abs(n.normal.x) > 0.2 ? 'side landing' : Math.abs(state.position.x - c.x) < c.deckWidth / 2 ? 'deck / forward landing' : 'run-out';
+      console.log(
+        `${name.padEnd(26)} ${where}, ${(lip - state.position.z).toFixed(1)} m past the lip, ${state.landing}, impact ${state.impact.toFixed(1)}`,
+      );
+      return;
+    }
+  }
+  console.log(`${name.padEnd(26)} never came down`);
+}
+
+
+/**
+ * The park's quarter pipe, ridden straight in from the top of the run. Optionally pops on
+ * the face. Reports how high above the coping the air goes and how it comes back down.
+ */
+function quarter(name: string, pop: boolean): void {
+  const q = SLOPESTYLE.quarters?.[0];
+  if (!q) return;
+  const state = spawn(parkSlope);
+  const input = neutralInput();
+  const c = createContact();
+  const copingZ = q.z - 3.3;
+  const coping = parkSlope.sample(q.x, copingZ, c).height;
+  let peak = -Infinity;
+  let flying = false;
+  for (let i = 0; i < 40 / TICK_DT; i++) {
+    const inside = state.position.z < q.z + 1;
+    const was = state.mode;
+    input.lx = was === 'grounded' && !inside ? Math.max(-1, Math.min(1, -3 * Math.atan2(Math.sin(Math.PI - state.heading), Math.cos(Math.PI - state.heading)) - 0.1 * state.position.x)) : 0;
+    input.rt = pop && was === 'grounded' && inside && state.groundNormal.y > 0.3 ? 1 : 0;
+    tick(state, input, params, parkSlope, TICK_DT);
+    if (inside && was === 'grounded' && state.mode === 'airborne') flying = true;
+    if (flying && state.mode === 'airborne') peak = Math.max(peak, state.position.y - coping);
+    if (flying && was === 'airborne' && state.mode !== 'airborne') {
+      const where = state.position.z > copingZ ? 'back on the face' : 'on the deck';
+      console.log(`${name.padEnd(26)} ${peak.toFixed(1)} m above the coping, came down ${where}, ${state.landing}`);
+      return;
+    }
+  }
+  console.log(`${name.padEnd(26)} never aired`);
+}
+
+
 pop('straight air');
 pop('180, check 0.55 s', { lx: 0.5, checkAt: 0.55 });
 pop('180, never check', { lx: 0.5 });
@@ -218,3 +360,19 @@ rail('boardslide, balanced', { balanced: true, slide: 1.5 });
 rail('tailslide, balanced', { balanced: true, press: -1 });
 carve('toe edge held', 1);
 carve('heel edge held', -1);
+butter('nose butter 180', 1, 1);
+butter('tail butter 180', -1, 1);
+butter('press at speed, no butter', 1, 0.6, 3.5);
+wall('wall, steep approach', 0.6, 0.5);
+wall('wall, along the face', 0.6, 0.3);
+wall('wall, too shallow', 0.4, 0.3);
+wall('wall, pop on transition', 0.6, 0.5, 'transition');
+wall('wall, pop, along the face', 0.6, 0.2, 'transition');
+wall('wall, ollie in from flat', 0.6, 0.5, 'flat');
+wall('wall, pop off the face', 0.6, 0.5, 'face');
+wall('wall, pop off, along it', 0.6, 0.2, 'face');
+corner('corner, straight', 0, 0);
+corner('corner, frontside (toe side)', 1, 0.3);
+corner('corner, backside (heel side)', -1, 0.3);
+quarter('quarter pipe, rolled in', false);
+quarter('quarter pipe, pop on face', true);

@@ -86,7 +86,7 @@ export function createAudioLayers(): AudioLayers {
       const a = params.audio;
       const now = ctx.currentTime;
       const ramp = 0.05; // s — short enough to track a carve, long enough not to click
-      const grounded = view.mode === 'grounded';
+      const grounded = view.mode === 'grounded' || view.mode === 'walled';
       const scrub = Math.min(view.scrub / params.spray.scrubRef, 1);
       const speedFraction = Math.min(view.speed / a.windSpeedRef, 1);
 
