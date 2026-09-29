@@ -89,6 +89,8 @@ export type RiderState = {
   slide: number; // rad, board heading against the rail: 0 is a 50-50, ±π/2 a boardslide
   balance: number; // lean off the rail; past rail.balanceMax you fall. + toward S = T × U
   balanceVel: number;
+  railContact: number; // where the rail sits under the board, −1 tail … +1 nose; past ±1 you slip off the end (rail.trickModel)
+  railContactVel: number;
 
   resetLatch: boolean; // debounces the reset button
   popLatch: boolean; // true while RT is held past pop.trigger
@@ -138,6 +140,8 @@ export function createRiderState(spawn: Spawn): RiderState {
     slide: 0,
     balance: 0,
     balanceVel: 0,
+    railContact: 0,
+    railContactVel: 0,
     resetLatch: false,
     popLatch: false,
     spawn: { position: copy(spawn.position), heading: spawn.heading },
@@ -189,6 +193,8 @@ export function resetRiderState(state: RiderState): void {
   state.slide = 0;
   state.balance = 0;
   state.balanceVel = 0;
+  state.railContact = 0;
+  state.railContactVel = 0;
 }
 
 /** Copy without allocating — the render loop keeps one previous-state buffer. */
@@ -234,6 +240,8 @@ export function copyRiderState(dst: RiderState, src: RiderState): void {
   dst.slide = src.slide;
   dst.balance = src.balance;
   dst.balanceVel = src.balanceVel;
+  dst.railContact = src.railContact;
+  dst.railContactVel = src.railContactVel;
   dst.resetLatch = src.resetLatch;
   dst.popLatch = src.popLatch;
 }

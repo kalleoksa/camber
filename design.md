@@ -28,8 +28,8 @@ Xbox-layout gamepad. Analog everywhere it matters.
 
 | Input | Grounded | Airborne | Railed |
 |---|---|---|---|
-| Left stick X | Edge angle (target) | Spin rate about spin axis | Balance correction |
-| Left stick Y | Stance: nose / tail press | Flip (back = backflip); with X, cork | Nose / tail press shift |
+| Left stick X | Edge angle (target) | Spin rate about spin axis | Weight shift (screen space): lean + contact |
+| Left stick Y | Stance: nose / tail press | Flip (back = backflip); with X, cork | Weight shift (screen space): lean + contact |
 | RT (analog) | Compress; **release = pop** | Absorb (prepare landing) | Compress; release = pop off |
 | LT | Brake / heel scrub | — | — |
 | Right stick | — | Grab: position on the board (§7.3); **push past the grab = tweak** | — |
@@ -293,6 +293,25 @@ it for style, pull it back in time, or eat it. That is the scoreless feedback pr
 from §11 solved in the physics instead of in a UI element — do not also stamp it on
 screen.
 
+**Planned: impact as a third test.** Today only the angles are judged, so an 18 m/s slam
+into the landing past a kicker's end reads clean if the board lines up. Add the speed into
+the surface, `impact = |v·n|` at contact (already computed), as a third row input:
+
+| Impact | Result |
+|---|---|
+| `impact < land.impactSketchy` | no change — the angles decide |
+| `< land.impactBail` | at best **sketchy**: knees buckle, speed penalty |
+| otherwise | **bail**, however well the board lines up |
+
+Absorb raises both limits: holding RT in the air (the airborne "absorb" in §2) as you come
+down scales them by `land.absorbGain`, so a big drop to flat is survivable if you prepare
+for it — a legs-bent landing, not a stiff one. Starting points from the probes: clean park
+landings run 5–12 m/s, the overshoot that prompted this was 18, so roughly
+`impactSketchy` 13 and `impactBail` 17. The research (equivalent fall height, §10 notes)
+puts a real rider's comfortable limit near 1.5 m of fall — at the sim's gravity about
+7 m/s — but the game's airs are bigger than real ones, so start from play, not from that.
+Walls and the quarter pipe are judged the same way; a wallride entry is not a landing.
+
 ---
 
 ## 7. The rider rig
@@ -552,6 +571,26 @@ not.
   The entry seeds it — lateral miss (`rail.entryOffsetGain`), sideways speed
   (`rail.entryVelGain`), never less than `rail.minImbalance`. `|b| > rail.balanceMax` → BAILED.
   Winnable but never free: hands off falls in ~1.2–1.6 s.
+- **Trick model** (`rail.trickModel` 1; takes before it replay with 0, the model above).
+  Presses and slides come from where the weight sits, not from spinning:
+  - The left stick is a weight shift in screen space (X toward the rail's side, Y toward
+    travel), split onto the board by the slide angle. So a 50-50, a boardslide and
+    riding switch all read the same way on the stick.
+  - Across the board it fights the **lean over the edges** (`balance`, + heel):
+    `b'' = λb − c·b' + correctionGain·w_heel + rail.slidePull·sin slide`, with `|contact|`
+    in place of `|stance|` in λ. The slide term is the rail grabbing the board while the
+    body keeps going: a boardslide pitches you toward travel, and holding it takes a steady
+    push back.
+  - Along the board it moves the **contact point** (−1 tail … +1 nose), a damped spring
+    (`rail.pressStiffness`, `rail.pressDamping`) toward `rail.pressMax·w_along`. Past
+    `rail.pressTip` the end outweighs you (`rail.tipInstability`) and must be fought back;
+    `|contact| ≥ 1` slips off that end → BAILED. A nose press is a 50-50 with the contact
+    forward; a noseslide is a boardslide with it forward.
+  - Capture seeds the contact from where along the board the rail was met and the lean
+    from the miss across it; sideways speed starts both moving.
+  - The board sits with its contact point over the rail. Render tips it onto that point
+    (`rig.pressPitch`) and puts the hips over it (`rig.pressHipShift`).
+  - LB/RB still turn the slide angle.
 - Exit: pop (carries rail momentum + pop), ride off the end (retain state, re-enter
   AIRBORNE), or bail.
 

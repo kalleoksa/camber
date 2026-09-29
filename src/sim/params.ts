@@ -109,6 +109,17 @@ export const params = {
     stallPush: 1.0, // m/s off the side on a stall
     rideOn: 0.1, // m: from the snow you only catch a rail or box whose top is this close above you — taller takes a pop
     boxStability: 0.4, // instability multiplier on a box — a wide flat top is far easier to hold
+    // Trick model (1; 0 is the old slide-angle-only model). The stick is a weight shift in
+    // screen space, split onto the board: across it leans you over the edges (balance, + heel),
+    // along it moves the contact point toward nose or tail — a press is a shift, not a spin.
+    trickModel: 1,
+    boardHalf: 0.775, // m, centre to tip — contact ±1 is the rail at a tip
+    pressMax: 0.6, // contact the stick asks for at full deflection along the board
+    pressStiffness: 20.0, // 1/s², contact pulled toward the stick's ask
+    pressDamping: 0.8, // ζ on the contact
+    pressTip: 0.7, // contact past which the end outweighs you and runs away
+    tipInstability: 60.0, // 1/s² runaway past pressTip — above pressStiffness, a deep entry must be fought back
+    slidePull: 2.0, // 1/s² lean toward travel × sin slide: the rail grabs the board, the body keeps going — push back
   },
   wall: {
     minAngle: 1.13, // rad ≈ 65° from up — surface steeper than this, fast enough, is a wallride
@@ -225,6 +236,8 @@ export const params = {
     compressSpineBend: 0.25, // rad of extra fold at full compress
     railLean: 0.25, // m of hip shift at full rail balance — the lean you're fighting, drawn
     railTilt: 0.35, // rad the rider tips about the rail at full balance, toward the side they're falling to
+    pressPitch: 0.25, // rad the board tips onto the rail at full contact — a nose press is nose down
+    pressHipShift: 0.12, // m of hip travel toward the contact at full contact
     spineStiffness: 55.0, // ω² for the spine twist and head springs, like hipStiffness — ω ≈ 7.4 rad/s
     spineDamping: 1.0, // ζ
     counterRotation: 0.7, // rad of spine twist against the coming spin at full charge
