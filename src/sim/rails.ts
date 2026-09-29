@@ -8,6 +8,8 @@ import { set, type Vec3 } from './vec3.ts';
  */
 export type RailConfig = {
   points: [number, number, number][];
+  /** m across the top: set it and this is a box — caught across its width, easier to balance. */
+  width?: number;
 };
 
 /** World-space rail, built once. Flat arrays so queries on the tick path don't allocate. */
@@ -18,6 +20,7 @@ export type Rail = {
   z: Float64Array;
   cum: Float64Array; // arc length at each point
   length: number;
+  width: number; // m, 0 for a rail
 };
 
 export function buildRail(cfg: RailConfig, heightAt: (x: number, z: number) => number): Rail {
@@ -29,6 +32,7 @@ export function buildRail(cfg: RailConfig, heightAt: (x: number, z: number) => n
     z: new Float64Array(n),
     cum: new Float64Array(n),
     length: 0,
+    width: cfg.width ?? 0,
   };
   for (let i = 0; i < n; i++) {
     const p = cfg.points[i];

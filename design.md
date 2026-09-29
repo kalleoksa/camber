@@ -771,7 +771,14 @@ because `tweakOffset` reaches the landing test.
 | 5 | Rails | **Unfinished** — built, gate not yet played: 50-50, boardslide, tailslide distinct; balance winnable not free |
 | 6 | Wallrides + butters | First pass in, started before M5's gate by choice — gate: both chain into and out of other states without a hitch |
 
-The test terrain is a small slopestyle line in `src/park/slopestyle.ts` — rails, a wall,
+The default terrain is the Sochi 2014 Olympic course (`src/park/sochi.ts`) from the FIS
+plans, scaled by 9.81/16 = 0.61 so it rides at the real speeds under the sim's gravity:
+three jib sections (rails, boxes, walls), then three pairs of twin kickers — a narrow
+takeoff on a wide table (`deckWidth`) — on a stepped profile where the slope drops away
+under each landing. Snow friction (`ground.friction`, μ 0.06) is what lets a stepped course
+hold its speed; powder can later be its own μ. `?park=slopestyle` loads the first park.
+
+The first test terrain is a small slopestyle line in `src/park/slopestyle.ts` — rails, a wall,
 two kickers, a last rail and a corner, with near-flat decks (`grades`) holding speed
 between them. The corner (`corners` in the slope config) is a straight takeoff onto a long
 narrow deck with landings falling away on both sides and ahead: carve across the takeoff

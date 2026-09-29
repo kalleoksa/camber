@@ -17,6 +17,7 @@ export const params = {
     pivotSpeed: 2.5, // m/s below which skid-pivot is allowed
     pivotYaw: 1.1, // rad/s, low-authority skid pivot at a standstill
     drag: 0.0016, // quadratic, 1/m
+    friction: 0.06, // Coulomb μ of a waxed base on groomed snow — decel μ·g on the normal load. Per surface later (powder)
     edgeDrag: 0.35, // fraction of scrubbed speed lost outright at full edge
     stanceYawGain: 0.55, // extra yaw authority at full nose/tail press
     stanceGripLoss: 0.35, // grip lost at full press
@@ -104,6 +105,7 @@ export const params = {
     captureRise: 0.3, // fraction of speed rising away from the rail past which it won't catch
     fallSpeed: 1.5, // m/s off the side when the lean is lost
     stallPush: 1.0, // m/s off the side on a stall
+    boxStability: 0.4, // instability multiplier on a box — a wide flat top is far easier to hold
   },
   wall: {
     minAngle: 1.13, // rad ≈ 65° from up — surface steeper than this, fast enough, is a wallride

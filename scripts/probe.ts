@@ -7,6 +7,7 @@ import { createRiderState, type RiderState } from '../src/sim/state.ts';
 import { createContact, createSlope, type Terrain } from '../src/sim/terrain.ts';
 import { length, vec3 } from '../src/sim/vec3.ts';
 import { SLOPESTYLE } from '../src/park/slopestyle.ts';
+import { SOCHI } from '../src/park/sochi.ts';
 
 /**
  * Headless readout of the canonical moves. Prints numbers, asserts nothing — whether they
@@ -327,6 +328,42 @@ function quarter(name: string, pop: boolean): void {
 }
 
 
+/**
+ * Sochi's kicker line: straight down one lane (big kickers at +4.5, small at −4.5), rolling
+ * or popping every lip. Where each air lands against the knuckle, and how hard.
+ */
+const sochiSlope = createSlope({ ...SOCHI, rails: [], walls: [] });
+function sochi(name: string, lane: number, pop: boolean): void {
+  const lips = (SOCHI.kickers ?? [])
+    .filter((k) => Math.abs(k.x - lane) < 1)
+    .map((k) => {
+      const runIn = (k.lipHeight / (1 - Math.cos(k.lipAngle))) * Math.sin(k.lipAngle);
+      return { lip: k.z - runIn, knuckle: k.z - runIn - k.deckLength };
+    });
+  const y = sochiSlope.sample(lane, 0, createContact()).height + 0.2;
+  const state = createRiderState({ position: { x: lane, y, z: 0 }, heading: Math.PI });
+  const input = neutralInput();
+  const out: string[] = [];
+  let from: { knuckle: number } | undefined;
+  for (let i = 0; i < 40 / TICK_DT && out.length < lips.length; i++) {
+    const z = state.position.z;
+    if (state.mode === 'grounded') {
+      const err = Math.atan2(Math.sin(Math.PI - state.heading), Math.cos(Math.PI - state.heading));
+      input.lx = Math.max(-1, Math.min(1, -3 * err + 0.3 * (state.position.x - lane)));
+      input.rt = pop && lips.some((l) => z < l.lip + 3.5 && z > l.lip + 0.5) ? 1 : 0;
+    }
+    const was = state.mode;
+    tick(state, input, params, sochiSlope, TICK_DT);
+    if (was !== 'airborne' && state.mode === 'airborne') from = lips.find((l) => z < l.lip + 2 && z > l.lip - 3);
+    if (from && was === 'airborne' && state.mode !== 'airborne') {
+      out.push(`${(from.knuckle - state.position.z).toFixed(0)} m ${state.landing} ${state.impact.toFixed(0)}`);
+      from = undefined;
+    }
+  }
+  console.log(`${name.padEnd(26)} ${out.join(' | ')}   (past knuckle, landing, impact m/s)`);
+}
+
+
 pop('straight air');
 pop('180, check 0.55 s', { lx: 0.5, checkAt: 0.55 });
 pop('180, never check', { lx: 0.5 });
@@ -376,3 +413,7 @@ corner('corner, frontside (toe side)', 1, 0.3);
 corner('corner, backside (heel side)', -1, 0.3);
 quarter('quarter pipe, rolled in', false);
 quarter('quarter pipe, pop on face', true);
+sochi('sochi big lane, rolled', 4.5, false);
+sochi('sochi big lane, popped', 4.5, true);
+sochi('sochi small lane, rolled', -4.5, false);
+sochi('sochi small lane, popped', -4.5, true);

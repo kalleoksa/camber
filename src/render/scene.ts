@@ -277,12 +277,16 @@ function railMeshes(terrain: Terrain): THREE.Group {
   const a = new THREE.Vector3();
   const b = new THREE.Vector3();
   const contact = createContact();
+  const boxMaterial = new THREE.MeshStandardMaterial({ color: 0x2f3a45, roughness: 0.5, metalness: 0.2 });
   for (const rail of terrain.rails) {
+    // A box is a flat plate as wide as its top; a rail is a square bar.
+    const across = rail.width > 0 ? rail.width : size;
+    const thick = rail.width > 0 ? 0.15 : size;
     for (let i = 1; i < rail.count; i++) {
-      a.set(rail.x[i - 1] ?? 0, (rail.y[i - 1] ?? 0) - size / 2, rail.z[i - 1] ?? 0);
-      b.set(rail.x[i] ?? 0, (rail.y[i] ?? 0) - size / 2, rail.z[i] ?? 0);
+      a.set(rail.x[i - 1] ?? 0, (rail.y[i - 1] ?? 0) - thick / 2, rail.z[i - 1] ?? 0);
+      b.set(rail.x[i] ?? 0, (rail.y[i] ?? 0) - thick / 2, rail.z[i] ?? 0);
       const len = a.distanceTo(b);
-      const bar = new THREE.Mesh(new THREE.BoxGeometry(size, size, len), material);
+      const bar = new THREE.Mesh(new THREE.BoxGeometry(across, thick, len), rail.width > 0 ? boxMaterial : material);
       bar.position.copy(a).add(b).multiplyScalar(0.5);
       bar.lookAt(b);
       bar.castShadow = true;
@@ -293,7 +297,7 @@ function railMeshes(terrain: Terrain): THREE.Group {
       const x = rail.x[i] ?? 0;
       const z = rail.z[i] ?? 0;
       const ground = terrain.sample(x, z, contact).height;
-      const h = Math.max(0.05, (rail.y[i] ?? 0) - size - ground);
+      const h = Math.max(0.05, (rail.y[i] ?? 0) - thick - ground);
       const post = new THREE.Mesh(new THREE.BoxGeometry(0.06, h, 0.06), postMaterial);
       post.position.set(x, ground + h / 2, z);
       group.add(post);

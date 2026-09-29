@@ -44,12 +44,14 @@ import {
 } from './sim/state.ts';
 import { createContact, createSlope, type SlopeConfig } from './sim/terrain.ts';
 import { SLOPESTYLE } from './park/slopestyle.ts';
+import { SOCHI } from './park/sochi.ts';
 import { length } from './sim/vec3.ts';
 import { createPanel, download, type Readout } from './tuning/panel.ts';
 
 const SEED = 1;
-// The slopestyle park (src/park/slopestyle.ts): rails, a wall, two kickers, a last rail, a corner, a quarter pipe.
-const slopeConfig: SlopeConfig = SLOPESTYLE;
+// Sochi 2014 at 0.61 scale (src/park/sochi.ts) by default; ?park=slopestyle for the first
+// park (src/park/slopestyle.ts). A take stores its terrain, so either replays anywhere.
+const slopeConfig: SlopeConfig = new URLSearchParams(location.search).get('park') === 'slopestyle' ? SLOPESTYLE : SOCHI;
 
 const terrain = createSlope(slopeConfig);
 const spawn = {

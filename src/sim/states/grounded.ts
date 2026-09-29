@@ -132,7 +132,9 @@ export function stepGrounded(
 
   let speed = Math.sqrt(vf * vf + vl * vl);
   if (speed > 0) {
-    const drag = (g.drag * speed * speed + input.lt * g.brakeDecel + (walled ? params.wall.drag : 0)) * dt;
+    // Snow friction on the normal load, then air drag, brake and wall drag.
+    const friction = g.friction * params.world.gravity * n.y;
+    const drag = (g.drag * speed * speed + input.lt * g.brakeDecel + (walled ? params.wall.drag : 0) + friction) * dt;
     const carveCost = g.edgeDrag * edgeMag * scrubbed;
     const keep = Math.max(0, speed - drag - carveCost) / speed;
     vf *= keep;

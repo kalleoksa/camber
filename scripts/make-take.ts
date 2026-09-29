@@ -7,6 +7,7 @@ import { tick } from '../src/sim/rider.ts';
 import { createRng, next } from '../src/sim/rng.ts';
 import { createRiderState } from '../src/sim/state.ts';
 import { SLOPESTYLE } from '../src/park/slopestyle.ts';
+import { SOCHI } from '../src/park/sochi.ts';
 import { createContact, createSlope, type SlopeConfig } from '../src/sim/terrain.ts';
 import { dampScalar } from '../src/sim/vec3.ts';
 
@@ -197,4 +198,37 @@ console.log(`wrote ${take.frames.length} ticks -> takes/synthetic.json`);
   const cornerTake = buildTake({ seed: SEED, dt: TICK_DT, spawn, terrain: SLOPESTYLE, params, frames: cornerFrames });
   writeFileSync(new URL('../takes/corner.json', import.meta.url), JSON.stringify(cornerTake));
   console.log(`wrote ${cornerTake.frames.length} ticks -> takes/corner.json (corner landing: ${landed})`);
+}
+
+// Sochi straight down the right-hand (big) kicker lane, ride-on box and rails on the way,
+// popping every kicker — covers wide tables, boxes and snow friction.
+{
+  const terrain = createSlope(SOCHI);
+  const lane = 4.5;
+  const lips = (SOCHI.kickers ?? [])
+    .filter((k) => Math.abs(k.x - lane) < 1)
+    .map((k) => k.z - (k.lipHeight / (1 - Math.cos(k.lipAngle))) * Math.sin(k.lipAngle));
+  const spawn = { position: { x: lane, y: terrain.sample(lane, 0, createContact()).height + 0.2, z: 0 }, heading: Math.PI };
+  const state = createRiderState(spawn);
+  const sochiFrames: InputSnapshot[] = [];
+  const seen = new Set<string>();
+  for (let i = 0; i < 32 / TICK_DT; i++) {
+    const frame = neutralInput();
+    const { x, z } = state.position;
+    // Across to x = 3 for jib 1's flat rail, then into the kicker lane.
+    const target = z > -60 ? 3 : lane;
+    if (state.mode === 'grounded') {
+      const err = Math.atan2(Math.sin(Math.PI - state.heading), Math.cos(Math.PI - state.heading));
+      frame.lx = Math.max(-1, Math.min(1, -3 * err + 0.3 * (x - target)));
+      if (lips.some((l) => z < l + 3.5 && z > l + 0.5)) frame.rt = 1;
+    }
+    if (state.mode === 'railed') frame.lx = Math.max(-1, Math.min(1, -(1.2 * state.balance + 0.5 * state.balanceVel)));
+    const q = quantizeInput(frame);
+    tick(state, q, params, terrain, TICK_DT);
+    sochiFrames.push(q);
+    seen.add(state.mode);
+  }
+  const sochiTake = buildTake({ seed: SEED, dt: TICK_DT, spawn, terrain: SOCHI, params, frames: sochiFrames });
+  writeFileSync(new URL('../takes/sochi.json', import.meta.url), JSON.stringify(sochiTake));
+  console.log(`wrote ${sochiTake.frames.length} ticks -> takes/sochi.json (modes: ${[...seen].join(', ')})`);
 }
