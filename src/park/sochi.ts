@@ -95,7 +95,10 @@ export const SOCHI: SlopeConfig = {
     { z: -74, pitch: jibShelf, blend: 6 }, // jib 2
     { z: -120, pitch: jibDrop, blend: 6 },
     { z: -128, pitch: jibShelf, blend: 6 }, // jib 3
-    { z: -170, pitch: drop, blend: 6 }, // the drop into the kicker line
+    // The drop into the kicker line, sized for the line through the rails, which carries
+    // more speed than airing the tables. A faster line still lands, long and hard; speed
+    // check (LT) for the sweet spot.
+    { z: -170, pitch: 0.2, blend: 6 },
     ...k1.grades,
     ...k2.grades,
     ...k3.grades,
