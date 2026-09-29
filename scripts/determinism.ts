@@ -4,10 +4,10 @@ import { params } from '../src/sim/params.ts';
 
 /**
  * Milestone 1 gate: a recorded take replays frame-identically, param edits notwithstanding.
- * hill-run.json is a real ride; synthetic.json covers inputs a real ride may skip. Both the
- * sim hashes and the render-side spring hashes are checked.
+ * hill-run.json and park-run.json are real rides; the scripted takes cover inputs a real
+ * ride may skip. Both the sim hashes and the render-side spring hashes are checked.
  */
-const names = ['hill-run.json', 'synthetic.json', 'rail.json', 'park.json', 'corner.json'];
+const names = ['hill-run.json', 'synthetic.json', 'rail.json', 'park.json', 'corner.json', 'park-run.json'];
 const takes = names.map((name) => JSON.parse(readFileSync(new URL(`../takes/${name}`, import.meta.url), 'utf8')) as Take);
 
 const failures: string[] = [];
