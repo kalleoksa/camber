@@ -11,8 +11,8 @@ import type { GradeConfig, KickerConfig, SlopeConfig } from '../sim/terrain.ts';
  */
 const shelf = 0.08; // rad, the shelves the jib features sit on — just steeper than snow friction
 const drop = 0.3; // rad, the drop-in
-const jibShelf = 0.16; // rad, the jib sections — steep enough to carry ~11 m/s onto the rails
-const jibDrop = 0.16; // rad, between them — the same pitch: the tables are the steps
+const jibShelf = 0.1; // rad, the jib sections — carries ~11 m/s onto the tables
+const jibDrop = 0.1; // rad, between them — the same pitch: the tables are the steps
 const table = 0; // rad under a kicker's inrun and table — flat, so friction bleeds what the last landing gave
 const landing = 0.3; // rad the slope falls under a kicker's landing; the kicker adds its own 0.15
 
@@ -62,7 +62,7 @@ function kickerSection(z: number, small: Size, big: Size): { kickers: KickerConf
  * off the lip and come down onto a feature, or ride the box straight off it. `on` places a
  * feature on the deck: from `a` to `b` m past the lip, `h` above the deck at each end.
  */
-const jibLip = { lipHeight: 1.5, lipAngle: 0.4, width: 18, deckWidth: 18, sideTaper: 3, landingAngle: 0.45, knuckleRadius: 4, runoutRadius: 12 };
+const jibLip = { lipHeight: 1.5, lipAngle: 0.4, width: 18, deckWidth: 18, sideTaper: 3, landingAngle: 0.35, knuckleRadius: 10, runoutRadius: 10 };
 const jibRunIn = (jibLip.lipHeight / (1 - Math.cos(jibLip.lipAngle))) * Math.sin(jibLip.lipAngle);
 function jibTable(z: number, deckLength: number): KickerConfig {
   return { ...jibLip, z, x: 0, deckLength };
