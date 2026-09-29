@@ -102,6 +102,10 @@ export function stepGrounded(
 
   let vf = dot(v, forward);
   let vl = dot(v, toeSide);
+  if (params.ground.switchEdges > 0) {
+    if (vf < -params.ground.switchSpeed) state.switchRide = true;
+    else if (vf > params.ground.switchSpeed) state.switchRide = false;
+  }
 
   const edgeMag = Math.min(Math.abs(state.edge), 1);
   const stanceMag = Math.min(Math.abs(state.stance), 1);
@@ -156,6 +160,9 @@ export function stepGrounded(
   }
   // The butter pivot is not speed-scaled: on one end of the board you can turn on the spot.
   yaw += state.edge * params.butter.yawRate * butter;
+  // Tail first, an edge bends the travel toward its side the other way round: the nose
+  // swings the opposite way for the same edge.
+  if (params.ground.switchEdges > 0 && state.switchRide) yaw = -yaw;
   // Increasing `heading` swings the nose toward `n × forward`, which is the heel side.
   // A toe-edge carve goes the other way, so positive edge subtracts.
   state.heading = wrapAngle(state.heading - yaw * dt);

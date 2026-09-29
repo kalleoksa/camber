@@ -349,7 +349,7 @@ function sochi(name: string, lane: number, pop: boolean): void {
     const z = state.position.z;
     if (state.mode === 'grounded') {
       const err = Math.atan2(Math.sin(Math.PI - state.heading), Math.cos(Math.PI - state.heading));
-      input.lx = Math.max(-1, Math.min(1, -3 * err + 0.3 * (state.position.x - lane)));
+      input.lx = Math.max(-1, Math.min(1, -3 * err - 0.3 * (state.position.x - lane)));
       input.rt = pop && lips.some((l) => z < l.lip + 3.5 && z > l.lip + 0.5) ? 1 : 0;
     }
     const was = state.mode;

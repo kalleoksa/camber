@@ -43,6 +43,35 @@ where the hand catches starts tweaking. Grab identity is a hand target plus a bo
 bias, never a clip. Method = heel grab near mid-board + full tail stance + back arch +
 deep tweak. Emergent, not enumerated.
 
+**Riding switch.** Once you travel tail first (past `ground.switchSpeed`), the sticks
+follow the direction of travel, not the board:
+
+- Left stick X: right still turns right — on the heel edge, which is now the edge on your
+  right. The edge, the lean and the camera roll are the board's real ones.
+- Left stick Y: up presses the leading end (the tail), down the trailing end — so down is
+  still the ollie and up still the nollie.
+- Right stick: X is still toe (right) / heel (left); Y is the leading end (up) to the
+  trailing end (down). A grab reached tail first is the switch version: the regular grab
+  mirrored nose-for-tail — the leading hand takes it, and pose and board pitch mirror too
+  (`grab.switchMirror`).
+
+**Grabs by stick**, regular or switch. The named grab is the same stick either way; riding
+switch you get its switch version (e.g. a switch method), done with the other hand:
+
+| Grab | Hand | Right stick |
+|---|---|---|
+| Method | leading, heel edge, ahead of the front foot | up-left |
+| Melon | leading, heel edge, between the feet | left, a touch up |
+| Stalefish | trailing, heel edge, between the feet | left, a touch down |
+| Mute | leading, toe edge | right, a touch up |
+| Indy | trailing, toe edge | right, a touch down |
+| Nose / tail | leading / trailing, the tip | up / down |
+
+Push further past the grab to tweak it. **The same hand as your regular method while
+riding switch** — the nose hand on the heel edge — is the trailing hand now: stick
+down-left. It has no named anchor of its own there; you get a blend of stalefish and tail
+grab, which is what that grab is.
+
 **Design note:** don't put trick names in the input layer. The player composes
 edge + pop + spin axis + grab + stance. Naming happens in the feedback layer, if at all.
 
@@ -773,7 +802,8 @@ because `tweakOffset` reaches the landing test.
 
 The default terrain is the Sochi 2014 Olympic course (`src/park/sochi.ts`) from the FIS
 plans, scaled by 9.81/16 = 0.61 so it rides at the real speeds under the sim's gravity:
-three jib sections (rails, boxes, walls), then three pairs of twin kickers — a narrow
+three jib sections — each a table with a small kicker in, rails and boxes on the deck and a
+landing off the end, ridden at ~10 m/s with walls beside — then three pairs of twin kickers — a narrow
 takeoff on a wide table (`deckWidth`) — on a stepped profile where the slope drops away
 under each landing. Snow friction (`ground.friction`, μ 0.06) is what lets a stepped course
 hold its speed; powder can later be its own μ. `?park=slopestyle` loads the first park.

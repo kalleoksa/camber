@@ -8,7 +8,7 @@ import { createRng, next } from '../src/sim/rng.ts';
 import { createRiderState } from '../src/sim/state.ts';
 import { SLOPESTYLE } from '../src/park/slopestyle.ts';
 import { SOCHI } from '../src/park/sochi.ts';
-import { createContact, createSlope, type SlopeConfig } from '../src/sim/terrain.ts';
+import { createContact, createSlope, type KickerConfig, type SlopeConfig } from '../src/sim/terrain.ts';
 import { dampScalar } from '../src/sim/vec3.ts';
 
 /**
@@ -200,27 +200,31 @@ console.log(`wrote ${take.frames.length} ticks -> takes/synthetic.json`);
   console.log(`wrote ${cornerTake.frames.length} ticks -> takes/corner.json (corner landing: ${landed})`);
 }
 
-// Sochi straight down the right-hand (big) kicker lane, ride-on box and rails on the way,
-// popping every kicker — covers wide tables, boxes and snow friction.
+// Sochi straight down the right-hand (big) kicker lane: a light pop off the first jib table
+// onto its flat rail, then every kicker popped — covers jib tables, wide kicker tables,
+// snow friction and the switch latch.
 {
   const terrain = createSlope(SOCHI);
   const lane = 4.5;
-  const lips = (SOCHI.kickers ?? [])
-    .filter((k) => Math.abs(k.x - lane) < 1)
-    .map((k) => k.z - (k.lipHeight / (1 - Math.cos(k.lipAngle))) * Math.sin(k.lipAngle));
-  const spawn = { position: { x: lane, y: terrain.sample(lane, 0, createContact()).height + 0.2, z: 0 }, heading: Math.PI };
+  const lipOf = (k: KickerConfig): number => k.z - (k.lipHeight / (1 - Math.cos(k.lipAngle))) * Math.sin(k.lipAngle);
+  const lips = (SOCHI.kickers ?? []).filter((k) => Math.abs(k.x - lane) < 1).map(lipOf);
+  // The jib tables span the course; a light tap off the first one pops onto its flat rail.
+  const jibLip = lipOf((SOCHI.kickers ?? [])[0] ?? { z: 0, x: 0, width: 0, lipHeight: 1, lipAngle: 1, deckLength: 0, sideTaper: 1 });
+  // Start in jib 1's flat-rail lane.
+  const spawn = { position: { x: 3, y: terrain.sample(3, 0, createContact()).height + 0.2, z: 0 }, heading: Math.PI };
   const state = createRiderState(spawn);
   const sochiFrames: InputSnapshot[] = [];
   const seen = new Set<string>();
   for (let i = 0; i < 32 / TICK_DT; i++) {
     const frame = neutralInput();
     const { x, z } = state.position;
-    // Across to x = 3 for jib 1's flat rail, then into the kicker lane.
+    // Jib 1's flat rail at x = 3, then into the kicker lane.
     const target = z > -60 ? 3 : lane;
     if (state.mode === 'grounded') {
       const err = Math.atan2(Math.sin(Math.PI - state.heading), Math.cos(Math.PI - state.heading));
-      frame.lx = Math.max(-1, Math.min(1, -3 * err + 0.3 * (x - target)));
+      frame.lx = Math.max(-1, Math.min(1, -3 * err - 0.8 * (x - target)));
       if (lips.some((l) => z < l + 3.5 && z > l + 0.5)) frame.rt = 1;
+      if (z < jibLip + 1 && z > jibLip + 0.4) frame.rt = 1;
     }
     if (state.mode === 'railed') frame.lx = Math.max(-1, Math.min(1, -(1.2 * state.balance + 0.5 * state.balanceVel)));
     const q = quantizeInput(frame);
@@ -231,4 +235,33 @@ console.log(`wrote ${take.frames.length} ticks -> takes/synthetic.json`);
   const sochiTake = buildTake({ seed: SEED, dt: TICK_DT, spawn, terrain: SOCHI, params, frames: sochiFrames });
   writeFileSync(new URL('../takes/sochi.json', import.meta.url), JSON.stringify(sochiTake));
   console.log(`wrote ${sochiTake.frames.length} ticks -> takes/sochi.json (modes: ${[...seen].join(', ')})`);
+}
+
+// Riding switch on a plain slope: carve right and left (the heel and toe edges swap), pop,
+// and reach for a method — covers the switch latch, the edge mapping and the mirrored grab.
+{
+  const cfg: SlopeConfig = { length: 400, width: 120, pitch: 0.34 };
+  const terrain = createSlope(cfg);
+  const spawn = { position: { x: 0, y: terrain.sample(0, 0, createContact()).height + 0.2, z: 0 }, heading: 0 };
+  const state = createRiderState(spawn);
+  const switchFrames: InputSnapshot[] = [];
+  let grabbedSwitch = false;
+  for (let i = 0; i < 7 / TICK_DT; i++) {
+    const t = i * TICK_DT;
+    const frame = neutralInput();
+    if (t > 1.5 && t < 2.3) frame.lx = 0.8;
+    if (t > 2.5 && t < 3.3) frame.lx = -0.8;
+    if (t > 3.6 && t < 3.9) frame.rt = 1;
+    if (t > 4.0 && t < 4.6) {
+      frame.rx = -0.75; // method: heel edge, leading end
+      frame.ry = 0.66;
+    }
+    const q = quantizeInput(frame);
+    tick(state, q, params, terrain, TICK_DT);
+    switchFrames.push(q);
+    grabbedSwitch ||= state.grabSwitch;
+  }
+  const switchTake = buildTake({ seed: SEED, dt: TICK_DT, spawn, terrain: cfg, params, frames: switchFrames });
+  writeFileSync(new URL('../takes/switch.json', import.meta.url), JSON.stringify(switchTake));
+  console.log(`wrote ${switchTake.frames.length} ticks -> takes/switch.json (switch grab: ${grabbedSwitch})`);
 }

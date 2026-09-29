@@ -8,7 +8,7 @@ import { length, vec3, type Vec3 } from '../sim/vec3.ts';
 import { boardAttitude } from '../sim/grabs.ts';
 import { BODY_KEYS, grabBody } from './poses.ts';
 import { butterAmount } from '../sim/states/grounded.ts';
-import { BOARD_HALF, createRig, edgePoint, gripWeight, neutralDrivers, smoothstep, type RigDrivers } from './rig.ts';
+import { BOARD_HALF, createRig, edgePoint, gripWeight, mirrorDrivers, neutralDrivers, smoothstep, type RigDrivers } from './rig.ts';
 import type { Secondary } from './secondary.ts';
 
 /**
@@ -38,6 +38,8 @@ export type RiderView = {
   grabEdge: number;
   grabT: number;
   grabFront: boolean;
+  grabSwitch: boolean;
+  switchRide: boolean;
   grip: number;
   tweak: number;
   shifty: number;
@@ -71,6 +73,8 @@ const view: RiderView = {
   grabEdge: 0,
   grabT: 0.5,
   grabFront: true,
+  grabSwitch: false,
+  switchRide: false,
   grip: 0,
   tweak: 0,
   shifty: 0,
@@ -106,6 +110,8 @@ export function interpolateRider(prev: RiderState, cur: RiderState, alpha: numbe
   view.grabEdge = prev.grabEdge + (cur.grabEdge - prev.grabEdge) * alpha;
   view.grabT = prev.grabT + (cur.grabT - prev.grabT) * alpha;
   view.grabFront = cur.grabFront;
+  view.grabSwitch = cur.grabSwitch;
+  view.switchRide = cur.switchRide;
   view.grip = prev.grip + (cur.grip - prev.grip) * alpha;
   view.tweak = prev.tweak + (cur.tweak - prev.tweak) * alpha;
   view.shifty = prev.shifty + (cur.shifty - prev.shifty) * alpha;
@@ -380,6 +386,8 @@ export function createScene(cfg: SlopeConfig, terrain: Terrain, camera: THREE.Pe
     const bodyWeight = smoothstep(view.grip);
     const handWeight = gripWeight(view.grip, params.grab.gripDelay);
     grabBody(body, view.grabEdge, view.grabT, view.tweak);
+    // A switch grab: the regular grab's pose (and hands, below) mirrored nose-for-tail.
+    if (view.grabSwitch) mirrorDrivers(body);
     for (const k of BODY_KEYS) drivers[k] = base[k] + (body[k] - base[k]) * bodyWeight;
     // Wind-up and lead ride on top of whatever the grab asks for, not under it.
     drivers.spineTwist += secondary.twist;
@@ -392,12 +400,24 @@ export function createScene(cfg: SlopeConfig, terrain: Terrain, camera: THREE.Pe
     drivers.backHandEdge = front ? neutral.backHandEdge : view.grabEdge;
     drivers.backHandT = front ? neutral.backHandT : view.grabT;
     drivers.backGrip = front ? 0 : handWeight;
+    if (view.grabSwitch) {
+      // Hands only: the body above already carries its mirror.
+      const fe = drivers.frontHandEdge;
+      const ft = drivers.frontHandT;
+      const fg = drivers.frontGrip;
+      drivers.frontHandEdge = drivers.backHandEdge;
+      drivers.frontHandT = 1 - drivers.backHandT;
+      drivers.frontGrip = drivers.backGrip;
+      drivers.backHandEdge = fe;
+      drivers.backHandT = 1 - ft;
+      drivers.backGrip = fg;
+    }
 
     const a = boardAttitude(view.grabEdge, view.grabT, view.grip, view.tweak, params);
     // A butter tips the board onto the pressed end: nose press is nose down.
     const butter = grounded ? butterAmount(view.stance, view.speed, params) : 0;
     butterTip = butter > 0 ? Math.sign(view.stance) : 0;
-    drivers.boardPitch = a.pitch - butterTip * butter * params.butter.pitch;
+    drivers.boardPitch = (view.grabSwitch ? -a.pitch : a.pitch) - butterTip * butter * params.butter.pitch;
     drivers.tweakRoll = a.roll;
     drivers.shifty = view.shifty;
     drivers.stanceScale = neutral.stanceScale;
