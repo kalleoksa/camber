@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { params as defaults, type Params } from '../sim/params.ts';
-import { BOARD, createBinding, createDeck } from './board.ts';
+import { aimShaft, BOARD, createBinding, createDeck } from './board.ts';
 import { dress } from './outfit.ts';
 
 /**
@@ -488,8 +488,10 @@ export function createRig(): Rig {
   gapB.visible = false;
   let reachOverlay = false;
 
-  const bootF = createBinding(BOARD.stanceFront);
-  const bootB = createBinding(BOARD.stanceBack);
+  const bindF = createBinding(BOARD.stanceFront, 1);
+  const bindB = createBinding(BOARD.stanceBack, -1);
+  const bootF = bindF.group;
+  const bootB = bindB.group;
 
   for (const part of [pelvis, torso, head, thighL, shinL, thighR, shinR, armLU, armLL, armRU, armRL, mittF, mittB]) {
     part.castShadow = true;
@@ -746,6 +748,10 @@ export function createRig(): Rig {
       solveTwoBone(kneeB, hipR, footB, r.thigh, r.shin, pole);
       placeBone(thighR, hipR, kneeB, r.thigh);
       placeBone(shinR, kneeB, footB, r.shin);
+      // Boot shafts follow the shins, in the board's frame.
+      tmpQuat.copy(board.quaternion).invert();
+      aimShaft(bindF, dir.subVectors(kneeF, footF).applyQuaternion(tmpQuat));
+      aimShaft(bindB, dir.subVectors(kneeB, footB).applyQuaternion(tmpQuat));
       effectiveStance = halfStance * 2;
     },
   };
