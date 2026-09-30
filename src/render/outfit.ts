@@ -34,20 +34,27 @@ export const OUTFIT = {
   goggleHeight: 0.075, // m, a big cylindrical lens
   face: 0xf0d9b5,
 
-  thighTop: 0.115, // m radius at the hip
-  knee: 0.108, // m radius through the knee — wide, the pant doesn't taper here
-  stackBase: 0.106, // m radius of the leg above the boot — straight, no taper
+  // Pants: baggy, but tucked in at the hip so the thigh tops stay under the jacket.
+  thighTop: 0.085, // m radius at the hip joint — tucked, under the skirt and the seat
+  thighFull: 0.128, // m radius the thigh opens out to a third of the way down
+  knee: 0.124, // m radius through the knee — the thigh's and shin's domes meet here
+  stackBase: 0.122, // m radius of the leg above the boot — straight, no taper
   stackAmp: 0.009, // m the bunches stand out — a soft break, not a heavy stack
   stacks: 2, // bunches between stackFrom and the hem
   stackFrom: 0.7, // fraction down the shin where the stack starts
-  hem: 0.125, // m radius of the hem, covering most of the boot
+  hem: 0.132, // m radius of the hem over the boot
+  hemEnd: 0.03, // m above the ankle point the hem ends — at the boot, clear of the deck
+  cuffTop: 0.22, // m up the boot shaft the pant cuff reaches, overlapping the shin tube
+  shinEnd: 0.16, // m above the ankle the shin tube stops and domes into the cuff
+  seat: [0.17, 0.15, 0.25], // m half-extents of the seat and crotch piece, over both hip joints
 
   jacketHem: 0.14, // m below the hips — just past them
-  jacketWaist: 0.185, // m radius — boxy, barely taken in
-  jacketChest: 0.195, // m radius
+  jacketWaist: 0.2, // m radius — boxy, barely taken in
+  jacketChest: 0.21, // m radius
+  skirtHem: 0.235, // m radius the skirt flares out to at the hem, clear of hips and thighs
   yokeFrom: 0.72, // fraction up the spine where the teal yoke starts
-  jacketDepth: 0.8, // front-to-back squash of the jacket's round section
-  jacketWidth: 1.05, // shoulder-to-shoulder stretch
+  jacketDepth: 0.84, // front-to-back squash of the jacket's round section
+  jacketWidth: 1.07, // shoulder-to-shoulder stretch
   sleeveTop: 0.075, // m radius at the shoulder
   elbow: 0.066, // m radius
   cuff: 0.08, // m radius, stacked at the mitt
@@ -119,27 +126,40 @@ function thigh(len: number): THREE.Mesh {
   const o = OUTFIT;
   const p: Profile = [];
   dome(p, o.thighTop, 0, -1);
-  p.push([o.thighTop * 0.97, len * 0.35], [o.knee * 1.02, len * 0.75]);
+  p.push([o.thighTop * 1.1, len * 0.12], [o.thighFull, len * 0.35], [o.knee * 1.02, len * 0.75]);
   dome(p, o.knee, len, 1);
   return tube(p, len, cloth().pants);
 }
 
+/** Knee down to just above the boot, where it domes into the cuff. */
 function shin(len: number): THREE.Mesh {
   const o = OUTFIT;
   const p: Profile = [];
   dome(p, o.knee, 0, -1);
-  p.push([o.knee * 0.95, len * 0.35]);
-  // The stack: bunches that get fuller toward the boot, then a flare over it.
-  const from = len * o.stackFrom;
-  const to = len - 0.03;
+  p.push([o.knee * 0.97, len * 0.35]);
+  dome(p, o.stackBase, len - o.shinEnd, 1);
+  return tube(p, len, cloth().pants);
+}
+
+/**
+ * The bottom of the leg: the stack and the hem, hung on the boot shaft rather than the
+ * shin. Baggy pants bunch on the boot; they don't follow a steeply bent shin down through
+ * the deck, and the boot's lean is capped (board.ts maxFlex), so neither does this. Built
+ * in the shaft's frame: origin at the ankle, up the shin.
+ */
+function pantCuff(): THREE.Mesh {
+  const o = OUTFIT;
+  const p: Profile = [[0, o.hemEnd + 0.012], [o.hem * 0.85, o.hemEnd + 0.012], [o.hem, o.hemEnd]];
+  const from = o.hemEnd + 0.03;
+  const to = o.cuffTop - 0.02;
   const rings = o.stacks * 4;
   for (let i = 0; i <= rings; i++) {
     const t = i / rings;
     const bunch = 0.5 - 0.5 * Math.cos(t * o.stacks * Math.PI * 2);
-    p.push([o.stackBase + o.stackAmp * bunch * (0.6 + 0.4 * t), from + (to - from) * t]);
+    p.push([o.stackBase + o.stackAmp * bunch * (1 - 0.4 * t), from + (to - from) * t]);
   }
-  p.push([o.hem, len + 0.045], [o.hem * 0.85, len + 0.06], [0, len + 0.06]);
-  return tube(p, len, cloth().pants);
+  p.push([o.stackBase * 0.96, o.cuffTop], [0, o.cuffTop]);
+  return tube(p, 1, cloth().pants);
 }
 
 function upperArm(len: number): THREE.Mesh {
@@ -169,9 +189,10 @@ function forearm(len: number): THREE.Mesh {
 /** Rust body from the waist up, open at the top under the yoke. */
 function jacket(spine: number): THREE.Mesh {
   const o = OUTFIT;
+  // Down to −0.08, inside the skirt, so a bend at the waist never opens a gap between them.
   const p: Profile = [
-    [0, -0.01],
-    [o.jacketWaist * 1.03, -0.01],
+    [0, -0.08],
+    [o.jacketWaist, -0.08],
     [o.jacketWaist * 1.03, 0.02],
     [o.jacketChest, spine * 0.45],
     [o.jacketChest, spine * (o.yokeFrom + 0.04)],
@@ -183,19 +204,26 @@ function jacket(spine: number): THREE.Mesh {
 }
 
 /**
- * The skirt: waist to hem, hung from a pivot at the waist so the cloth springs (9c) can
- * swing it. Boxy, the hem drawn in a little by its cinch; open at the top, inside the body.
+ * The skirt: waist to hem, hung from a pivot on the pelvis — where the legs attach — so
+ * the hip joints stay inside it whatever the spine does, and the cloth springs (9c) swing
+ * it. A-line out to `skirtHem`, wide enough to clear the hips and the tops of the thighs;
+ * its top rides up inside the jacket body.
  */
+export function skirtProfile(): Profile {
+  const o = OUTFIT;
+  return [
+    [0, -o.jacketHem - SKIRT_PIVOT],
+    [o.skirtHem, -o.jacketHem - SKIRT_PIVOT],
+    [o.skirtHem * 0.99, -o.jacketHem * 0.55 - SKIRT_PIVOT],
+    [o.jacketWaist * 1.02, 0.03 - SKIRT_PIVOT],
+    [o.jacketWaist * 0.97, 0.12 - SKIRT_PIVOT],
+    [o.jacketWaist * 0.85, 0.12 - SKIRT_PIVOT],
+  ];
+}
+
 function skirt(): THREE.Mesh {
   const o = OUTFIT;
-  const p: Profile = [
-    [0, -o.jacketHem - SKIRT_PIVOT],
-    [o.jacketWaist * 0.98, -o.jacketHem - SKIRT_PIVOT],
-    [o.jacketWaist * 1.06, -o.jacketHem * 0.6 - SKIRT_PIVOT],
-    [o.jacketWaist * 1.035, 0.05 - SKIRT_PIVOT],
-    [o.jacketWaist * 0.9, 0.05 - SKIRT_PIVOT],
-  ];
-  const mesh = tube(p, 1, cloth().jacket);
+  const mesh = tube(skirtProfile(), 1, cloth().jacket);
   mesh.scale.set(o.jacketDepth, 1, o.jacketWidth);
   return mesh;
 }
@@ -277,10 +305,18 @@ export type Segments = {
   upperArms: THREE.Mesh[];
   forearms: THREE.Mesh[];
   mitts: THREE.Mesh[];
+  /** Boot shafts (board.ts), one per shin in the same order: the pant cuffs hang on these. */
+  bootShafts: THREE.Object3D[];
 };
 
 /** `skirt` and `hood` are the pivots the cloth springs turn (scene.ts, from Secondary). */
-export type Outfit = { pieces: THREE.Object3D[]; skirt: THREE.Object3D; hood: THREE.Object3D };
+export type Outfit = {
+  pieces: THREE.Object3D[];
+  skirt: THREE.Object3D;
+  hood: THREE.Object3D;
+  /** For the clip check (scripts/clip-check.ts): the skirt mesh and the pant tubes. */
+  fit: { skirt: THREE.Mesh; thighs: THREE.Mesh[]; shins: THREE.Mesh[] };
+};
 
 /** Hang the outfit on the rig's segments. Rest lengths come from the rig params at load. */
 export function dress(seg: Segments, lengths: { thigh: number; shin: number; upperArm: number; forearm: number; spine: number }): Outfit {
@@ -290,8 +326,21 @@ export function dress(seg: Segments, lengths: { thigh: number; shin: number; upp
     pieces.push(piece);
   };
 
-  for (const m of seg.thighs) hang(m, thigh(lengths.thigh));
-  for (const m of seg.shins) hang(m, shin(lengths.shin));
+  const thighs = seg.thighs.map((m) => {
+    const t = thigh(lengths.thigh);
+    hang(m, t);
+    return t;
+  });
+  const shins = seg.shins.map((m) => {
+    const t = shin(lengths.shin);
+    hang(m, t);
+    return t;
+  });
+  for (const shaft of seg.bootShafts) {
+    const c = pantCuff();
+    hang(shaft, c);
+    shins.push(c);
+  }
   for (const m of seg.upperArms) hang(m, upperArm(lengths.upperArm));
   for (const m of seg.forearms) hang(m, forearm(lengths.forearm));
   const c = cloth();
@@ -299,13 +348,16 @@ export function dress(seg: Segments, lengths: { thigh: number; shin: number; upp
 
   // Seat of the pants; the jacket body, its skirt on a pivot at the waist, and the hood on a
   // pivot at the back of the neck (+X is the heel side, behind the rider, who faces −X).
-  hang(seg.pelvis, blob(c.pants, 0, 0, 0, 0.15, 0.13, 0.21));
+  // Seat and crotch in one piece, over both hip joints and down between the legs.
+  const [sx, sy, sz] = OUTFIT.seat;
+  hang(seg.pelvis, blob(c.pants, 0, -0.03, 0, sx ?? 0.17, sy ?? 0.15, sz ?? 0.25));
   hang(seg.torso, jacket(lengths.spine));
   hang(seg.torso, yoke(lengths.spine));
   const skirtPivot = new THREE.Group();
   skirtPivot.position.y = SKIRT_PIVOT;
-  skirtPivot.add(skirt());
-  hang(seg.torso, skirtPivot);
+  const skirtMesh = skirt();
+  skirtPivot.add(skirtMesh);
+  hang(seg.pelvis, skirtPivot);
   const hoodPivot = new THREE.Group();
   hoodPivot.position.set(0.07, lengths.spine * 1.02, 0);
   hoodPivot.add(blob(c.yoke, 0.04, -0.02, 0, 0.09, 0.1, 0.14));
@@ -329,5 +381,5 @@ export function dress(seg: Segments, lengths: { thigh: number; shin: number; upp
   hang(seg.head, goggles());
 
   for (const piece of pieces) piece.traverse((o) => (o.castShadow = true));
-  return { pieces, skirt: skirtPivot, hood: hoodPivot };
+  return { pieces, skirt: skirtPivot, hood: hoodPivot, fit: { skirt: skirtMesh, thighs, shins } };
 }

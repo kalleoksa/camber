@@ -12,7 +12,8 @@
     "notes": "node scripts/notes.ts",
     "check-math": "node scripts/check-math.ts",
     "spin": "node scripts/spin-probe.ts",
-    "gate": "node scripts/pose-gate.ts"
+    "gate": "node scripts/pose-gate.ts",
+    "clip": "node scripts/clip-check.ts"
   },
   "dependencies": {
     "three": "^0.180.0",
