@@ -14,6 +14,7 @@ export function createChaseCamera(params: Params): ChaseCamera {
   const look = new THREE.Vector3();
   const forward = new THREE.Vector3();
   const up = new THREE.Vector3();
+  const aimPoint = new THREE.Vector3(); // where the camera actually looks: trails `look`
   let roll = 0;
 
   const desired = (view: RiderView, p: Params): void => {
@@ -44,7 +45,7 @@ export function createChaseCamera(params: Params): ChaseCamera {
     view.mode === 'grounded' || view.mode === 'walled' ? -view.edge * (view.switchRide ? -1 : 1) * p.camera.rollGain : 0;
 
   const frame = (view: RiderView, p: Params): void => {
-    camera.lookAt(look);
+    camera.lookAt(aimPoint);
     // Roll with the rider, into the turn: a toe-edge carve banks right, so the horizon
     // lifts on the right. rotateZ is counter-clockwise from behind, hence the negation.
     // Smoothed, so takeoff and touchdown don't pop the horizon.
@@ -62,12 +63,16 @@ export function createChaseCamera(params: Params): ChaseCamera {
       desired(view, p);
       const t = 1 - Math.exp(-p.camera.springStiffness * dt);
       camera.position.lerp(target, t);
+      // The aim trails the rider too, so turns and landings move them in frame instead of
+      // pinning them dead centre — most of what reads as loose rather than locked.
+      aimPoint.lerp(look, 1 - Math.exp(-p.camera.lookStiffness * dt));
       roll += (rollTarget(view, p) - roll) * t;
       frame(view, p);
     },
     snap(view, p) {
       desired(view, p);
       camera.position.copy(target);
+      aimPoint.copy(look);
       roll = rollTarget(view, p);
       frame(view, p);
     },

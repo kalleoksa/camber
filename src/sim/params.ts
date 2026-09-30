@@ -251,6 +251,19 @@ export const params = {
     shoulderLead: 0.25, // rad, shoulders ahead of the board at full takeoff spin
     headLead: 0.18, // s, head looks where the board will be this far ahead
     headTurnMax: 1.2, // rad, neck limit on that look
+    // Loose body (secondary.ts): the rider trails the board's acceleration instead of being
+    // bolted to it. Acceleration is smoothed first, so a landing is a shove, not a spike.
+    accelSmoothing: 12.0, // 1/s on the acceleration the body reacts to
+    armLag: 0.03, // rad of arm swing per m/s² — arms trail, back and out
+    armMax: 0.6, // rad
+    armStiffness: 40.0, // ω² of the arm swing — low, so they swing and settle
+    armDamping: 0.35, // ζ
+    hipSway: 0.012, // m of hip travel per m/s², against the acceleration
+    hipSwayMax: 0.08, // m
+    hipSwayStiffness: 90.0, // ω²
+    hipSwayDamping: 0.6, // ζ
+    carveLead: 0.35, // rad of shoulder turn into a carve per rad/s of heading change
+    carveLeadMax: 0.5, // rad — a landing's heading snap would otherwise wrench the shoulders
   },
   // Cloth (9c): springs on the fixed tick in render/secondary.ts, so replay reproduces
   // them; they change the spring hash, not the sim. Angles in rad, rates in rad/s.
@@ -299,7 +312,8 @@ export const params = {
     thumpDecay: 0.28, // s
   },
   camera: {
-    springStiffness: 9.0,
+    springStiffness: 5.5, // 1/s (was 9) — loose enough that the rider moves in frame
+    lookStiffness: 7.0, // 1/s the aim point follows the rider — lets them drift off centre on turns and landings
     distance: 5.5, // m, behind the rider along heading
     height: 1.8, // m, along the contact normal
     lookAhead: 6.0, // m down the fall line — keeps the slope in frame, not the sky

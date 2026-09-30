@@ -53,6 +53,7 @@ export type Readout = {
   spin: number;
   rotated: number;
   landing: string;
+  trick: string;
   determinism: string;
 };
 
@@ -76,6 +77,7 @@ export type PanelHandlers = {
   onSavePreset(): void;
   onLoadPreset(json: string): void;
   onDownloadFeedback(): void;
+  onTrickText(on: boolean): void;
 };
 
 /** The tester's side of feedback: who they are, and a one-line status. */
@@ -142,6 +144,9 @@ export function createPanel(
   status.addBinding(readout, 'spin', { readonly: true, format: (v: number) => v.toFixed(2) });
   status.addBinding(readout, 'rotated', { readonly: true, format: (v: number) => `${v.toFixed(0)}°` });
   status.addBinding(readout, 'landing', { readonly: true });
+  status.addBinding(readout, 'trick', { readonly: true });
+  const trickText = { onScreen: true };
+  status.addBinding(trickText, 'onScreen', { label: 'tricks on screen' }).on('change', (ev) => handlers.onTrickText(ev.value));
   status.addBinding(readout, 'determinism', { readonly: true });
 
   // Dressed rider or the bare segments; ?look=bare starts bare.

@@ -80,8 +80,9 @@ export type RigDrivers = {
    * are independent.
    *
    * `Swing` is shoulder flexion in the rider's sagittal plane: 0 hangs at the side, π/2 is
-   * straight out toward the toes, π is overhead. `Out` is abduction along the board, toward
-   * the nose on the front arm and the tail on the back. `Elbow` is flexion. `Pole` sweeps
+   * straight out toward the toes, π is overhead. `Out` swings the arm along the board:
+   * negative takes it out — toward the nose on the front arm, the tail on the back —
+   * positive draws it in across the body. `Elbow` is flexion. `Pole` sweeps
    * which way the elbow breaks, and it is also what `armRouting` will need — outside,
    * between the legs and crossed differ only in where the elbow goes.
    *
@@ -123,16 +124,17 @@ export function neutralDrivers(): RigDrivers {
     headPitch: 0,
     kneeSplay: 0.5,
     stanceScale: 1,
-    frontShoulderSwing: 0.35,
-    frontShoulderOut: 0.25,
-    frontElbow: 0.5,
+    // Riding: relaxed, hands apart — front hand out toward the nose, back toward the tail.
+    frontShoulderSwing: 0.3,
+    frontShoulderOut: -0.45,
+    frontElbow: 0.45,
     // ≈π: the elbow bend axis in solveArmFK flips with the side, so the front arm needs its
     // pole swept half round to bend forward like the back one. Every authored anchor already
     // does this; at 0 the front hand hung back between the legs.
     frontElbowPole: -3.1,
-    backShoulderSwing: 0.35,
-    backShoulderOut: 0.25,
-    backElbow: 0.5,
+    backShoulderSwing: 0.2,
+    backShoulderOut: -0.35,
+    backElbow: 0.45,
     backElbowPole: 0,
     shifty: 0,
   };

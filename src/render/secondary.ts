@@ -1,5 +1,6 @@
 import { createHasher, type Hasher } from '../sim/hash.ts';
 import type { Params } from '../sim/params.ts';
+import * as dm from '../sim/dmath.ts';
 import { quat, rotate } from '../sim/quat.ts';
 import type { RiderState } from '../sim/state.ts';
 import { vec3 } from '../sim/vec3.ts';
@@ -38,9 +39,49 @@ export type Secondary = {
   hoodXVel: number;
   hoodZ: number;
   hoodZVel: number;
+  // Loose body: smoothed board-frame acceleration, and the arm and hip springs it drives.
+  accX: number;
+  accY: number;
+  accZ: number;
+  lastVx: number;
+  lastVy: number;
+  lastVz: number;
+  lastHeading: number;
+  armX: number; // rad, arms swung toward the heel (+) or toe
+  armXVel: number;
+  armZ: number; // rad, arms out along the board toward the nose (+)
+  armZVel: number;
+  swayX: number; // m of hip travel toward the heel
+  swayXVel: number;
+  swayZ: number; // m toward the nose
+  swayZVel: number;
 };
 
-const CLOTH_KEYS = ['skirtX', 'skirtXVel', 'skirtZ', 'skirtZVel', 'hoodX', 'hoodXVel', 'hoodZ', 'hoodZVel'] as const;
+const CLOTH_KEYS = [
+  'skirtX',
+  'skirtXVel',
+  'skirtZ',
+  'skirtZVel',
+  'hoodX',
+  'hoodXVel',
+  'hoodZ',
+  'hoodZVel',
+  'accX',
+  'accY',
+  'accZ',
+  'lastVx',
+  'lastVy',
+  'lastVz',
+  'lastHeading',
+  'armX',
+  'armXVel',
+  'armZ',
+  'armZVel',
+  'swayX',
+  'swayXVel',
+  'swayZ',
+  'swayZVel',
+] as const;
 type ClothKey = (typeof CLOTH_KEYS)[number];
 
 export function createSecondary(): Secondary {
@@ -59,6 +100,21 @@ export function createSecondary(): Secondary {
     hoodXVel: 0,
     hoodZ: 0,
     hoodZVel: 0,
+    accX: 0,
+    accY: 0,
+    accZ: 0,
+    lastVx: 0,
+    lastVy: 0,
+    lastVz: 0,
+    lastHeading: 0,
+    armX: 0,
+    armXVel: 0,
+    armZ: 0,
+    armZVel: 0,
+    swayX: 0,
+    swayXVel: 0,
+    swayZ: 0,
+    swayZVel: 0,
   };
 }
 
@@ -119,8 +175,11 @@ export function stepSecondary(sec: Secondary, state: RiderState, params: Params,
   const grounded = state.mode === 'grounded' || state.mode === 'walled';
   const airborne = state.mode === 'airborne';
   const spinFraction = Math.max(-1, Math.min(1, state.spinRate / params.air.spinTakeoff));
+  // Shoulders lead a carve: the heading's rate, from the last tick's heading.
+  const hasHistory = sec.lastVx !== 0 || sec.lastVy !== 0 || sec.lastVz !== 0;
+  const turn = hasHistory ? wrapPi(state.heading - sec.lastHeading) / dt : 0;
   const twistTarget = grounded
-    ? state.edge * state.compress * r.counterRotation
+    ? state.edge * state.compress * r.counterRotation + clamp(turn * r.carveLead, r.carveLeadMax)
     : airborne
       ? spinFraction * r.shoulderLead
       : 0;
@@ -133,6 +192,66 @@ export function stepSecondary(sec: Secondary, state: RiderState, params: Params,
   sec.head += sec.headVel * dt;
 
   stepCloth(sec, state, params, dt);
+  stepLoose(sec, state, params, dt);
+}
+
+function wrapPi(a: number): number {
+  return dm.atan2(dm.sin(a), dm.cos(a));
+}
+
+const accel = vec3();
+
+/**
+ * Loose body. The board's acceleration, into the board frame and smoothed, pushes the
+ * arms and hips the other way — they trail the board like a body not bolted to it. A
+ * new run or a reset starts with no history, so the first tick sees no acceleration.
+ */
+function stepLoose(sec: Secondary, state: RiderState, params: Params, dt: number): void {
+  const r = params.rig;
+  const v = state.velocity;
+  const fresh = sec.lastVx === 0 && sec.lastVy === 0 && sec.lastVz === 0;
+  if (!fresh) {
+    accel.x = (v.x - sec.lastVx) / dt;
+    accel.y = (v.y - sec.lastVy) / dt;
+    accel.z = (v.z - sec.lastVz) / dt;
+    rotate(local, inverseOf(state.spinFrame), accel);
+    const k = 1 - dm.exp(-r.accelSmoothing * dt);
+    sec.accX += (local.x - sec.accX) * k;
+    sec.accY += (local.y - sec.accY) * k;
+    sec.accZ += (local.z - sec.accZ) * k;
+  }
+  sec.lastVx = v.x;
+  sec.lastVy = v.y;
+  sec.lastVz = v.z;
+  sec.lastHeading = state.heading;
+
+  // Arms trail: accelerating toward the nose swings them back toward the tail, and so on.
+  const ka = r.armStiffness;
+  const ca = 2 * r.armDamping * Math.sqrt(ka);
+  const armXTarget = clamp(-sec.accX * r.armLag, r.armMax);
+  const armZTarget = clamp(-sec.accZ * r.armLag, r.armMax);
+  sec.armXVel += (ka * (armXTarget - sec.armX) - ca * sec.armXVel) * dt;
+  sec.armX += sec.armXVel * dt;
+  sec.armZVel += (ka * (armZTarget - sec.armZ) - ca * sec.armZVel) * dt;
+  sec.armZ += sec.armZVel * dt;
+
+  const ks = r.hipSwayStiffness;
+  const cs = 2 * r.hipSwayDamping * Math.sqrt(ks);
+  const swayXTarget = clamp(-sec.accX * r.hipSway, r.hipSwayMax);
+  const swayZTarget = clamp(-sec.accZ * r.hipSway, r.hipSwayMax);
+  sec.swayXVel += (ks * (swayXTarget - sec.swayX) - cs * sec.swayXVel) * dt;
+  sec.swayX += sec.swayXVel * dt;
+  sec.swayZVel += (ks * (swayZTarget - sec.swayZ) - cs * sec.swayZVel) * dt;
+  sec.swayZ += sec.swayZVel * dt;
+}
+
+const inverseQ = quat();
+function inverseOf(q: { x: number; y: number; z: number; w: number }): typeof inverseQ {
+  inverseQ.x = -q.x;
+  inverseQ.y = -q.y;
+  inverseQ.z = -q.z;
+  inverseQ.w = q.w;
+  return inverseQ;
 }
 
 function clamp(x: number, m: number): number {

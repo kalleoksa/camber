@@ -45,6 +45,8 @@ export type Take = {
   startLatched?: boolean;
   /** Feedback marks (docs/feedback.md). Not hashed, not replayed — commentary on the run. */
   notes?: Note[];
+  /** Tricks as the reader named them live (render/tricks.ts). Commentary, like notes. */
+  tricks?: { tick: number; text: string }[];
 };
 
 export type NoteTag = 'note' | 'good' | 'bad' | 'bug' | 'look';
@@ -58,6 +60,7 @@ export type Note = {
   tick: number; // frames into the take: the note sits after this many ticks
   tag: NoteTag;
   text: string;
+  trick?: string; // the last trick named before the mark
   at: { mode: string; speed: number; landing: string; impact: number; airTime: number; spinRate: number };
 };
 
