@@ -96,7 +96,7 @@ export const params = {
     rideHeight: 0.03, // m, board bottom above the rail line
     friction: 1.0, // m/s² along the rail at a 50-50
     slideFriction: 2.0, // extra friction × |sin slide| — a boardslide scrapes, a 50-50 runs
-    slideRate: 4.0, // rad/s, LB/RB turning the board against the rail
+    slideRate: 2.0, // rad/s (was 4), LB/RB turning the board against the rail — a fine adjustment; the way into a boardslide is an ollie turned 90° onto it
     stallSpeed: 1.0, // m/s below which you drop off the side
     // Balance: an unstable lean, like standing on an edge — deterministic, seeded only by
     // the entry (open question 4). b'' = λ·b − c·b' + correctionGain·lx.

@@ -63,6 +63,78 @@ export const ANCHORS: Record<string, RigDrivers> = {
     backElbowPole: -0.68,
   }),
 
+  // --- rail slides (docs: slide plan) — first pass from reference photos, refine in pose
+  // mode. Blended in play by how far across the rail the board is and where the contact
+  // is (scene.ts); the balance lean rides on top, so a sketchy slide still reads.
+
+  /**
+   * Board across the rail, travelling toward the toes: the toes already point down the
+   * rail, so no twist. Hips back over the heel side, chest folded forward over the toes,
+   * knees deep, hands low and forward — the rider in the first reference photo.
+   */
+  boardslide: pose({
+    hipX: 0.15,
+    hipY: -0.3,
+    pelvisPitch: 0.35,
+    spineBend: 0.8,
+    headYaw: 0,
+    headPitch: -0.25,
+    kneeSplay: 0.6,
+    frontShoulderSwing: 0.9,
+    frontShoulderOut: 0.2,
+    frontElbow: 0.35,
+    frontElbowPole: -3.1,
+    backShoulderSwing: 0.6,
+    backShoulderOut: 0.3,
+    backElbow: 0.4,
+    backElbowPole: -0.2,
+  }),
+
+  /**
+   * Board across the rail, travelling toward the heels — blind. Weight a touch over the
+   * toes against the pull backward, shoulders opened toward the nose and the head turned
+   * right round over the lead shoulder to see down the rail, arms out low for balance.
+   */
+  boardslideBlind: pose({
+    hipX: -0.04,
+    hipY: -0.28,
+    pelvisPitch: 0.1,
+    spineBend: 0.3,
+    spineTwist: 0.7,
+    headYaw: 1.4,
+    kneeSplay: 0.55,
+    frontShoulderSwing: 0.4,
+    frontShoulderOut: 0.9,
+    frontElbow: 0.3,
+    frontElbowPole: -3.1,
+    backShoulderSwing: 0.25,
+    backShoulderOut: 0.9,
+    backElbow: 0.3,
+    backElbowPole: -0.2,
+  }),
+
+  /**
+   * Weight on the nose over the rail — nose press or noseslide. Chest and eyes over the
+   * nose, front hand reaching toward it, back arm out toward the tail for balance. A tail
+   * press is this mirrored.
+   */
+  press: pose({
+    hipY: -0.18,
+    pelvisPitch: 0.2,
+    spineBend: 0.45,
+    spineSide: 0.35,
+    headYaw: 0.9,
+    kneeSplay: 0.55,
+    frontShoulderSwing: 0.7,
+    frontShoulderOut: 0.8,
+    frontElbow: 0.2,
+    frontElbowPole: -3.1,
+    backShoulderSwing: 0.2,
+    backShoulderOut: 0.7,
+    backElbow: 0.5,
+    backElbowPole: -0.2,
+  }),
+
   // --- grab coordinates, bodies unposed (grabs.md §3) -------------------------------
   // `t` runs tail 0 to nose 1. `edge` is −1 heel, +1 toe, matching state.edge's sign.
 

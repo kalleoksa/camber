@@ -6,9 +6,9 @@ import type { SlopeConfig, Terrain } from '../sim/terrain.ts';
 import { createContact } from '../sim/terrain.ts';
 import { length, vec3, type Vec3 } from '../sim/vec3.ts';
 import { boardAttitude } from '../sim/grabs.ts';
-import { BODY_KEYS, grabBody } from './poses.ts';
+import { ANCHORS, BODY_KEYS, grabBody } from './poses.ts';
 import { butterAmount } from '../sim/states/grounded.ts';
-import { BOARD_HALF, createRig, edgePoint, gripWeight, mirrorDrivers, neutralDrivers, smoothstep, type RigDrivers } from './rig.ts';
+import { BOARD_HALF, copyDrivers, createRig, edgePoint, gripWeight, mirrorDrivers, neutralDrivers, smoothstep, type RigDrivers } from './rig.ts';
 import type { Secondary } from './secondary.ts';
 import { flutter } from './toon.ts';
 import { TICK_DT } from '../core/loop.ts';
@@ -375,6 +375,16 @@ export function createScene(cfg: SlopeConfig, terrain: Terrain, camera: THREE.Pe
    * is drawn is the board the landing test judges. Everything that moves is a spring on the
    * sim tick (secondary.ts), never a per-frame integration (§7.6).
    */
+  const pressScratch = neutralDrivers();
+  /** Blend the body keys toward a pose; elbow poles the short way round, since they wrap. */
+  const blendToward = (out: RigDrivers, to: RigDrivers, w: number): void => {
+    for (const k of BODY_KEYS) {
+      let d = to[k] - out[k];
+      if (k === 'frontElbowPole' || k === 'backElbowPole') d = Math.atan2(Math.sin(d), Math.cos(d));
+      out[k] += d * w;
+    }
+  };
+
   const driveFromSim = (view: RiderView, params: Params, secondary: Secondary): void => {
     const r = params.rig;
     const grounded = view.mode === 'grounded' || view.mode === 'walled';
@@ -391,9 +401,10 @@ export function createScene(cfg: SlopeConfig, terrain: Terrain, camera: THREE.Pe
     const c = railed ? Math.cos(view.slide) : 0;
     const sn = railed ? Math.sin(view.slide) : 0;
     if (trick) {
-      base.hipX = view.balance * r.railLean;
-      base.hipZ = view.railContact * r.pressHipShift;
-      base.spineSide = view.railContact * r.stanceSpineSide;
+      // The lean and the press shift go on after the slide poses below, not into base.
+      base.hipX = 0;
+      base.hipZ = 0;
+      base.spineSide = 0;
     } else {
       base.hipX = grounded ? view.edge * r.edgeHipShift : railed ? -c * view.balance * r.railLean : 0;
       base.hipZ = view.stance * r.stanceHipShift + sn * view.balance * r.railLean;
@@ -408,6 +419,25 @@ export function createScene(cfg: SlopeConfig, terrain: Terrain, camera: THREE.Pe
     // A switch grab: the regular grab's pose (and hands, below) mirrored nose-for-tail.
     if (view.grabSwitch) mirrorDrivers(body);
     for (const k of BODY_KEYS) drivers[k] = base[k] + (body[k] - base[k]) * bodyWeight;
+    if (trick) {
+      // Slide poses (poses.ts): across the rail toward the toes is the open boardslide,
+      // toward the heels the blind one — travel in board frame is (sin slide, ·, cos slide)
+      // with +X the heel. Weight on an end blends toward the press, mirrored for the tail.
+      const across = smoothstep((Math.abs(sn) - 0.3) / 0.6);
+      const slidePose = sn < 0 ? ANCHORS.boardslide : ANCHORS.boardslideBlind;
+      if (slidePose && across > 0) blendToward(drivers, slidePose, across);
+      const pressPose = ANCHORS.press;
+      const pressAmount = smoothstep(Math.abs(view.railContact) / Math.max(params.rail.pressMax, 1e-3));
+      if (pressPose && pressAmount > 0) {
+        copyDrivers(pressScratch, pressPose);
+        if (view.railContact < 0) mirrorDrivers(pressScratch);
+        blendToward(drivers, pressScratch, pressAmount);
+      }
+      // The lean you are fighting, and the hips over the contact, on top of whatever pose.
+      drivers.hipX += view.balance * r.railLean;
+      drivers.hipZ += view.railContact * r.pressHipShift;
+      drivers.spineSide += view.railContact * r.stanceSpineSide;
+    }
     // Wind-up and lead ride on top of whatever the grab asks for, not under it.
     drivers.spineTwist += secondary.twist;
     drivers.headYaw += secondary.head;

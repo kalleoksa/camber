@@ -594,7 +594,21 @@ not.
     from the miss across it; sideways speed starts both moving.
   - The board sits with its contact point over the rail. Render tips it onto that point
     (`rig.pressPitch`) and puts the hips over it (`rig.pressHipShift`).
-  - LB/RB still turn the slide angle.
+  - LB/RB still turn the slide angle, now slowly (`rail.slideRate` 2): the way into a
+    boardslide is an ollie turned 90° onto the rail. Capture takes the slide angle from the
+    board, and a quick flick after the pop lands 45–120° across (probe).
+- **Slide poses** (render, `poses.ts`): anchors blended by how far across the rail the
+  board is and by the contact point, with the balance lean on top.
+  - `boardslide`: travelling toward the toes. They already point down the rail, so hips
+    back, chest folded over the toes, hands low.
+  - `boardslideBlind`: travelling toward the heels. Shoulders opened and head turned over
+    the lead shoulder.
+  - `press`: chest and front hand over the pressed end, mirrored for the tail.
+- **Names**, as read from the state (no score): board across the rail = boardslide, open or
+  blind by travel side; along it with the contact at an end = nose or tail press; across
+  with the contact at an end = nose or tail slide. Frontside/backside and lipslide depend
+  on the approach side and which end crossed the rail. The convention is still to be
+  fixed — the sources disagree — before anything names tricks.
 - Exit: pop (carries rail momentum + pop), ride off the end (retain state, re-enter
   AIRBORNE), or bail.
 
