@@ -206,16 +206,25 @@ function gridColumns(cfg: SlopeConfig): number[] {
     const to = Math.max(w.x, w.x + w.side * span) + 0.5;
     for (let x = from; x <= to; x += 0.1) xs.push(x);
   }
+  // Quarter pipes facing across the slope: their face runs along Z, like a wall's.
+  for (const q of cfg.quarters ?? []) {
+    if (!q.side) continue;
+    const span = q.radius + q.deck + 2 * q.height + 1;
+    const from = Math.min(q.x, q.x + q.side * span) - 0.5;
+    const to = Math.max(q.x, q.x + q.side * span) + 0.5;
+    for (let x = from; x <= to; x += 0.1) xs.push(x);
+  }
   xs.sort((p, q) => p - q);
   return xs.filter((x, i) => Math.abs(x) <= half && (i === 0 || x - (xs[i - 1] ?? -Infinity) > 0.02));
 }
 
-/** Grid rows down the slope, likewise: 0.1 m across a quarter pipe's face, which runs across X. */
+/** Grid rows down the slope, likewise: 0.1 m across an uphill-facing quarter pipe's face, which runs across X. */
 function gridRows(cfg: SlopeConfig, runOut: number): number[] {
   const zs: number[] = [];
   const coarse = Math.round((cfg.length + runOut) / 0.75);
   for (let j = 0; j <= coarse; j++) zs.push(runOut - ((cfg.length + runOut) * j) / coarse);
   for (const q of cfg.quarters ?? []) {
+    if (q.side) continue;
     const span = q.radius + q.deck + 2 * q.height + 1;
     for (let z = q.z + 0.5; z >= q.z - span; z -= 0.1) zs.push(z);
   }

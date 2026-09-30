@@ -69,14 +69,16 @@ export type CornerConfig = {
  * air comes back into the pipe.
  */
 export type QuarterConfig = {
-  z: number; // m, where the transition starts (downhill is −Z)
-  x: number; // m, centre across the slope
-  width: number; // m
+  z: number; // m, where the transition starts (downhill is −Z) — with `side`, the centre along the fall line
+  x: number; // m, centre across the slope — with `side`, where the transition starts
+  width: number; // m — with `side`, its length down the fall line
   height: number; // m above the slope at the coping
   angle: number; // rad of the face at the top — near π/2
   radius: number; // m, transition radius
   deck: number; // m of flat deck behind the coping
   sideTaper: number; // m over which the sides roll off
+  side?: 1 | -1; // set: faces across the slope, rising toward +X or −X, as one wall of a halfpipe
+  backAngle?: number; // rad of the back face; defaults to `angle`, a drop off the deck
 };
 
 export type GradeConfig = {
@@ -421,17 +423,20 @@ function quarterProfile(q: QuarterConfig): Profile {
   const steep = dm.tan(q.angle);
   const faceEnd = arcLen + Math.max(0, q.height - arcRise) / steep;
   const deckEnd = faceEnd + q.deck;
-  const backEnd = deckEnd + q.height / steep;
+  const back = q.backAngle === undefined ? steep : dm.tan(q.backAngle);
+  const backEnd = deckEnd + q.height / back;
+  const across = q.side ?? 0;
   return (x: number, z: number): number => {
-    const s = q.z - z;
+    // s runs up the transition; `side` is how far past the pipe's end, along the coping.
+    const s = across === 0 ? q.z - z : across * (x - q.x);
     if (s <= 0 || s >= backEnd) return 0;
-    const side = Math.abs(x - q.x) - q.width * 0.5;
+    const side = (across === 0 ? Math.abs(x - q.x) : Math.abs(z - q.z)) - q.width * 0.5;
     if (side >= q.sideTaper) return 0;
     let h: number;
     if (s < arcLen) h = r - Math.sqrt(r * r - s * s);
     else if (s < faceEnd) h = arcRise + (s - arcLen) * steep;
     else if (s < deckEnd) h = q.height;
-    else h = q.height - (s - deckEnd) * steep;
+    else h = q.height - (s - deckEnd) * back;
     if (side > 0) {
       const t = 1 - side / q.sideTaper;
       h *= t * t * (3 - 2 * t);

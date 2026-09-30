@@ -3,9 +3,9 @@ import { kickerSpan } from './sochi.ts';
 
 /**
  * The home park: two lanes off one drop-in. Left, the jump line — two small kickers to warm
- * up, three big ones, then a corner with a quarter pipe below each of its side landings, so
- * whichever side you land on runs straight into a pipe. Right, the rail lane on its own: three
- * jib tables and a wall. Grades are shared across the width, so the rail lane rides the jump
+ * up, three big ones, then a corner feeding a short halfpipe — a wall in line with each of its
+ * side landings, so whichever side you land on runs into one, then across to the other.
+ * Right, the rail lane on its own: three jib tables and a wall. Grades are shared across the width, so the rail lane rides the jump
  * line's steps — rails are placed by height above the snow, which keeps them true on any grade.
  */
 const JUMP_X = -12; // m, jump line centre
@@ -47,11 +47,16 @@ const CORNER: Omit<CornerConfig, 'z'> = { x: JUMP_X, width: 8, lipHeight: 5, lip
 const cornerZ = b3.end - 25;
 const cornerRunIn = (CORNER.lipHeight / (1 - Math.cos(CORNER.lipAngle))) * Math.sin(CORNER.lipAngle);
 const cornerEnd = cornerZ - cornerRunIn - CORNER.deckLength - 15; // its landings back on the slope
-// A quarter pipe under each side landing, a short drop then a flat bottom away.
-const QUARTER_RUN = 30;
-const QUARTER: Omit<QuarterConfig, 'z' | 'x'> = { width: 16, height: 5, angle: 1.45, radius: 4.5, deck: 3, sideTaper: 3 };
-const QUARTER_OFFSET = 11; // m either side of the corner's centre: in line with its landings
-const quarterZ = cornerEnd - QUARTER_RUN;
+// Below the corner, a short halfpipe: two quarter pipes facing each other across a flat
+// bottom, each in line with one of the corner's side landings, close enough to carve across
+// from one to the other. Walls fade in at the uphill end, so a landing rolls in.
+const HALFPIPE_FLAT = 14; // m of flat bottom between the transitions: the landings run out inside it
+const HALFPIPE_LENGTH = 50; // m down the fall line
+const HALFPIPE_DROP = 14; // m of steeper drop-in from the landings to the pipe: speed for the walls
+const halfpipeTop = cornerEnd - HALFPIPE_DROP;
+const WALL: Omit<QuarterConfig, 'z' | 'x' | 'side'> = { width: HALFPIPE_LENGTH, height: 3.5, angle: 1.45, radius: 3.2, deck: 3, sideTaper: 8, backAngle: 0.35 };
+const halfpipeZ = halfpipeTop - HALFPIPE_LENGTH / 2;
+const halfpipeEnd = halfpipeTop - HALFPIPE_LENGTH;
 
 // Rail lane: jib tables as in the Sochi plans, a gentle lip the width of the lane, a flat deck
 // the rails sit on, a landing off the end.
@@ -66,7 +71,7 @@ const jib2 = jibTable(-80);
 const jib3 = jibTable(-134);
 
 export const PARK: SlopeConfig = {
-  length: Math.ceil(-quarterZ + 40),
+  length: Math.ceil(-halfpipeEnd + 40),
   width: 140,
   pitch: drop,
   grades: [
@@ -77,8 +82,9 @@ export const PARK: SlopeConfig = {
     ...b1.grades,
     ...b2.grades,
     ...b3.grades,
-    { z: cornerEnd, pitch: drop, blend: 8 },
-    { z: quarterZ + 10, pitch: 0, blend: 8 },
+    { z: cornerEnd, pitch: drop, blend: 6 }, // drop-in
+    { z: halfpipeTop - 6, pitch: 0.28, blend: 8 }, // the halfpipe's fall line — about a real pipe's 17°
+    { z: halfpipeEnd - 4, pitch: 0.1, blend: 8 }, // run-out
   ],
   rails: [
     // Jib 1: ride-on box, kinked rail, flat rail, curved box.
@@ -98,7 +104,7 @@ export const PARK: SlopeConfig = {
   kickers: [s1.kicker, s2.kicker, b1.kicker, b2.kicker, b3.kicker, jib1, jib2, jib3],
   corners: [{ z: cornerZ, ...CORNER }],
   quarters: [
-    { z: quarterZ, x: JUMP_X - QUARTER_OFFSET, ...QUARTER },
-    { z: quarterZ, x: JUMP_X + QUARTER_OFFSET, ...QUARTER },
+    { z: halfpipeZ, x: JUMP_X - HALFPIPE_FLAT / 2, side: -1, ...WALL },
+    { z: halfpipeZ, x: JUMP_X + HALFPIPE_FLAT / 2, side: 1, ...WALL },
   ],
 };
