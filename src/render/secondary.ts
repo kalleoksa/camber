@@ -1,5 +1,6 @@
 import { createHasher, type Hasher } from '../sim/hash.ts';
 import type { Params } from '../sim/params.ts';
+import * as dm from '../sim/dmath.ts';
 import { quat, rotate } from '../sim/quat.ts';
 import type { RiderState } from '../sim/state.ts';
 import { vec3 } from '../sim/vec3.ts';
@@ -195,7 +196,7 @@ export function stepSecondary(sec: Secondary, state: RiderState, params: Params,
 }
 
 function wrapPi(a: number): number {
-  return Math.atan2(Math.sin(a), Math.cos(a));
+  return dm.atan2(dm.sin(a), dm.cos(a));
 }
 
 const accel = vec3();
@@ -214,7 +215,7 @@ function stepLoose(sec: Secondary, state: RiderState, params: Params, dt: number
     accel.y = (v.y - sec.lastVy) / dt;
     accel.z = (v.z - sec.lastVz) / dt;
     rotate(local, inverseOf(state.spinFrame), accel);
-    const k = 1 - Math.exp(-r.accelSmoothing * dt);
+    const k = 1 - dm.exp(-r.accelSmoothing * dt);
     sec.accX += (local.x - sec.accX) * k;
     sec.accY += (local.y - sec.accY) * k;
     sec.accZ += (local.z - sec.accZ) * k;
