@@ -604,6 +604,8 @@ not.
   - `frontsideBoardslide`: travelling toward the heels (blind). Your pose: shoulders opened,
     head turned right round, upright.
   - `press`: chest and front hand over the pressed end, mirrored for the tail.
+  - Came in riding switch (`switchRide`): the board sits the same on the rail but the lead
+    is the tail side, so the slide pose mirrors nose-for-tail.
   - A slide anchor's `shifty` means the body turned against the board. In play the sim
     owns the board, so it is applied as hip yaw.
 - **Names**, as read from the state (no score). Board across the rail, travelling toward

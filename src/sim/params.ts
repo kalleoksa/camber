@@ -89,6 +89,7 @@ export const params = {
     minTime: 0.9, // s before recovery is allowed at all
     tumbleRate: 8.0, // rad/s, visual tumble while down, at full slide speed
     tumbleSpeedRef: 8.0, // m/s of slide at which the tumble reaches full rate
+    faceDownhill: 3.0, // 1/s, while down the board swings to the fall line — nose or tail, whichever is nearer — so you get up pointing downhill. 0: older rule, heading frozen
   },
   rail: {
     captureRadius: 0.35, // m, board to rail top for it to catch

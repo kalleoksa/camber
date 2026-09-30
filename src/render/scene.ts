@@ -430,6 +430,9 @@ export function createScene(cfg: SlopeConfig, terrain: Terrain, camera: THREE.Pe
         // Posed with the board yawed under the body (shifty); in play the sim owns the
         // board, so the same relative turn goes on the hips.
         copyDrivers(slideScratch, slidePose);
+        // Came in riding switch: same board on the rail, but the lead is the tail side, so
+        // the pose mirrors nose-for-tail — head over the other shoulder, lead arm swapped.
+        if (view.switchRide) mirrorDrivers(slideScratch);
         slideScratch.hipYaw -= slideScratch.shifty;
         blendToward(drivers, slideScratch, across);
       }
