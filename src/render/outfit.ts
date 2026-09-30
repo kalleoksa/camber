@@ -24,7 +24,9 @@ export const OUTFIT = {
   beanie: 0x5f7431, // olive, ribbed — ref: shallow fisherman beanie with a deep cuff
   beanieRibs: 56, // ribs round the head
   patch: 0x121314, // the woven label on the cuff, plain
-  mitt: 0x1b1f24,
+  // Mitts, from your reference: rust shell, black leather palm, long gauntlet over the sleeve.
+  mitt: 0xb95b24,
+  palm: 0x17181b,
   // Goggles, from your reference: white frame and strap with black edges, dark lens.
   goggleFrame: 0xf2f2f2,
   lens: 0x3b3d44,
@@ -92,7 +94,7 @@ function tube(profile: Profile, len: number, material: THREE.Material): THREE.Me
 
 /** Shared cloth materials: shells flutter (9c), the rest don't. Built once, on first dress. */
 const cloth = (() => {
-  let made: Record<'pants' | 'jacket' | 'yoke' | 'beanie' | 'patch' | 'mitt' | 'strap' | 'strapEdge' | 'frame' | 'lens' | 'face', THREE.Material> | null = null;
+  let made: Record<'pants' | 'jacket' | 'yoke' | 'beanie' | 'patch' | 'mitt' | 'palm' | 'strap' | 'strapEdge' | 'frame' | 'lens' | 'face', THREE.Material> | null = null;
   return () => {
     if (made) return made;
     const o = OUTFIT;
@@ -105,6 +107,7 @@ const cloth = (() => {
       beanie: toon(0xffffff, { map: ribs(o.beanie, o.beanieRibs) }),
       patch: toon(o.patch),
       mitt: toon(o.mitt),
+      palm: toon(o.palm),
       strap: toon(o.strap, { twoSided: true }),
       strapEdge: toon(o.strapEdge, { twoSided: true }),
       frame: toon(o.goggleFrame, { twoSided: true }),
@@ -183,6 +186,29 @@ function forearm(len: number): THREE.Mesh {
   }
   p.push([o.cuff * 0.6, len * 0.84], [0, len * 0.84]);
   return tube(p, len, cloth().yoke);
+}
+
+/**
+ * Mitt in the hand frame rig.ts sets: +y along the forearm to the fingertips, palm toward −z,
+ * origin at the hand point. `thumb` is the side the thumb sits on: +x left hand, −x right.
+ */
+function mitten(thumb: 1 | -1): THREE.Group {
+  const c = cloth();
+  const g = new THREE.Group();
+  // Chunky shell, and the leather palm proud of it on the palm side.
+  g.add(blob(c.mitt, 0, 0.032, 0.004, 0.056, 0.076, 0.04));
+  g.add(blob(c.palm, 0, 0.028, -0.012, 0.052, 0.07, 0.033));
+  const t = blob(c.mitt, thumb * 0.05, 0.006, -0.016, 0.021, 0.04, 0.021);
+  t.rotation.z = -thumb * 0.45;
+  g.add(t);
+  // Gauntlet, flaring back over the sleeve end: wider than the bunched sleeve cuff (OUTFIT.cuff).
+  const p: Profile = [[0.088, -0.145], [0.095, -0.14], [0.093, -0.1], [0.089, -0.06], [0.076, -0.03], [0.06, -0.008], [0, -0.008]];
+  g.add(tube(p, 1, c.mitt));
+  // Wrist strap cinching the gauntlet.
+  const strap = new THREE.Mesh(new THREE.CylinderGeometry(0.093, 0.096, 0.02, 20, 1, true), c.palm);
+  strap.position.y = -0.055;
+  g.add(strap);
+  return g;
 }
 
 /** Rust body: boxy, hem drawn in a little by its cinch, open at the top under the yoke. */
@@ -344,7 +370,7 @@ export function dress(seg: Segments, lengths: { thigh: number; shin: number; upp
   for (const m of seg.upperArms) hang(m, upperArm(lengths.upperArm));
   for (const m of seg.forearms) hang(m, forearm(lengths.forearm));
   const c = cloth();
-  for (const m of seg.mitts) hang(m, blob(c.mitt, 0, 0, 0, 0.06, 0.066, 0.055));
+  seg.mitts.forEach((m, i) => hang(m, mitten(i === 0 ? 1 : -1)));
 
   // Seat of the pants; the jacket body, its skirt on a pivot at the waist, and the hood on a
   // pivot at the back of the neck (+X is the heel side, behind the rider, who faces −X).
