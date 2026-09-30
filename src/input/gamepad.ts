@@ -221,3 +221,34 @@ export function padRawSummary(): string {
   }
   return `${axes}| ${buttons || 'no buttons'}`;
 }
+
+/**
+ * Feedback marks (docs/feedback.md): View/Back drops a note, the D-pad drops one already
+ * tagged. Read apart from `pollGamepad` on purpose — a mark is commentary, never input, so
+ * it can't reach the snapshot, the take's frames or the sim. Edge-triggered: one press is
+ * one mark. The D-pad is only standard-layout buttons 12–15; on a raw-HID pad it's a hat
+ * axis, and View (Create there) still marks untagged.
+ */
+const MARK_BUTTONS: [number, 'note' | 'good' | 'bad' | 'bug' | 'look'][] = [
+  [8, 'note'],
+  [12, 'good'],
+  [13, 'bad'],
+  [14, 'bug'],
+  [15, 'look'],
+];
+const markHeld = [false, false, false, false, false];
+
+export function pollMark(): 'note' | 'good' | 'bad' | 'bug' | 'look' | null {
+  const pad = findPad();
+  if (!pad) return null;
+  const standard = pad.mapping === 'standard';
+  let mark: 'note' | 'good' | 'bad' | 'bug' | 'look' | null = null;
+  for (let i = 0; i < MARK_BUTTONS.length; i++) {
+    const entry = MARK_BUTTONS[i];
+    if (!entry || (i > 0 && !standard)) continue;
+    const down = pressed(pad, entry[0]);
+    if (down && !markHeld[i] && !mark) mark = entry[1];
+    markHeld[i] = down;
+  }
+  return mark;
+}

@@ -9,6 +9,7 @@
     "take": "node scripts/make-take.ts",
     "determinism": "node scripts/determinism.ts",
     "probe": "node scripts/probe.ts",
+    "notes": "node scripts/notes.ts",
     "check-math": "node scripts/check-math.ts",
     "spin": "node scripts/spin-probe.ts",
     "gate": "node scripts/pose-gate.ts"
