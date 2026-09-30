@@ -451,6 +451,14 @@ export function createScene(cfg: SlopeConfig, terrain: Terrain, camera: THREE.Pe
     // Wind-up and lead ride on top of whatever the grab asks for, not under it.
     drivers.spineTwist += secondary.twist;
     drivers.headYaw += secondary.head;
+    // Loose body: arms and hips trail the board's acceleration (secondary.ts).
+    drivers.frontShoulderSwing -= secondary.armX;
+    drivers.backShoulderSwing -= secondary.armX;
+    // Out is negative outward (rig.ts), so toward the nose is − on the front arm, + on the back.
+    drivers.frontShoulderOut -= secondary.armZ;
+    drivers.backShoulderOut += secondary.armZ;
+    drivers.hipX += secondary.swayX;
+    drivers.hipZ += secondary.swayZ;
 
     const front = view.grabFront;
     drivers.frontHandEdge = front ? view.grabEdge : neutral.frontHandEdge;
