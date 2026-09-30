@@ -323,8 +323,11 @@ export function corkStick(ly: number, params: Params): number {
  * roll.) A diagonal mixes the two, its tilt falling out of the ratio. One vector, so spin,
  * flip and everything off-axis between are one rule, not four.
  */
-export function stickRotation(out: Vec3, yawRate: number, input: InputSnapshot, params: Params): Vec3 {
-  return set(out, corkStick(input.ly, params) * params.air.flipRate, yawRate, 0);
+export function stickRotation(out: Vec3, yawRate: number, state: RiderState, input: InputSnapshot, params: Params): Vec3 {
+  // Riding switch the tail leads, so the same flip about +X is the other way over relative
+  // to travel: mirror it, as the stance stick is mirrored on the ground.
+  const dir = params.air.switchFlips > 0 && state.switchRide ? -1 : 1;
+  return set(out, corkStick(input.ly, params) * params.air.flipRate * dir, yawRate, 0);
 }
 
 /**
@@ -345,7 +348,7 @@ export function setRotation(state: RiderState, w: Vec3, params: Params): void {
 
 export function setTakeoffSpin(state: RiderState, input: InputSnapshot, params: Params): void {
   if (params.air.flipRate > 0) {
-    setRotation(state, stickRotation(rotation, takeoffSpinRate(state, input, params), input, params), params);
+    setRotation(state, stickRotation(rotation, takeoffSpinRate(state, input, params), state, input, params), params);
     return;
   }
   // Older rule, kept so takes recorded under it replay: X sets the rate, Y only tilts the
