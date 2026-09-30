@@ -26,6 +26,8 @@ import {
   type RigDrivers,
 } from './render/rig.ts';
 import { createScene, interpolateRider } from './render/scene.ts';
+import { createTrickReader, describe } from './render/tricks.ts';
+import { createTrickText } from './render/trickText.ts';
 import {
   copySecondary,
   createSecondary,
@@ -107,8 +109,15 @@ const readout: Readout = {
   spin: 0,
   rotated: 0,
   landing: 'none',
+  trick: '—',
   determinism: '—',
 };
+
+// Trick names (render/tricks.ts): read off the state after every tick, shown on screen,
+// in the panel, and kept with the run and its notes.
+const tricks = createTrickReader();
+const trickText = createTrickText();
+let runTricks: { tick: number; text: string }[] = [];
 
 const chase = createChaseCamera(params);
 const view = createScene(slopeConfig, terrain, chase.camera);
@@ -289,6 +298,14 @@ function step(): void {
     liveSecondaryHashes.push(hashSecondary(secondary));
   }
 
+  const trick = tricks.step(state, TICK_DT);
+  if (trick) {
+    const text = describe(trick);
+    readout.trick = text;
+    trickText.show(text);
+    if (recorder.recording && !replay) runTricks.push({ tick: recorder.frames.length, text });
+  }
+
   // Marks come after the tick, so a note sits right after the moment it marks.
   const mark = pollMark() ?? pendingMark;
   pendingMark = null;
@@ -313,6 +330,8 @@ function startRun(latched: boolean): void {
   liveHashes = [];
   liveSecondaryHashes = [];
   run = { take: null, notes: [], latched, index: ++runCount };
+  runTricks = [];
+  tricks.reset();
   recorder.start();
   readout.session = `live — run ${run.index} recording`;
 }
@@ -325,6 +344,7 @@ function addMark(tag: NoteTag): void {
   }
   const at = cursor && replaying ? cursor.index : recorder.frames.length;
   const note = makeNote(at, tag, state);
+  if (readout.trick !== '—') note.trick = readout.trick;
   target.notes.push(note);
   if (target.take) {
     target.take.notes = target.notes;
@@ -360,6 +380,7 @@ function watchAgain(target: Run, note: Note): void {
   }
   copyRiderState(previous, state);
   copySecondary(secondaryPrevious, secondary);
+  tricks.reset();
   chase.snap(interpolateRider(previous, state, 1), params);
   readout.session = `watching run ${target.index} — marks now go on this run`;
 }
@@ -378,6 +399,7 @@ async function downloadFeedback(): Promise<void> {
       startLatched: run.latched,
     });
     take.notes = run.notes;
+    if (runTricks.length > 0) take.tricks = runTricks.slice();
     runs.push(take);
   } else if (run.take && run.notes.length > 0) {
     runs.push(run.take);
@@ -515,6 +537,7 @@ function startReplay(): void {
   if (!currentTake) return;
   resetRiderState(state);
   state.resetLatch = currentTake.startLatched === true;
+  tricks.reset();
   copyRiderState(previous, state);
   // Without this the springs would enter the replay carrying the end of the live run, and
   // the take's secondary stream would never match no matter how correct the stepping is.
@@ -539,6 +562,7 @@ function finishRun(): void {
     startLatched: run.latched,
   });
   run.take = currentTake;
+  if (runTricks.length > 0) currentTake.tricks = runTricks;
   if (run.notes.length > 0) {
     currentTake.notes = run.notes;
     if (!kept.includes(run)) kept.push(run);
@@ -563,6 +587,7 @@ const orbit = createPoseOrbit(chase.camera, view.renderer.domElement);
 
 const panel = createPanel(params, readout, view.drivers, preview, feedback, {
   onDownloadFeedback: () => void downloadFeedback(),
+  onTrickText: (on) => trickText.setEnabled(on),
   onDressed: (on) => view.setDressed(on),
   onPoseMode: (on) => {
     // Leaving pose mode mid-preview would leave a half-blended pose in the document.

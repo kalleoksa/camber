@@ -141,6 +141,8 @@ gameplay wiring to the rig does not wait on them.
   determinism, refactors contained to one file.
 - **Never do:** invent scoring, add UI chrome, add menus, add a tutorial, "polish" a
   milestone that hasn't passed its gate.
+  One agreed exception to "no UI chrome": the trick name fades in low on screen after
+  each trick (`render/trickText.ts`, toggle in the panel). Names only, never a number.
 - Feel cannot be delegated. When a milestone lands, stop and say what to tune and which
   params to reach for. Don't guess at whether it feels right.
 

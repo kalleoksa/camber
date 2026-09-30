@@ -12,6 +12,7 @@ import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { gunzipSync } from 'node:zlib';
 import { simulateTake, verifyTake, type Feedback, type Note } from '../src/input/recorder.ts';
+import { createTrickReader, describe } from '../src/render/tricks.ts';
 
 const WINDOW = 1.5; // s either side of a note
 const STEP = 0.25; // s between timeline rows
@@ -41,17 +42,23 @@ for (const file of files) {
     console.log(`\n-- run ${r + 1}: ${(take.frames.length / 120).toFixed(1)} s, ${take.notes?.length ?? 0} notes, replay ${verdict.ok ? 'exact' : `DIVERGES @ tick ${verdict.divergedAt} (other build?)`}`);
     const rows: Row[] = [];
     const dt = take.dt;
+    // Tricks re-read from the replay, so files from before the reader still get them.
+    const reader = createTrickReader();
+    const tricks: string[] = [];
     simulateTake(take, (tick, s, f) => {
+      const e = reader.step(s, dt);
+      if (e) tricks.push(`${(tick * dt).toFixed(1)} s ${describe(e)}`);
       const v = s.velocity;
       rows.push({ t: tick * dt, mode: s.mode, speed: Math.hypot(v.x, v.y, v.z), landing: s.landing, impact: s.impact, lx: f.lx, ly: f.ly, rt: f.rt });
     });
+    if (tricks.length > 0) console.log(`   tricks: ${tricks.join(' · ')}`);
     for (const note of take.notes ?? []) printNote(note, rows, dt);
   });
 }
 
 function printNote(note: Note, rows: Row[], dt: number): void {
   const at = note.tick * dt;
-  console.log(`\n  [${note.tag}] @ ${at.toFixed(2)} s: "${note.text || '(no text)'}"`);
+  console.log(`\n  [${note.tag}] @ ${at.toFixed(2)} s: "${note.text || '(no text)'}"${note.trick ? `  (last trick: ${note.trick})` : ''}`);
   console.log(`    at the mark: ${note.at.mode}, ${note.at.speed} m/s, landing ${note.at.landing}, impact ${note.at.impact}, air ${note.at.airTime} s, spin ${note.at.spinRate}`);
   const from = Math.max(0, Math.floor((at - WINDOW) / dt));
   const to = Math.min(rows.length - 1, Math.ceil((at + WINDOW) / dt));
