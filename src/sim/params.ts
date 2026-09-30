@@ -89,6 +89,7 @@ export const params = {
     minTime: 0.9, // s before recovery is allowed at all
     tumbleRate: 8.0, // rad/s, visual tumble while down, at full slide speed
     tumbleSpeedRef: 8.0, // m/s of slide at which the tumble reaches full rate
+    faceDownhill: 3.0, // 1/s, while down the board swings to the fall line — nose or tail, whichever is nearer — so you get up pointing downhill. 0: older rule, heading frozen
   },
   rail: {
     captureRadius: 0.35, // m, board to rail top for it to catch
@@ -96,7 +97,7 @@ export const params = {
     rideHeight: 0.03, // m, board bottom above the rail line
     friction: 1.0, // m/s² along the rail at a 50-50
     slideFriction: 2.0, // extra friction × |sin slide| — a boardslide scrapes, a 50-50 runs
-    slideRate: 4.0, // rad/s, LB/RB turning the board against the rail
+    slideRate: 2.0, // rad/s (was 4), LB/RB turning the board against the rail — a fine adjustment; the way into a boardslide is an ollie turned 90° onto it
     stallSpeed: 1.0, // m/s below which you drop off the side
     // Balance: an unstable lean, like standing on an edge — deterministic, seeded only by
     // the entry (open question 4). b'' = λ·b − c·b' + correctionGain·lx.

@@ -2,6 +2,7 @@ import { Pane } from 'tweakpane';
 import { ANCHOR_NAMES } from '../render/poses.ts';
 import type { RigDrivers } from '../render/rig.ts';
 import type { Params, ParamGroup } from '../sim/params.ts';
+import { NOTE_TAGS, type Note } from '../input/recorder.ts';
 
 /** Slider ranges for the driver vector, so posing by hand is actually workable. */
 const DRIVER_RANGE: Record<keyof RigDrivers, { min: number; max: number }> = {
@@ -74,6 +75,16 @@ export type PanelHandlers = {
   onLoadTake(json: string): void;
   onSavePreset(): void;
   onLoadPreset(json: string): void;
+  onDownloadFeedback(): void;
+};
+
+/** The tester's side of feedback: who they are, and a one-line status. */
+export type FeedbackState = { tester: string; status: string };
+
+export type Panel = {
+  refresh(): void;
+  /** List a note in the feedback folder, with a button that replays the run up to it. */
+  addNote(note: Note, label: string, jump: () => void): void;
 };
 
 export function download(filename: string, json: string): void {
@@ -111,8 +122,9 @@ export function createPanel(
   readout: Readout,
   drivers: RigDrivers,
   preview: PreviewState,
+  feedback: FeedbackState,
   handlers: PanelHandlers,
-): { refresh(): void } {
+): Panel {
   const pane = new Pane({ title: 'camber' });
 
   const status = pane.addFolder({ title: 'status' });
@@ -136,6 +148,14 @@ export function createPanel(
   const look = { dressed: new URLSearchParams(location.search).get('look') !== 'bare' };
   status.addBinding(look, 'dressed').on('change', (ev) => handlers.onDressed(ev.value));
   handlers.onDressed(look.dressed);
+
+  // Feedback (docs/feedback.md): mark while riding (View/Back, D-pad tags, or M), write the
+  // words here afterwards, download one file to send back.
+  const notes = pane.addFolder({ title: 'feedback', expanded: true });
+  notes.addBinding(feedback, 'tester', { label: 'your name' });
+  notes.addBinding(feedback, 'status', { readonly: true, label: 'marks' });
+  notes.addButton({ title: 'download feedback' }).on('click', handlers.onDownloadFeedback);
+  const tagOptions = Object.fromEntries(NOTE_TAGS.map((t) => [t, t]));
 
   const take = pane.addFolder({ title: 'take' });
   take.addButton({ title: 'reset (Y)' }).on('click', handlers.onReset);
@@ -196,5 +216,13 @@ export function createPanel(
     }
   }
 
-  return { refresh: () => pane.refresh() };
+  return {
+    refresh: () => pane.refresh(),
+    addNote(note, label, jump) {
+      const folder = notes.addFolder({ title: label, expanded: true });
+      folder.addBinding(note, 'tag', { options: tagOptions });
+      folder.addBinding(note, 'text', { label: 'what happened' });
+      folder.addButton({ title: 'watch it again' }).on('click', jump);
+    },
+  };
 }

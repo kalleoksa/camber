@@ -594,9 +594,25 @@ not.
     from the miss across it; sideways speed starts both moving.
   - The board sits with its contact point over the rail. Render tips it onto that point
     (`rig.pressPitch`) and puts the hips over it (`rig.pressHipShift`).
-  - LB/RB still turn the slide angle.
-- Exit: pop (carries rail momentum + pop), ride off the end (retain state, re-enter
-  AIRBORNE), or bail.
+  - LB/RB still turn the slide angle, now slowly (`rail.slideRate` 2): the way into a
+    boardslide is an ollie turned 90° onto the rail. Capture takes the slide angle from the
+    board, and a quick flick after the pop lands 45–120° across (probe).
+- **Slide poses** (render, `poses.ts`): anchors blended by how far across the rail the
+  board is and by the contact point, with the balance lean on top.
+  - `backsideBoardslide`: travelling toward the toes (open). Your pose: folded over the
+    toes, hips rolled, lead arm out along the rail.
+  - `frontsideBoardslide`: travelling toward the heels (blind). Your pose: shoulders opened,
+    head turned right round, upright.
+  - `press`: chest and front hand over the pressed end, mirrored for the tail.
+  - Came in riding switch (`switchRide`): the board sits the same on the rail but the lead
+    is the tail side, so the slide pose mirrors nose-for-tail.
+  - A slide anchor's `shifty` means the body turned against the board. In play the sim
+    owns the board, so it is applied as hip yaw.
+- **Names**, as read from the state (no score). Board across the rail, travelling toward
+  the heels (blind) = **frontside boardslide**; toward the toes (open) = **backside
+  boardslide** — your convention. Along the rail with the contact at an end = nose or tail
+  press; across with the contact at an end = nose or tail slide. Lipslides (approached so
+  the tail crosses the rail first) are still to name.
 
 ---
 

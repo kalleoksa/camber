@@ -1,10 +1,14 @@
 import { createLoop, TICK_DT } from './core/loop.ts';
-import { padRawSummary, padSummary, pollGamepad } from './input/gamepad.ts';
+import { padRawSummary, padSummary, pollGamepad, pollMark } from './input/gamepad.ts';
 import {
   buildTake,
   createRecorder,
   createReplayCursor,
+  makeNote,
   verifyTake,
+  type Feedback,
+  type Note,
+  type NoteTag,
   type ReplayCursor,
   type Take,
 } from './input/recorder.ts';
@@ -46,7 +50,7 @@ import { createContact, createSlope, type SlopeConfig } from './sim/terrain.ts';
 import { SLOPESTYLE } from './park/slopestyle.ts';
 import { SOCHI } from './park/sochi.ts';
 import { length } from './sim/vec3.ts';
-import { createPanel, download, type Readout } from './tuning/panel.ts';
+import { createPanel, download, type FeedbackState, type Readout } from './tuning/panel.ts';
 
 const SEED = 1;
 // Sochi 2014 at 0.61 scale (src/park/sochi.ts) by default; ?park=slopestyle for the first
@@ -73,6 +77,20 @@ let liveHashes: string[] = [];
 let liveSecondaryHashes: string[] = [];
 let currentTake: Take | null = null;
 let cursor: ReplayCursor | null = null;
+
+/**
+ * Feedback (docs/feedback.md). Every run records from its reset, so a mark never needs a
+ * record button pressed in advance. A run is its notes plus, once finished, its take; runs
+ * with notes are kept for the feedback file, the rest are dropped at the next reset.
+ */
+type Run = { take: Take | null; notes: Note[]; latched: boolean; index: number };
+const MAX_RUN_TICKS = 120 * 60 * 10; // 10 min — past this a run stops recording until the next reset
+let run: Run = { take: null, notes: [], latched: false, index: 0 };
+let runCount = 0;
+const kept: Run[] = [];
+let replaying: Run | null = null;
+let pendingMark: NoteTag | null = null;
+const feedback: FeedbackState = { tester: '', status: 'none yet — View/Back or M to mark' };
 
 const readout: Readout = {
   rail: '—',
@@ -255,20 +273,154 @@ function step(): void {
     const frame = cursor.next();
     if (!frame) {
       cursor = null;
-      readout.session = 'live';
+      replaying = null;
+      readout.session = 'live — reset (Y) to record a new run';
     } else {
       input = frame;
     }
   }
 
-  if (recorder.recording) recorder.capture(input);
+  const replay = cursor !== null;
+  if (recorder.recording && !replay) recorder.capture(input);
   tick(state, input, params, terrain, TICK_DT);
   stepSecondary(secondary, state, params, TICK_DT);
-  if (recorder.recording) {
+  if (recorder.recording && !replay) {
     liveHashes.push(hashState(state));
     liveSecondaryHashes.push(hashSecondary(secondary));
   }
+
+  // Marks come after the tick, so a note sits right after the moment it marks.
+  const mark = pollMark() ?? pendingMark;
+  pendingMark = null;
+  if (mark) addMark(mark);
+
+  if (replay) return;
+  // Y reset in the sim: that run is over and the next one starts here, from a state that
+  // is exactly a fresh one with the reset latched — so it replays from its own reset.
+  if (input.y && state.tick === 0 && state.resetLatch) {
+    finishRun();
+    resetSecondary(secondary);
+    startRun(true);
+  } else if (recorder.recording && recorder.frames.length >= MAX_RUN_TICKS) {
+    finishRun();
+    readout.session = 'run over 10 min — reset (Y) to record again';
+  }
 }
+
+function startRun(latched: boolean): void {
+  cursor = null;
+  replaying = null;
+  liveHashes = [];
+  liveSecondaryHashes = [];
+  run = { take: null, notes: [], latched, index: ++runCount };
+  recorder.start();
+  readout.session = `live — run ${run.index} recording`;
+}
+
+function addMark(tag: NoteTag): void {
+  const target = cursor && replaying ? replaying : recorder.recording ? run : null;
+  if (!target) {
+    feedback.status = 'not recording — reset (Y) first';
+    return;
+  }
+  const at = cursor && replaying ? cursor.index : recorder.frames.length;
+  const note = makeNote(at, tag, state);
+  target.notes.push(note);
+  if (target.take) {
+    target.take.notes = target.notes;
+    if (!kept.includes(target)) kept.push(target);
+  }
+  const label = `run ${target.index} · ${(at * TICK_DT).toFixed(1)} s`;
+  panel.addNote(note, label, () => watchAgain(target, note));
+  updateFeedbackStatus();
+}
+
+function updateFeedbackStatus(): void {
+  const runs = kept.filter((r) => r !== run).length + (run.notes.length > 0 ? 1 : 0);
+  const count = kept.reduce((n, r) => (r === run ? n : n + r.notes.length), 0) + run.notes.length;
+  feedback.status = `${count} mark${count === 1 ? '' : 's'} in ${runs} run${runs === 1 ? '' : 's'}`;
+}
+
+/** Replay a marked run from two seconds before the note, fast-forwarded to there. */
+function watchAgain(target: Run, note: Note): void {
+  if (!target.take) finishRun();
+  const take = target.take;
+  if (!take) return;
+  resetRiderState(state);
+  state.resetLatch = take.startLatched === true;
+  resetSecondary(secondary);
+  cursor = createReplayCursor(take.frames);
+  replaying = target;
+  const from = Math.max(0, note.tick - 2 / TICK_DT);
+  for (let i = 0; i < from; i++) {
+    const frame = cursor.next();
+    if (!frame) break;
+    tick(state, frame, params, terrain, TICK_DT);
+    stepSecondary(secondary, state, params, TICK_DT);
+  }
+  copyRiderState(previous, state);
+  copySecondary(secondaryPrevious, secondary);
+  chase.snap(interpolateRider(previous, state, 1), params);
+  readout.session = `watching run ${target.index} — marks now go on this run`;
+}
+
+async function downloadFeedback(): Promise<void> {
+  // The run being ridden goes in as it stands, without stopping it.
+  const runs: Take[] = kept.filter((r) => r !== run && r.take).map((r) => r.take as Take);
+  if (run.notes.length > 0 && recorder.recording) {
+    const take = buildTake({
+      seed: SEED,
+      dt: TICK_DT,
+      spawn,
+      terrain: slopeConfig,
+      params,
+      frames: recorder.frames.slice(),
+      startLatched: run.latched,
+    });
+    take.notes = run.notes;
+    runs.push(take);
+  } else if (run.take && run.notes.length > 0) {
+    runs.push(run.take);
+  }
+  if (runs.length === 0) {
+    feedback.status = 'nothing marked yet';
+    return;
+  }
+  const file: Feedback = {
+    kind: 'camber-feedback',
+    version: 1,
+    build: __BUILD__,
+    tester: feedback.tester,
+    created: new Date().toISOString(),
+    runs,
+  };
+  const json = JSON.stringify(file);
+  const who = (feedback.tester || 'tester').replace(/[^a-z0-9]+/gi, '-').toLowerCase();
+  const stamp = file.created.slice(0, 16).replace(/[:T]/g, '-');
+  // Gzipped where the browser can: takes are repetitive, so this is roughly a tenth the size.
+  if (typeof CompressionStream !== 'undefined') {
+    const gz = await new Response(new Blob([json]).stream().pipeThrough(new CompressionStream('gzip'))).blob();
+    saveBlob(`camber-feedback-${who}-${stamp}.json.gz`, gz);
+  } else {
+    download(`camber-feedback-${who}-${stamp}.json`, json);
+  }
+}
+
+function saveBlob(filename: string, blob: Blob): void {
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = filename;
+  link.click();
+  URL.revokeObjectURL(url);
+}
+
+// M marks from the keyboard, unless you are typing a note into the panel.
+addEventListener('keydown', (ev) => {
+  const t = ev.target as HTMLElement | null;
+  if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA')) return;
+  if (ev.key === 'm' || ev.key === 'M') pendingMark = 'note';
+});
 
 let lastLanding: RiderState['landing'] = 'none';
 let lastRender = performance.now();
@@ -359,20 +511,24 @@ function stepAnchor(delta: number): void {
 }
 
 function startReplay(): void {
+  finishRun();
   if (!currentTake) return;
   resetRiderState(state);
+  state.resetLatch = currentTake.startLatched === true;
   copyRiderState(previous, state);
   // Without this the springs would enter the replay carrying the end of the live run, and
   // the take's secondary stream would never match no matter how correct the stepping is.
   resetSecondary(secondary);
   copySecondary(secondaryPrevious, secondary);
   cursor = createReplayCursor(currentTake.frames);
+  replaying = kept.find((r) => r.take === currentTake) ?? null;
   readout.session = `replay (${currentTake.frames.length} ticks, live params)`;
 }
 
-function finishRecording(): void {
+function finishRun(): void {
   if (!recorder.recording) return;
   recorder.stop();
+  if (recorder.frames.length === 0) return;
   currentTake = buildTake({
     seed: SEED,
     dt: TICK_DT,
@@ -380,7 +536,13 @@ function finishRecording(): void {
     terrain: slopeConfig,
     params,
     frames: recorder.frames,
+    startLatched: run.latched,
   });
+  run.take = currentTake;
+  if (run.notes.length > 0) {
+    currentTake.notes = run.notes;
+    if (!kept.includes(run)) kept.push(run);
+  }
   readout.session = `take: ${currentTake.frames.length} ticks`;
 
   // The gate: the live run and a headless re-sim of the same inputs must agree exactly, in
@@ -399,7 +561,8 @@ function finishRecording(): void {
 
 const orbit = createPoseOrbit(chase.camera, view.renderer.domElement);
 
-const panel = createPanel(params, readout, view.drivers, preview, {
+const panel = createPanel(params, readout, view.drivers, preview, feedback, {
+  onDownloadFeedback: () => void downloadFeedback(),
   onDressed: (on) => view.setDressed(on),
   onPoseMode: (on) => {
     // Leaving pose mode mid-preview would leave a half-blended pose in the document.
@@ -455,26 +618,13 @@ const panel = createPanel(params, readout, view.drivers, preview, {
     copyDrivers(view.drivers, loaded);
     panel.refresh();
   },
-  onReset: () => {
-    resetRiderState(state);
-    copyRiderState(previous, state);
-    resetSecondary(secondary);
-    copySecondary(secondaryPrevious, secondary);
-    chase.snap(interpolateRider(previous, state, 1), params);
-  },
+  // Reset and record are the same now: every run records from its reset.
+  onReset: () => restart(),
   onRecord: () => {
-    resetRiderState(state);
-    copyRiderState(previous, state);
-    resetSecondary(secondary);
-    copySecondary(secondaryPrevious, secondary);
-    cursor = null;
-    liveHashes = [];
-    liveSecondaryHashes = [];
-    recorder.start();
-    readout.session = 'recording';
+    restart();
     readout.determinism = '—';
   },
-  onStopRecord: finishRecording,
+  onStopRecord: finishRun,
   onReplay: startReplay,
   onVerify: () => {
     if (!currentTake) {
@@ -490,6 +640,7 @@ const panel = createPanel(params, readout, view.drivers, preview, {
     if (currentTake) download(`take-${currentTake.frames.length}.json`, JSON.stringify(currentTake));
   },
   onLoadTake: (json) => {
+    finishRun(); // keep the live run's marks; replay then plays the loaded take, not it
     currentTake = JSON.parse(json) as Take;
     readout.session = `take loaded (${currentTake.frames.length} ticks)`;
   },
@@ -500,5 +651,16 @@ const panel = createPanel(params, readout, view.drivers, preview, {
   },
 });
 
+function restart(): void {
+  finishRun();
+  resetRiderState(state);
+  copyRiderState(previous, state);
+  resetSecondary(secondary);
+  copySecondary(secondaryPrevious, secondary);
+  chase.snap(interpolateRider(previous, state, 1), params);
+  startRun(false);
+}
+
+startRun(false);
 chase.snap(interpolateRider(previous, state, 1), params);
 createLoop(step, render).start();

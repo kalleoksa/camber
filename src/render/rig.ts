@@ -174,9 +174,16 @@ export function mirrorDrivers(d: RigDrivers): void {
   // front pole), so a free arm's mirror is π − pole; a gripping arm's pole turns the IK
   // elbow about the shoulder→hand line, whose mirror is −pole. Blended by grip, so the
   // elbow doesn't jump as the hand commits. Grips are already swapped above.
+  // Wrapped into ±π: a pole of 2π − 0.04 is the same arm as −0.04, but blending into it
+  // from the riding pose would sweep the elbow through a whole backward turn on the way.
   t = d.frontElbowPole;
-  d.frontElbowPole = Math.PI * (1 - Math.min(d.frontGrip, 1)) - d.backElbowPole;
-  d.backElbowPole = Math.PI * (1 - Math.min(d.backGrip, 1)) - t;
+  d.frontElbowPole = wrapPi(Math.PI * (1 - Math.min(d.frontGrip, 1)) - d.backElbowPole);
+  d.backElbowPole = wrapPi(Math.PI * (1 - Math.min(d.backGrip, 1)) - t);
+  d.shifty = -d.shifty; // board yaw about up flips with the nose
+}
+
+function wrapPi(a: number): number {
+  return Math.atan2(Math.sin(a), Math.cos(a));
 }
 
 export function copyDrivers(dst: RigDrivers, src: RigDrivers): void {

@@ -63,6 +63,108 @@ export const ANCHORS: Record<string, RigDrivers> = {
     backElbowPole: -0.68,
   }),
 
+  // --- rail slides (docs: slide plan) — first pass from reference photos, refine in pose
+  // mode. Blended in play by how far across the rail the board is and where the contact
+  // is (scene.ts); the balance lean rides on top, so a sketchy slide still reads.
+
+  /**
+   * Backside boardslide — board across the rail, travelling toward the toes. Authored by
+   * you in pose mode. Its `shifty` (board yawed under the body) is how the body's turn
+   * against the board was posed; in play the sim owns the board, so scene.ts applies it
+   * as hip yaw instead. Board attitude and hand coordinates here only show in pose mode.
+   */
+  backsideBoardslide: pose({
+    hipX: -0.13,
+    hipY: -0.15,
+    hipZ: 0,
+    hipYaw: 0.05,
+    pelvisPitch: 0.42,
+    hipRoll: 0.37,
+    spineBend: 0.77,
+    spineSide: -0.59,
+    spineTwist: 0.08,
+    frontHandEdge: -0.8,
+    frontHandT: 0.74,
+    backHandEdge: 0,
+    backHandT: 0.39,
+    frontGrip: 0,
+    backGrip: 0,
+    boardPitch: 0.13,
+    tweakRoll: 0.41,
+    headYaw: 0.09,
+    headPitch: -0.03,
+    kneeSplay: 0.39,
+    stanceScale: 1.07,
+    frontShoulderSwing: 1.73,
+    frontShoulderOut: 1.4,
+    frontElbow: 0.48,
+    frontElbowPole: -3.03,
+    backShoulderSwing: -0.16,
+    backShoulderOut: -1,
+    backElbow: 0.4,
+    backElbowPole: -0.2,
+    shifty: -0.65,
+  }),
+
+  /**
+   * Frontside boardslide — board across the rail, travelling toward the heels (blind).
+   * Authored by you in pose mode; `shifty` as above.
+   */
+  frontsideBoardslide: pose({
+    hipX: -0.04,
+    hipY: -0.01,
+    hipZ: 0.12,
+    hipYaw: 0.03,
+    pelvisPitch: -0.05,
+    hipRoll: -0.03,
+    spineBend: 0.28,
+    spineSide: 0,
+    spineTwist: 0.7,
+    frontHandEdge: 0.22,
+    frontHandT: 0.62,
+    backHandEdge: 0,
+    backHandT: 0.34,
+    frontGrip: 0,
+    backGrip: 0,
+    boardPitch: 0.05,
+    tweakRoll: 0,
+    headYaw: 1.4,
+    headPitch: 0.45,
+    kneeSplay: 0.06,
+    stanceScale: 0.97,
+    frontShoulderSwing: 0.4,
+    frontShoulderOut: -1,
+    frontElbow: 0.28,
+    frontElbowPole: -2.97,
+    backShoulderSwing: -0.12,
+    backShoulderOut: -0.9,
+    backElbow: 0.3,
+    backElbowPole: -0.2,
+    shifty: -0.97,
+  }),
+
+  /**
+   * Weight on the nose over the rail — nose press or noseslide. Chest and eyes over the
+   * nose, front hand reaching toward it, back arm out toward the tail for balance. A tail
+   * press is this mirrored.
+   */
+  press: pose({
+    hipY: -0.18,
+    pelvisPitch: 0.2,
+    spineBend: 0.45,
+    spineSide: 0.35,
+    headYaw: 0.9,
+    kneeSplay: 0.55,
+    frontShoulderSwing: 0.7,
+    frontShoulderOut: 0.8,
+    frontElbow: 0.2,
+    frontElbowPole: -3.1,
+    backShoulderSwing: 0.2,
+    backShoulderOut: 0.7,
+    backElbow: 0.5,
+    backElbowPole: -0.2,
+  }),
+
   // --- grab coordinates, bodies unposed (grabs.md §3) -------------------------------
   // `t` runs tail 0 to nose 1. `edge` is −1 heel, +1 toe, matching state.edge's sign.
 
