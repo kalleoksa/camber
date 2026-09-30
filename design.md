@@ -599,18 +599,18 @@ not.
     board, and a quick flick after the pop lands 45–120° across (probe).
 - **Slide poses** (render, `poses.ts`): anchors blended by how far across the rail the
   board is and by the contact point, with the balance lean on top.
-  - `boardslide`: travelling toward the toes. They already point down the rail, so hips
-    back, chest folded over the toes, hands low.
-  - `boardslideBlind`: travelling toward the heels. Shoulders opened and head turned over
-    the lead shoulder.
+  - `backsideBoardslide`: travelling toward the toes (open). Your pose: folded over the
+    toes, hips rolled, lead arm out along the rail.
+  - `frontsideBoardslide`: travelling toward the heels (blind). Your pose: shoulders opened,
+    head turned right round, upright.
   - `press`: chest and front hand over the pressed end, mirrored for the tail.
-- **Names**, as read from the state (no score): board across the rail = boardslide, open or
-  blind by travel side; along it with the contact at an end = nose or tail press; across
-  with the contact at an end = nose or tail slide. Frontside/backside and lipslide depend
-  on the approach side and which end crossed the rail. The convention is still to be
-  fixed — the sources disagree — before anything names tricks.
-- Exit: pop (carries rail momentum + pop), ride off the end (retain state, re-enter
-  AIRBORNE), or bail.
+  - A slide anchor's `shifty` means the body turned against the board. In play the sim
+    owns the board, so it is applied as hip yaw.
+- **Names**, as read from the state (no score). Board across the rail, travelling toward
+  the heels (blind) = **frontside boardslide**; toward the toes (open) = **backside
+  boardslide** — your convention. Along the rail with the contact at an end = nose or tail
+  press; across with the contact at an end = nose or tail slide. Lipslides (approached so
+  the tail crosses the rail first) are still to name.
 
 ---
 

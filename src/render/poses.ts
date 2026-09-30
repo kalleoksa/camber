@@ -68,49 +68,79 @@ export const ANCHORS: Record<string, RigDrivers> = {
   // is (scene.ts); the balance lean rides on top, so a sketchy slide still reads.
 
   /**
-   * Board across the rail, travelling toward the toes: the toes already point down the
-   * rail, so no twist. Hips back over the heel side, chest folded forward over the toes,
-   * knees deep, hands low and forward — the rider in the first reference photo.
+   * Backside boardslide — board across the rail, travelling toward the toes. Authored by
+   * you in pose mode. Its `shifty` (board yawed under the body) is how the body's turn
+   * against the board was posed; in play the sim owns the board, so scene.ts applies it
+   * as hip yaw instead. Board attitude and hand coordinates here only show in pose mode.
    */
-  boardslide: pose({
-    hipX: 0.15,
-    hipY: -0.3,
-    pelvisPitch: 0.35,
-    spineBend: 0.8,
-    headYaw: 0,
-    headPitch: -0.25,
-    kneeSplay: 0.6,
-    frontShoulderSwing: 0.9,
-    frontShoulderOut: 0.2,
-    frontElbow: 0.35,
-    frontElbowPole: -3.1,
-    backShoulderSwing: 0.6,
-    backShoulderOut: 0.3,
+  backsideBoardslide: pose({
+    hipX: -0.13,
+    hipY: -0.15,
+    hipZ: 0,
+    hipYaw: 0.05,
+    pelvisPitch: 0.42,
+    hipRoll: 0.37,
+    spineBend: 0.77,
+    spineSide: -0.59,
+    spineTwist: 0.08,
+    frontHandEdge: -0.8,
+    frontHandT: 0.74,
+    backHandEdge: 0,
+    backHandT: 0.39,
+    frontGrip: 0,
+    backGrip: 0,
+    boardPitch: 0.13,
+    tweakRoll: 0.41,
+    headYaw: 0.09,
+    headPitch: -0.03,
+    kneeSplay: 0.39,
+    stanceScale: 1.07,
+    frontShoulderSwing: 1.73,
+    frontShoulderOut: 1.4,
+    frontElbow: 0.48,
+    frontElbowPole: -3.03,
+    backShoulderSwing: -0.16,
+    backShoulderOut: -1,
     backElbow: 0.4,
     backElbowPole: -0.2,
+    shifty: -0.65,
   }),
 
   /**
-   * Board across the rail, travelling toward the heels — blind. Weight a touch over the
-   * toes against the pull backward, shoulders opened toward the nose and the head turned
-   * right round over the lead shoulder to see down the rail, arms out low for balance.
+   * Frontside boardslide — board across the rail, travelling toward the heels (blind).
+   * Authored by you in pose mode; `shifty` as above.
    */
-  boardslideBlind: pose({
+  frontsideBoardslide: pose({
     hipX: -0.04,
-    hipY: -0.28,
-    pelvisPitch: 0.1,
-    spineBend: 0.3,
+    hipY: -0.01,
+    hipZ: 0.12,
+    hipYaw: 0.03,
+    pelvisPitch: -0.05,
+    hipRoll: -0.03,
+    spineBend: 0.28,
+    spineSide: 0,
     spineTwist: 0.7,
+    frontHandEdge: 0.22,
+    frontHandT: 0.62,
+    backHandEdge: 0,
+    backHandT: 0.34,
+    frontGrip: 0,
+    backGrip: 0,
+    boardPitch: 0.05,
+    tweakRoll: 0,
     headYaw: 1.4,
-    kneeSplay: 0.55,
+    headPitch: 0.45,
+    kneeSplay: 0.06,
+    stanceScale: 0.97,
     frontShoulderSwing: 0.4,
-    frontShoulderOut: 0.9,
-    frontElbow: 0.3,
-    frontElbowPole: -3.1,
-    backShoulderSwing: 0.25,
-    backShoulderOut: 0.9,
+    frontShoulderOut: -1,
+    frontElbow: 0.28,
+    frontElbowPole: -2.97,
+    backShoulderSwing: -0.12,
+    backShoulderOut: -0.9,
     backElbow: 0.3,
     backElbowPole: -0.2,
+    shifty: -0.97,
   }),
 
   /**

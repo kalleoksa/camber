@@ -376,6 +376,7 @@ export function createScene(cfg: SlopeConfig, terrain: Terrain, camera: THREE.Pe
    * sim tick (secondary.ts), never a per-frame integration (§7.6).
    */
   const pressScratch = neutralDrivers();
+  const slideScratch = neutralDrivers();
   /** Blend the body keys toward a pose; elbow poles the short way round, since they wrap. */
   const blendToward = (out: RigDrivers, to: RigDrivers, w: number): void => {
     for (const k of BODY_KEYS) {
@@ -420,12 +421,18 @@ export function createScene(cfg: SlopeConfig, terrain: Terrain, camera: THREE.Pe
     if (view.grabSwitch) mirrorDrivers(body);
     for (const k of BODY_KEYS) drivers[k] = base[k] + (body[k] - base[k]) * bodyWeight;
     if (trick) {
-      // Slide poses (poses.ts): across the rail toward the toes is the open boardslide,
-      // toward the heels the blind one — travel in board frame is (sin slide, ·, cos slide)
+      // Slide poses (poses.ts): across the rail toward the toes is the backside
+      // boardslide (open), toward the heels the frontside (blind) — travel in board frame is (sin slide, ·, cos slide)
       // with +X the heel. Weight on an end blends toward the press, mirrored for the tail.
       const across = smoothstep((Math.abs(sn) - 0.3) / 0.6);
-      const slidePose = sn < 0 ? ANCHORS.boardslide : ANCHORS.boardslideBlind;
-      if (slidePose && across > 0) blendToward(drivers, slidePose, across);
+      const slidePose = sn < 0 ? ANCHORS.backsideBoardslide : ANCHORS.frontsideBoardslide;
+      if (slidePose && across > 0) {
+        // Posed with the board yawed under the body (shifty); in play the sim owns the
+        // board, so the same relative turn goes on the hips.
+        copyDrivers(slideScratch, slidePose);
+        slideScratch.hipYaw -= slideScratch.shifty;
+        blendToward(drivers, slideScratch, across);
+      }
       const pressPose = ANCHORS.press;
       const pressAmount = smoothstep(Math.abs(view.railContact) / Math.max(params.rail.pressMax, 1e-3));
       if (pressPose && pressAmount > 0) {
