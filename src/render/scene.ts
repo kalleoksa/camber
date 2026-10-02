@@ -195,10 +195,10 @@ function snowTexture(): THREE.Texture {
  * side taper read as curves, and 0.1 m across a wall so its face is a face and not a ramp.
  * Walls run down the fall line, so only X needs the extra columns.
  */
-function gridColumns(cfg: SlopeConfig): number[] {
+function gridColumns(cfg: SlopeConfig, cell: number): number[] {
   const half = cfg.width / 2;
   const xs: number[] = [];
-  const coarse = Math.round(cfg.width / 0.75);
+  const coarse = Math.round(cfg.width / cell);
   for (let i = 0; i <= coarse; i++) xs.push(-half + (cfg.width * i) / coarse);
   for (const w of cfg.walls ?? []) {
     const span = w.radius + w.top + 2 * w.height + 1;
@@ -206,22 +206,23 @@ function gridColumns(cfg: SlopeConfig): number[] {
     const to = Math.max(w.x, w.x + w.side * span) + 0.5;
     for (let x = from; x <= to; x += 0.1) xs.push(x);
   }
-  // Quarter pipes facing across the slope: their face runs along Z, like a wall's.
+  // Quarter pipes facing across the slope: their face runs along Z, like a wall's. Only the
+  // transition and face need it — deck and back are gentle, and these run the park's length.
   for (const q of cfg.quarters ?? []) {
     if (!q.side) continue;
-    const span = q.radius + q.deck + 2 * q.height + 1;
+    const span = q.radius + q.height + 0.5;
     const from = Math.min(q.x, q.x + q.side * span) - 0.5;
     const to = Math.max(q.x, q.x + q.side * span) + 0.5;
-    for (let x = from; x <= to; x += 0.1) xs.push(x);
+    for (let x = from; x <= to; x += 0.15) xs.push(x);
   }
   xs.sort((p, q) => p - q);
   return xs.filter((x, i) => Math.abs(x) <= half && (i === 0 || x - (xs[i - 1] ?? -Infinity) > 0.02));
 }
 
 /** Grid rows down the slope, likewise: 0.1 m across an uphill-facing quarter pipe's face, which runs across X. */
-function gridRows(cfg: SlopeConfig, runOut: number): number[] {
+function gridRows(cfg: SlopeConfig, runOut: number, cell: number): number[] {
   const zs: number[] = [];
-  const coarse = Math.round((cfg.length + runOut) / 0.75);
+  const coarse = Math.round((cfg.length + runOut) / cell);
   for (let j = 0; j <= coarse; j++) zs.push(runOut - ((cfg.length + runOut) * j) / coarse);
   for (const q of cfg.quarters ?? []) {
     if (q.side) continue;
@@ -232,10 +233,10 @@ function gridRows(cfg: SlopeConfig, runOut: number): number[] {
   return zs.filter((z, j) => j === 0 || (zs[j - 1] ?? Infinity) - z > 0.02);
 }
 
-function slopeMesh(cfg: SlopeConfig, terrain: Terrain): THREE.Mesh {
+function slopeMesh(cfg: SlopeConfig, terrain: Terrain, cell: number): THREE.Mesh {
   const runOut = 20;
-  const xs = gridColumns(cfg);
-  const zs = gridRows(cfg, runOut);
+  const xs = gridColumns(cfg, cell);
+  const zs = gridRows(cfg, runOut, cell);
   const rows = zs.length - 1;
   const cols = xs.length;
   const positions = new Float32Array(cols * (rows + 1) * 3);
@@ -330,7 +331,8 @@ function railMeshes(terrain: Terrain): THREE.Group {
   return group;
 }
 
-export function createScene(cfg: SlopeConfig, terrain: Terrain, camera: THREE.PerspectiveCamera): SceneView {
+/** `cell` is the coarse grid size in m — larger for a park scaled up, whose features are too. */
+export function createScene(cfg: SlopeConfig, terrain: Terrain, camera: THREE.PerspectiveCamera, cell = 0.75): SceneView {
   const renderer = new THREE.WebGLRenderer({ antialias: true });
   renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
   renderer.setSize(innerWidth, innerHeight);
@@ -345,7 +347,7 @@ export function createScene(cfg: SlopeConfig, terrain: Terrain, camera: THREE.Pe
   scene.add(sun);
   scene.add(new THREE.HemisphereLight(0xbcd7f0, 0xe8eef4, 1.1));
 
-  const slope = slopeMesh(cfg, terrain);
+  const slope = slopeMesh(cfg, terrain, cell);
   const markers = slopeMarkers(cfg, terrain);
   scene.add(slope);
   scene.add(markers);

@@ -136,7 +136,7 @@ export function createPanel(
   status.addBinding(readout, 'padRaw', { readonly: true, label: 'pad raw' });
   status.addBinding(readout, 'mode', { readonly: true });
   status.addBinding(readout, 'rail', { readonly: true });
-  status.addBinding(readout, 'speed', { readonly: true, format: (v: number) => v.toFixed(2) });
+  status.addBinding(readout, 'speed', { readonly: true, format: (v: number) => `${v.toFixed(1)} m/s · ${(v * 3.6).toFixed(0)} km/h` });
   status.addBinding(readout, 'tick', { readonly: true, format: (v: number) => v.toFixed(0) });
   status.addBinding(readout, 'clearance', { readonly: true, format: (v: number) => v.toFixed(2) });
   status.addBinding(readout, 'air', { readonly: true, format: (v: number) => v.toFixed(2) });

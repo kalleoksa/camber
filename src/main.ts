@@ -51,6 +51,7 @@ import {
 } from './sim/state.ts';
 import { createContact, createSlope, type SlopeConfig } from './sim/terrain.ts';
 import { PARK } from './park/park.ts';
+import { PARK_GRAVITY, REAL_GRAVITY, scalePark } from './park/scale.ts';
 import { SLOPESTYLE } from './park/slopestyle.ts';
 import { SOCHI } from './park/sochi.ts';
 import { length } from './sim/vec3.ts';
@@ -59,8 +60,23 @@ import { createPanel, download, type FeedbackState, type Readout } from './tunin
 const SEED = 1;
 // The home park (src/park/park.ts) by default; ?park=sochi for Sochi 2014 at 0.61 scale,
 // ?park=slopestyle for the first park. A take stores its terrain, so any replays anywhere.
-const parkName = new URLSearchParams(location.search).get('park');
-const slopeConfig: SlopeConfig = parkName === 'slopestyle' ? SLOPESTYLE : parkName === 'sochi' ? SOCHI : PARK;
+const query = new URLSearchParams(location.search);
+const parkName = query.get('park');
+const baseConfig: SlopeConfig = parkName === 'slopestyle' ? SLOPESTYLE : parkName === 'sochi' ? SOCHI : PARK;
+// Experiment (docs/plan.md §1): ?g=real rides under real gravity in a full-size park, at the
+// same speeds — jumps 1.63× bigger, airtime 1.63× longer. Pop is scaled so an ollie is as
+// high in metres as before, drag so speeds hold; the rest is left as tuned, to feel what changes.
+const realGravity = query.get('g') === 'real';
+if (realGravity) {
+  const k = Math.sqrt(REAL_GRAVITY / params.world.gravity);
+  params.pop.base *= k;
+  params.pop.charged *= k;
+  params.world.gravity = REAL_GRAVITY;
+  // Air drag is per metre, not per g: over a park 1.63× longer it would bleed 1.63× the
+  // speed, so it scales down with the park to keep the speeds the jumps were sized for.
+  params.ground.drag /= PARK_GRAVITY / REAL_GRAVITY;
+}
+const slopeConfig: SlopeConfig = realGravity ? scalePark(baseConfig, PARK_GRAVITY / REAL_GRAVITY) : baseConfig;
 
 const terrain = createSlope(slopeConfig);
 const spawn = {
@@ -123,7 +139,7 @@ const trickText = createTrickText();
 let runTricks: { tick: number; text: string }[] = [];
 
 const chase = createChaseCamera(params);
-const view = createScene(slopeConfig, terrain, chase.camera);
+const view = createScene(slopeConfig, terrain, chase.camera, realGravity ? 0.75 * (PARK_GRAVITY / REAL_GRAVITY) : 0.75);
 addEventListener('resize', view.resize);
 
 const spray = createSpray();
