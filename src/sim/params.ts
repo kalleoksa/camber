@@ -51,6 +51,7 @@ export const params = {
     axisTiltMax: 1.1, // rad, max cork axis lerp
     corkRightMax: 1.0, // rad (was 1.2, lowered by play), board within this of the ground below is righted when you open up; further, it isn't
     flipRate: 6.0, // rad/s about the board's long axis at full stick Y — back is a backflip. 0 = older rule, no flips
+    switchFlips: 1, // 1: riding switch, stick Y flips by the direction of travel, as it presses — back is still a backflip
     corkDeadzone: 0.5, // |stick Y| below this at takeoff is a flat spin — Y is also the tail press
     corkRecover: 6.0, // 1/s (was 4, raised by play), coming out of a cork once stick Y is centred: axis back to flat, board righted
     spinTakeoff: 9.0, // rad/s at full whip on takeoff — overspins a full pop on purpose; centre to check

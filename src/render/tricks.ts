@@ -10,7 +10,7 @@ import { ANCHORS } from './poses.ts';
  * Airs: spin is the board's actual rotation about world up, rounded to 180s; frontside
  * when the chest opens toward the direction of travel (positive about board up riding
  * nose first, negative riding switch). Flips are rotation about the board's width —
- * negative is a backflip, as the stick has it. Both at once is a cork. The grab is the
+ * negative is a backflip riding regular, positive riding switch. Both at once is a cork. The grab is the
  * one held longest, named by the nearest grab pose. Rails: the slide held longest; across
  * the rail travelling toward the heels is frontside (blind), toward the toes backside.
  */
@@ -90,7 +90,8 @@ export function createTrickReader(): TrickReader {
     const parts: string[] = [];
     if (switchAtTakeoff) parts.push('switch');
     if (flips > 0 && turns >= 180) parts.push(`${side} ${flips > 1 ? `${flips === 2 ? 'double' : 'triple'} ` : ''}cork ${turns}`);
-    else if (flips > 0) parts.push(`${flips > 1 ? `${flips === 2 ? 'double' : 'triple'} ` : ''}${flip < 0 ? 'backflip' : 'frontflip'}`);
+    // Riding switch the tail leads, so a backflip is the other way about the board's width.
+    else if (flips > 0) parts.push(`${flips > 1 ? `${flips === 2 ? 'double' : 'triple'} ` : ''}${(flip < 0) !== switchAtTakeoff ? 'backflip' : 'frontflip'}`);
     else if (turns > 0) parts.push(`${side} ${turns}`);
     let grab = '';
     let held = MIN_GRAB;

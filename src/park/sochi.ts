@@ -17,7 +17,7 @@ const table = 0; // rad under a kicker's inrun and table — flat, so friction b
 const landing = 0.3; // rad the slope falls under a kicker's landing; the kicker adds its own 0.15
 
 /** Where a park kicker's deck ends and its landing ends, in m past the start of its transition. */
-function kickerSpan(k: KickerConfig): { deck: number; end: number } {
+export function kickerSpan(k: KickerConfig): { deck: number; end: number } {
   const r = k.lipHeight / (1 - Math.cos(k.lipAngle));
   const a = k.landingAngle ?? 0;
   const rk = k.knuckleRadius ?? 0;

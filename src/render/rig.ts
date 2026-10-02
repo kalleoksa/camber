@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { params as defaults, type Params } from '../sim/params.ts';
 import { aimShaft, BOARD, createBinding, createDeck } from './board.ts';
-import { dress } from './outfit.ts';
+import { dress, type Outfit } from './outfit.ts';
 import { outlineAll } from './toon.ts';
 
 /**
@@ -438,6 +438,8 @@ export type Rig = {
   setDressed(on: boolean): void;
   /** Pivots the cloth springs turn (9c): the jacket skirt at the waist, the hood at the neck. */
   cloth: { skirt: THREE.Object3D; hood: THREE.Object3D };
+  /** Outfit pieces the clip check measures (scripts/clip-check.ts). */
+  fit: Outfit['fit'];
 };
 
 const SKIN = 0x2f6ee2;
@@ -523,7 +525,7 @@ export function createRig(): Rig {
   board.add(bootF, bootB);
 
   const outfit = dress(
-    { pelvis, torso, head, thighs: [thighL, thighR], shins: [shinL, shinR], upperArms: [armLU, armRU], forearms: [armLL, armRL], mitts: [mittF, mittB] },
+    { pelvis, torso, head, thighs: [thighL, thighR], shins: [shinL, shinR], upperArms: [armLU, armRU], forearms: [armLL, armRL], mitts: [mittF, mittB], bootShafts: [bindF.shaft, bindB.shaft] },
     defaults.rig,
   );
   // Toon outlines on everything dressed and on the board and bindings; the bare segments
@@ -546,6 +548,10 @@ export function createRig(): Rig {
   const pole = new THREE.Vector3();
   const chestPos = new THREE.Vector3();
   const grab = new THREE.Vector3();
+  const palm = new THREE.Vector3();
+  const palmGrip = new THREE.Vector3();
+  const palmSide = new THREE.Vector3();
+  const mittBasis = new THREE.Matrix4();
   const neckOffset = new THREE.Vector3();
   const hipQuat = new THREE.Quaternion();
   const spineQuat = new THREE.Quaternion();
@@ -589,6 +595,7 @@ export function createRig(): Rig {
       return effectiveStance;
     },
     cloth: { skirt: outfit.skirt, hood: outfit.hood },
+    fit: outfit.fit,
     setDressed(on: boolean): void {
       for (const m of bare) (m.material as THREE.Material).visible = !on;
       for (const piece of outfit.pieces) piece.visible = on;
@@ -748,6 +755,17 @@ export function createRig(): Rig {
         mitt.position
           .copy(elbow)
           .addScaledVector(dir.subVectors(hand, elbow).normalize(), Math.min(hand.distanceTo(elbow), r.forearm));
+        // Along the forearm, palm rolled toward what it holds: the board when gripping, the
+        // hips when free. Basis columns are the hand frame outfit.ts builds the mitt in.
+        palm.subVectors(hipCentre, mitt.position).normalize();
+        palmGrip.subVectors(board.position, mitt.position).normalize();
+        palm.lerp(palmGrip, Math.min(g, 1)).addScaledVector(dir, -palm.dot(dir));
+        if (palm.lengthSq() > 1e-8) {
+          palm.normalize().negate(); // +z is the back of the hand
+          palmSide.crossVectors(dir, palm);
+          mittBasis.makeBasis(palmSide, dir, palm);
+          mitt.quaternion.setFromRotationMatrix(mittBasis);
+        }
 
         // Overlay: bar the mitt to the grab point it could not make, and colour the arm.
         // Two bands, not one. Red alone made 1.0 a target rather than a limit.

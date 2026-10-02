@@ -1,0 +1,88 @@
+<!doctype html>
+<html>
+  <head><meta charset="utf-8" /><title>camber — clip check</title></head>
+  <body>
+    <!-- Headless outfit clip check, driven by scripts/clip-check.ts. -->
+    <script type="module">
+      import * as THREE from 'three';
+      import { blendToGrab, createRig, gripWeight, neutralDrivers } from '/src/render/rig.ts';
+      import { ANCHORS } from '/src/render/poses.ts';
+      import { skirtProfile } from '/src/render/outfit.ts';
+      import { params } from '/src/sim/params.ts';
+
+      const rig = createRig();
+      rig.setDressed(true);
+      const scene = new THREE.Scene();
+      scene.add(rig.root);
+      const profile = skirtProfile(); // [radius, y] from hem (bottom) up
+      const hemY = profile[1][1];
+      const topY = profile[profile.length - 2][1];
+      // Outer radius of the skirt at a lathe height, by linear interpolation up its profile.
+      const skirtR = (y) => {
+        for (let i = 1; i < profile.length - 2; i++) {
+          const [r0, y0] = profile[i];
+          const [r1, y1] = profile[i + 1];
+          if (y >= y0 && y <= y1) return r0 + ((r1 - r0) * (y - y0)) / Math.max(y1 - y0, 1e-6);
+        }
+        return 0;
+      };
+      const DECK_TOP = 0.028; // board local: base 0.015 + thickness 0.013
+      const v = new THREE.Vector3();
+      const inv = new THREE.Matrix4();
+
+      function measure(drivers) {
+        rig.apply(drivers, params);
+        rig.root.updateMatrixWorld(true);
+        const skirt = rig.fit.skirt;
+        inv.copy(skirt.matrixWorld).invert();
+        let hip = 0;
+        for (const t of rig.fit.thighs) {
+          const pos = t.geometry.getAttribute('position');
+          for (let i = 0; i < pos.count; i++) {
+            if (pos.getY(i) > 0.3) continue; // upper part of the thigh only: the hip region
+            v.fromBufferAttribute(pos, i).applyMatrix4(t.matrixWorld).applyMatrix4(inv);
+            if (v.y < hemY || v.y > topY) continue;
+            // Lathe space is unscaled inside the skirt's matrix, so the radius compares
+            // directly; the poke is scaled back to metres by the skirt's width.
+            const over = Math.hypot(v.x, v.z) - skirtR(v.y);
+            if (over > hip) hip = over;
+          }
+        }
+        inv.copy(rig.board.matrixWorld).invert();
+        let deck = 0;
+        for (const s of rig.fit.shins) {
+          const pos = s.geometry.getAttribute('position');
+          for (let i = 0; i < pos.count; i++) {
+            v.fromBufferAttribute(pos, i).applyMatrix4(s.matrixWorld).applyMatrix4(inv);
+            if (Math.abs(v.x) > 0.15 || Math.abs(v.z) > 0.8) continue; // off the board: nothing to cut
+            const below = DECK_TOP - v.y;
+            if (below > deck) { deck = below; window.__worst = [rig.fit.shins.indexOf(s), pos.getY(i).toFixed(3), v.y.toFixed(3)]; }
+          }
+        }
+        return { hip: hip * 1.07, deck, worst: deck > 0 ? window.__worst : null }; // ×jacketWidth: the widest way the lathe is stretched
+      }
+
+      const rows = [];
+      const riding = neutralDrivers();
+      rows.push({ pose: 'riding', ...measure(riding) });
+      for (const name of Object.keys(ANCHORS)) rows.push({ pose: name, ...measure(ANCHORS[name]) });
+      // Grab transitions, crouch → anchor, as play blends them.
+      const crouch = ANCHORS.crouch ?? neutralDrivers();
+      const d = neutralDrivers();
+      for (const name of ['indy', 'mute', 'melon', 'method', 'stalefish', 'japan', 'nosegrab', 'tailgrab']) {
+        const a = ANCHORS[name];
+        if (!a) continue;
+        let hip = 0, deck = 0, at = 0;
+        for (let b = 0; b <= 1.0001; b += 0.05) {
+          blendToGrab(d, crouch, a, b, gripWeight(b, params.grab.gripDelay));
+          const m = measure(d);
+          if (m.hip > hip) { hip = m.hip; at = b; }
+          if (m.deck > deck) deck = m.deck;
+        }
+        rows.push({ pose: `${name} path`, hip, deck, at });
+      }
+      window.__rows = rows;
+      window.__done = true;
+    </script>
+  </body>
+</html>

@@ -72,7 +72,7 @@ export function stepAirborne(
     // is not taken back. Read as a whip, same as the pop itself.
     state.popWindow = Math.max(0, state.popWindow - dt);
     const asked = flips
-      ? length(stickRotation(stickW, takeoffSpinRate(state, input, params), input, params))
+      ? length(stickRotation(stickW, takeoffSpinRate(state, input, params), state, input, params))
       : Math.abs(takeoffSpinRate(state, input, params));
     if (asked > Math.abs(state.spinRate)) setTakeoffSpin(state, input, params);
   } else if (!state.spinArmed) {
@@ -80,7 +80,7 @@ export function stepAirborne(
   } else if (flips && (input.lx !== 0 || corkStick(input.ly, params) !== 0)) {
     // The stick read against the axis already turning: held, it holds the rotation — spin,
     // flip or the cork between — and eased, it slows it. It cannot swing the axis mid-air.
-    stickRotation(stickW, -input.lx * params.air.spinTakeoff, input, params);
+    stickRotation(stickW, -input.lx * params.air.spinTakeoff, state, input, params);
     const target = dot(stickW, state.spinAxis);
     state.spinRate += (target - state.spinRate) * (1 - dm.exp(-params.air.authority * dt));
   } else if (!flips && input.lx !== 0) {
