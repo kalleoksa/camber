@@ -70,16 +70,20 @@ export const params = {
     spinRefRate: 5.0, // 1/s the carve baseline follows the stick — lower widens the whip window
     spinArmBand: 0.25, // |stick| below this arms in-air spin control after takeoff
     // Spin model (trick spec): 0 — the stick at the pop sets the spin and steers it in the
-    // air. 1 — wind-up and flick: hold RT with the stick pushed to wind up — held through the
-    // pop it spins that way; flicked across at the pop it spins the other way, harder. In the
-    // air the rotation is fixed: the stick only tucks (toward the spin: faster) or opens up.
+    // air. 1 — counter-rotation: while charging RT, push the stick away from the spin to
+    // wind the upper body up (the board holds its line); how long sets how much. At the pop,
+    // point the stick the way of the spin to send it — how far you point, how much. In the
+    // air the rotation is fixed: keep pointing to tuck and speed it up, push against it to
+    // open up and slow it.
     spinModel: 0,
-    windTime: 0.4, // s of stick held while charging to a full wind-up
+    windTime: 0.5, // s of stick held while charging to a full wind-up: a short hold is a 360, a full one a 1080
     windRelease: 8.0, // 1/s the wind-up unloads once RT is let go on the snow without popping
-    windGain: 0.6, // fraction of spinTakeoff a full wind-up gives, released against it
-    flickGain: 0.5, // fraction a full flick gives — stick travel across the last ~0.2 s, side to side
-    flickMin: 0.15, // flick (0..1) past which it, not the wind-up, sets which way you spin
+    windSteer: 0.2, // fraction of stick X that still edges the board while winding up — the rest loads the upper body, so the board holds its line
+    flickGain: 0.5, // fraction of spinTakeoff a flick gives with no wind-up — stick travel across the last ~0.2 s
+    flickMin: 0.15, // wind-up (0..1) below which there is none, and a flick alone sets the spin
     flickWindow: 0.2, // s after the pop a flick still counts (model 1)
+    fullStick: 0.7, // model 1: stick deflection that counts as full, on each axis — a diagonal (a cork) reaches ~0.7 on both
+    corkDeadzone1: 0.25, // model 1: |stick Y| at the pop below which it isn't a cork — lower than corkDeadzone, since pointing at the spin is already the intent
     tuckGain: 0.35, // spin × (1 + this) fully tucked
     openGain: 0.75, // spin × (1 − this) fully opened — the check: arms out, upper body counter-rotating against the board
     tuckRate: 7.0, // 1/s the body tucks or opens toward what the stick asks
@@ -358,6 +362,7 @@ export const params = {
     land: 0.35, // a clean landing
     sketchy: 0.65, // a sketchy one, held twice as long
     bail: 1.0, // a bail, three times as long
+    wind: 0.2, // a light tick at each third of wind-up (spin model 1), so you feel how much is loaded
     ms: 70, // pulse length
   },
   camera: {

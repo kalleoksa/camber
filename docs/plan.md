@@ -99,12 +99,15 @@ backside) is the opposite of yours (blind boardslide = frontside); yours stands.
   before touchdown (`rig.armWind` … `chainDamping`). No-grab airs ride compact: knees up,
   back rounded (`rig.airCrouch`, `airSlouch`, `airFold`).
 - **Sim** — *done, behind `air.spinModel` = 1* (0 keeps today's rules; old takes pin 0):
-  hold RT with the stick pushed to wind up (`windTime`, only ever builds while RT is held);
-  held through the pop it spins that way (`windGain`), flicked across it spins the other
-  way, full (`flickGain`). The flick is read by stick position, anywhere from ~0.15 s
-  before the release to `flickWindow` after. In the
-  air the rotation is fixed — the stick only tucks (toward the spin, `tuckGain`) or opens
-  (against it, `openGain`), and has to pass through centre first, as now.
+  counter-rotation. While charging RT, push the stick away from the spin: the upper body
+  winds up and the board holds its line (`windSteer` of the stick still edges). How long
+  sets how much (`windTime` 0.5 s to full, a pad tick each third): ~0.18 s a 360, 0.25 a
+  540, 0.35 a 720, 0.5 s a 1080 (real gravity). At the pop, point the stick the way of the
+  spin to send it — how far you point, how much (up to `flickWindow` after the pop);
+  held against or let go to centre, a straight air. A cork is the same point, diagonal:
+  toward the spin and back (or forward) — `fullStick` 0.7 counts as full on each axis, and
+  the flip reads past `corkDeadzone1` 0.25. In the air the rotation is fixed: push toward the spin to tuck (`tuckGain`, faster),
+  against it to open (`openGain`, slower).
 
 ## 5. Carried over
 

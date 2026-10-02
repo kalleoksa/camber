@@ -446,8 +446,10 @@ export function createScene(cfg: SlopeConfig, terrain: Terrain, camera: THREE.Pe
       base.spineSide = 0;
     } else {
       base.hipX = grounded ? view.edge * r.edgeHipShift : railed ? -c * view.balance * r.railLean : 0;
-      base.hipZ = view.stance * r.stanceHipShift + sn * view.balance * r.railLean;
-      base.spineSide = view.stance * r.stanceSpineSide;
+      // A press is a weight shift onto the snow; in the air stick Y is a flip, not a lean.
+      const press = view.stance * (1 - secondary.inAir);
+      base.hipZ = press * r.stanceHipShift + sn * view.balance * r.railLean;
+      base.spineSide = press * r.stanceSpineSide;
     }
     base.spineBend = r.spineBendBase + view.compress * r.compressSpineBend;
 

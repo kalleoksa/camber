@@ -63,6 +63,7 @@ export type Secondary = {
   hipYaw: number; // rad, the hips; the shoulders' `twist` is measured from the board too
   hipYawVel: number;
   airCrouch: number; // 0..1, the compact no-grab air: knees up, back rounded
+  inAir: number; // 0..1, eased airborne — fades out the ground-only body shifts (presses)
 };
 
 const CLOTH_KEYS = [
@@ -96,6 +97,7 @@ const CLOTH_KEYS = [
   'hipYaw',
   'hipYawVel',
   'airCrouch',
+  'inAir',
 ] as const;
 type ClothKey = (typeof CLOTH_KEYS)[number];
 
@@ -137,6 +139,7 @@ export function createSecondary(): Secondary {
     hipYaw: 0,
     hipYawVel: 0,
     airCrouch: 0,
+    inAir: 0,
   };
 }
 
@@ -187,7 +190,9 @@ export function stepSecondary(sec: Secondary, state: RiderState, params: Params,
   // In the air without a grab the rider rides compact: knees up, hips toward the board.
   // A grab takes over its own pose, so the crouch hands over to it as the grip comes on.
   const compact = state.mode === 'airborne' ? 1 - state.grip : 0;
-  sec.airCrouch += (compact - sec.airCrouch) * (1 - dm.exp(-params.rig.airCrouchRate * dt));
+  const easeAir = 1 - dm.exp(-params.rig.airCrouchRate * dt);
+  sec.airCrouch += (compact - sec.airCrouch) * easeAir;
+  sec.inAir += ((state.mode === 'airborne' ? 1 : 0) - sec.inAir) * easeAir;
   const target = -state.compress * params.rig.crouchDepth - absorb - sec.airCrouch * params.rig.airCrouch;
   const k = params.rig.hipStiffness;
   const acc = k * (target - sec.hipY) - 2 * params.rig.hipDamping * Math.sqrt(k) * sec.hipVel;
@@ -202,7 +207,10 @@ export function stepSecondary(sec: Secondary, state: RiderState, params: Params,
   // the way a rider stops a spin. The head looks where the board will be `headLead` on.
   const grounded = state.mode === 'grounded' || state.mode === 'walled';
   const airborne = state.mode === 'airborne';
-  const spinFraction = Math.max(-1, Math.min(1, state.spinRate / params.air.spinTakeoff));
+  // The yaw part of the rotation only: a flip is not a spin, and leading it would twist the
+  // body round an axis it isn't turning about.
+  const yawRate = state.spinRate * state.spinAxis.y;
+  const spinFraction = Math.max(-1, Math.min(1, yawRate / params.air.spinTakeoff));
   // Spin model 1 has a real wind-up: draw that (loaded against the spin, so negated into the
   // spin's sign); model 0 has only the carve held through the charge.
   const wind = !grounded ? 0 : params.air.spinModel > 0 ? clamp(-state.windUp, 1) : clamp(state.edge * state.compress, 1);
@@ -218,7 +226,7 @@ export function stepSecondary(sec: Secondary, state: RiderState, params: Params,
     : airborne
       ? spinFraction * r.shoulderLead * (1 - square)
       : 0;
-  const headTarget = airborne ? Math.max(-r.headTurnMax, Math.min(r.headTurnMax, state.spinRate * r.headLead)) : 0;
+  const headTarget = airborne ? Math.max(-r.headTurnMax, Math.min(r.headTurnMax, yawRate * r.headLead)) : 0;
   const ks = r.spineStiffness;
   const cs = 2 * r.spineDamping * Math.sqrt(ks);
   const kt = r.shoulderChainStiffness;
@@ -269,6 +277,10 @@ function stepLoose(sec: Secondary, state: RiderState, params: Params, dt: number
     accel.x = (v.x - sec.lastVx) / dt;
     accel.y = (v.y - sec.lastVy) / dt;
     accel.z = (v.z - sec.lastVz) / dt;
+    // What the body feels is acceleration other than gravity: in the air that is next to
+    // nothing. Without this, gravity seen from a pitched or flipping board shoved the hips
+    // and arms sideways — the lean in straight airs and flips.
+    if (state.mode === 'airborne') accel.y += params.world.gravity;
     rotate(local, inverseOf(state.spinFrame), accel);
     const k = 1 - dm.exp(-r.accelSmoothing * dt);
     sec.accX += (local.x - sec.accX) * k;

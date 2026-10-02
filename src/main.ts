@@ -51,7 +51,7 @@ import {
   type RiderState,
 } from './sim/state.ts';
 import { createContact, createSlope, type SlopeConfig } from './sim/terrain.ts';
-import { PARK } from './park/park.ts';
+import { JUMP_X, PARK } from './park/park.ts';
 import { PARK_GRAVITY, REAL_GRAVITY, scalePark } from './park/scale.ts';
 import { SLOPESTYLE } from './park/slopestyle.ts';
 import { SOCHI } from './park/sochi.ts';
@@ -82,8 +82,10 @@ if (realGravity) {
 const slopeConfig: SlopeConfig = realGravity ? scalePark(baseConfig, PARK_GRAVITY / REAL_GRAVITY) : baseConfig;
 
 const terrain = createSlope(slopeConfig);
+// On the home park a run starts lined up in the jump line, straight at the first kicker.
+const spawnX = baseConfig === PARK ? JUMP_X * (realGravity ? PARK_GRAVITY / REAL_GRAVITY : 1) : 0;
 const spawn = {
-  position: { x: 0, y: terrain.sample(0, 0, createContact()).height + 1.5, z: 0 },
+  position: { x: spawnX, y: terrain.sample(spawnX, 0, createContact()).height + 1.5, z: 0 },
   heading: Math.PI, // nose down the fall line (-Z)
 };
 
@@ -300,6 +302,8 @@ addEventListener('keydown', (ev) => {
 function feel(before: RiderState, after: RiderState): void {
   const h = params.haptics;
   if (h.on <= 0) return;
+  // Wind-up gauge: a tick each time it passes a third.
+  if (Math.floor(Math.abs(after.windUp) * 3 + 1e-6) > Math.floor(Math.abs(before.windUp) * 3 + 1e-6)) rumble(0, h.wind, h.ms * 0.6);
   if (before.popLatch && !after.popLatch && after.mode === 'airborne') rumble(h.pop * 0.4, h.pop, h.ms);
   if (before.mode !== 'railed' && after.mode === 'railed') rumble(h.rail, h.rail * 0.6, h.ms);
   if (before.mode !== 'bailed' && after.mode === 'bailed') rumble(h.bail, h.bail * 0.5, h.ms * 3);
