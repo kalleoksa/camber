@@ -55,6 +55,13 @@ export type Secondary = {
   swayXVel: number;
   swayZ: number; // m toward the nose
   swayZVel: number;
+  // Body sequencing: yaw offsets from the board, + in the spin's direction (about board up).
+  armYaw: number; // rad, the arms as a pair swung round the body
+  armYawVel: number;
+  armOpen: number; // rad, the arms spread out along the board
+  armOpenVel: number;
+  hipYaw: number; // rad, the hips; the shoulders' `twist` is measured from the board too
+  hipYawVel: number;
 };
 
 const CLOTH_KEYS = [
@@ -81,6 +88,12 @@ const CLOTH_KEYS = [
   'swayXVel',
   'swayZ',
   'swayZVel',
+  'armYaw',
+  'armYawVel',
+  'armOpen',
+  'armOpenVel',
+  'hipYaw',
+  'hipYawVel',
 ] as const;
 type ClothKey = (typeof CLOTH_KEYS)[number];
 
@@ -115,6 +128,12 @@ export function createSecondary(): Secondary {
     swayXVel: 0,
     swayZ: 0,
     swayZVel: 0,
+    armYaw: 0,
+    armYawVel: 0,
+    armOpen: 0,
+    armOpenVel: 0,
+    hipYaw: 0,
+    hipYawVel: 0,
   };
 }
 
@@ -168,28 +187,51 @@ export function stepSecondary(sec: Secondary, state: RiderState, params: Params,
   sec.hipVel += acc * dt;
   sec.hipY += sec.hipVel * dt;
 
-  // §7.7. Charging with the stick pushed winds the shoulders against the spin that's coming
-  // (the spin will be −edge, so the wind-up is +edge); the pop releases it and the same
-  // spring carries it through into a lead in the direction of the spin. The head looks
-  // where the board will be `headLead` seconds on.
+  // §7.7 and the trick spec's body sequencing. Charging with the stick pushed winds the arms,
+  // shoulders and hips against the spin that's coming (the spin will be −edge, so the
+  // wind-up is +edge); the pop releases them and the springs carry each through into a lead
+  // in the direction of the spin — arms first, being stiffest, hips last. Just off the lip
+  // and again just before touchdown the arms open out and the body squares to the board,
+  // the way a rider stops a spin. The head looks where the board will be `headLead` on.
   const grounded = state.mode === 'grounded' || state.mode === 'walled';
   const airborne = state.mode === 'airborne';
   const spinFraction = Math.max(-1, Math.min(1, state.spinRate / params.air.spinTakeoff));
+  const wind = grounded ? clamp(state.edge * state.compress, 1) : 0;
+  const fall = -state.velocity.y;
+  const landing = airborne && fall > 0 && state.clearance < fall * r.openTime;
+  const lip = airborne && state.airTime < r.lipSpreadTime;
+  const square = landing ? 1 : 0;
   // Shoulders lead a carve: the heading's rate, from the last tick's heading.
   const hasHistory = sec.lastVx !== 0 || sec.lastVy !== 0 || sec.lastVz !== 0;
   const turn = hasHistory ? wrapPi(state.heading - sec.lastHeading) / dt : 0;
   const twistTarget = grounded
     ? state.edge * state.compress * r.counterRotation + clamp(turn * r.carveLead, r.carveLeadMax)
     : airborne
-      ? spinFraction * r.shoulderLead
+      ? spinFraction * r.shoulderLead * (1 - square)
       : 0;
   const headTarget = airborne ? Math.max(-r.headTurnMax, Math.min(r.headTurnMax, state.spinRate * r.headLead)) : 0;
   const ks = r.spineStiffness;
   const cs = 2 * r.spineDamping * Math.sqrt(ks);
-  sec.twistVel += (ks * (twistTarget - sec.twist) - cs * sec.twistVel) * dt;
+  const kt = r.shoulderChainStiffness;
+  const ct = 2 * r.chainDamping * Math.sqrt(kt);
+  sec.twistVel += (kt * (twistTarget - sec.twist) - ct * sec.twistVel) * dt;
   sec.twist += sec.twistVel * dt;
   sec.headVel += (ks * (headTarget - sec.head) - cs * sec.headVel) * dt;
   sec.head += sec.headVel * dt;
+
+  const armYawTarget = wind * r.armWind + (airborne ? spinFraction * r.armLead * (1 - square) : 0);
+  const armOpenTarget = lip || landing ? r.armSpread : 0;
+  const hipYawTarget = wind * r.hipWind + (airborne ? spinFraction * r.hipLead * (1 - square) : 0);
+  const ka = r.armChainStiffness;
+  const ca = 2 * r.chainDamping * Math.sqrt(ka);
+  sec.armYawVel += (ka * (armYawTarget - sec.armYaw) - ca * sec.armYawVel) * dt;
+  sec.armYaw += sec.armYawVel * dt;
+  sec.armOpenVel += (ka * (armOpenTarget - sec.armOpen) - ca * sec.armOpenVel) * dt;
+  sec.armOpen += sec.armOpenVel * dt;
+  const kh = r.hipChainStiffness;
+  const ch = 2 * r.chainDamping * Math.sqrt(kh);
+  sec.hipYawVel += (kh * (hipYawTarget - sec.hipYaw) - ch * sec.hipYawVel) * dt;
+  sec.hipYaw += sec.hipYawVel * dt;
 
   stepCloth(sec, state, params, dt);
   stepLoose(sec, state, params, dt);

@@ -488,7 +488,17 @@ export function createScene(cfg: SlopeConfig, terrain: Terrain, camera: THREE.Pe
     }
     // Wind-up and lead ride on top of whatever the grab asks for, not under it. So does the
     // hunch: the anchors were authored straight-backed, and a grab shouldn't sit the rider up.
-    drivers.spineTwist += secondary.twist;
+    // Body sequencing: the shoulders' twist and the hips' yaw are both measured from the
+    // board, and the spine twist is shoulders against hips.
+    drivers.hipYaw += secondary.hipYaw;
+    drivers.spineTwist += secondary.twist - secondary.hipYaw;
+    // Arms swung round as a pair: a turn about board up carries the front arm (nose side)
+    // toward the heel, back in its swing, and the back arm toward the toes, forward.
+    drivers.frontShoulderSwing -= secondary.armYaw;
+    drivers.backShoulderSwing += secondary.armYaw;
+    // Opened out along the board — Out is negative outward on both arms.
+    drivers.frontShoulderOut -= secondary.armOpen;
+    drivers.backShoulderOut -= secondary.armOpen;
     drivers.spineCurl += r.spineCurlBase + view.compress * r.compressSpineCurl;
     drivers.headYaw += secondary.head;
     // Loose body: arms and hips trail the board's acceleration (secondary.ts).

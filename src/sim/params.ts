@@ -251,8 +251,22 @@ export const params = {
     pressHipShift: 0.12, // m of hip travel toward the contact at full contact
     spineStiffness: 55.0, // ω² for the spine twist and head springs, like hipStiffness — ω ≈ 7.4 rad/s
     spineDamping: 1.0, // ζ
-    counterRotation: 0.7, // rad of spine twist against the coming spin at full charge
-    shoulderLead: 0.25, // rad, shoulders ahead of the board at full takeoff spin
+    counterRotation: 1.0, // rad (~57°) the shoulders wind against the coming spin at full charge
+    shoulderLead: 0.45, // rad, shoulders ahead of the board at full takeoff spin
+    // Body sequencing (trick spec): rotation travels up the chain — arms, shoulders, hips,
+    // board last. Each is a spring on its own yaw offset from the board; the arms are
+    // stiffest, so at the pop they snap round first and the hips follow late.
+    armWind: 0.9, // rad of arm swing against the coming spin at full charge
+    hipWind: 0.35, // rad (~20°) the hips wind
+    armLead: 0.8, // rad the arms lead the board in the air at full spin
+    hipLead: 0.2, // rad the hips lead
+    armSpread: 0.9, // rad the arms open out along the board — at the lip, and to stop the spin for landing
+    openTime: 0.3, // s before touchdown the rider opens up and squares to the board
+    lipSpreadTime: 0.12, // s of arm spread just after leaving the snow
+    armChainStiffness: 500.0, // ω² of the arm springs — fastest, they lead
+    shoulderChainStiffness: 260.0, // ω² of the shoulder twist — follows the arms
+    hipChainStiffness: 150.0, // ω² of the hip spring — slowest, they follow
+    chainDamping: 0.75, // ζ of both
     headLead: 0.18, // s, head looks where the board will be this far ahead
     headTurnMax: 1.2, // rad, neck limit on that look
     // Loose body (secondary.ts): the rider trails the board's acceleration instead of being
