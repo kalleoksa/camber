@@ -78,6 +78,7 @@ export const params = {
     spinModel: 1,
     windTime: 0.5, // s of stick held while charging to a full wind-up: a short hold is a 360, a full one a 1080
     windRelease: 8.0, // 1/s the wind-up unloads once RT is let go on the snow without popping
+    windLandReset: 1, // 1: touching down clears the wind-up, so the next spin can load either way. 0: older rule — it only unloads with RT off, never to zero, and the sign it had blocks loading the other way
     windSteer: 0.2, // fraction of stick X that still edges the board while winding up — the rest loads the upper body, so the board holds its line
     flickGain: 0.5, // fraction of spinTakeoff a flick gives with no wind-up — stick travel across the last ~0.2 s
     flickMin: 0.15, // wind-up (0..1) below which there is none, and a flick alone sets the spin
