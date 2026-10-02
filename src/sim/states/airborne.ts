@@ -151,6 +151,9 @@ export function stepAirborne(
 function levelBoard(state: RiderState, params: Params, dt: number): void {
   const rate = params.air.levelRate;
   if (rate <= 0) return;
+  // An air off a pipe's face comes back down onto that face: the ground below is its deck
+  // or coping, and levelling to that would land the board flat on a near-vertical wall.
+  if (params.wall.vertExit > 0 && (state.faceX !== 0 || state.faceZ !== 0)) return;
   if (params.air.levelWhole > 0) {
     // Rotate the takeoff surface's up toward the ground below, and the board with it, as
     // one rigid rotation. A full spin about any axis brings the board back to its takeoff

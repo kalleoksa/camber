@@ -60,6 +60,13 @@ export type RiderState = {
   windUp: number;
   /** Spin model 1: body tuck in the air, a multiplier on the takeoff spin. 1 is neutral. */
   tuck: number;
+  /**
+   * Horizontal unit normal of the last steep quarter-pipe face ridden — the way back into
+   * the pipe. 0, 0 when off a pipe. Kept so an exit just past the coping, where the surface
+   * under the board is already turning into the deck, still knows which way the face was.
+   */
+  faceX: number;
+  faceZ: number;
 
   // The active grab (§7.3). Coordinate and hand persist after release so a tweak still
   // springing back keeps its pivot.
@@ -125,6 +132,8 @@ export function createRiderState(spawn: Spawn): RiderState {
     spinArmed: true,
     windUp: 0,
     tuck: 1,
+    faceX: 0,
+    faceZ: 0,
     grabEdge: 0,
     grabT: 0.5,
     grabFront: true,
@@ -174,6 +183,8 @@ export function resetRiderState(state: RiderState): void {
   state.spinArmed = true;
   state.windUp = 0;
   state.tuck = 1;
+  state.faceX = 0;
+  state.faceZ = 0;
   state.grabEdge = 0;
   state.grabT = 0.5;
   state.grabFront = true;
@@ -224,6 +235,8 @@ export function copyRiderState(dst: RiderState, src: RiderState): void {
   dst.spinArmed = src.spinArmed;
   dst.windUp = src.windUp;
   dst.tuck = src.tuck;
+  dst.faceX = src.faceX;
+  dst.faceZ = src.faceZ;
   dst.grabEdge = src.grabEdge;
   dst.grabT = src.grabT;
   dst.grabFront = src.grabFront;

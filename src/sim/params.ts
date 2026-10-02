@@ -148,6 +148,8 @@ export const params = {
     popScale: 0.5, // fraction of the pop that goes up the face when popping onto a wall — the rest is absorbed by the stick
     lipTakeoff: 1, // 1: leaving a quarter pipe's top is a takeoff — the stick sets the spin, as a pop would. 0: older rule, a roll-off
     vertReturn: 0.6, // m/s back into the pipe on leaving a quarter-pipe top, so the air lands on the face, not the coping
+    vertFace: 0.7, // surface-normal y below which a pipe's face counts as climbed for vertExit — the upper half of the transition; the vertical strip at the top is only cm wide and a tick can step over it
+    vertExit: 1, // 1: any exit going up off a pipe that was just ridden steep comes back in, using the face it climbed — the board leaves a few cm past the coping, where the surface is already the deck's. 0: older rule, only off the steep face itself
     popAngle: 0.35, // rad from up: on a wall's transition steeper than this, a pop drives you up the face instead of off it
   },
   butter: {

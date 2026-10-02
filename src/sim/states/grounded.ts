@@ -78,6 +78,17 @@ export function stepGrounded(
   const walled = state.mode === 'walled';
   const fromQuarter = contact.surface === 'quarter';
   set(faceNormal, n.x, n.y, n.z);
+  // Remember the way back into the pipe while on its steep face; forget it on its deck or
+  // off it, so riding along a deck and dropping off the back isn't pulled anywhere.
+  if (params.wall.vertExit > 0) {
+    if (fromQuarter && n.y < params.wall.vertFace && (contact.faceX !== 0 || contact.faceZ !== 0)) {
+      state.faceX = contact.faceX;
+      state.faceZ = contact.faceZ;
+    } else if (!fromQuarter || n.y > 0.95) {
+      state.faceX = 0;
+      state.faceZ = 0;
+    }
+  }
 
   // Tangential component of gravity on the contact plane: g*(down − n*(down·n)).
   const gravity = params.world.gravity * (walled ? params.wall.gravityScale : 1);
@@ -203,23 +214,38 @@ export function stepGrounded(
   // it turned away under a board still travelling along the old surface — a lip, a
   // rollover. Without the second, a kicker's deck would catch the rider every tick and
   // re-project the launch flat, because per tick the rise is only centimetres.
-  if (state.clearance > params.air.detachClearance || dot(v, contact.normal) > params.air.detachSpeed) {
+  // Riding from a pipe's steep face onto its deck — over the coping, which is vertical on a
+  // real pipe — is leaving the pipe, not riding on: it can only be done in the air.
+  const overCoping =
+    params.wall.vertExit > 0 && contact.surface === 'quarter' && (state.faceX !== 0 || state.faceZ !== 0) && contact.normal.y > 0.9;
+  if (overCoping || state.clearance > params.air.detachClearance || dot(v, contact.normal) > params.air.detachSpeed) {
     // Off the top of a quarter pipe: its real top is vertical, so the horizontal speed that
     // the heightfield's not-quite-vertical face leaves pointing over the deck is dropped and
     // the air comes straight up and back into the pipe, drifting in at `wall.vertReturn` so
     // it lands on the face. Speed along the coping stays.
-    if (fromQuarter && faceNormal.y < minNy) {
-      const hl = Math.sqrt(faceNormal.x * faceNormal.x + faceNormal.z * faceNormal.z);
-      const into = -(v.x * faceNormal.x + v.z * faceNormal.z) / hl + params.wall.vertReturn;
+    // With `wall.vertExit` the way in is the face last climbed, and it counts on any exit
+    // going up off the pipe — the common one is a few cm past the coping, already on the
+    // deck's curve, which the older rule (steep face only) missed and sent onto the deck.
+    const climbed = params.wall.vertExit > 0 && fromQuarter && (state.faceX !== 0 || state.faceZ !== 0);
+    const vert = climbed || (fromQuarter && faceNormal.y < minNy);
+    if (vert) {
+      let fx = faceNormal.x;
+      let fz = faceNormal.z;
+      if (climbed) {
+        fx = state.faceX;
+        fz = state.faceZ;
+      }
+      const hl = Math.sqrt(fx * fx + fz * fz);
+      const into = -(v.x * fx + v.z * fz) / hl + params.wall.vertReturn;
       if (into > 0) {
-        v.x += (faceNormal.x / hl) * into;
-        v.z += (faceNormal.z / hl) * into;
+        v.x += (fx / hl) * into;
+        v.z += (fz / hl) * into;
       }
     }
     // Leaving the top is the takeoff on a quarter pipe: the pop went into the climb, so the
     // stick at the lip sets the spin as it would at a pop — a turn in the wall's plane,
     // nose up to nose down for a 180.
-    if (fromQuarter && faceNormal.y < minNy && params.wall.lipTakeoff > 0) popTakeoff(state, input, params);
+    if (vert && params.wall.lipTakeoff > 0) popTakeoff(state, input, params);
     else rideOff(state, input, params, -yaw);
     return;
   }
