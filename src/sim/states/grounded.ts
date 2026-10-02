@@ -336,7 +336,7 @@ export function takeoffSpinRate(state: RiderState, input: InputSnapshot, params:
     let amount: number;
     let way: number;
     if (Math.abs(w) > a.flickMin) {
-      amount = Math.abs(w) * Math.min(1, Math.max(0, w > 0 ? -input.lx : input.lx));
+      amount = Math.abs(w) * Math.min(1, Math.max(0, (w > 0 ? -input.lx : input.lx) / Math.max(a.fullStick, 1e-3)));
       way = -w;
     } else {
       const travel = input.lx - state.spinRef;
@@ -365,6 +365,14 @@ export function corkStick(ly: number, params: Params): number {
   return Math.abs(y) <= dead ? 0 : (Math.sign(y) * (Math.abs(y) - dead)) / (1 - dead);
 }
 
+function corkStick1(ly: number, params: Params): number {
+  const a = params.air;
+  const y = Math.abs(ly);
+  if (y <= a.corkDeadzone1) return 0;
+  const t = Math.min(1, (y - a.corkDeadzone1) / Math.max(a.fullStick - a.corkDeadzone1, 1e-3));
+  return ly < 0 ? -t : t;
+}
+
 /**
  * The rotation the stick asks for, board-local rad/s: X spins about board up, Y flips
  * about the board's lateral (toe–heel) axis — across the direction of travel, so the nose
@@ -377,7 +385,9 @@ export function stickRotation(out: Vec3, yawRate: number, state: RiderState, inp
   // Riding switch the tail leads, so the same flip about +X is the other way over relative
   // to travel: mirror it, as the stance stick is mirrored on the ground.
   const dir = params.air.switchFlips > 0 && state.switchRide ? -1 : 1;
-  return set(out, corkStick(input.ly, params) * params.air.flipRate * dir, yawRate, 0);
+  // Model 1: full at `fullStick`, past a lower deadzone, so a diagonal at the pop is a full cork.
+  const flip = params.air.spinModel > 0 ? corkStick1(input.ly, params) : corkStick(input.ly, params);
+  return set(out, flip * params.air.flipRate * dir, yawRate, 0);
 }
 
 /**

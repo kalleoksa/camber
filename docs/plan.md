@@ -104,7 +104,9 @@ backside) is the opposite of yours (blind boardslide = frontside); yours stands.
   sets how much (`windTime` 0.5 s to full, a pad tick each third): ~0.18 s a 360, 0.25 a
   540, 0.35 a 720, 0.5 s a 1080 (real gravity). At the pop, point the stick the way of the
   spin to send it — how far you point, how much (up to `flickWindow` after the pop);
-  held against or let go to centre, a straight air. In the air the rotation is fixed: push toward the spin to tuck (`tuckGain`, faster),
+  held against or let go to centre, a straight air. A cork is the same point, diagonal:
+  toward the spin and back (or forward) — `fullStick` 0.7 counts as full on each axis, and
+  the flip reads past `corkDeadzone1` 0.25. In the air the rotation is fixed: push toward the spin to tuck (`tuckGain`, faster),
   against it to open (`openGain`, slower).
 
 ## 5. Carried over

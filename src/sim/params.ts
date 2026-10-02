@@ -82,6 +82,8 @@ export const params = {
     flickGain: 0.5, // fraction of spinTakeoff a flick gives with no wind-up — stick travel across the last ~0.2 s
     flickMin: 0.15, // wind-up (0..1) below which there is none, and a flick alone sets the spin
     flickWindow: 0.2, // s after the pop a flick still counts (model 1)
+    fullStick: 0.7, // model 1: stick deflection that counts as full, on each axis — a diagonal (a cork) reaches ~0.7 on both
+    corkDeadzone1: 0.25, // model 1: |stick Y| at the pop below which it isn't a cork — lower than corkDeadzone, since pointing at the spin is already the intent
     tuckGain: 0.35, // spin × (1 + this) fully tucked
     openGain: 0.75, // spin × (1 − this) fully opened — the check: arms out, upper body counter-rotating against the board
     tuckRate: 7.0, // 1/s the body tucks or opens toward what the stick asks
