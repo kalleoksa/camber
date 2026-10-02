@@ -1,4 +1,5 @@
 import type { CornerConfig, GradeConfig, KickerConfig, QuarterConfig, SlopeConfig } from '../sim/terrain.ts';
+import { PARK_GRAVITY, REAL_GRAVITY, scalePark } from './scale.ts';
 import { kickerSpan } from './sochi.ts';
 
 /**
@@ -8,7 +9,7 @@ import { kickerSpan } from './sochi.ts';
  * Right, the rail lane on its own: three jib tables and a wall. Grades are shared across the width, so the rail lane rides the jump
  * line's steps — rails are placed by height above the snow, which keeps them true on any grade.
  */
-export const JUMP_X = -12; // m, jump line centre — also where a run starts (main.ts)
+const JUMP_X = -12; // m, jump line centre
 const RAIL_X = 14; // m, rail lane centre
 const shelf = 0.08; // rad between sections — just steeper than snow friction
 const drop = 0.3; // rad, the drop-in and the run to the pipes
@@ -76,7 +77,7 @@ const jib1 = jibTable(-28);
 const jib2 = jibTable(-80);
 const jib3 = jibTable(-134);
 
-export const PARK: SlopeConfig = {
+const PARK_SIZED: SlopeConfig = {
   length: Math.ceil(-halfpipeEnd + 40),
   width: 140,
   pitch: drop,
@@ -114,3 +115,6 @@ export const PARK: SlopeConfig = {
     { z: halfpipeZ, x: JUMP_X + HALFPIPE_FLAT / 2, side: 1, ...WALL },
   ],
 };
+
+/** Laid out at the old 16 m/s² scale above; ridden full size under real gravity (scale.ts). */
+export const PARK: SlopeConfig = scalePark(PARK_SIZED, PARK_GRAVITY / REAL_GRAVITY);

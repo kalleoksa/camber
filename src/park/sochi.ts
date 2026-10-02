@@ -1,4 +1,5 @@
 import type { GradeConfig, KickerConfig, SlopeConfig } from '../sim/terrain.ts';
+import { PARK_GRAVITY, REAL_GRAVITY, scalePark } from './scale.ts';
 
 /**
  * The Sochi 2014 Olympic slopestyle course (FIS plans, Aug 2013: 635 m long, 151 m drop,
@@ -90,7 +91,7 @@ const cornerRunIn = (CORNER.lipHeight / (1 - Math.cos(CORNER.lipAngle))) * Math.
 const cornerEnd = cornerZ - cornerRunIn - CORNER.deckLength - 15; // its landings back on the slope
 const quarterZ = cornerEnd - QUARTER_RUN;
 
-export const SOCHI: SlopeConfig = {
+const SOCHI_SIZED: SlopeConfig = {
   length: Math.ceil(-quarterZ + 40),
   width: 60,
   pitch: drop,
@@ -137,3 +138,6 @@ export const SOCHI: SlopeConfig = {
   ],
   quarters: [{ z: quarterZ, ...QUARTER }],
 };
+
+/** Laid out at the old 16 m/s² scale above; ridden full size under real gravity (scale.ts). */
+export const SOCHI: SlopeConfig = scalePark(SOCHI_SIZED, PARK_GRAVITY / REAL_GRAVITY);

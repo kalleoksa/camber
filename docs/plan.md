@@ -19,24 +19,16 @@ still gives real speeds (sochi.ts). The cost is size and time: jumps look 0.61 o
 references, and airtime is 0.61 of real. Real speed, real size and snappy airtime — only
 two of the three hold together.
 
-**Experiment: `?g=real`** (main.ts, `src/park/scale.ts`).
+**Adopted (2026-10-02):** real gravity is the default. `params.world.gravity` 9.81, pop × 0.78
+(an ollie as high in metres as before), drag ÷ 1.63; every park is laid out at the old
+scale and exported × 1.63 (`scalePark`, rails keep their height). Spin model 1 is the
+default too (`?spin=0` for the older one). Takes recorded before carry their own params and
+terrain, so they replay as they were.
 
-- Gravity 9.81, every park length × 1.63 (rails keep their height above the snow).
-- Pop × 0.78 so an ollie is as high in metres as before.
-- Air drag ÷ 1.63 — it acts per metre, so a longer park would otherwise bleed the speed
-  the jumps were sized for.
-- Everything else as tuned. Measured on straight lines: all five kickers land clean,
-  39–58 km/h, 2–3 s of air (about 1.6× the default), 4–10 m past the knuckle; corner
-  57 km/h, lands clean both sides.
-
-**To feel:** hang time on the big jumps, whether spins now over-rotate (same rates, more
-time), pop feel, carving and the halfpipe at the new size. Speed readout now shows km/h.
-
-**If adopted** (follow-up, not started):
+**Follow-up** (not started):
 - Spin and flip rates (`air.spinTakeoff`, `flipRate`, `checkRate`) against the longer air.
 - `air.levelRate`, `land.*` tolerances, `bail.*` timings — re-feel.
-- Bake the scale into the park files and drop the switch; real drag back up and the
-  grades retuned for it (drag here is already below a real rider's).
+- Real drag back up and the grades retuned for it (drag here is already below a real rider's).
 - Camera distance and FOV for bigger features; spray and audio speed curves unchanged.
 - Rail lane: third jib table is hit at ~17 m/s — move it up the hill either way.
 

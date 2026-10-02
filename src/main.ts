@@ -51,39 +51,26 @@ import {
   type RiderState,
 } from './sim/state.ts';
 import { createContact, createSlope, type SlopeConfig } from './sim/terrain.ts';
-import { JUMP_X, PARK } from './park/park.ts';
-import { PARK_GRAVITY, REAL_GRAVITY, scalePark } from './park/scale.ts';
+import { PARK } from './park/park.ts';
+import { PARK_GRAVITY, REAL_GRAVITY } from './park/scale.ts';
 import { SLOPESTYLE } from './park/slopestyle.ts';
 import { SOCHI } from './park/sochi.ts';
 import { length } from './sim/vec3.ts';
 import { createPanel, download, type FeedbackState, type Readout } from './tuning/panel.ts';
 
 const SEED = 1;
-// The home park (src/park/park.ts) by default; ?park=sochi for Sochi 2014 at 0.61 scale,
-// ?park=slopestyle for the first park. A take stores its terrain, so any replays anywhere.
+// The home park (src/park/park.ts) by default; ?park=sochi for Sochi 2014, ?park=slopestyle
+// for the first park. All full size under real gravity. A take stores its terrain and
+// params, so takes from before (16 m/s², 0.61-scale parks) replay as they were.
 const query = new URLSearchParams(location.search);
 const parkName = query.get('park');
-const baseConfig: SlopeConfig = parkName === 'slopestyle' ? SLOPESTYLE : parkName === 'sochi' ? SOCHI : PARK;
-// Experiment (docs/plan.md §1): ?g=real rides under real gravity in a full-size park, at the
-// same speeds — jumps 1.63× bigger, airtime 1.63× longer. Pop is scaled so an ollie is as
-// high in metres as before, drag so speeds hold; the rest is left as tuned, to feel what changes.
-// ?spin=1 starts on spin model 1 (wind-up and flick; air.spinModel in the panel switches live).
-if (query.get('spin') === '1') params.air.spinModel = 1;
-const realGravity = query.get('g') === 'real';
-if (realGravity) {
-  const k = Math.sqrt(REAL_GRAVITY / params.world.gravity);
-  params.pop.base *= k;
-  params.pop.charged *= k;
-  params.world.gravity = REAL_GRAVITY;
-  // Air drag is per metre, not per g: over a park 1.63× longer it would bleed 1.63× the
-  // speed, so it scales down with the park to keep the speeds the jumps were sized for.
-  params.ground.drag /= PARK_GRAVITY / REAL_GRAVITY;
-}
-const slopeConfig: SlopeConfig = realGravity ? scalePark(baseConfig, PARK_GRAVITY / REAL_GRAVITY) : baseConfig;
+const slopeConfig: SlopeConfig = parkName === 'slopestyle' ? SLOPESTYLE : parkName === 'sochi' ? SOCHI : PARK;
+// ?spin=0 starts on the older spin model (air.spinModel in the panel switches live).
+if (query.get('spin') === '0') params.air.spinModel = 0;
 
 const terrain = createSlope(slopeConfig);
 // On the home park a run starts lined up in the jump line, straight at the first kicker.
-const spawnX = baseConfig === PARK ? JUMP_X * (realGravity ? PARK_GRAVITY / REAL_GRAVITY : 1) : 0;
+const spawnX = slopeConfig === PARK ? (PARK.kickers?.[0]?.x ?? 0) : 0;
 const spawn = {
   position: { x: spawnX, y: terrain.sample(spawnX, 0, createContact()).height + 1.5, z: 0 },
   heading: Math.PI, // nose down the fall line (-Z)
@@ -145,7 +132,8 @@ const inputOverlay = createInputOverlay();
 let runTricks: { tick: number; text: string }[] = [];
 
 const chase = createChaseCamera(params);
-const view = createScene(slopeConfig, terrain, chase.camera, realGravity ? 0.75 * (PARK_GRAVITY / REAL_GRAVITY) : 0.75);
+// Parks are full size, their features 1.63× the old: so is the coarse grid cell.
+const view = createScene(slopeConfig, terrain, chase.camera, 0.75 * (PARK_GRAVITY / REAL_GRAVITY));
 addEventListener('resize', view.resize);
 
 const spray = createSpray();
