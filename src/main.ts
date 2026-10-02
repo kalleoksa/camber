@@ -67,6 +67,8 @@ const baseConfig: SlopeConfig = parkName === 'slopestyle' ? SLOPESTYLE : parkNam
 // Experiment (docs/plan.md §1): ?g=real rides under real gravity in a full-size park, at the
 // same speeds — jumps 1.63× bigger, airtime 1.63× longer. Pop is scaled so an ollie is as
 // high in metres as before, drag so speeds hold; the rest is left as tuned, to feel what changes.
+// ?spin=1 starts on spin model 1 (wind-up and flick; air.spinModel in the panel switches live).
+if (query.get('spin') === '1') params.air.spinModel = 1;
 const realGravity = query.get('g') === 'real';
 if (realGravity) {
   const k = Math.sqrt(REAL_GRAVITY / params.world.gravity);
