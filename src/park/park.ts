@@ -8,7 +8,7 @@ import { kickerSpan } from './sochi.ts';
  * Right, the rail lane on its own: three jib tables and a wall. Grades are shared across the width, so the rail lane rides the jump
  * line's steps — rails are placed by height above the snow, which keeps them true on any grade.
  */
-const JUMP_X = -12; // m, jump line centre
+export const JUMP_X = -12; // m, jump line centre — also where a run starts (main.ts)
 const RAIL_X = 14; // m, rail lane centre
 const shelf = 0.08; // rad between sections — just steeper than snow friction
 const drop = 0.3; // rad, the drop-in and the run to the pipes

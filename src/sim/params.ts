@@ -74,10 +74,10 @@ export const params = {
     // pop it spins that way; flicked across at the pop it spins the other way, harder. In the
     // air the rotation is fixed: the stick only tucks (toward the spin: faster) or opens up.
     spinModel: 0,
-    windTime: 0.4, // s of stick held while charging to a full wind-up
+    windTime: 1.0, // s of stick held while charging to a full wind-up — long enough to choose: a short hold is a 360, a long one a 1080
     windRelease: 8.0, // 1/s the wind-up unloads once RT is let go on the snow without popping
-    windGain: 0.6, // fraction of spinTakeoff a full wind-up gives, released against it
-    flickGain: 0.5, // fraction a full flick gives — stick travel across the last ~0.2 s, side to side
+    windGain: 0.6, // fraction of the wind-up released when the stick is held through the pop; flicked across, all of it
+    flickGain: 0.5, // fraction of spinTakeoff a flick gives with no wind-up — stick travel across the last ~0.2 s
     flickMin: 0.15, // flick (0..1) past which it, not the wind-up, sets which way you spin
     flickWindow: 0.2, // s after the pop a flick still counts (model 1)
     tuckGain: 0.35, // spin × (1 + this) fully tucked
@@ -358,6 +358,7 @@ export const params = {
     land: 0.35, // a clean landing
     sketchy: 0.65, // a sketchy one, held twice as long
     bail: 1.0, // a bail, three times as long
+    wind: 0.2, // a light tick at each third of wind-up (spin model 1), so you feel how much is loaded
     ms: 70, // pulse length
   },
   camera: {

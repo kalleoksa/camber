@@ -332,20 +332,23 @@ export function takeoffSpinRate(state: RiderState, input: InputSnapshot, params:
     // way and flicking the other adds both: the full spin.
     // With a wind-up, the flick is where the stick is now — across on the other side —
     // not how fast it got there, so it counts whenever it happens around the pop.
+    // The wind-up is how much: a full one (`windTime` of holding) is a full spin. The flick
+    // only lets it go — flicked right across, all of it; held through, `windGain` of it.
+    // With no wind-up a flick alone still turns a little (`flickGain`).
     const a = params.air;
     const w = state.windUp;
-    let flick: number;
+    let amount: number;
     let way: number;
     if (Math.abs(w) > a.flickMin) {
       const across = Math.min(1, Math.max(0, w > 0 ? -input.lx : input.lx));
-      flick = across;
+      amount = Math.abs(w) * (a.windGain + (1 - a.windGain) * across);
       way = across > a.flickMin ? -w : w;
     } else {
       const travel = input.lx - state.spinRef;
-      flick = Math.min(1, Math.abs(travel) * 0.5);
+      amount = Math.min(1, Math.abs(travel) * 0.5) * a.flickGain;
       way = travel;
     }
-    const amount = Math.min(1, Math.abs(w) * a.windGain + flick * a.flickGain);
+    amount = Math.min(1, amount);
     // Negative for the same reason as below: + about board up swings the nose to the heel.
     const rate = -(way < 0 ? -1 : way > 0 ? 1 : 0) * amount * a.spinTakeoff;
     return Math.min(a.spinMax, Math.max(-a.spinMax, rate));
