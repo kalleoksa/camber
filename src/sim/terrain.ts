@@ -295,7 +295,11 @@ function kickerProfile(k: KickerConfig): Profile {
       if (s < runIn) takeoff = (radius - Math.sqrt(radius * radius - s * s)) * fade(1 - (dx - k.width * 0.5) / k.sideTaper);
       let table = 0;
       const deckTaper = k.deckTaper ?? k.sideTaper;
-      if (s >= runIn - deckTaper) {
+      // With `deckTaper` set the face is beside the takeoff only: in front of it, it would
+      // sit on the ramp's last metres and round the lip off. Without, the older rule stands
+      // so takes recorded on it replay.
+      const front = k.deckTaper !== undefined && s < runIn && dx <= k.width * 0.5;
+      if (s >= runIn - deckTaper && !front) {
         const along = s < runIn ? k.lipHeight * fade(1 - (runIn - s) / deckTaper) : tableHeight(s);
         table = along * fade(1 - (dx - deckHalf) / deckTaper);
       }

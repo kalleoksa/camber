@@ -47,7 +47,9 @@ uphill ends.
 **These lines are park paint.** Backcountry features (kickers, natural hits — to come) are
 built without them.
 
-Still open: transition shape (below).
+Kicker transitions shorter and steeper: lip 34° (was 29°), big ones ~16 m of ramp (was 19).
+The table's uphill face no longer rises in front of the takeoff — it had been rounding every
+lip off to ~23° whatever `lipAngle` said (the corner had the same bug).
 
 
 From the references, the takeoff is what reads:
