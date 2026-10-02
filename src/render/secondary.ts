@@ -189,7 +189,9 @@ export function stepSecondary(sec: Secondary, state: RiderState, params: Params,
   // hashes are unchanged.
   // In the air without a grab the rider rides compact: knees up, hips toward the board.
   // A grab takes over its own pose, so the crouch hands over to it as the grip comes on.
-  const compact = state.mode === 'airborne' ? 1 - state.grip : 0;
+  // Opening to check a spin (spin model 1) straightens the body out of it: legs long, back up.
+  const opening = params.air.spinModel > 0 && state.tuck < 1 ? Math.min(1, (1 - state.tuck) / Math.max(params.air.openGain, 1e-3)) : 0;
+  const compact = state.mode === 'airborne' ? (1 - state.grip) * (1 - opening) : 0;
   const easeAir = 1 - dm.exp(-params.rig.airCrouchRate * dt);
   sec.airCrouch += (compact - sec.airCrouch) * easeAir;
   sec.inAir += ((state.mode === 'airborne' ? 1 : 0) - sec.inAir) * easeAir;

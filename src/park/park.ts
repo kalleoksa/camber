@@ -1,4 +1,5 @@
 import type { CornerConfig, GradeConfig, KickerConfig, QuarterConfig, SlopeConfig } from '../sim/terrain.ts';
+import { PARK_GRAVITY, REAL_GRAVITY, scalePark } from './scale.ts';
 import { kickerSpan } from './sochi.ts';
 
 /**
@@ -8,7 +9,7 @@ import { kickerSpan } from './sochi.ts';
  * Right, the rail lane on its own: three jib tables and a wall. Grades are shared across the width, so the rail lane rides the jump
  * line's steps — rails are placed by height above the snow, which keeps them true on any grade.
  */
-export const JUMP_X = -12; // m, jump line centre — also where a run starts (main.ts)
+const JUMP_X = -12; // m, jump line centre
 const RAIL_X = 14; // m, rail lane centre
 const shelf = 0.08; // rad between sections — just steeper than snow friction
 const drop = 0.3; // rad, the drop-in and the run to the pipes
@@ -19,7 +20,7 @@ type Size = { lipHeight: number; deckLength: number; width: number; deckWidth: n
  * bleeds what the last landing gave), the slope dropping to `landing` under it, `after` beyond.
  */
 function jump(z: number, size: Size, landing: number, table = 0, after = shelf): { kicker: KickerConfig; grades: GradeConfig[]; end: number } {
-  const kicker: KickerConfig = { z, x: JUMP_X, lipAngle: 0.5, sideTaper: 2, landingAngle: 0.15, knuckleRadius: 6, runoutRadius: 20, ...size };
+  const kicker: KickerConfig = { z, x: JUMP_X, lipAngle: 0.5, sideTaper: 0.3, deckTaper: 2.5, landingAngle: 0.15, knuckleRadius: 6, runoutRadius: 20, ...size };
   const sp = kickerSpan(kicker);
   return {
     kicker,
@@ -32,8 +33,9 @@ function jump(z: number, size: Size, landing: number, table = 0, after = shelf):
   };
 }
 
-const SMALL = { width: 5, deckWidth: 6 };
-const BIG = { width: 5, deckWidth: 8 };
+// Takeoffs cut square at the sides (sideTaper), on a table that rounds off (deckTaper).
+const SMALL = { width: 6, deckWidth: 7 };
+const BIG = { width: 6, deckWidth: 9 };
 // Gaps, m from one landing's end to the next kicker's transition — short, so the line flows.
 const GAP_SMALL = 14;
 const GAP_BUILD = 36; // after the small ones: the steeper pitch that feeds the big ones
@@ -47,9 +49,11 @@ const b1 = jump(s2.end - GAP_BUILD, { ...BIG, lipHeight: 3, deckLength: 10 }, 0.
 const b2 = jump(b1.end - GAP_BIG, { ...BIG, lipHeight: 3, deckLength: 10 }, 0.3, 0, BIG_SHELF);
 const b3 = jump(b2.end - GAP_BIG, { ...BIG, lipHeight: 3.5, deckLength: 12.5 }, 0.3); // normal shelf after: the corner is sized for ~60 km/h
 
-// Corner sized for the ~18-20 m/s the big line hands on; its deck runs long so the side
-// landings sit beside the flight, not behind it.
-const CORNER: Omit<CornerConfig, 'z'> = { x: JUMP_X, width: 8, lipHeight: 5, lipAngle: 0.45, deckLength: 24, deckWidth: 4, sideTaper: 3, landingAngle: 0.5, knuckleRadius: 5, runoutRadius: 18 };
+// Corner sized for the ~18-20 m/s the big line hands on: a short transition kicking up to a
+// steep lip (49°), so the air goes up more than out; its deck runs long so the side landings
+// sit beside the flight, and a straight hit still lands past it. The side landings start
+// square at the lip (deckTaper), cut like the takeoff's sides.
+const CORNER: Omit<CornerConfig, 'z'> = { x: JUMP_X, width: 7, lipHeight: 5, lipAngle: 0.85, deckLength: 14, deckWidth: 7, sideTaper: 0.3, deckTaper: 0.3, landingAngle: 0.5, knuckleRadius: 5, runoutRadius: 18 };
 const cornerZ = b3.end - GAP_CORNER;
 const cornerRunIn = (CORNER.lipHeight / (1 - Math.cos(CORNER.lipAngle))) * Math.sin(CORNER.lipAngle);
 const cornerEnd = cornerZ - cornerRunIn - CORNER.deckLength - 15; // its landings back on the slope
@@ -76,7 +80,7 @@ const jib1 = jibTable(-28);
 const jib2 = jibTable(-80);
 const jib3 = jibTable(-134);
 
-export const PARK: SlopeConfig = {
+const PARK_SIZED: SlopeConfig = {
   length: Math.ceil(-halfpipeEnd + 40),
   width: 140,
   pitch: drop,
@@ -114,3 +118,6 @@ export const PARK: SlopeConfig = {
     { z: halfpipeZ, x: JUMP_X + HALFPIPE_FLAT / 2, side: 1, ...WALL },
   ],
 };
+
+/** Laid out at the old 16 m/s² scale above; ridden full size under real gravity (scale.ts). */
+export const PARK: SlopeConfig = scalePark(PARK_SIZED, PARK_GRAVITY / REAL_GRAVITY);

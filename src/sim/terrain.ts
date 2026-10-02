@@ -63,6 +63,7 @@ export type CornerConfig = {
   deckLength: number; // m of flat deck past the lip
   deckWidth: number; // m of flat deck across — the side landings start at its edges
   sideTaper: number; // m over which the takeoff's sides and the side landings' uphill ends fall away
+  deckTaper?: number; // m over which the side landings' uphill ends fade in; defaults to `sideTaper` — a short `sideTaper` with this longer is a cut takeoff
   landingAngle: number; // rad the landings fall away below the slope
   knuckleRadius: number; // m
   runoutRadius: number; // m
@@ -142,6 +143,8 @@ export type KickerConfig = {
    * the takeoff. Leave it out and the table is the takeoff's width.
    */
   deckWidth?: number;
+  /** m over which the table's and landing's sides fall away, when `deckWidth` is set; defaults to `sideTaper`. A short `sideTaper` with a longer `deckTaper` is a cut takeoff on a rounded table. */
+  deckTaper?: number;
 };
 
 export function createContact(): Contact {
@@ -291,9 +294,10 @@ function kickerProfile(k: KickerConfig): Profile {
       let takeoff = 0;
       if (s < runIn) takeoff = (radius - Math.sqrt(radius * radius - s * s)) * fade(1 - (dx - k.width * 0.5) / k.sideTaper);
       let table = 0;
-      if (s >= runIn - k.sideTaper) {
-        const along = s < runIn ? k.lipHeight * fade(1 - (runIn - s) / k.sideTaper) : tableHeight(s);
-        table = along * fade(1 - (dx - deckHalf) / k.sideTaper);
+      const deckTaper = k.deckTaper ?? k.sideTaper;
+      if (s >= runIn - deckTaper) {
+        const along = s < runIn ? k.lipHeight * fade(1 - (runIn - s) / deckTaper) : tableHeight(s);
+        table = along * fade(1 - (dx - deckHalf) / deckTaper);
       }
       return takeoff > table ? takeoff : table;
     }
@@ -429,8 +433,12 @@ function cornerProfile(c: CornerConfig): Profile {
     const outS = Math.max(0, s - deckEnd);
     let land = landing(Math.sqrt(outX * outX + outS * outS));
     if (s < runIn) {
-      const t = Math.max(0, 1 - (runIn - s) / c.sideTaper);
+      const t = Math.max(0, 1 - (runIn - s) / (c.deckTaper ?? c.sideTaper));
       land *= t * t * (3 - 2 * t);
+      // With `deckTaper` set, only the side landings reach uphill of the lip: in front of the
+      // deck the fade would sit on the takeoff itself — a bulge over a long fade, a step over
+      // a short one. Without it the older rule stands, so takes recorded on it replay.
+      if (c.deckTaper !== undefined && outX <= 0) land = 0;
     }
     return takeoff > land ? takeoff : land;
   };

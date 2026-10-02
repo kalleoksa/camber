@@ -4,7 +4,7 @@
  */
 export const params = {
   world: {
-    gravity: 16.0, // m/s² — above real 9.81 for snappier airtime
+    gravity: 9.81, // m/s², real. Parks are full size and speeds real (src/park/scale.ts); takes before this carry 16
     terminalSpeed: 26.0, // m/s
   },
   ground: {
@@ -16,7 +16,7 @@ export const params = {
     speedFactorKnee: 6.0, // m/s where yaw authority reaches ~80%
     pivotSpeed: 2.5, // m/s below which skid-pivot is allowed
     pivotYaw: 1.1, // rad/s, low-authority skid pivot at a standstill
-    drag: 0.0016, // quadratic, 1/m
+    drag: 0.00098, // quadratic, 1/m — scaled with the parks (÷1.63) so a full-size run holds the speeds the jumps are sized for
     switchEdges: 1, // 1: riding switch, the sticks follow the direction of travel — right turns right on the edge that's on the right, up presses the leading end
     switchSpeed: 0.5, // m/s of travel along the board before riding switch (or back) latches
     friction: 0.06, // Coulomb μ of a waxed base on groomed snow — decel μ·g on the normal load. Per surface later (powder)
@@ -32,8 +32,8 @@ export const params = {
   pop: {
     chargeTime: 0.25, // s to full compress
     decay: 0.4, // 1/s bleed after full
-    base: 2.0, // m/s uncharged
-    charged: 5.0, // m/s added at full charge
+    base: 1.566, // m/s uncharged — sized so an ollie is as high in metres as at the old 16 m/s²
+    charged: 3.915, // m/s added at full charge
     stanceBias: 0.3, // ollie/nollie pop multiplier range
     trigger: 0.15, // RT above this counts as held; dropping below it releases
     compressResponse: 9.0, // 1/s, knees following RT in the air and unloading after a pop
@@ -75,7 +75,7 @@ export const params = {
     // point the stick the way of the spin to send it — how far you point, how much. In the
     // air the rotation is fixed: keep pointing to tuck and speed it up, push against it to
     // open up and slow it.
-    spinModel: 0,
+    spinModel: 1,
     windTime: 0.5, // s of stick held while charging to a full wind-up: a short hold is a 360, a full one a 1080
     windRelease: 8.0, // 1/s the wind-up unloads once RT is let go on the snow without popping
     windSteer: 0.2, // fraction of stick X that still edges the board while winding up — the rest loads the upper body, so the board holds its line
@@ -368,7 +368,7 @@ export const params = {
   camera: {
     springStiffness: 5.5, // 1/s (was 9) — loose enough that the rider moves in frame
     lookStiffness: 7.0, // 1/s the aim point follows the rider — lets them drift off centre on turns and landings
-    distance: 5.5, // m, behind the rider along heading
+    distance: 2.5, // m, behind the rider along heading
     height: 1.8, // m, along the contact normal
     lookAhead: 6.0, // m down the fall line — keeps the slope in frame, not the sky
     fovBase: 62, // deg

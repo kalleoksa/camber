@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { quat, slerp, type Quat } from '../sim/quat.ts';
 import type { Params } from '../sim/params.ts';
 import type { LandingRead, RiderMode, RiderState } from '../sim/state.ts';
-import type { SlopeConfig, Terrain } from '../sim/terrain.ts';
+import type { CornerConfig, KickerConfig, SlopeConfig, Terrain } from '../sim/terrain.ts';
 import { createContact } from '../sim/terrain.ts';
 import { length, vec3, type Vec3 } from '../sim/vec3.ts';
 import { boardAttitude } from '../sim/grabs.ts';
@@ -218,6 +218,11 @@ function snowTexture(): THREE.Texture {
  * side taper read as curves, and 0.1 m across a wall so its face is a face and not a ramp.
  * Walls run down the fall line, so only X needs the extra columns.
  */
+/** Kickers and corners: both start with the same arc up to a lip. */
+function takeoffs(cfg: SlopeConfig): Array<KickerConfig | CornerConfig> {
+  return [...(cfg.kickers ?? []), ...(cfg.corners ?? [])];
+}
+
 function gridColumns(cfg: SlopeConfig, cell: number): number[] {
   const half = cfg.width / 2;
   const xs: number[] = [];
@@ -228,6 +233,14 @@ function gridColumns(cfg: SlopeConfig, cell: number): number[] {
     const from = Math.min(w.x, w.x + w.side * span) - 0.5;
     const to = Math.max(w.x, w.x + w.side * span) + 0.5;
     for (let x = from; x <= to; x += 0.1) xs.push(x);
+  }
+  // Cut takeoffs: fine columns across each side so the wall is a wall, not a ramp.
+  for (const k of takeoffs(cfg)) {
+    if (k.sideTaper > 1) continue;
+    for (const side of [-1, 1]) {
+      const edge = k.x + side * k.width * 0.5;
+      for (let x = edge - 0.3; x <= edge + 0.3 + k.sideTaper; x += 0.1) xs.push(side > 0 ? x : 2 * edge - x);
+    }
   }
   // Quarter pipes facing across the slope: their face runs along Z, like a wall's. Only the
   // transition and face need it — deck and back are gentle, and these run the park's length.
@@ -247,6 +260,11 @@ function gridRows(cfg: SlopeConfig, runOut: number, cell: number): number[] {
   const zs: number[] = [];
   const coarse = Math.round((cfg.length + runOut) / cell);
   for (let j = 0; j <= coarse; j++) zs.push(runOut - ((cfg.length + runOut) * j) / coarse);
+  // A kicker's lip: fine rows across it, so the edge reads sharp.
+  for (const k of takeoffs(cfg)) {
+    const lip = k.z - (k.lipHeight / (1 - Math.cos(k.lipAngle))) * Math.sin(k.lipAngle);
+    for (let z = lip + 0.6; z >= lip - 0.6; z -= 0.1) zs.push(z);
+  }
   for (const q of cfg.quarters ?? []) {
     if (q.side) continue;
     const span = q.radius + q.deck + 2 * q.height + 1;
@@ -317,6 +335,81 @@ function slopeMarkers(cfg: SlopeConfig, terrain: Terrain): THREE.Group {
 }
 
 /** Rails as square bars along their segments — the sim's rail line is the bar's top. */
+/**
+ * Coloured lines along each cut takeoff's edges — the lip and both sides of the ramp, as
+ * parks paint them — and along every quarter pipe's coping. They read the lip and the speed
+ * from a distance. Park paint: a backcountry feature (to come) goes without. Takeoffs with
+ * rolled sides (sideTaper over 1 m: the jib tables, the older parks) don't get them.
+ */
+function edgeLines(cfg: SlopeConfig, terrain: Terrain): THREE.Group {
+  const group = new THREE.Group();
+  const material = new THREE.MeshBasicMaterial({ color: 0xd8325a });
+  const contact = createContact();
+  const at = (x: number, z: number, insetX: number, insetZ: number): THREE.Vector3 =>
+    new THREE.Vector3(x, terrain.sample(x - insetX, z - insetZ, contact).height + 0.03, z);
+  const tube = (points: THREE.Vector3[]): void => {
+    const curve = new THREE.CatmullRomCurve3(points);
+    group.add(new THREE.Mesh(new THREE.TubeGeometry(curve, points.length * 2, 0.045, 6, false), material));
+  };
+  for (const k of takeoffs(cfg)) {
+    if (k.sideTaper > 1) continue;
+    const runIn = (k.lipHeight / (1 - Math.cos(k.lipAngle))) * Math.sin(k.lipAngle);
+    const lip = k.z - runIn;
+    const half = k.width * 0.5;
+    for (const side of [-1, 1]) {
+      const x = k.x + side * (half - 0.05);
+      const pts: THREE.Vector3[] = [];
+      for (let i = 0; i <= 24; i++) pts.push(at(x, k.z - (runIn * i) / 24, side * 0.05, 0));
+      tube(pts);
+    }
+    const lipPts: THREE.Vector3[] = [];
+    for (let i = 0; i <= 12; i++) lipPts.push(at(k.x - half + 0.05 + ((2 * half - 0.1) * i) / 12, lip + 0.02, 0, 0));
+    tube(lipPts);
+  }
+  // A corner's deck edges too — the knuckle on all three sides, where its landings start.
+  for (const c of cfg.corners ?? []) {
+    if (c.sideTaper > 1) continue;
+    const lip = c.z - (c.lipHeight / (1 - Math.cos(c.lipAngle))) * Math.sin(c.lipAngle);
+    const end = lip - c.deckLength + 0.05;
+    const half = c.deckWidth * 0.5 - 0.05;
+    for (const side of [-1, 1]) {
+      const pts: THREE.Vector3[] = [];
+      for (let i = 0; i <= 12; i++) pts.push(at(c.x + side * half, lip - ((lip - end) * i) / 12, side * 0.05, 0));
+      tube(pts);
+    }
+    const back: THREE.Vector3[] = [];
+    for (let i = 0; i <= 8; i++) back.push(at(c.x - half + (2 * half * i) / 8, end, 0, -0.05));
+    tube(back);
+    // The side landings' cut uphill ends, from the deck corner down to the snow.
+    if (c.deckTaper !== undefined && c.deckTaper <= 1) {
+      const reach = 3 * c.lipHeight / Math.tan(c.landingAngle); // past the landing's end; the line stops at the snow
+      for (const side of [-1, 1]) {
+        const pts: THREE.Vector3[] = [];
+        for (let i = 0; i <= 30; i++) {
+          const p = at(c.x + side * (half + (reach * i) / 30), lip - 0.05, 0, 0.05);
+          if (p.y - terrain.sample(c.x + side * (half + (reach * i) / 30), lip + 2, contact).height < 0.1) break;
+          pts.push(p);
+        }
+        if (pts.length > 1) tube(pts);
+      }
+    }
+  }
+  // Coping: just onto the deck past the face, along the full-height length of the pipe.
+  for (const q of cfg.quarters ?? []) {
+    const r = q.radius;
+    const faceEnd = r * Math.sin(q.angle) + Math.max(0, q.height - r * (1 - Math.cos(q.angle))) / Math.tan(q.angle);
+    const pts: THREE.Vector3[] = [];
+    const n = Math.max(2, Math.round(q.width / 2));
+    for (let i = 0; i <= n; i++) {
+      const along = -q.width * 0.5 + (q.width * i) / n;
+      if (q.side) pts.push(at(q.x + q.side * (faceEnd + 0.08), q.z + along, -q.side * 0.04, 0));
+      else pts.push(at(q.x + along, q.z - faceEnd - 0.08, 0, 0.04));
+    }
+    tube(pts);
+  }
+  return group;
+}
+
 function railMeshes(terrain: Terrain): THREE.Group {
   const group = new THREE.Group();
   const material = new THREE.MeshStandardMaterial({ color: 0x8a939c, roughness: 0.35, metalness: 0.8 });
@@ -380,6 +473,7 @@ export function createScene(cfg: SlopeConfig, terrain: Terrain, camera: THREE.Pe
   scene.add(markers);
   const rails = railMeshes(terrain);
   scene.add(rails);
+  scene.add(edgeLines(cfg, terrain));
   const skyColour = new THREE.Color(0x9db6cc);
   const stageColour = new THREE.Color(0xeef2f6);
   const fog = scene.fog;
@@ -488,28 +582,12 @@ export function createScene(cfg: SlopeConfig, terrain: Terrain, camera: THREE.Pe
       drivers.hipZ += view.railContact * r.pressHipShift;
       drivers.spineSide += view.railContact * r.stanceSpineSide;
     }
-    // Wind-up and lead ride on top of whatever the grab asks for, not under it. So does the
-    // hunch: the anchors were authored straight-backed, and a grab shouldn't sit the rider up.
-    // Body sequencing: the shoulders' twist and the hips' yaw are both measured from the
-    // board, and the spine twist is shoulders against hips.
-    drivers.hipYaw += secondary.hipYaw;
-    drivers.spineTwist += secondary.twist - secondary.hipYaw;
-    // Arms swung round as a pair: a turn about board up carries the front arm (nose side)
-    // toward the heel, back in its swing, and the back arm toward the toes, forward.
-    drivers.frontShoulderSwing -= secondary.armYaw;
-    drivers.backShoulderSwing += secondary.armYaw;
-    // Opened out along the board — Out is negative outward on both arms.
-    drivers.frontShoulderOut -= secondary.armOpen;
-    drivers.backShoulderOut -= secondary.armOpen;
+    // The hunch rides on top of whatever the grab asks for, not under it: the anchors were
+    // authored straight-backed, and a grab shouldn't sit the rider up. Wind-up and lead
+    // (below, with the hands) likewise, until a hand grips.
     drivers.spineCurl += r.spineCurlBase + view.compress * r.compressSpineCurl + secondary.airCrouch * r.airSlouch;
     drivers.spineBend += secondary.airCrouch * r.airFold;
     drivers.headYaw += secondary.head;
-    // Loose body: arms and hips trail the board's acceleration (secondary.ts).
-    drivers.frontShoulderSwing -= secondary.armX;
-    drivers.backShoulderSwing -= secondary.armX;
-    // Out is negative outward (rig.ts), so toward the nose is − on the front arm, + on the back.
-    drivers.frontShoulderOut -= secondary.armZ;
-    drivers.backShoulderOut += secondary.armZ;
     drivers.hipX += secondary.swayX;
     drivers.hipZ += secondary.swayZ;
 
@@ -532,6 +610,29 @@ export function createScene(cfg: SlopeConfig, terrain: Terrain, camera: THREE.Pe
       drivers.backHandT = 1 - ft;
       drivers.backGrip = fg;
     }
+
+    // Body sequencing (shoulders' twist and hips' yaw, both measured from the board; spine
+    // twist is shoulders against hips) and the loose arms, faded out under a grab: a gripping hand is pinned to
+    // the board, and its elbow aims from the shoulder drivers in chest space, so the chest
+    // twisting off the board or the arm swinging round would carry the elbow across the
+    // shoulder-to-hand line and break it backward. A rider holding the board turns with it.
+    // Gone by the time the hand commits (`gripDelay` into the grab), so a gripping arm is
+    // always the authored pose.
+    const held = 1 - smoothstep(view.grip / Math.max(params.grab.gripDelay, 1e-3));
+    const frontGrabs = view.grabFront !== view.grabSwitch;
+    const fg = frontGrabs ? held : 1;
+    const bg = frontGrabs ? 1 : held;
+    drivers.hipYaw += secondary.hipYaw * held;
+    drivers.spineTwist += (secondary.twist - secondary.hipYaw) * held;
+    // Arms swung round as a pair: a turn about board up carries the front arm (nose side)
+    // toward the heel, back in its swing, and the back arm toward the toes, forward.
+    // Opened out along the board — Out is negative outward on both arms. Loose body: arms
+    // trail the board's acceleration (secondary.ts); toward the nose is − Out on the front
+    // arm, + on the back.
+    drivers.frontShoulderSwing -= (secondary.armYaw + secondary.armX) * fg;
+    drivers.backShoulderSwing += (secondary.armYaw - secondary.armX) * bg;
+    drivers.frontShoulderOut -= (secondary.armOpen + secondary.armZ) * fg;
+    drivers.backShoulderOut += (secondary.armZ - secondary.armOpen) * bg;
 
     const a = boardAttitude(view.grabEdge, view.grabT, view.grip, view.tweak, params);
     // A butter tips the board onto the pressed end: nose press is nose down.
