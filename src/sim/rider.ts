@@ -47,8 +47,12 @@ export function tick(
   if (params.air.spinModel > 0) {
     const onSnow = state.mode !== 'airborne' && state.mode !== 'bailed';
     if (onSnow && input.rt > params.pop.trigger) {
+      // Only ever builds: easing off or crossing over to flick keeps what is loaded.
       const step = dt / Math.max(params.air.windTime, 1e-3);
-      state.windUp = state.windUp < input.lx ? Math.min(input.lx, state.windUp + step) : Math.max(input.lx, state.windUp - step);
+      const w = state.windUp;
+      if (input.lx * w >= 0 && Math.abs(input.lx) > Math.abs(w)) {
+        state.windUp = w < input.lx ? Math.min(input.lx, w + step) : Math.max(input.lx, w - step);
+      }
     } else if (onSnow && !state.popLatch) {
       state.windUp = dampScalar(state.windUp, 0, params.air.windRelease, dt);
     }

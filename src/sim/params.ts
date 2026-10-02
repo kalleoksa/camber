@@ -70,14 +70,16 @@ export const params = {
     spinRefRate: 5.0, // 1/s the carve baseline follows the stick — lower widens the whip window
     spinArmBand: 0.25, // |stick| below this arms in-air spin control after takeoff
     // Spin model (trick spec): 0 — the stick at the pop sets the spin and steers it in the
-    // air. 1 — wind-up and flick: hold RT with the stick pushed to load the body against the
-    // spin, flick across at the pop to release it; in the air the rotation is fixed, and the
-    // stick only tucks (toward the spin: faster) or opens up (against it: slower).
+    // air. 1 — wind-up and flick: hold RT with the stick pushed to wind up — held through the
+    // pop it spins that way; flicked across at the pop it spins the other way, harder. In the
+    // air the rotation is fixed: the stick only tucks (toward the spin: faster) or opens up.
     spinModel: 0,
     windTime: 0.4, // s of stick held while charging to a full wind-up
     windRelease: 8.0, // 1/s the wind-up unloads once RT is let go on the snow without popping
     windGain: 0.6, // fraction of spinTakeoff a full wind-up gives, released against it
     flickGain: 0.5, // fraction a full flick gives — stick travel across the last ~0.2 s, side to side
+    flickMin: 0.15, // flick (0..1) past which it, not the wind-up, sets which way you spin
+    flickWindow: 0.2, // s after the pop a flick still counts (model 1)
     tuckGain: 0.35, // spin × (1 + this) fully tucked
     openGain: 0.5, // spin × (1 − this) fully opened
     tuckRate: 4.0, // 1/s the body tucks or opens toward what the stick asks

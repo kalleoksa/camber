@@ -308,7 +308,7 @@ function enterAir(state: RiderState): void {
  */
 export function popTakeoff(state: RiderState, input: InputSnapshot, params: Params): void {
   enterAir(state);
-  state.popWindow = params.air.takeoffWindow;
+  state.popWindow = params.air.spinModel > 0 ? Math.max(params.air.takeoffWindow, params.air.flickWindow) : params.air.takeoffWindow;
   setTakeoffSpin(state, input, params);
   // Leaving the ground mid-carve, the thumb is still buried where the carve put it. Hold
   // in-air spin control until it comes back through centre, or the air controller drags
@@ -326,16 +326,28 @@ export function popTakeoff(state: RiderState, input: InputSnapshot, params: Para
  */
 export function takeoffSpinRate(state: RiderState, input: InputSnapshot, params: Params): number {
   if (params.air.spinModel > 0) {
-    // The flick is the stick's travel over the last ~0.2 s (spinRef lags it): its direction
-    // is the spin's. A wind-up loaded against that direction releases into it; loaded the
-    // same way, it is just a carve held through, and adds nothing.
+    // The flick is the stick's travel over the last ~0.2 s (spinRef lags it). A clear flick
+    // sets the way round; without one the wind-up does, so holding the stick through the
+    // pop still spins that way — the wind-up alone, `windGain` of a full spin. Winding one
+    // way and flicking the other adds both: the full spin.
+    // With a wind-up, the flick is where the stick is now — across on the other side —
+    // not how fast it got there, so it counts whenever it happens around the pop.
     const a = params.air;
-    const travel = input.lx - state.spinRef;
-    const wind = state.windUp * travel < 0 ? Math.abs(state.windUp) : 0;
-    const flick = Math.min(1, Math.abs(travel) * 0.5);
-    const amount = Math.min(1, wind * a.windGain + flick * a.flickGain);
+    const w = state.windUp;
+    let flick: number;
+    let way: number;
+    if (Math.abs(w) > a.flickMin) {
+      const across = Math.min(1, Math.max(0, w > 0 ? -input.lx : input.lx));
+      flick = across;
+      way = across > a.flickMin ? -w : w;
+    } else {
+      const travel = input.lx - state.spinRef;
+      flick = Math.min(1, Math.abs(travel) * 0.5);
+      way = travel;
+    }
+    const amount = Math.min(1, Math.abs(w) * a.windGain + flick * a.flickGain);
     // Negative for the same reason as below: + about board up swings the nose to the heel.
-    const rate = -(travel < 0 ? -1 : travel > 0 ? 1 : 0) * amount * a.spinTakeoff;
+    const rate = -(way < 0 ? -1 : way > 0 ? 1 : 0) * amount * a.spinTakeoff;
     return Math.min(a.spinMax, Math.max(-a.spinMax, rate));
   }
   const whip = input.lx - state.spinRef * params.air.spinCarveReject;
