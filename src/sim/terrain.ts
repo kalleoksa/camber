@@ -435,6 +435,10 @@ function cornerProfile(c: CornerConfig): Profile {
     if (s < runIn) {
       const t = Math.max(0, 1 - (runIn - s) / (c.deckTaper ?? c.sideTaper));
       land *= t * t * (3 - 2 * t);
+      // With `deckTaper` set, only the side landings reach uphill of the lip: in front of the
+      // deck the fade would sit on the takeoff itself — a bulge over a long fade, a step over
+      // a short one. Without it the older rule stands, so takes recorded on it replay.
+      if (c.deckTaper !== undefined && outX <= 0) land = 0;
     }
     return takeoff > land ? takeoff : land;
   };
