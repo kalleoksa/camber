@@ -41,6 +41,19 @@ export function tick(
   // happened.
   state.spinRef = dampScalar(state.spinRef, input.lx, params.air.spinRefRate, dt);
 
+  // Spin model 1: the wind-up loads while RT is held, toward wherever the stick is pushed,
+  // and unloads on the snow once RT is let go without a pop. Untouched in the air, so the
+  // takeoff window still reads it.
+  if (params.air.spinModel > 0) {
+    const onSnow = state.mode !== 'airborne' && state.mode !== 'bailed';
+    if (onSnow && input.rt > params.pop.trigger) {
+      const step = dt / Math.max(params.air.windTime, 1e-3);
+      state.windUp = state.windUp < input.lx ? Math.min(input.lx, state.windUp + step) : Math.max(input.lx, state.windUp - step);
+    } else if (onSnow && !state.popLatch) {
+      state.windUp = dampScalar(state.windUp, 0, params.air.windRelease, dt);
+    }
+  }
+
   switch (state.mode) {
     case 'grounded':
     case 'walled':

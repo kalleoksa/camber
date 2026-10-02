@@ -62,6 +62,7 @@ export type Secondary = {
   armOpenVel: number;
   hipYaw: number; // rad, the hips; the shoulders' `twist` is measured from the board too
   hipYawVel: number;
+  airCrouch: number; // 0..1, the compact no-grab air: knees up, back rounded
 };
 
 const CLOTH_KEYS = [
@@ -94,6 +95,7 @@ const CLOTH_KEYS = [
   'armOpenVel',
   'hipYaw',
   'hipYawVel',
+  'airCrouch',
 ] as const;
 type ClothKey = (typeof CLOTH_KEYS)[number];
 
@@ -134,6 +136,7 @@ export function createSecondary(): Secondary {
     armOpenVel: 0,
     hipYaw: 0,
     hipYawVel: 0,
+    airCrouch: 0,
   };
 }
 
@@ -181,7 +184,11 @@ export function stepSecondary(sec: Secondary, state: RiderState, params: Params,
   // `rig.crouchDepth`, not a local constant: the param exists and is on a slider, so a
   // hardcoded depth here would leave that slider doing nothing in play. Same value, so the
   // hashes are unchanged.
-  const target = -state.compress * params.rig.crouchDepth - absorb;
+  // In the air without a grab the rider rides compact: knees up, hips toward the board.
+  // A grab takes over its own pose, so the crouch hands over to it as the grip comes on.
+  const compact = state.mode === 'airborne' ? 1 - state.grip : 0;
+  sec.airCrouch += (compact - sec.airCrouch) * (1 - dm.exp(-params.rig.airCrouchRate * dt));
+  const target = -state.compress * params.rig.crouchDepth - absorb - sec.airCrouch * params.rig.airCrouch;
   const k = params.rig.hipStiffness;
   const acc = k * (target - sec.hipY) - 2 * params.rig.hipDamping * Math.sqrt(k) * sec.hipVel;
   sec.hipVel += acc * dt;
@@ -196,7 +203,9 @@ export function stepSecondary(sec: Secondary, state: RiderState, params: Params,
   const grounded = state.mode === 'grounded' || state.mode === 'walled';
   const airborne = state.mode === 'airborne';
   const spinFraction = Math.max(-1, Math.min(1, state.spinRate / params.air.spinTakeoff));
-  const wind = grounded ? clamp(state.edge * state.compress, 1) : 0;
+  // Spin model 1 has a real wind-up: draw that (loaded against the spin, so negated into the
+  // spin's sign); model 0 has only the carve held through the charge.
+  const wind = !grounded ? 0 : params.air.spinModel > 0 ? clamp(-state.windUp, 1) : clamp(state.edge * state.compress, 1);
   const fall = -state.velocity.y;
   const landing = airborne && fall > 0 && state.clearance < fall * r.openTime;
   const lip = airborne && state.airTime < r.lipSpreadTime;

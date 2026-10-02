@@ -92,6 +92,18 @@ marks live there); pause/menus; Vitest (dependency — the scripts already test 
 takes); 60 Hz sampling (the sim is 120 Hz). The spec's rail-side convention (heelside =
 backside) is the opposite of yours (blind boardslide = frontside); yours stands.
 
+### Body sequencing (spec section, 2026-10-02)
+
+- **Look** — *done*: arms, shoulders and hips wind against the coming spin, snap round in
+  turn at the pop (arms, then ~35 ms, then ~75 ms), lead the board in the air and square up
+  before touchdown (`rig.armWind` … `chainDamping`). No-grab airs ride compact: knees up,
+  back rounded (`rig.airCrouch`, `airSlouch`, `airFold`).
+- **Sim** — *done, behind `air.spinModel` = 1* (0 keeps today's rules; old takes pin 0):
+  hold RT with the stick pushed to wind up (`windTime`), flick across or let go at the pop
+  to release it (`windGain`, `flickGain`); holding the stick through gives no spin. In the
+  air the rotation is fixed — the stick only tucks (toward the spin, `tuckGain`) or opens
+  (against it, `openGain`), and has to pass through centre first, as now.
+
 ## 5. Carried over
 
 - Clothes phase 2: skinned lower body (pants bend at the knee instead of rigid tubes).

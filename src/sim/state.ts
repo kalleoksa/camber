@@ -53,6 +53,13 @@ export type RiderState = {
    * carrying a carve into the air drags the spin rate up to the carve's value.
    */
   spinArmed: boolean;
+  /**
+   * Spin model 1 (`air.spinModel`): the wind-up, −1..1 in stick-X terms, built while RT is
+   * held with the stick pushed — the rotation the body has loaded against the coming spin.
+   */
+  windUp: number;
+  /** Spin model 1: body tuck in the air, a multiplier on the takeoff spin. 1 is neutral. */
+  tuck: number;
 
   // The active grab (§7.3). Coordinate and hand persist after release so a tweak still
   // springing back keeps its pivot.
@@ -116,6 +123,8 @@ export function createRiderState(spawn: Spawn): RiderState {
     airUp: vec3(0, 1, 0),
     spinRef: 0,
     spinArmed: true,
+    windUp: 0,
+    tuck: 1,
     grabEdge: 0,
     grabT: 0.5,
     grabFront: true,
@@ -163,6 +172,8 @@ export function resetRiderState(state: RiderState): void {
   setXYZ(state.airUp, 0, 1, 0);
   state.spinRef = 0;
   state.spinArmed = true;
+  state.windUp = 0;
+  state.tuck = 1;
   state.grabEdge = 0;
   state.grabT = 0.5;
   state.grabFront = true;
@@ -211,6 +222,8 @@ export function copyRiderState(dst: RiderState, src: RiderState): void {
   copyInto(dst.airUp, src.airUp);
   dst.spinRef = src.spinRef;
   dst.spinArmed = src.spinArmed;
+  dst.windUp = src.windUp;
+  dst.tuck = src.tuck;
   dst.grabEdge = src.grabEdge;
   dst.grabT = src.grabT;
   dst.grabFront = src.grabFront;

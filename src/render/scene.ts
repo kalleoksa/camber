@@ -499,7 +499,8 @@ export function createScene(cfg: SlopeConfig, terrain: Terrain, camera: THREE.Pe
     // Opened out along the board — Out is negative outward on both arms.
     drivers.frontShoulderOut -= secondary.armOpen;
     drivers.backShoulderOut -= secondary.armOpen;
-    drivers.spineCurl += r.spineCurlBase + view.compress * r.compressSpineCurl;
+    drivers.spineCurl += r.spineCurlBase + view.compress * r.compressSpineCurl + secondary.airCrouch * r.airSlouch;
+    drivers.spineBend += secondary.airCrouch * r.airFold;
     drivers.headYaw += secondary.head;
     // Loose body: arms and hips trail the board's acceleration (secondary.ts).
     drivers.frontShoulderSwing -= secondary.armX;

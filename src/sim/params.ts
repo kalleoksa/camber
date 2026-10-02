@@ -69,6 +69,18 @@ export const params = {
     spinCarveReject: 0,
     spinRefRate: 5.0, // 1/s the carve baseline follows the stick — lower widens the whip window
     spinArmBand: 0.25, // |stick| below this arms in-air spin control after takeoff
+    // Spin model (trick spec): 0 — the stick at the pop sets the spin and steers it in the
+    // air. 1 — wind-up and flick: hold RT with the stick pushed to load the body against the
+    // spin, flick across at the pop to release it; in the air the rotation is fixed, and the
+    // stick only tucks (toward the spin: faster) or opens up (against it: slower).
+    spinModel: 0,
+    windTime: 0.4, // s of stick held while charging to a full wind-up
+    windRelease: 8.0, // 1/s the wind-up unloads once RT is let go on the snow without popping
+    windGain: 0.6, // fraction of spinTakeoff a full wind-up gives, released against it
+    flickGain: 0.5, // fraction a full flick gives — stick travel across the last ~0.2 s, side to side
+    tuckGain: 0.35, // spin × (1 + this) fully tucked
+    openGain: 0.5, // spin × (1 − this) fully opened
+    tuckRate: 4.0, // 1/s the body tucks or opens toward what the stick asks
   },
   land: {
     clean: 0.5, // rad ≈ 29° (was 0.44, raised by play)
@@ -267,6 +279,11 @@ export const params = {
     shoulderChainStiffness: 260.0, // ω² of the shoulder twist — follows the arms
     hipChainStiffness: 150.0, // ω² of the hip spring — slowest, they follow
     chainDamping: 0.75, // ζ of both
+    // No-grab airs: knees up and a slouch — style, and what a rider does to stay compact.
+    airCrouch: 0.22, // m the hips come down toward the board in an air without a grab
+    airSlouch: 0.35, // rad of extra upper-back curl
+    airFold: 0.15, // rad of extra fold at the hips
+    airCrouchRate: 6.0, // 1/s it comes on after takeoff and goes as a grab takes over
     headLead: 0.18, // s, head looks where the board will be this far ahead
     headTurnMax: 1.2, // rad, neck limit on that look
     // Loose body (secondary.ts): the rider trails the board's acceleration instead of being

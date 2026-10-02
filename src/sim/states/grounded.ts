@@ -269,6 +269,7 @@ export function chargePop(state: RiderState, input: InputSnapshot, params: Param
 function enterAir(state: RiderState): void {
   state.mode = 'airborne';
   state.airTime = 0;
+  state.tuck = 1;
   state.airYaw = 0;
   state.landing = 'none';
   // The surface the rider left, as the reference in-air levelling carries to the landing.
@@ -298,6 +299,19 @@ export function popTakeoff(state: RiderState, input: InputSnapshot, params: Para
  * `air.spinCarveReject` 0 this is the raw stick position.
  */
 export function takeoffSpinRate(state: RiderState, input: InputSnapshot, params: Params): number {
+  if (params.air.spinModel > 0) {
+    // The flick is the stick's travel over the last ~0.2 s (spinRef lags it): its direction
+    // is the spin's. A wind-up loaded against that direction releases into it; loaded the
+    // same way, it is just a carve held through, and adds nothing.
+    const a = params.air;
+    const travel = input.lx - state.spinRef;
+    const wind = state.windUp * travel < 0 ? Math.abs(state.windUp) : 0;
+    const flick = Math.min(1, Math.abs(travel) * 0.5);
+    const amount = Math.min(1, wind * a.windGain + flick * a.flickGain);
+    // Negative for the same reason as below: + about board up swings the nose to the heel.
+    const rate = -(travel < 0 ? -1 : travel > 0 ? 1 : 0) * amount * a.spinTakeoff;
+    return Math.min(a.spinMax, Math.max(-a.spinMax, rate));
+  }
   const whip = input.lx - state.spinRef * params.air.spinCarveReject;
   // Negative because a positive rotation about board up swings the nose to the heel side.
   const rate = -Math.min(1, Math.max(-1, whip)) * params.air.spinTakeoff;
