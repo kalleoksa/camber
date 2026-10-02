@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { params as defaults, type Params } from '../sim/params.ts';
 import { aimShaft, BOARD, createBinding, createDeck } from './board.ts';
-import { dress, type Outfit } from './outfit.ts';
+import { dress, SPINE_CURL_AT, type Outfit } from './outfit.ts';
 import { outlineAll } from './toon.ts';
 
 /**
@@ -35,6 +35,12 @@ export type RigDrivers = {
   spineBend: number; // rad, + folds the chest toward the toe edge
   spineSide: number; // rad, + leans toward the nose
   spineTwist: number; // rad, shoulders against hips
+  /**
+   * rad the upper back rounds forward on its own joint, mid-spine — the hunched, rounded back
+   * of a rider over the board, which a single hinge at the hips can only show as a plank
+   * tipped forward. + rounds toward the toe edge, like `spineBend`; the head and arms ride on it.
+   */
+  spineCurl: number;
   frontHandEdge: number; // −1 heel .. +1 toe, matching state.edge's sign
   frontHandT: number; // 0 tail .. 1 nose
   backHandEdge: number;
@@ -112,6 +118,7 @@ export function neutralDrivers(): RigDrivers {
     spineBend: 0.18,
     spineSide: 0,
     spineTwist: 0,
+    spineCurl: 0,
     frontHandEdge: 0,
     frontHandT: 0.62,
     backHandEdge: 0,
@@ -464,11 +471,17 @@ export function createRig(): Rig {
     new THREE.BoxGeometry(0.26, 0.14, 0.22),
     new THREE.MeshStandardMaterial({ color: SKIN, roughness: 0.6 }),
   );
+  // The spine in two, hips to mid-back and mid-back to shoulders, so the upper back can curl.
   const torso = new THREE.Mesh(
-    new THREE.BoxGeometry(0.3, 0.44, 0.24),
+    new THREE.BoxGeometry(0.3, 0.44 * SPINE_CURL_AT, 0.24),
     new THREE.MeshStandardMaterial({ color: SKIN, roughness: 0.6 }),
   );
-  torso.geometry.translate(0, 0.22, 0);
+  torso.geometry.translate(0, 0.22 * SPINE_CURL_AT, 0);
+  const chest = new THREE.Mesh(
+    new THREE.BoxGeometry(0.3, 0.44 * (1 - SPINE_CURL_AT), 0.24),
+    new THREE.MeshStandardMaterial({ color: SKIN, roughness: 0.6 }),
+  );
+  chest.geometry.translate(0, 0.22 * (1 - SPINE_CURL_AT), 0);
   const head = new THREE.Mesh(
     new THREE.BoxGeometry(0.19, 0.22, 0.19),
     new THREE.MeshStandardMaterial({ color: 0xf0d9b5, roughness: 0.7 }),
@@ -517,7 +530,7 @@ export function createRig(): Rig {
   const bootF = bindF.group;
   const bootB = bindB.group;
 
-  for (const part of [pelvis, torso, head, thighL, shinL, thighR, shinR, armLU, armLL, armRU, armRL, mittF, mittB]) {
+  for (const part of [pelvis, torso, chest, head, thighL, shinL, thighR, shinR, armLU, armLL, armRU, armRL, mittF, mittB]) {
     part.castShadow = true;
     root.add(part);
   }
@@ -525,7 +538,7 @@ export function createRig(): Rig {
   board.add(bootF, bootB);
 
   const outfit = dress(
-    { pelvis, torso, head, thighs: [thighL, thighR], shins: [shinL, shinR], upperArms: [armLU, armRU], forearms: [armLL, armRL], mitts: [mittF, mittB], bootShafts: [bindF.shaft, bindB.shaft] },
+    { pelvis, torso, chest, head, thighs: [thighL, thighR], shins: [shinL, shinR], upperArms: [armLU, armRU], forearms: [armLL, armRL], mitts: [mittF, mittB], bootShafts: [bindF.shaft, bindB.shaft] },
     defaults.rig,
   );
   // Toon outlines on everything dressed and on the board and bindings; the bare segments
@@ -533,7 +546,7 @@ export function createRig(): Rig {
   outlineAll(board);
   for (const piece of outfit.pieces) outlineAll(piece);
   // Hiding a segment's material, not the mesh, keeps its outfit children drawn.
-  const bare = [pelvis, torso, head, visor, thighL, shinL, thighR, shinR, armLU, armLL, armRU, armRL, mittF, mittB];
+  const bare = [pelvis, torso, chest, head, visor, thighL, shinL, thighR, shinR, armLU, armLL, armRU, armRL, mittF, mittB];
 
   // Scratch, all reused — this runs every frame.
   const hipCentre = new THREE.Vector3();
@@ -555,6 +568,8 @@ export function createRig(): Rig {
   const neckOffset = new THREE.Vector3();
   const hipQuat = new THREE.Quaternion();
   const spineQuat = new THREE.Quaternion();
+  const chestQuat = new THREE.Quaternion();
+  const midBack = new THREE.Vector3();
   const tmpQuat = new THREE.Quaternion();
   const xAxis = new THREE.Vector3(1, 0, 0);
   const yAxis = new THREE.Vector3(0, 1, 0);
@@ -680,13 +695,25 @@ export function createRig(): Rig {
       spineQuat.multiply(tmpQuat);
       torso.position.copy(hipCentre);
       torso.quaternion.copy(spineQuat);
-      torsoAxis.set(0, 1, 0).applyQuaternion(spineQuat);
+      // The upper back on its own joint, mid-spine: the curl, about the shoulders' own
+      // left-right axis so it rounds whichever way they are twisted.
+      midBack.set(0, r.spine * SPINE_CURL_AT, 0).applyQuaternion(spineQuat).add(hipCentre);
+      tmpQuat.setFromAxisAngle(zAxis, d.spineCurl);
+      chestQuat.copy(spineQuat).multiply(tmpQuat);
+      chest.position.copy(midBack);
+      chest.quaternion.copy(chestQuat);
+      const upperSpine = r.spine * (1 - SPINE_CURL_AT);
 
-      // 4. Head, in torso space.
-      chestPos.set(0, r.spine, 0).applyQuaternion(spineQuat).add(hipCentre);
-      neckOffset.set(0, r.neck, 0).applyQuaternion(spineQuat);
+      // 4. Head, in chest space.
+      chestPos.set(0, upperSpine, 0).applyQuaternion(chestQuat).add(midBack);
+      // Hips to shoulders: with no curl, exactly the old single-segment axis.
+      torsoAxis.subVectors(chestPos, hipCentre).normalize();
+      neckOffset.set(0, r.neck, 0).applyQuaternion(chestQuat);
       head.position.copy(chestPos).add(neckOffset);
-      head.quaternion.copy(spineQuat);
+      head.quaternion.copy(chestQuat);
+      // The neck takes back part of the curl, so a hunched rider still looks down the line.
+      tmpQuat.setFromAxisAngle(zAxis, -d.spineCurl * r.curlHeadLift);
+      head.quaternion.multiply(tmpQuat);
       tmpQuat.setFromAxisAngle(yAxis, d.headYaw);
       head.quaternion.multiply(tmpQuat);
       tmpQuat.setFromAxisAngle(zAxis, d.headPitch);
@@ -698,16 +725,16 @@ export function createRig(): Rig {
       for (const side of [1, -1]) {
         const front = side === 1;
         shoulder
-          .set(0, r.spine, (front ? 1 : -1) * (r.shoulderWidth / 2))
-          .applyQuaternion(spineQuat)
-          .add(hipCentre);
+          .set(0, upperSpine, (front ? 1 : -1) * (r.shoulderWidth / 2))
+          .applyQuaternion(chestQuat)
+          .add(midBack);
         const swing = front ? d.frontShoulderSwing : d.backShoulderSwing;
         const outward = front ? d.frontShoulderOut : d.backShoulderOut;
         const flex = front ? d.frontElbow : d.backElbow;
         const poleAngle = front ? d.frontElbowPole : d.backElbowPole;
 
         // Free arm: pure FK, so both hands are placeable joint by joint and independently.
-        solveArmFK(elbow, hand, shoulder, spineQuat, swing, outward, flex, poleAngle, side, r);
+        solveArmFK(elbow, hand, shoulder, chestQuat, swing, outward, flex, poleAngle, side, r);
         // Where the shoulder drivers aimed the elbow. Keep it — the grip solve needs it.
         elbowAim.subVectors(elbow, shoulder);
 

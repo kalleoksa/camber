@@ -10,7 +10,7 @@ import { ANCHORS, BODY_KEYS, grabBody } from './poses.ts';
 import { butterAmount } from '../sim/states/grounded.ts';
 import { BOARD_HALF, copyDrivers, createRig, edgePoint, gripWeight, mirrorDrivers, neutralDrivers, smoothstep, type RigDrivers } from './rig.ts';
 import type { Secondary } from './secondary.ts';
-import { flutter } from './toon.ts';
+import { flutter, lcg } from './toon.ts';
 import { TICK_DT } from '../core/loop.ts';
 
 /**
@@ -162,26 +162,49 @@ export type SceneView = {
   resize(): void;
 };
 
+/**
+ * Snow, one tile per 4 m. What sells speed is texture streaming past near the board, so it
+ * carries detail at two sizes: fine speckle (cm-scale crust and sparkle) for the near field
+ * and soft patches for the middle distance, over groomer corduroy running down the fall line.
+ * Seeded, so it is the same every load.
+ */
 function snowTexture(): THREE.Texture {
-  const size = 512;
+  const size = 512; // px per 4 m tile: ~8 mm a pixel
   const canvas = document.createElement('canvas');
   canvas.width = size;
   canvas.height = size;
   const ctx = canvas.getContext('2d');
   if (ctx) {
+    const rnd = lcg(11);
     ctx.fillStyle = '#f4f8fc';
     ctx.fillRect(0, 0, size, size);
-    // Groomer corduroy: fine lines across the fall line, one heavier line per tile.
-    ctx.strokeStyle = '#dde7f1';
-    ctx.lineWidth = 2;
-    for (let i = 0; i < size; i += size / 16) {
-      ctx.beginPath();
-      ctx.moveTo(0, i);
-      ctx.lineTo(size, i);
-      ctx.stroke();
+    // Soft patches, wrapped so the tile stays seamless.
+    for (let i = 0; i < 40; i++) {
+      const x = rnd() * size, y = rnd() * size, r = 30 + rnd() * 90;
+      for (const ox of [-size, 0, size]) for (const oy of [-size, 0, size]) {
+        const g = ctx.createRadialGradient(x + ox, y + oy, 0, x + ox, y + oy, r);
+        g.addColorStop(0, rnd() < 0.5 ? 'rgba(200,214,230,0.35)' : 'rgba(255,255,255,0.5)');
+        g.addColorStop(1, 'rgba(244,248,252,0)');
+        ctx.fillStyle = g;
+        ctx.fillRect(x + ox - r, y + oy - r, 2 * r, 2 * r);
+      }
     }
-    ctx.strokeStyle = '#c9d8e6';
-    ctx.lineWidth = 4;
+    // Corduroy along the fall line (v is z): ~5 cm ribs.
+    for (let x = 0; x < size; x += 6) {
+      ctx.fillStyle = (x / 6) % 2 === 0 ? 'rgba(205,218,232,0.45)' : 'rgba(255,255,255,0.35)';
+      ctx.fillRect(x, 0, 3, size);
+    }
+    // Speckle: crust and sparkle, dark and light.
+    for (let i = 0; i < 2600; i++) {
+      const dark = rnd() < 0.7;
+      ctx.fillStyle = dark ? `rgba(150,170,195,${0.25 + rnd() * 0.35})` : 'rgba(255,255,255,0.9)';
+      const r = 0.8 + rnd() * (dark ? 2.2 : 1.2);
+      ctx.beginPath();
+      ctx.ellipse(rnd() * size, rnd() * size, r, r * (0.6 + rnd() * 0.8), rnd() * Math.PI, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.strokeStyle = 'rgba(201,216,230,0.6)';
+    ctx.lineWidth = 2;
     ctx.strokeRect(0, 0, size, size);
   }
   const texture = new THREE.CanvasTexture(canvas);
@@ -195,10 +218,10 @@ function snowTexture(): THREE.Texture {
  * side taper read as curves, and 0.1 m across a wall so its face is a face and not a ramp.
  * Walls run down the fall line, so only X needs the extra columns.
  */
-function gridColumns(cfg: SlopeConfig): number[] {
+function gridColumns(cfg: SlopeConfig, cell: number): number[] {
   const half = cfg.width / 2;
   const xs: number[] = [];
-  const coarse = Math.round(cfg.width / 0.75);
+  const coarse = Math.round(cfg.width / cell);
   for (let i = 0; i <= coarse; i++) xs.push(-half + (cfg.width * i) / coarse);
   for (const w of cfg.walls ?? []) {
     const span = w.radius + w.top + 2 * w.height + 1;
@@ -206,22 +229,23 @@ function gridColumns(cfg: SlopeConfig): number[] {
     const to = Math.max(w.x, w.x + w.side * span) + 0.5;
     for (let x = from; x <= to; x += 0.1) xs.push(x);
   }
-  // Quarter pipes facing across the slope: their face runs along Z, like a wall's.
+  // Quarter pipes facing across the slope: their face runs along Z, like a wall's. Only the
+  // transition and face need it — deck and back are gentle, and these run the park's length.
   for (const q of cfg.quarters ?? []) {
     if (!q.side) continue;
-    const span = q.radius + q.deck + 2 * q.height + 1;
+    const span = q.radius + q.height + 0.5;
     const from = Math.min(q.x, q.x + q.side * span) - 0.5;
     const to = Math.max(q.x, q.x + q.side * span) + 0.5;
-    for (let x = from; x <= to; x += 0.1) xs.push(x);
+    for (let x = from; x <= to; x += 0.15) xs.push(x);
   }
   xs.sort((p, q) => p - q);
   return xs.filter((x, i) => Math.abs(x) <= half && (i === 0 || x - (xs[i - 1] ?? -Infinity) > 0.02));
 }
 
 /** Grid rows down the slope, likewise: 0.1 m across an uphill-facing quarter pipe's face, which runs across X. */
-function gridRows(cfg: SlopeConfig, runOut: number): number[] {
+function gridRows(cfg: SlopeConfig, runOut: number, cell: number): number[] {
   const zs: number[] = [];
-  const coarse = Math.round((cfg.length + runOut) / 0.75);
+  const coarse = Math.round((cfg.length + runOut) / cell);
   for (let j = 0; j <= coarse; j++) zs.push(runOut - ((cfg.length + runOut) * j) / coarse);
   for (const q of cfg.quarters ?? []) {
     if (q.side) continue;
@@ -232,10 +256,10 @@ function gridRows(cfg: SlopeConfig, runOut: number): number[] {
   return zs.filter((z, j) => j === 0 || (zs[j - 1] ?? Infinity) - z > 0.02);
 }
 
-function slopeMesh(cfg: SlopeConfig, terrain: Terrain): THREE.Mesh {
+function slopeMesh(cfg: SlopeConfig, terrain: Terrain, cell: number): THREE.Mesh {
   const runOut = 20;
-  const xs = gridColumns(cfg);
-  const zs = gridRows(cfg, runOut);
+  const xs = gridColumns(cfg, cell);
+  const zs = gridRows(cfg, runOut, cell);
   const rows = zs.length - 1;
   const cols = xs.length;
   const positions = new Float32Array(cols * (rows + 1) * 3);
@@ -330,7 +354,8 @@ function railMeshes(terrain: Terrain): THREE.Group {
   return group;
 }
 
-export function createScene(cfg: SlopeConfig, terrain: Terrain, camera: THREE.PerspectiveCamera): SceneView {
+/** `cell` is the coarse grid size in m — larger for a park scaled up, whose features are too. */
+export function createScene(cfg: SlopeConfig, terrain: Terrain, camera: THREE.PerspectiveCamera, cell = 0.75): SceneView {
   const renderer = new THREE.WebGLRenderer({ antialias: true });
   renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
   renderer.setSize(innerWidth, innerHeight);
@@ -345,7 +370,11 @@ export function createScene(cfg: SlopeConfig, terrain: Terrain, camera: THREE.Pe
   scene.add(sun);
   scene.add(new THREE.HemisphereLight(0xbcd7f0, 0xe8eef4, 1.1));
 
-  const slope = slopeMesh(cfg, terrain);
+  const slope = slopeMesh(cfg, terrain, cell);
+  // The camera looks along the snow at a grazing angle; without anisotropic filtering the
+  // texture smears to flat white a few metres out and the ground stops showing speed.
+  const snowMap = (slope.material as THREE.MeshStandardMaterial).map;
+  if (snowMap) snowMap.anisotropy = renderer.capabilities.getMaxAnisotropy();
   const markers = slopeMarkers(cfg, terrain);
   scene.add(slope);
   scene.add(markers);
@@ -457,8 +486,21 @@ export function createScene(cfg: SlopeConfig, terrain: Terrain, camera: THREE.Pe
       drivers.hipZ += view.railContact * r.pressHipShift;
       drivers.spineSide += view.railContact * r.stanceSpineSide;
     }
-    // Wind-up and lead ride on top of whatever the grab asks for, not under it.
-    drivers.spineTwist += secondary.twist;
+    // Wind-up and lead ride on top of whatever the grab asks for, not under it. So does the
+    // hunch: the anchors were authored straight-backed, and a grab shouldn't sit the rider up.
+    // Body sequencing: the shoulders' twist and the hips' yaw are both measured from the
+    // board, and the spine twist is shoulders against hips.
+    drivers.hipYaw += secondary.hipYaw;
+    drivers.spineTwist += secondary.twist - secondary.hipYaw;
+    // Arms swung round as a pair: a turn about board up carries the front arm (nose side)
+    // toward the heel, back in its swing, and the back arm toward the toes, forward.
+    drivers.frontShoulderSwing -= secondary.armYaw;
+    drivers.backShoulderSwing += secondary.armYaw;
+    // Opened out along the board — Out is negative outward on both arms.
+    drivers.frontShoulderOut -= secondary.armOpen;
+    drivers.backShoulderOut -= secondary.armOpen;
+    drivers.spineCurl += r.spineCurlBase + view.compress * r.compressSpineCurl + secondary.airCrouch * r.airSlouch;
+    drivers.spineBend += secondary.airCrouch * r.airFold;
     drivers.headYaw += secondary.head;
     // Loose body: arms and hips trail the board's acceleration (secondary.ts).
     drivers.frontShoulderSwing -= secondary.armX;

@@ -77,6 +77,16 @@ export function stepAirborne(
     if (asked > Math.abs(state.spinRate)) setTakeoffSpin(state, input, params);
   } else if (!state.spinArmed) {
     // coast
+  } else if (params.air.spinModel > 0) {
+    // Spin model 1: the rotation is what the takeoff gave it. The stick, read against the
+    // axis already turning, only tucks the body in (toward the spin) or opens it out
+    // (against), which speeds the same rotation up or slows it — never starts or reverses it.
+    stickRotation(stickW, -input.lx * params.air.spinTakeoff, state, input, params);
+    const norm = Math.max(params.air.spinTakeoff, params.air.flipRate, 1e-6);
+    const along = state.spinRate === 0 ? 0 : (dot(stickW, state.spinAxis) * (state.spinRate > 0 ? 1 : -1)) / norm;
+    const s = along > 1 ? 1 : along < -1 ? -1 : along;
+    const target = s >= 0 ? 1 + s * params.air.tuckGain : 1 + s * params.air.openGain;
+    state.tuck += (target - state.tuck) * (1 - dm.exp(-params.air.tuckRate * dt));
   } else if (flips && (input.lx !== 0 || corkStick(input.ly, params) !== 0)) {
     // The stick read against the axis already turning: held, it holds the rotation — spin,
     // flip or the cork between — and eased, it slows it. It cannot swing the axis mid-air.
@@ -102,7 +112,8 @@ export function stepAirborne(
   // A grab tucks the body in and spins faster; shoving the board out on a tweak extends
   // it and spins slower. Scales what the board does, not the rate the stick is steering.
   const body = params.air.tuckMultiplier + (params.air.extendMultiplier - params.air.tuckMultiplier) * state.tweak;
-  const rate = state.spinRate * (1 + (body - 1) * state.grip);
+  const tuck = params.air.spinModel > 0 ? state.tuck : 1;
+  const rate = state.spinRate * (1 + (body - 1) * state.grip) * tuck;
 
   // Body-fixed axis, so this is a local-space rotation. Never snapped, never quantized.
   setFromAxisAngle(spin, state.spinAxis, rate * dt);
@@ -140,6 +151,9 @@ export function stepAirborne(
 function levelBoard(state: RiderState, params: Params, dt: number): void {
   const rate = params.air.levelRate;
   if (rate <= 0) return;
+  // An air off a pipe's face comes back down onto that face: the ground below is its deck
+  // or coping, and levelling to that would land the board flat on a near-vertical wall.
+  if (params.wall.vertExit > 0 && (state.faceX !== 0 || state.faceZ !== 0)) return;
   if (params.air.levelWhole > 0) {
     // Rotate the takeoff surface's up toward the ground below, and the board with it, as
     // one rigid rotation. A full spin about any axis brings the board back to its takeoff

@@ -199,7 +199,7 @@ export function pollGamepad(out: InputSnapshot = neutralInput()): InputSnapshot 
  */
 export function padSummary(): string {
   const pad = findPad();
-  if (!pad) return 'none — press a button on the pad';
+  if (!pad) return 'none — keyboard, or press a button on the pad';
   const mapping = pad.mapping === '' ? 'non-standard' : pad.mapping;
   const layout = layoutFor(pad).name;
   return `[${pad.index}] ${pad.id.slice(0, 30)} · ${mapping} → ${layout} · ${pad.axes.length}ax ${pad.buttons.length}btn`;
@@ -251,4 +251,18 @@ export function pollMark(): 'note' | 'good' | 'bad' | 'bug' | 'look' | null {
     markHeld[i] = down;
   }
   return mark;
+}
+
+/** Chrome's dual-rumble actuator; absent on Safari and Firefox, where rumble is skipped. */
+type Rumble = { playEffect(type: 'dual-rumble', p: { duration: number; strongMagnitude: number; weakMagnitude: number }): Promise<unknown> };
+
+/**
+ * One rumble pulse on the pad, if it has a motor the browser exposes. Output only — it never
+ * touches the snapshot, the take or the sim. `strong` is the low, heavy motor, `weak` the buzz.
+ */
+export function rumble(strong: number, weak: number, ms: number): void {
+  const pad = findPad() as (Gamepad & { vibrationActuator?: Rumble | null }) | null;
+  const motor = pad?.vibrationActuator;
+  if (!motor) return;
+  motor.playEffect('dual-rumble', { duration: ms, strongMagnitude: Math.min(1, strong), weakMagnitude: Math.min(1, weak) }).catch(() => {});
 }

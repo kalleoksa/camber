@@ -4,7 +4,7 @@ Testers play the Vercel build and send back one file. No install, no accounts, n
 
 ## How it works
 
-- Every run records from its reset (Y on the pad, or reset/record in the panel). Nothing
+- Every run records from its reset (Y on the pad, R on the keyboard, or reset/record in the panel). Nothing
   needs arming in advance.
 - **Mark** a moment while riding: View/Back on the pad, or `M` on the keyboard. On a
   standard-layout pad the D-pad marks with a tag: up `good`, down `bad`, left `bug`,

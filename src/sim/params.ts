@@ -69,6 +69,20 @@ export const params = {
     spinCarveReject: 0,
     spinRefRate: 5.0, // 1/s the carve baseline follows the stick — lower widens the whip window
     spinArmBand: 0.25, // |stick| below this arms in-air spin control after takeoff
+    // Spin model (trick spec): 0 — the stick at the pop sets the spin and steers it in the
+    // air. 1 — wind-up and flick: hold RT with the stick pushed to wind up — held through the
+    // pop it spins that way; flicked across at the pop it spins the other way, harder. In the
+    // air the rotation is fixed: the stick only tucks (toward the spin: faster) or opens up.
+    spinModel: 0,
+    windTime: 0.4, // s of stick held while charging to a full wind-up
+    windRelease: 8.0, // 1/s the wind-up unloads once RT is let go on the snow without popping
+    windGain: 0.6, // fraction of spinTakeoff a full wind-up gives, released against it
+    flickGain: 0.5, // fraction a full flick gives — stick travel across the last ~0.2 s, side to side
+    flickMin: 0.15, // flick (0..1) past which it, not the wind-up, sets which way you spin
+    flickWindow: 0.2, // s after the pop a flick still counts (model 1)
+    tuckGain: 0.35, // spin × (1 + this) fully tucked
+    openGain: 0.75, // spin × (1 − this) fully opened — the check: arms out, upper body counter-rotating against the board
+    tuckRate: 7.0, // 1/s the body tucks or opens toward what the stick asks
   },
   land: {
     clean: 0.5, // rad ≈ 29° (was 0.44, raised by play)
@@ -136,6 +150,8 @@ export const params = {
     popScale: 0.5, // fraction of the pop that goes up the face when popping onto a wall — the rest is absorbed by the stick
     lipTakeoff: 1, // 1: leaving a quarter pipe's top is a takeoff — the stick sets the spin, as a pop would. 0: older rule, a roll-off
     vertReturn: 0.6, // m/s back into the pipe on leaving a quarter-pipe top, so the air lands on the face, not the coping
+    vertFace: 0.7, // surface-normal y below which a pipe's face counts as climbed for vertExit — the upper half of the transition; the vertical strip at the top is only cm wide and a tick can step over it
+    vertExit: 1, // 1: any exit going up off a pipe that was just ridden steep comes back in, using the face it climbed — the board leaves a few cm past the coping, where the surface is already the deck's. 0: older rule, only off the steep face itself
     popAngle: 0.35, // rad from up: on a wall's transition steeper than this, a pop drives you up the face instead of off it
   },
   butter: {
@@ -232,6 +248,7 @@ export const params = {
     hipHeight: 0.86, // m above the deck, uncompressed
     spine: 0.52, // m hips to shoulders
     neck: 0.16, // m shoulders to head
+    curlHeadLift: 0.6, // fraction of the upper-back curl the neck takes back, keeping the eyes up
     crouchDepth: 0.28, // m the hips drop at full compress
     hipStiffness: 250.0, // ω² for the hip spring — ω = sqrt of this, so 250 is ~15.8 rad/s
     hipDamping: 1.0, // ζ — 1.0 is critically damped
@@ -242,14 +259,36 @@ export const params = {
     stanceSpineSide: 0.3, // rad of spine lean into a press
     spineBendBase: 0.18, // rad of forward fold standing
     compressSpineBend: 0.25, // rad of extra fold at full compress
+    spineCurlBase: 0.45, // rad the upper back rounds riding — the hunch over the board
+    compressSpineCurl: 0.3, // rad of extra rounding at full compress
     railLean: 0.25, // m of hip shift at full rail balance — the lean you're fighting, drawn
     railTilt: 0.35, // rad the rider tips about the rail at full balance, toward the side they're falling to
     pressPitch: 0.25, // rad the board tips onto the rail at full contact — a nose press is nose down
     pressHipShift: 0.12, // m of hip travel toward the contact at full contact
     spineStiffness: 55.0, // ω² for the spine twist and head springs, like hipStiffness — ω ≈ 7.4 rad/s
     spineDamping: 1.0, // ζ
-    counterRotation: 0.7, // rad of spine twist against the coming spin at full charge
-    shoulderLead: 0.25, // rad, shoulders ahead of the board at full takeoff spin
+    counterRotation: 1.0, // rad (~57°) the shoulders wind against the coming spin at full charge
+    shoulderLead: 0.45, // rad, shoulders ahead of the board at full takeoff spin
+    // Body sequencing (trick spec): rotation travels up the chain — arms, shoulders, hips,
+    // board last. Each is a spring on its own yaw offset from the board; the arms are
+    // stiffest, so at the pop they snap round first and the hips follow late.
+    armWind: 0.9, // rad of arm swing against the coming spin at full charge
+    hipWind: 0.35, // rad (~20°) the hips wind
+    armLead: 0.8, // rad the arms lead the board in the air at full spin
+    hipLead: 0.2, // rad the hips lead
+    armSpread: 0.9, // rad the arms open out along the board — at the lip, and to stop the spin for landing
+    armTuck: 0.4, // rad the arms pull in when tucking to spin faster (spin model 1)
+    openTime: 0.3, // s before touchdown the rider opens up and squares to the board
+    lipSpreadTime: 0.12, // s of arm spread just after leaving the snow
+    armChainStiffness: 500.0, // ω² of the arm springs — fastest, they lead
+    shoulderChainStiffness: 260.0, // ω² of the shoulder twist — follows the arms
+    hipChainStiffness: 150.0, // ω² of the hip spring — slowest, they follow
+    chainDamping: 0.75, // ζ of both
+    // No-grab airs: knees up and a slouch — style, and what a rider does to stay compact.
+    airCrouch: 0.22, // m the hips come down toward the board in an air without a grab
+    airSlouch: 0.35, // rad of extra upper-back curl
+    airFold: 0.15, // rad of extra fold at the hips
+    airCrouchRate: 6.0, // 1/s it comes on after takeoff and goes as a grab takes over
     headLead: 0.18, // s, head looks where the board will be this far ahead
     headTurnMax: 1.2, // rad, neck limit on that look
     // Loose body (secondary.ts): the rider trails the board's acceleration instead of being
@@ -312,6 +351,15 @@ export const params = {
     thumpFilter: 220, // Hz lowpass — a thud, not a crack
     thumpDecay: 0.28, // s
   },
+  haptics: {
+    on: 1, // 1: rumble on the pad where the browser supports it (Chrome)
+    pop: 0.3, // 0..1 motor strength on a pop
+    rail: 0.45, // locking onto a rail
+    land: 0.35, // a clean landing
+    sketchy: 0.65, // a sketchy one, held twice as long
+    bail: 1.0, // a bail, three times as long
+    ms: 70, // pulse length
+  },
   camera: {
     springStiffness: 5.5, // 1/s (was 9) — loose enough that the rider moves in frame
     lookStiffness: 7.0, // 1/s the aim point follows the rider — lets them drift off centre on turns and landings
@@ -320,6 +368,15 @@ export const params = {
     lookAhead: 6.0, // m down the fall line — keeps the slope in frame, not the sky
     fovBase: 62, // deg
     fovSpeedGain: 0.5, // deg per m/s
+    // Speed feel, all render-side: past speedFrom the camera tightens in and down and widens
+    // its FOV, reaching full at speedFull — the ground near the board is what reads as fast.
+    speedFrom: 8.0, // m/s (29 km/h) where the speed feel starts
+    speedFull: 18.0, // m/s (65 km/h) where it is full
+    speedFov: 14.0, // deg of extra FOV at full speed feel, on top of fovSpeedGain
+    speedCloser: 0.25, // fraction the distance shrinks at full speed feel
+    speedLower: 0.3, // fraction the height drops at full speed feel
+    shake: 0.025, // m of camera judder at full speed feel, on the snow only
+    shakeRate: 11.0, // Hz of the judder
     rollGain: 0.18, // rad per unit edge
     followSpeed: 3.0, // m/s above which the camera follows travel fully rather than the board
   },

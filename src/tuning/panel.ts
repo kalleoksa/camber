@@ -15,6 +15,7 @@ const DRIVER_RANGE: Record<keyof RigDrivers, { min: number; max: number }> = {
   spineBend: { min: -1.6, max: 1.6 },
   spineSide: { min: -0.9, max: 0.9 },
   spineTwist: { min: -1.2, max: 1.2 },
+  spineCurl: { min: -0.4, max: 1.2 }, // upper back rounding forward on the mid-back joint
   frontHandEdge: { min: -1, max: 1 },
   frontHandT: { min: 0, max: 1 },
   backHandEdge: { min: -1, max: 1 },
@@ -78,6 +79,7 @@ export type PanelHandlers = {
   onLoadPreset(json: string): void;
   onDownloadFeedback(): void;
   onTrickText(on: boolean): void;
+  onInputOverlay(on: boolean): void;
 };
 
 /** The tester's side of feedback: who they are, and a one-line status. */
@@ -135,7 +137,7 @@ export function createPanel(
   status.addBinding(readout, 'padRaw', { readonly: true, label: 'pad raw' });
   status.addBinding(readout, 'mode', { readonly: true });
   status.addBinding(readout, 'rail', { readonly: true });
-  status.addBinding(readout, 'speed', { readonly: true, format: (v: number) => v.toFixed(2) });
+  status.addBinding(readout, 'speed', { readonly: true, format: (v: number) => `${v.toFixed(1)} m/s · ${(v * 3.6).toFixed(0)} km/h` });
   status.addBinding(readout, 'tick', { readonly: true, format: (v: number) => v.toFixed(0) });
   status.addBinding(readout, 'clearance', { readonly: true, format: (v: number) => v.toFixed(2) });
   status.addBinding(readout, 'air', { readonly: true, format: (v: number) => v.toFixed(2) });
@@ -147,6 +149,8 @@ export function createPanel(
   status.addBinding(readout, 'trick', { readonly: true });
   const trickText = { onScreen: true };
   status.addBinding(trickText, 'onScreen', { label: 'tricks on screen' }).on('change', (ev) => handlers.onTrickText(ev.value));
+  const overlay = { inputs: false };
+  status.addBinding(overlay, 'inputs', { label: 'input overlay' }).on('change', (ev) => handlers.onInputOverlay(ev.value));
   status.addBinding(readout, 'determinism', { readonly: true });
 
   // Dressed rider or the bare segments; ?look=bare starts bare.

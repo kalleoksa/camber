@@ -8,6 +8,13 @@ export type Contact = {
   height: number;
   normal: Vec3;
   surface: SurfaceType;
+  /**
+   * On a quarter pipe: the horizontal unit direction back into it, from the pipe's own shape
+   * alone — the slope it sits on would tilt the surface normal toward the fall line. 0, 0
+   * anywhere else.
+   */
+  faceX: number;
+  faceZ: number;
 };
 
 /**
@@ -138,7 +145,7 @@ export type KickerConfig = {
 };
 
 export function createContact(): Contact {
-  return { height: 0, normal: vec3(0, 1, 0), surface: 'snow' };
+  return { height: 0, normal: vec3(0, 1, 0), surface: 'snow', faceX: 0, faceZ: 0 };
 }
 
 /**
@@ -209,8 +216,22 @@ export function createSlope(cfg: SlopeConfig): Terrain {
       normalize(out.normal);
 
       out.surface = 'snow';
+      out.faceX = 0;
+      out.faceZ = 0;
       for (let i = 0; i < walls.length; i++) if ((walls[i]?.(x, z) ?? 0) > 0) out.surface = 'wall';
-      for (let i = 0; i < quarters.length; i++) if ((quarters[i]?.(x, z) ?? 0) > 0) out.surface = 'quarter';
+      for (let i = 0; i < quarters.length; i++) {
+        const q = quarters[i];
+        if (!q || q(x, z) <= 0) continue;
+        out.surface = 'quarter';
+        // Down the pipe's own gradient is back into it.
+        const gx = (q(x + eps, z) - q(x - eps, z)) / (2 * eps);
+        const gz = (q(x, z + eps) - q(x, z - eps)) / (2 * eps);
+        const g = Math.sqrt(gx * gx + gz * gz);
+        if (g > 1e-9) {
+          out.faceX = -gx / g;
+          out.faceZ = -gz / g;
+        }
+      }
       return out;
     },
   };
