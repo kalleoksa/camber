@@ -101,8 +101,8 @@ backside) is the opposite of yours (blind boardslide = frontside); yours stands.
 - **Sim** — *done, behind `air.spinModel` = 1* (0 keeps today's rules; old takes pin 0):
   counter-rotation. While charging RT, push the stick away from the spin: the upper body
   winds up and the board holds its line (`windSteer` of the stick still edges). How long
-  sets how much (`windTime` 1 s to full, a pad tick each third): ~0.35 s a 360, 0.5 a
-  540, 0.7 a 720, 1 s a 1080 (real gravity). At the pop, point the stick the way of the
+  sets how much (`windTime` 0.5 s to full, a pad tick each third): ~0.18 s a 360, 0.25 a
+  540, 0.35 a 720, 0.5 s a 1080 (real gravity). At the pop, point the stick the way of the
   spin to send it — how far you point, how much (up to `flickWindow` after the pop);
   held against or let go to centre, a straight air. In the air the rotation is fixed: push toward the spin to tuck (`tuckGain`, faster),
   against it to open (`openGain`, slower).

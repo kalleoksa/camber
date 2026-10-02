@@ -76,7 +76,7 @@ export const params = {
     // air the rotation is fixed: keep pointing to tuck and speed it up, push against it to
     // open up and slow it.
     spinModel: 0,
-    windTime: 1.0, // s of stick held while charging to a full wind-up — long enough to choose: a short hold is a 360, a long one a 1080
+    windTime: 0.5, // s of stick held while charging to a full wind-up: a short hold is a 360, a full one a 1080
     windRelease: 8.0, // 1/s the wind-up unloads once RT is let go on the snow without popping
     windSteer: 0.2, // fraction of stick X that still edges the board while winding up — the rest loads the upper body, so the board holds its line
     flickGain: 0.5, // fraction of spinTakeoff a flick gives with no wind-up — stick travel across the last ~0.2 s
