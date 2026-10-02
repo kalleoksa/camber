@@ -229,7 +229,11 @@ export function stepSecondary(sec: Secondary, state: RiderState, params: Params,
   sec.head += sec.headVel * dt;
 
   const armYawTarget = wind * r.armWind + (airborne ? spinFraction * r.armLead * (1 - square) : 0);
-  const armOpenTarget = lip || landing ? r.armSpread : 0;
+  // Spin model 1's tuck shows in the arms: opened out to check the spin, pulled in to speed it.
+  const a = params.air;
+  const tuck = airborne && a.spinModel > 0 ? state.tuck : 1;
+  const opened = tuck < 1 ? ((1 - tuck) / Math.max(a.openGain, 1e-3)) * r.armSpread : -((tuck - 1) / Math.max(a.tuckGain, 1e-3)) * r.armTuck;
+  const armOpenTarget = lip || landing ? Math.max(r.armSpread, opened) : opened;
   const hipYawTarget = wind * r.hipWind + (airborne ? spinFraction * r.hipLead * (1 - square) : 0);
   const ka = r.armChainStiffness;
   const ca = 2 * r.chainDamping * Math.sqrt(ka);

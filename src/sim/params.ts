@@ -81,8 +81,8 @@ export const params = {
     flickMin: 0.15, // flick (0..1) past which it, not the wind-up, sets which way you spin
     flickWindow: 0.2, // s after the pop a flick still counts (model 1)
     tuckGain: 0.35, // spin × (1 + this) fully tucked
-    openGain: 0.5, // spin × (1 − this) fully opened
-    tuckRate: 4.0, // 1/s the body tucks or opens toward what the stick asks
+    openGain: 0.75, // spin × (1 − this) fully opened — the check: arms out, upper body counter-rotating against the board
+    tuckRate: 7.0, // 1/s the body tucks or opens toward what the stick asks
   },
   land: {
     clean: 0.5, // rad ≈ 29° (was 0.44, raised by play)
@@ -277,6 +277,7 @@ export const params = {
     armLead: 0.8, // rad the arms lead the board in the air at full spin
     hipLead: 0.2, // rad the hips lead
     armSpread: 0.9, // rad the arms open out along the board — at the lip, and to stop the spin for landing
+    armTuck: 0.4, // rad the arms pull in when tucking to spin faster (spin model 1)
     openTime: 0.3, // s before touchdown the rider opens up and squares to the board
     lipSpreadTime: 0.12, // s of arm spread just after leaving the snow
     armChainStiffness: 500.0, // ω² of the arm springs — fastest, they lead
