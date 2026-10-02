@@ -326,23 +326,16 @@ export function popTakeoff(state: RiderState, input: InputSnapshot, params: Para
  */
 export function takeoffSpinRate(state: RiderState, input: InputSnapshot, params: Params): number {
   if (params.air.spinModel > 0) {
-    // The flick is the stick's travel over the last ~0.2 s (spinRef lags it). A clear flick
-    // sets the way round; without one the wind-up does, so holding the stick through the
-    // pop still spins that way — the wind-up alone, `windGain` of a full spin. Winding one
-    // way and flicking the other adds both: the full spin.
-    // With a wind-up, the flick is where the stick is now — across on the other side —
-    // not how fast it got there, so it counts whenever it happens around the pop.
-    // The wind-up is how much: a full one (`windTime` of holding) is a full spin. The flick
-    // only lets it go — flicked right across, all of it; held through, `windGain` of it.
-    // With no wind-up a flick alone still turns a little (`flickGain`).
+    // Counter-rotation, as on snow: the wind-up is the upper body loaded against the spin,
+    // and the pop releases it into the spin the other way — how much it loaded is how much
+    // it spins. No wind-up: a flick (stick travel over the last ~0.2 s) still turns a little.
     const a = params.air;
     const w = state.windUp;
     let amount: number;
     let way: number;
     if (Math.abs(w) > a.flickMin) {
-      const across = Math.min(1, Math.max(0, w > 0 ? -input.lx : input.lx));
-      amount = Math.abs(w) * (a.windGain + (1 - a.windGain) * across);
-      way = across > a.flickMin ? -w : w;
+      amount = Math.abs(w);
+      way = -w;
     } else {
       const travel = input.lx - state.spinRef;
       amount = Math.min(1, Math.abs(travel) * 0.5) * a.flickGain;

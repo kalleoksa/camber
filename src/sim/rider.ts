@@ -31,7 +31,11 @@ export function tick(
   // Riding switch the sticks follow the direction of travel, not the board: right is the
   // edge on the right of travel (the heel), up presses the leading end (the tail).
   const dir = params.ground.switchEdges > 0 && state.switchRide ? -1 : 1;
-  state.edge = dampScalar(state.edge, input.lx * dir, params.ground.edgeResponse, dt);
+  // Spin model 1: winding up (RT held on the snow) puts stick X into the upper body, not the
+  // edge — only `windSteer` of it still carves, so the board holds its line into the lip.
+  const winding = params.air.spinModel > 0 && input.rt > params.pop.trigger && (state.mode === 'grounded' || state.mode === 'walled');
+  const steer = winding ? params.air.windSteer : 1;
+  state.edge = dampScalar(state.edge, input.lx * dir * steer, params.ground.edgeResponse, dt);
   state.stance = dampScalar(state.stance, input.ly * dir, params.ground.stanceResponse, dt);
 
   // The baseline takeoff measures the spin whip against — "the carve you are already
