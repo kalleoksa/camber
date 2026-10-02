@@ -41,7 +41,12 @@ off (`deckTaper`), 6 → ~10 m wide, pink lines along the lip and both sides of 
 fine grid rows/columns at lips and cut sides. The corner's takeoff is cut the same way (its
 side landings keep a 3 m fade-in, `deckTaper`) and kicks up short and steep — 57° over 15 m,
 was 26° over 36 m — to a deck as wide as the lip; every quarter pipe has a line along its
-coping. Still open: transition shape (below).
+coping. The corner's deck is outlined too: the knuckle on all three sides.
+
+**These lines are park paint.** Backcountry features (kickers, natural hits — to come) are
+built without them.
+
+Still open: transition shape (below).
 
 
 From the references, the takeoff is what reads:
@@ -107,7 +112,8 @@ backside) is the opposite of yours (blind boardslide = frontside); yours stands.
   held against or let go to centre, a straight air. A cork is the same point, diagonal:
   toward the spin and back (or forward) — `fullStick` 0.7 counts as full on each axis, and
   the flip reads past `corkDeadzone1` 0.25. In the air the rotation is fixed: push toward the spin to tuck (`tuckGain`, faster),
-  against it to open (`openGain`, slower).
+  against it to open (`openGain`, slower). Opening straightens the body: legs long, back up, arms
+  out — the compact no-grab air hands over to it.
 
 ## 5. Carried over
 

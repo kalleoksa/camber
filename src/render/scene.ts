@@ -338,8 +338,8 @@ function slopeMarkers(cfg: SlopeConfig, terrain: Terrain): THREE.Group {
 /**
  * Coloured lines along each cut takeoff's edges — the lip and both sides of the ramp, as
  * parks paint them — and along every quarter pipe's coping. They read the lip and the speed
- * from a distance. Takeoffs with rolled sides (sideTaper over 1 m: the jib tables, the older
- * parks) don't get them.
+ * from a distance. Park paint: a backcountry feature (to come) goes without. Takeoffs with
+ * rolled sides (sideTaper over 1 m: the jib tables, the older parks) don't get them.
  */
 function edgeLines(cfg: SlopeConfig, terrain: Terrain): THREE.Group {
   const group = new THREE.Group();
@@ -365,6 +365,21 @@ function edgeLines(cfg: SlopeConfig, terrain: Terrain): THREE.Group {
     const lipPts: THREE.Vector3[] = [];
     for (let i = 0; i <= 12; i++) lipPts.push(at(k.x - half + 0.05 + ((2 * half - 0.1) * i) / 12, lip + 0.02, 0, 0));
     tube(lipPts);
+  }
+  // A corner's deck edges too — the knuckle on all three sides, where its landings start.
+  for (const c of cfg.corners ?? []) {
+    if (c.sideTaper > 1) continue;
+    const lip = c.z - (c.lipHeight / (1 - Math.cos(c.lipAngle))) * Math.sin(c.lipAngle);
+    const end = lip - c.deckLength + 0.05;
+    const half = c.deckWidth * 0.5 - 0.05;
+    for (const side of [-1, 1]) {
+      const pts: THREE.Vector3[] = [];
+      for (let i = 0; i <= 12; i++) pts.push(at(c.x + side * half, lip - ((lip - end) * i) / 12, side * 0.05, 0));
+      tube(pts);
+    }
+    const back: THREE.Vector3[] = [];
+    for (let i = 0; i <= 8; i++) back.push(at(c.x - half + (2 * half * i) / 8, end, 0, -0.05));
+    tube(back);
   }
   // Coping: just onto the deck past the face, along the full-height length of the pipe.
   for (const q of cfg.quarters ?? []) {
