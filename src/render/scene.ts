@@ -10,7 +10,7 @@ import { ANCHORS, BODY_KEYS, grabBody } from './poses.ts';
 import { butterAmount } from '../sim/states/grounded.ts';
 import { BOARD_HALF, copyDrivers, createRig, edgePoint, gripWeight, mirrorDrivers, neutralDrivers, smoothstep, type RigDrivers } from './rig.ts';
 import type { Secondary } from './secondary.ts';
-import { flutter } from './toon.ts';
+import { flutter, lcg } from './toon.ts';
 import { TICK_DT } from '../core/loop.ts';
 
 /**
@@ -162,26 +162,49 @@ export type SceneView = {
   resize(): void;
 };
 
+/**
+ * Snow, one tile per 4 m. What sells speed is texture streaming past near the board, so it
+ * carries detail at two sizes: fine speckle (cm-scale crust and sparkle) for the near field
+ * and soft patches for the middle distance, over groomer corduroy running down the fall line.
+ * Seeded, so it is the same every load.
+ */
 function snowTexture(): THREE.Texture {
-  const size = 512;
+  const size = 512; // px per 4 m tile: ~8 mm a pixel
   const canvas = document.createElement('canvas');
   canvas.width = size;
   canvas.height = size;
   const ctx = canvas.getContext('2d');
   if (ctx) {
+    const rnd = lcg(11);
     ctx.fillStyle = '#f4f8fc';
     ctx.fillRect(0, 0, size, size);
-    // Groomer corduroy: fine lines across the fall line, one heavier line per tile.
-    ctx.strokeStyle = '#dde7f1';
-    ctx.lineWidth = 2;
-    for (let i = 0; i < size; i += size / 16) {
-      ctx.beginPath();
-      ctx.moveTo(0, i);
-      ctx.lineTo(size, i);
-      ctx.stroke();
+    // Soft patches, wrapped so the tile stays seamless.
+    for (let i = 0; i < 40; i++) {
+      const x = rnd() * size, y = rnd() * size, r = 30 + rnd() * 90;
+      for (const ox of [-size, 0, size]) for (const oy of [-size, 0, size]) {
+        const g = ctx.createRadialGradient(x + ox, y + oy, 0, x + ox, y + oy, r);
+        g.addColorStop(0, rnd() < 0.5 ? 'rgba(200,214,230,0.35)' : 'rgba(255,255,255,0.5)');
+        g.addColorStop(1, 'rgba(244,248,252,0)');
+        ctx.fillStyle = g;
+        ctx.fillRect(x + ox - r, y + oy - r, 2 * r, 2 * r);
+      }
     }
-    ctx.strokeStyle = '#c9d8e6';
-    ctx.lineWidth = 4;
+    // Corduroy along the fall line (v is z): ~5 cm ribs.
+    for (let x = 0; x < size; x += 6) {
+      ctx.fillStyle = (x / 6) % 2 === 0 ? 'rgba(205,218,232,0.45)' : 'rgba(255,255,255,0.35)';
+      ctx.fillRect(x, 0, 3, size);
+    }
+    // Speckle: crust and sparkle, dark and light.
+    for (let i = 0; i < 2600; i++) {
+      const dark = rnd() < 0.7;
+      ctx.fillStyle = dark ? `rgba(150,170,195,${0.25 + rnd() * 0.35})` : 'rgba(255,255,255,0.9)';
+      const r = 0.8 + rnd() * (dark ? 2.2 : 1.2);
+      ctx.beginPath();
+      ctx.ellipse(rnd() * size, rnd() * size, r, r * (0.6 + rnd() * 0.8), rnd() * Math.PI, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.strokeStyle = 'rgba(201,216,230,0.6)';
+    ctx.lineWidth = 2;
     ctx.strokeRect(0, 0, size, size);
   }
   const texture = new THREE.CanvasTexture(canvas);
@@ -348,6 +371,10 @@ export function createScene(cfg: SlopeConfig, terrain: Terrain, camera: THREE.Pe
   scene.add(new THREE.HemisphereLight(0xbcd7f0, 0xe8eef4, 1.1));
 
   const slope = slopeMesh(cfg, terrain, cell);
+  // The camera looks along the snow at a grazing angle; without anisotropic filtering the
+  // texture smears to flat white a few metres out and the ground stops showing speed.
+  const snowMap = (slope.material as THREE.MeshStandardMaterial).map;
+  if (snowMap) snowMap.anisotropy = renderer.capabilities.getMaxAnisotropy();
   const markers = slopeMarkers(cfg, terrain);
   scene.add(slope);
   scene.add(markers);

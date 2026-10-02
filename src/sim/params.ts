@@ -323,6 +323,15 @@ export const params = {
     lookAhead: 6.0, // m down the fall line — keeps the slope in frame, not the sky
     fovBase: 62, // deg
     fovSpeedGain: 0.5, // deg per m/s
+    // Speed feel, all render-side: past speedFrom the camera tightens in and down and widens
+    // its FOV, reaching full at speedFull — the ground near the board is what reads as fast.
+    speedFrom: 8.0, // m/s (29 km/h) where the speed feel starts
+    speedFull: 18.0, // m/s (65 km/h) where it is full
+    speedFov: 14.0, // deg of extra FOV at full speed feel, on top of fovSpeedGain
+    speedCloser: 0.25, // fraction the distance shrinks at full speed feel
+    speedLower: 0.3, // fraction the height drops at full speed feel
+    shake: 0.025, // m of camera judder at full speed feel, on the snow only
+    shakeRate: 11.0, // Hz of the judder
     rollGain: 0.18, // rad per unit edge
     followSpeed: 3.0, // m/s above which the camera follows travel fully rather than the board
   },

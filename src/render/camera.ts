@@ -16,6 +16,9 @@ export function createChaseCamera(params: Params): ChaseCamera {
   const up = new THREE.Vector3();
   const aimPoint = new THREE.Vector3(); // where the camera actually looks: trails `look`
   let roll = 0;
+  let feel = 0; // 0..1 speed feel, eased
+  let shakeTime = 0;
+  const rest = new THREE.Vector3(); // the camera's position without the judder, so it never feeds the spring
 
   const desired = (view: RiderView, p: Params): void => {
     // Rise along the contact normal, not world up, so the slope stays in frame.
@@ -30,10 +33,11 @@ export function createChaseCamera(params: Params): ChaseCamera {
     forward.set(Math.sin(aim), 0, Math.cos(aim));
     forward.addScaledVector(up, -forward.dot(up)).normalize();
 
+    const f = speedFeel(view, p);
     target
       .set(view.position.x, view.position.y, view.position.z)
-      .addScaledVector(forward, -p.camera.distance)
-      .addScaledVector(up, p.camera.height);
+      .addScaledVector(forward, -p.camera.distance * (1 - f * p.camera.speedCloser))
+      .addScaledVector(up, p.camera.height * (1 - f * p.camera.speedLower));
     look
       .set(view.position.x, view.position.y, view.position.z)
       .addScaledVector(forward, p.camera.lookAhead)
@@ -50,7 +54,7 @@ export function createChaseCamera(params: Params): ChaseCamera {
     // lifts on the right. rotateZ is counter-clockwise from behind, hence the negation.
     // Smoothed, so takeoff and touchdown don't pop the horizon.
     camera.rotateZ(roll);
-    const fov = p.camera.fovBase + view.speed * p.camera.fovSpeedGain;
+    const fov = p.camera.fovBase + view.speed * p.camera.fovSpeedGain + feel * p.camera.speedFov;
     if (Math.abs(camera.fov - fov) > 0.01) {
       camera.fov = fov;
       camera.updateProjectionMatrix();
@@ -62,18 +66,31 @@ export function createChaseCamera(params: Params): ChaseCamera {
     update(view, p, dt) {
       desired(view, p);
       const t = 1 - Math.exp(-p.camera.springStiffness * dt);
-      camera.position.lerp(target, t);
+      camera.position.copy(rest).lerp(target, t);
+      rest.copy(camera.position);
       // The aim trails the rider too, so turns and landings move them in frame instead of
       // pinning them dead centre — most of what reads as loose rather than locked.
       aimPoint.lerp(look, 1 - Math.exp(-p.camera.lookStiffness * dt));
       roll += (rollTarget(view, p) - roll) * t;
+      // Speed feel eased, so takeoffs and landings don't snap the FOV.
+      feel += (speedFeel(view, p) - feel) * t;
+      // Judder on the snow: two detuned sines along the camera's own up and right, scaled by
+      // feel² so it only shows when you are really moving. Render time; the camera isn't replayed.
+      shakeTime += dt;
+      const onSnow = view.mode === 'grounded' ? 1 : 0;
+      const amp = p.camera.shake * feel * feel * onSnow;
+      const w = 2 * Math.PI * p.camera.shakeRate;
+      camera.position.y += amp * (Math.sin(w * shakeTime) * 0.6 + Math.sin(w * 1.73 * shakeTime + 1.3) * 0.4);
       frame(view, p);
+      camera.translateX(amp * 0.6 * Math.sin(w * 1.31 * shakeTime + 0.7));
     },
     snap(view, p) {
       desired(view, p);
       camera.position.copy(target);
+      rest.copy(target);
       aimPoint.copy(look);
       roll = rollTarget(view, p);
+      feel = speedFeel(view, p);
       frame(view, p);
     },
   };
@@ -81,4 +98,11 @@ export function createChaseCamera(params: Params): ChaseCamera {
 
 function wrap(a: number): number {
   return Math.atan2(Math.sin(a), Math.cos(a));
+}
+
+/** 0..1, how fast this reads: from `speedFrom` to `speedFull`, eased in. */
+function speedFeel(view: RiderView, p: Params): number {
+  const t = (view.speed - p.camera.speedFrom) / Math.max(p.camera.speedFull - p.camera.speedFrom, 1e-3);
+  const c = t < 0 ? 0 : t > 1 ? 1 : t;
+  return c * c * (3 - 2 * c);
 }
