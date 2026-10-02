@@ -368,7 +368,7 @@ export const params = {
   camera: {
     springStiffness: 5.5, // 1/s (was 9) — loose enough that the rider moves in frame
     lookStiffness: 7.0, // 1/s the aim point follows the rider — lets them drift off centre on turns and landings
-    distance: 5.5, // m, behind the rider along heading
+    distance: 2.5, // m, behind the rider along heading
     height: 1.8, // m, along the contact normal
     lookAhead: 6.0, // m down the fall line — keeps the slope in frame, not the sky
     fovBase: 62, // deg
