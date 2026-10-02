@@ -63,6 +63,7 @@ export type CornerConfig = {
   deckLength: number; // m of flat deck past the lip
   deckWidth: number; // m of flat deck across — the side landings start at its edges
   sideTaper: number; // m over which the takeoff's sides and the side landings' uphill ends fall away
+  deckTaper?: number; // m over which the side landings' uphill ends fade in; defaults to `sideTaper` — a short `sideTaper` with this longer is a cut takeoff
   landingAngle: number; // rad the landings fall away below the slope
   knuckleRadius: number; // m
   runoutRadius: number; // m
@@ -432,7 +433,7 @@ function cornerProfile(c: CornerConfig): Profile {
     const outS = Math.max(0, s - deckEnd);
     let land = landing(Math.sqrt(outX * outX + outS * outS));
     if (s < runIn) {
-      const t = Math.max(0, 1 - (runIn - s) / c.sideTaper);
+      const t = Math.max(0, 1 - (runIn - s) / (c.deckTaper ?? c.sideTaper));
       land *= t * t * (3 - 2 * t);
     }
     return takeoff > land ? takeoff : land;

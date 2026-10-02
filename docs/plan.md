@@ -38,7 +38,9 @@ Jump line spacing tightened (`GAP_*` in park.ts): big kickers ~62 m apart, was ~
 
 Home park kickers: takeoffs cut square (`sideTaper` 0.3 → 0.5 m real) on tables that round
 off (`deckTaper`), 6 → ~10 m wide, pink lines along the lip and both sides of the ramp,
-fine grid rows/columns at lips and cut sides. Still open: transition shape (below).
+fine grid rows/columns at lips and cut sides. The corner's takeoff is cut the same way (its
+side landings keep a 3 m fade-in, `deckTaper`), and every quarter pipe has a line along its
+coping. Still open: transition shape (below).
 
 
 From the references, the takeoff is what reads:

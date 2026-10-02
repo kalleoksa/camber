@@ -51,7 +51,7 @@ const b3 = jump(b2.end - GAP_BIG, { ...BIG, lipHeight: 3.5, deckLength: 12.5 }, 
 
 // Corner sized for the ~18-20 m/s the big line hands on; its deck runs long so the side
 // landings sit beside the flight, not behind it.
-const CORNER: Omit<CornerConfig, 'z'> = { x: JUMP_X, width: 8, lipHeight: 5, lipAngle: 0.45, deckLength: 24, deckWidth: 4, sideTaper: 3, landingAngle: 0.5, knuckleRadius: 5, runoutRadius: 18 };
+const CORNER: Omit<CornerConfig, 'z'> = { x: JUMP_X, width: 8, lipHeight: 5, lipAngle: 0.45, deckLength: 24, deckWidth: 4, sideTaper: 0.3, deckTaper: 3, landingAngle: 0.5, knuckleRadius: 5, runoutRadius: 18 };
 const cornerZ = b3.end - GAP_CORNER;
 const cornerRunIn = (CORNER.lipHeight / (1 - Math.cos(CORNER.lipAngle))) * Math.sin(CORNER.lipAngle);
 const cornerEnd = cornerZ - cornerRunIn - CORNER.deckLength - 15; // its landings back on the slope
