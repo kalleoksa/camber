@@ -102,8 +102,9 @@ backside) is the opposite of yours (blind boardslide = frontside); yours stands.
   counter-rotation. While charging RT, push the stick away from the spin: the upper body
   winds up and the board holds its line (`windSteer` of the stick still edges). How long
   sets how much (`windTime` 1 s to full, a pad tick each third): ~0.35 s a 360, 0.5 a
-  540, 0.7 a 720, 1 s a 1080 (real gravity). Release RT and it unwinds into the spin. In
-  the air the rotation is fixed: push toward the spin to tuck (`tuckGain`, faster),
+  540, 0.7 a 720, 1 s a 1080 (real gravity). At the pop, point the stick the way of the
+  spin to send it — how far you point, how much (up to `flickWindow` after the pop);
+  held against or let go to centre, a straight air. In the air the rotation is fixed: push toward the spin to tuck (`tuckGain`, faster),
   against it to open (`openGain`, slower).
 
 ## 5. Carried over

@@ -71,9 +71,10 @@ export const params = {
     spinArmBand: 0.25, // |stick| below this arms in-air spin control after takeoff
     // Spin model (trick spec): 0 — the stick at the pop sets the spin and steers it in the
     // air. 1 — counter-rotation: while charging RT, push the stick away from the spin to
-    // wind the upper body up (the board holds its line); how long sets how much. Release
-    // RT and it unwinds into the spin. In the air the rotation is fixed: push toward the
-    // spin to tuck and speed it up, against it to open up and slow it.
+    // wind the upper body up (the board holds its line); how long sets how much. At the pop,
+    // point the stick the way of the spin to send it — how far you point, how much. In the
+    // air the rotation is fixed: keep pointing to tuck and speed it up, push against it to
+    // open up and slow it.
     spinModel: 0,
     windTime: 1.0, // s of stick held while charging to a full wind-up — long enough to choose: a short hold is a 360, a long one a 1080
     windRelease: 8.0, // 1/s the wind-up unloads once RT is let go on the snow without popping

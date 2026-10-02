@@ -327,14 +327,16 @@ export function popTakeoff(state: RiderState, input: InputSnapshot, params: Para
 export function takeoffSpinRate(state: RiderState, input: InputSnapshot, params: Params): number {
   if (params.air.spinModel > 0) {
     // Counter-rotation, as on snow: the wind-up is the upper body loaded against the spin,
-    // and the pop releases it into the spin the other way — how much it loaded is how much
-    // it spins. No wind-up: a flick (stick travel over the last ~0.2 s) still turns a little.
+    // and pointing the stick the way of the spin at the pop sends it — as far as it points,
+    // that much of the wind-up (and `air.flickWindow` after the pop still counts). Held
+    // against through the pop, nothing is let go: a straight air. No wind-up: a flick
+    // (stick travel over the last ~0.2 s) still turns a little.
     const a = params.air;
     const w = state.windUp;
     let amount: number;
     let way: number;
     if (Math.abs(w) > a.flickMin) {
-      amount = Math.abs(w);
+      amount = Math.abs(w) * Math.min(1, Math.max(0, w > 0 ? -input.lx : input.lx));
       way = -w;
     } else {
       const travel = input.lx - state.spinRef;
