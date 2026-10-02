@@ -199,7 +199,7 @@ export function pollGamepad(out: InputSnapshot = neutralInput()): InputSnapshot 
  */
 export function padSummary(): string {
   const pad = findPad();
-  if (!pad) return 'none — press a button on the pad';
+  if (!pad) return 'none — keyboard, or press a button on the pad';
   const mapping = pad.mapping === '' ? 'non-standard' : pad.mapping;
   const layout = layoutFor(pad).name;
   return `[${pad.index}] ${pad.id.slice(0, 30)} · ${mapping} → ${layout} · ${pad.axes.length}ax ${pad.buttons.length}btn`;

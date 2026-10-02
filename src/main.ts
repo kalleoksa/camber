@@ -1,5 +1,6 @@
 import { createLoop, TICK_DT } from './core/loop.ts';
 import { padRawSummary, padSummary, pollGamepad, pollMark } from './input/gamepad.ts';
+import { mergeKeyboard } from './input/keyboard.ts';
 import {
   buildTake,
   createRecorder,
@@ -279,7 +280,7 @@ function step(): void {
   copyRiderState(previous, state);
   copySecondary(secondaryPrevious, secondary);
 
-  let input = quantizeInput(pollGamepad(liveInput), tickInput);
+  let input = quantizeInput(mergeKeyboard(pollGamepad(liveInput), TICK_DT), tickInput);
   if (cursor) {
     const frame = cursor.next();
     if (!frame) {
