@@ -11,8 +11,15 @@ import { ANCHORS } from './poses.ts';
  * when the chest opens toward the direction of travel (positive about board up riding
  * nose first, negative riding switch). Flips are rotation about the board's width —
  * negative is a backflip riding regular, positive riding switch. Both at once is a cork. The grab is the
- * one held longest, named by the nearest grab pose. Rails: the slide held longest; across
- * the rail travelling toward the heels is frontside (blind), toward the toes backside.
+ * one held longest, named by the nearest grab pose. A flip with spin is a cork when the spin
+ * leads, a rodeo when a backflip does, a misty when a frontflip does.
+ *
+ * Rails: the slide held longest; across the rail travelling toward the heels is frontside
+ * (blind), toward the toes backside. Which end of the board crossed the rail getting on
+ * splits a boardslide (nose over) from a lipslide (tail over), and an end slide from its
+ * blunt (the board already over the rail). A touch too short to slide is a bonk. A rail
+ * isn't named until the rider is back on snow, so the air off it names the spin out
+ * ("270 out"), and catching another rail on the way makes a transfer ("… to 50-50").
  */
 export type TrickResult = 'clean' | 'sketchy' | 'tried' | 'done';
 export type TrickEvent = { tick: number; name: string; result: TrickResult };
@@ -42,7 +49,7 @@ function nearestGrab(edge: number, t: number): string {
   return best;
 }
 
-type RailKind = '50-50' | 'nose press' | 'tail press' | 'boardslide' | 'noseslide' | 'tailslide';
+type RailKind = '50-50' | 'nose press' | 'tail press' | 'boardslide' | 'lipslide' | 'noseslide' | 'tailslide' | 'nose blunt' | 'blunt';
 
 const MIN_AIR = 0.35; // s — shorter than this with nothing done is a hop, not a trick
 const MIN_RAIL = 0.25; // s on a rail before it counts
@@ -69,6 +76,8 @@ export function createTrickReader(): TrickReader {
   let railTime = 0;
   const railTally = new Map<string, number>();
   let railSwitch = false;
+  const entryV = { x: 0, z: 0 }; // velocity on the last tick before the rail, for `crossing`
+  let pendingRail = ''; // a rail trick ridden off into the air: named when the air ends
   // Wall.
   let wallTime = 0;
   let pendingOn = ''; // an air that landed on a rail: its name prefixes the rail trick
@@ -89,9 +98,15 @@ export function createTrickReader(): TrickReader {
     const side = (spin > 0) !== switchAtTakeoff ? 'fs' : 'bs';
     const parts: string[] = [];
     if (switchAtTakeoff) parts.push('switch');
-    if (flips > 0 && turns >= 180) parts.push(`${side} ${flips > 1 ? `${flips === 2 ? 'double' : 'triple'} ` : ''}cork ${turns}`);
+    const times = flips > 1 ? `${flips === 2 ? 'double' : 'triple'} ` : '';
+    if (flips > 0 && turns >= 180) {
+      // Off axis: the larger rotation leads. Spin-led is a cork whichever way the flip goes;
+      // flip-led is a rodeo off a backflip, a misty off a frontflip.
+      const kind = Math.abs(spin) >= Math.abs(flip) ? 'cork' : (flip < 0) !== switchAtTakeoff ? 'rodeo' : 'misty';
+      parts.push(`${side} ${times}${kind} ${turns}`);
+    }
     // Riding switch the tail leads, so a backflip is the other way about the board's width.
-    else if (flips > 0) parts.push(`${flips > 1 ? `${flips === 2 ? 'double' : 'triple'} ` : ''}${(flip < 0) !== switchAtTakeoff ? 'backflip' : 'frontflip'}`);
+    else if (flips > 0) parts.push(`${times}${(flip < 0) !== switchAtTakeoff ? 'backflip' : 'frontflip'}`);
     else if (turns > 0) parts.push(`${side} ${turns}`);
     let grab = '';
     let held = MIN_GRAB;
@@ -109,6 +124,7 @@ export function createTrickReader(): TrickReader {
   }
 
   function railName(): string {
+    if (railTime < MIN_RAIL) return 'bonk';
     let kind = '';
     let most = 0;
     for (const [k, time] of railTally) {
@@ -120,10 +136,17 @@ export function createTrickReader(): TrickReader {
     return `${railSwitch ? 'switch ' : ''}${kind}`;
   }
 
+  /** The air off a rail, as a spin out: nearest 90°, since a slide leaves the board across. */
+  function spinOut(): string {
+    const deg = (Math.abs(spin) * 180) / Math.PI;
+    return deg >= 60 ? `${Math.round(deg / 90) * 90} out` : '';
+  }
+
   return {
     reset() {
       prevMode = '';
       pendingOn = '';
+      pendingRail = '';
       railTally.clear();
       grabTime.clear();
     },
@@ -157,7 +180,19 @@ export function createTrickReader(): TrickReader {
         }
       } else if (prevMode === 'airborne') {
         const name = airName();
-        if (mode === 'railed') pendingOn = name && name !== 'straight air' ? `${name} on` : '';
+        if (pendingRail) {
+          // Off a rail: onto another is a transfer, onto snow names the spin out.
+          if (mode === 'railed') {
+            const on = name && name !== 'straight air' ? ` ${name} on` : '';
+            pendingOn = `${pendingRail} to${on}`;
+          } else {
+            const out = spinOut();
+            const result: TrickResult =
+              mode === 'bailed' ? 'tried' : state.landing === 'clean' ? 'clean' : state.landing === 'sketchy' ? 'sketchy' : 'done';
+            event = { tick: state.tick, name: out ? `${pendingRail} ${out}` : pendingRail, result };
+          }
+          pendingRail = '';
+        } else if (mode === 'railed') pendingOn = name && name !== 'straight air' ? `${name} on` : '';
         else if (name || mode === 'bailed') {
           if (airTime >= MIN_AIR || name) {
             const result: TrickResult =
@@ -179,7 +214,23 @@ export function createTrickReader(): TrickReader {
         const end = c > 0.3 ? 'nose' : c < -0.3 ? 'tail' : '';
         let kind: RailKind | '' = '';
         if (across < 0.35) kind = end === 'nose' ? 'nose press' : end === 'tail' ? 'tail press' : '50-50';
-        else if (across > 0.7) kind = end === 'nose' ? 'noseslide' : end === 'tail' ? 'tailslide' : 'boardslide';
+        else if (across > 0.7) {
+          // Which end points the way you were crossing: that end went over the rail first.
+          // Nose over is a boardslide, tail over a lipslide; on an end, the end that reached
+          // the rail is a nose/tailslide, the board already past it is the blunt.
+          // On the rail you travel along it, so the velocity is its line; the velocity frozen
+          // just before the catch says which way across it you were moving. Too square to the
+          // line to tell either: call it nose over.
+          const v = state.velocity;
+          const along = Math.hypot(v.x, v.z);
+          const cross = along > 1e-6 ? (v.x * entryV.z - v.z * entryV.x) / along : 0;
+          const crossing = Math.abs(cross) < 0.3 ? 0 : Math.sign(cross);
+          const noseSide = along > 1e-6 ? Math.sign(v.x * Math.cos(state.heading) - v.z * Math.sin(state.heading)) : 0;
+          const noseOver = crossing === 0 || noseSide === 0 || noseSide === crossing;
+          if (end === 'nose') kind = noseOver ? 'noseslide' : 'nose blunt';
+          else if (end === 'tail') kind = noseOver ? 'blunt' : 'tailslide';
+          else kind = noseOver ? 'boardslide' : 'lipslide';
+        }
         if (kind) {
           // Across the rail: travelling toward the heels is frontside (your convention).
           const side = across > 0.7 ? (Math.sin(state.slide) > 0 ? 'fs ' : 'bs ') : '';
@@ -187,11 +238,11 @@ export function createTrickReader(): TrickReader {
           railTally.set(key, (railTally.get(key) ?? 0) + dt);
         }
       } else if (prevMode === 'railed') {
-        const bailed = mode === 'bailed';
-        if (railTime >= MIN_RAIL || bailed) {
-          const name = railName();
-          event = { tick: state.tick, name: pendingOn ? `${pendingOn} ${name}` : name, result: bailed ? 'tried' : 'done' };
-        }
+        const name = pendingOn ? `${pendingOn} ${railName()}` : railName();
+        // Off into the air (the usual way off a rail): wait for the landing to name the
+        // spin out and judge it. Straight onto snow or down: name it now.
+        if (mode === 'airborne') pendingRail = name;
+        else event = { tick: state.tick, name, result: mode === 'bailed' ? 'tried' : 'done' };
         pendingOn = '';
       }
 
@@ -202,6 +253,10 @@ export function createTrickReader(): TrickReader {
         event = { tick: state.tick, name: 'wallride', result: mode === 'bailed' ? 'tried' : 'done' };
       }
 
+      if (mode !== 'railed') {
+        entryV.x = state.velocity.x;
+        entryV.z = state.velocity.z;
+      }
       prevMode = mode;
       prevQ.x = q.x;
       prevQ.y = q.y;

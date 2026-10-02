@@ -79,6 +79,7 @@ export type PanelHandlers = {
   onLoadPreset(json: string): void;
   onDownloadFeedback(): void;
   onTrickText(on: boolean): void;
+  onInputOverlay(on: boolean): void;
 };
 
 /** The tester's side of feedback: who they are, and a one-line status. */
@@ -148,6 +149,8 @@ export function createPanel(
   status.addBinding(readout, 'trick', { readonly: true });
   const trickText = { onScreen: true };
   status.addBinding(trickText, 'onScreen', { label: 'tricks on screen' }).on('change', (ev) => handlers.onTrickText(ev.value));
+  const overlay = { inputs: false };
+  status.addBinding(overlay, 'inputs', { label: 'input overlay' }).on('change', (ev) => handlers.onInputOverlay(ev.value));
   status.addBinding(readout, 'determinism', { readonly: true });
 
   // Dressed rider or the bare segments; ?look=bare starts bare.

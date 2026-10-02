@@ -1,5 +1,5 @@
 import { createLoop, TICK_DT } from './core/loop.ts';
-import { padRawSummary, padSummary, pollGamepad, pollMark } from './input/gamepad.ts';
+import { padRawSummary, padSummary, pollGamepad, pollMark, rumble } from './input/gamepad.ts';
 import { mergeKeyboard } from './input/keyboard.ts';
 import {
   buildTake,
@@ -29,6 +29,7 @@ import {
 import { createScene, interpolateRider } from './render/scene.ts';
 import { createTrickReader, describe } from './render/tricks.ts';
 import { createTrickText } from './render/trickText.ts';
+import { createInputOverlay } from './render/inputOverlay.ts';
 import {
   copySecondary,
   createSecondary,
@@ -136,6 +137,7 @@ const readout: Readout = {
 // in the panel, and kept with the run and its notes.
 const tricks = createTrickReader();
 const trickText = createTrickText();
+const inputOverlay = createInputOverlay();
 let runTricks: { tick: number; text: string }[] = [];
 
 const chase = createChaseCamera(params);
@@ -289,6 +291,22 @@ addEventListener('keydown', (ev) => {
   else if (ev.key === ']') stepAnchor(1);
 });
 
+/**
+ * Haptics (params.haptics): a pulse on pop, rail lock, landing and bail, from the state
+ * change this tick made. Live riding only — a replay doesn't buzz.
+ */
+function feel(before: RiderState, after: RiderState): void {
+  const h = params.haptics;
+  if (h.on <= 0) return;
+  if (before.popLatch && !after.popLatch && after.mode === 'airborne') rumble(h.pop * 0.4, h.pop, h.ms);
+  if (before.mode !== 'railed' && after.mode === 'railed') rumble(h.rail, h.rail * 0.6, h.ms);
+  if (before.mode !== 'bailed' && after.mode === 'bailed') rumble(h.bail, h.bail * 0.5, h.ms * 3);
+  else if (before.mode === 'airborne' && (after.mode === 'grounded' || after.mode === 'walled')) {
+    const m = after.landing === 'sketchy' ? h.sketchy : h.land;
+    rumble(m, m * 0.5, after.landing === 'sketchy' ? h.ms * 2 : h.ms);
+  }
+}
+
 function step(): void {
   // Pose mode disconnects gameplay entirely — the rider is frozen and the drivers are
   // the only thing moving (design §7.8, build order step 2).
@@ -316,6 +334,9 @@ function step(): void {
     liveHashes.push(hashState(state));
     liveSecondaryHashes.push(hashSecondary(secondary));
   }
+
+  inputOverlay.push(input);
+  if (!replay) feel(previous, state);
 
   const trick = tricks.step(state, TICK_DT);
   if (trick) {
@@ -495,6 +516,7 @@ function render(alpha: number): void {
     lastLanding = state.landing;
   }
   view.renderer.render(view.scene, chase.camera);
+  inputOverlay.draw();
 
   if (++refreshCounter % 6 === 0) {
     readout.pad = padSummary();
@@ -607,6 +629,7 @@ const orbit = createPoseOrbit(chase.camera, view.renderer.domElement);
 const panel = createPanel(params, readout, view.drivers, preview, feedback, {
   onDownloadFeedback: () => void downloadFeedback(),
   onTrickText: (on) => trickText.setEnabled(on),
+  onInputOverlay: (on) => inputOverlay.setEnabled(on),
   onDressed: (on) => view.setDressed(on),
   onPoseMode: (on) => {
     // Leaving pose mode mid-preview would leave a half-blended pose in the document.

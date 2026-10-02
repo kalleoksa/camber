@@ -252,3 +252,17 @@ export function pollMark(): 'note' | 'good' | 'bad' | 'bug' | 'look' | null {
   }
   return mark;
 }
+
+/** Chrome's dual-rumble actuator; absent on Safari and Firefox, where rumble is skipped. */
+type Rumble = { playEffect(type: 'dual-rumble', p: { duration: number; strongMagnitude: number; weakMagnitude: number }): Promise<unknown> };
+
+/**
+ * One rumble pulse on the pad, if it has a motor the browser exposes. Output only — it never
+ * touches the snapshot, the take or the sim. `strong` is the low, heavy motor, `weak` the buzz.
+ */
+export function rumble(strong: number, weak: number, ms: number): void {
+  const pad = findPad() as (Gamepad & { vibrationActuator?: Rumble | null }) | null;
+  const motor = pad?.vibrationActuator;
+  if (!motor) return;
+  motor.playEffect('dual-rumble', { duration: ms, strongMagnitude: Math.min(1, strong), weakMagnitude: Math.min(1, weak) }).catch(() => {});
+}

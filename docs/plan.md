@@ -40,6 +40,8 @@ time), pop feel, carving and the halfpipe at the new size. Speed readout now sho
 - Camera distance and FOV for bigger features; spray and audio speed curves unchanged.
 - Rail lane: third jib table is hit at ~17 m/s — move it up the hill either way.
 
+Jump line spacing tightened (`GAP_*` in park.ts): big kickers ~62 m apart, was ~72.
+
 ## 2. Jump shape — after §1
 
 From the references, the takeoff is what reads:
@@ -65,7 +67,32 @@ the camo): no asset pipeline, nothing in `src/sim/**`.
 4. **Park dressing**: fences and flags along the line.
 5. **Camera**: lower and closer behind the rider, as in the references.
 
-## 4. Carried over
+## 4. From the trick input spec (Claude Docs, 2026-10-02)
+
+What fits the invariants and the current control scheme:
+
+1. **Rail naming** (`render/tricks.ts`): spin out ("bs boardslide 270 out"), lipslide vs
+   boardslide from which end crossed the rail, blunts, bonk on a short touch, rail-to-rail
+   transfers ("bs boardslide to 50-50"). — *done*; blunt is my reading of which end is
+   over the rail, check it against how you'd call them.
+2. **Off-axis names**: cork (spin-led), rodeo (backflip-led), misty (frontflip-led). — *done*
+3. **More grabs** as anchors: seatbelt, crail, rocket, bloody dracula, double grab (two
+   grab points: rig change). Poses are yours to author. Weddle = mute, already there.
+4. **Haptics**: rumble on pop, rail lock, landing, bail (`params.haptics`, Chrome only). — *done*
+5. **Lip timing**: measure how much a pop at the lip vs early changes the air; cue it by
+   sound, not UI.
+6. **Input overlay**, a panel toggle: live sticks, triggers, bumpers — also during replays.
+   — *done*
+
+Left out, and why: scoring, trick book unlocks (progression), angle numbers on screen,
+wind-up meter and lip highlight (UI chrome — CLAUDE.md); spin on the right stick (collides
+with grabs; current left-stick spin/flip works); grabs on LB/RB (those are shifty and rail
+slide; the stick-as-board-point grab covers more); camera presets on the D-pad (feedback
+marks live there); pause/menus; Vitest (dependency — the scripts already test recorded
+takes); 60 Hz sampling (the sim is 120 Hz). The spec's rail-side convention (heelside =
+backside) is the opposite of yours (blind boardslide = frontside); yours stands.
+
+## 5. Carried over
 
 - Clothes phase 2: skinned lower body (pants bend at the knee instead of rigid tubes).
 - Loose feel: step 1 (your tuning pass on the body springs) and step 3.
@@ -74,4 +101,3 @@ the camo): no asset pipeline, nothing in `src/sim/**`.
 - Halfpipe: wall-to-wall transfers untested by script; tune `HALFPIPE_*` and `WALL` in play.
 - Anchors have no `spineCurl` yet — the riding hunch rides on top; author curl per grab.
 - Keyboard: `STICK_RATE` and `GRAB` in `src/input/keyboard.ts` once played.
-- Lipslide naming in the trick reader.

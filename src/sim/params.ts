@@ -315,6 +315,15 @@ export const params = {
     thumpFilter: 220, // Hz lowpass — a thud, not a crack
     thumpDecay: 0.28, // s
   },
+  haptics: {
+    on: 1, // 1: rumble on the pad where the browser supports it (Chrome)
+    pop: 0.3, // 0..1 motor strength on a pop
+    rail: 0.45, // locking onto a rail
+    land: 0.35, // a clean landing
+    sketchy: 0.65, // a sketchy one, held twice as long
+    bail: 1.0, // a bail, three times as long
+    ms: 70, // pulse length
+  },
   camera: {
     springStiffness: 5.5, // 1/s (was 9) — loose enough that the rider moves in frame
     lookStiffness: 7.0, // 1/s the aim point follows the rider — lets them drift off centre on turns and landings
