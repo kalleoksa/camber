@@ -99,13 +99,12 @@ backside) is the opposite of yours (blind boardslide = frontside); yours stands.
   before touchdown (`rig.armWind` … `chainDamping`). No-grab airs ride compact: knees up,
   back rounded (`rig.airCrouch`, `airSlouch`, `airFold`).
 - **Sim** — *done, behind `air.spinModel` = 1* (0 keeps today's rules; old takes pin 0):
-  hold RT with the stick pushed to wind up (`windTime` 1 s to full, only ever builds while
-  RT is held, a pad tick at each third); the wind-up is how much — flicked across at the
-  pop it all goes into the spin the other way, held through `windGain` of it goes that way.
-  Roughly 0.35 s of wind is a 360, 0.5 a 540, 0.7 a 720, 1 s a 1080 (real gravity). The flick is read by stick position, anywhere from ~0.15 s
-  before the release to `flickWindow` after. In the
-  air the rotation is fixed — the stick only tucks (toward the spin, `tuckGain`) or opens
-  (against it, `openGain`), and has to pass through centre first, as now.
+  while charging RT, hold the stick the way you want to spin — how long sets how much
+  (`windTime` 1 s to full, a pad tick each third): ~0.35 s a 360, 0.5 a 540, 0.7 a 720,
+  1 s a 1080 (real gravity). Release and it spins that way; flick across at the release
+  to send it the other way. In the air the rotation is fixed: keep pushing toward the spin
+  to tuck (`tuckGain`, faster), push against it to open (`openGain`, slower) — no
+  centring first.
 
 ## 5. Carried over
 

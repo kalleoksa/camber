@@ -75,9 +75,11 @@ export function stepAirborne(
       ? length(stickRotation(stickW, takeoffSpinRate(state, input, params), state, input, params))
       : Math.abs(takeoffSpinRate(state, input, params));
     if (asked > Math.abs(state.spinRate)) setTakeoffSpin(state, input, params);
-  } else if (!state.spinArmed) {
+  } else if (!state.spinArmed && params.air.spinModel <= 0) {
     // coast
   } else if (params.air.spinModel > 0) {
+    // (No arming here: tucking only scales the spin takeoff gave, so a stick still held
+    // from the pop can't start one — holding on toward the spin just spins it faster.)
     // Spin model 1: the rotation is what the takeoff gave it. The stick, read against the
     // axis already turning, only tucks the body in (toward the spin) or opens it out
     // (against), which speeds the same rotation up or slows it — never starts or reverses it.
