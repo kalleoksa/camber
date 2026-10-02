@@ -20,7 +20,7 @@ type Size = { lipHeight: number; deckLength: number; width: number; deckWidth: n
  * bleeds what the last landing gave), the slope dropping to `landing` under it, `after` beyond.
  */
 function jump(z: number, size: Size, landing: number, table = 0, after = shelf): { kicker: KickerConfig; grades: GradeConfig[]; end: number } {
-  const kicker: KickerConfig = { z, x: JUMP_X, lipAngle: 0.5, sideTaper: 2, landingAngle: 0.15, knuckleRadius: 6, runoutRadius: 20, ...size };
+  const kicker: KickerConfig = { z, x: JUMP_X, lipAngle: 0.5, sideTaper: 0.3, deckTaper: 2.5, landingAngle: 0.15, knuckleRadius: 6, runoutRadius: 20, ...size };
   const sp = kickerSpan(kicker);
   return {
     kicker,
@@ -33,8 +33,9 @@ function jump(z: number, size: Size, landing: number, table = 0, after = shelf):
   };
 }
 
-const SMALL = { width: 5, deckWidth: 6 };
-const BIG = { width: 5, deckWidth: 8 };
+// Takeoffs cut square at the sides (sideTaper), on a table that rounds off (deckTaper).
+const SMALL = { width: 6, deckWidth: 7 };
+const BIG = { width: 6, deckWidth: 9 };
 // Gaps, m from one landing's end to the next kicker's transition — short, so the line flows.
 const GAP_SMALL = 14;
 const GAP_BUILD = 36; // after the small ones: the steeper pitch that feeds the big ones

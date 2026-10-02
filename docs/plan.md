@@ -34,7 +34,12 @@ terrain, so they replay as they were.
 
 Jump line spacing tightened (`GAP_*` in park.ts): big kickers ~62 m apart, was ~72.
 
-## 2. Jump shape — after §1
+## 2. Jump shape — *first pass done*
+
+Home park kickers: takeoffs cut square (`sideTaper` 0.3 → 0.5 m real) on tables that round
+off (`deckTaper`), 6 → ~10 m wide, pink lines along the lip and both sides of the ramp,
+fine grid rows/columns at lips and cut sides. Still open: transition shape (below).
+
 
 From the references, the takeoff is what reads:
 

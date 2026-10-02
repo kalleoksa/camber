@@ -142,6 +142,8 @@ export type KickerConfig = {
    * the takeoff. Leave it out and the table is the takeoff's width.
    */
   deckWidth?: number;
+  /** m over which the table's and landing's sides fall away, when `deckWidth` is set; defaults to `sideTaper`. A short `sideTaper` with a longer `deckTaper` is a cut takeoff on a rounded table. */
+  deckTaper?: number;
 };
 
 export function createContact(): Contact {
@@ -291,9 +293,10 @@ function kickerProfile(k: KickerConfig): Profile {
       let takeoff = 0;
       if (s < runIn) takeoff = (radius - Math.sqrt(radius * radius - s * s)) * fade(1 - (dx - k.width * 0.5) / k.sideTaper);
       let table = 0;
-      if (s >= runIn - k.sideTaper) {
-        const along = s < runIn ? k.lipHeight * fade(1 - (runIn - s) / k.sideTaper) : tableHeight(s);
-        table = along * fade(1 - (dx - deckHalf) / k.sideTaper);
+      const deckTaper = k.deckTaper ?? k.sideTaper;
+      if (s >= runIn - deckTaper) {
+        const along = s < runIn ? k.lipHeight * fade(1 - (runIn - s) / deckTaper) : tableHeight(s);
+        table = along * fade(1 - (dx - deckHalf) / deckTaper);
       }
       return takeoff > table ? takeoff : table;
     }

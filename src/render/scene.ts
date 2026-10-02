@@ -229,6 +229,14 @@ function gridColumns(cfg: SlopeConfig, cell: number): number[] {
     const to = Math.max(w.x, w.x + w.side * span) + 0.5;
     for (let x = from; x <= to; x += 0.1) xs.push(x);
   }
+  // Cut takeoffs: fine columns across each side so the wall is a wall, not a ramp.
+  for (const k of cfg.kickers ?? []) {
+    if (k.sideTaper > 1) continue;
+    for (const side of [-1, 1]) {
+      const edge = k.x + side * k.width * 0.5;
+      for (let x = edge - 0.3; x <= edge + 0.3 + k.sideTaper; x += 0.1) xs.push(side > 0 ? x : 2 * edge - x);
+    }
+  }
   // Quarter pipes facing across the slope: their face runs along Z, like a wall's. Only the
   // transition and face need it — deck and back are gentle, and these run the park's length.
   for (const q of cfg.quarters ?? []) {
@@ -247,6 +255,11 @@ function gridRows(cfg: SlopeConfig, runOut: number, cell: number): number[] {
   const zs: number[] = [];
   const coarse = Math.round((cfg.length + runOut) / cell);
   for (let j = 0; j <= coarse; j++) zs.push(runOut - ((cfg.length + runOut) * j) / coarse);
+  // A kicker's lip: fine rows across it, so the edge reads sharp.
+  for (const k of cfg.kickers ?? []) {
+    const lip = k.z - (k.lipHeight / (1 - Math.cos(k.lipAngle))) * Math.sin(k.lipAngle);
+    for (let z = lip + 0.6; z >= lip - 0.6; z -= 0.1) zs.push(z);
+  }
   for (const q of cfg.quarters ?? []) {
     if (q.side) continue;
     const span = q.radius + q.deck + 2 * q.height + 1;
@@ -317,6 +330,39 @@ function slopeMarkers(cfg: SlopeConfig, terrain: Terrain): THREE.Group {
 }
 
 /** Rails as square bars along their segments — the sim's rail line is the bar's top. */
+/**
+ * Coloured lines along each cut takeoff's edges — the lip and both sides of the ramp, as
+ * parks paint them. They read the lip and the speed from a distance. Kickers with rolled
+ * sides (sideTaper over 1 m: the jib tables, the older parks) don't get them.
+ */
+function kickerLines(cfg: SlopeConfig, terrain: Terrain): THREE.Group {
+  const group = new THREE.Group();
+  const material = new THREE.MeshBasicMaterial({ color: 0xd8325a });
+  const contact = createContact();
+  const at = (x: number, z: number, inset: number): THREE.Vector3 =>
+    new THREE.Vector3(x, terrain.sample(x - inset, z, contact).height + 0.03, z);
+  for (const k of cfg.kickers ?? []) {
+    if (k.sideTaper > 1) continue;
+    const runIn = (k.lipHeight / (1 - Math.cos(k.lipAngle))) * Math.sin(k.lipAngle);
+    const lip = k.z - runIn;
+    const half = k.width * 0.5;
+    const tube = (points: THREE.Vector3[]): void => {
+      const curve = new THREE.CatmullRomCurve3(points);
+      group.add(new THREE.Mesh(new THREE.TubeGeometry(curve, points.length * 2, 0.045, 6, false), material));
+    };
+    for (const side of [-1, 1]) {
+      const x = k.x + side * (half - 0.05);
+      const pts: THREE.Vector3[] = [];
+      for (let i = 0; i <= 24; i++) pts.push(at(x, k.z - (runIn * i) / 24, side * 0.05));
+      tube(pts);
+    }
+    const lipPts: THREE.Vector3[] = [];
+    for (let i = 0; i <= 12; i++) lipPts.push(at(k.x - half + 0.05 + ((2 * half - 0.1) * i) / 12, lip + 0.02, 0));
+    tube(lipPts);
+  }
+  return group;
+}
+
 function railMeshes(terrain: Terrain): THREE.Group {
   const group = new THREE.Group();
   const material = new THREE.MeshStandardMaterial({ color: 0x8a939c, roughness: 0.35, metalness: 0.8 });
@@ -380,6 +426,7 @@ export function createScene(cfg: SlopeConfig, terrain: Terrain, camera: THREE.Pe
   scene.add(markers);
   const rails = railMeshes(terrain);
   scene.add(rails);
+  scene.add(kickerLines(cfg, terrain));
   const skyColour = new THREE.Color(0x9db6cc);
   const stageColour = new THREE.Color(0xeef2f6);
   const fog = scene.fog;
