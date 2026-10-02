@@ -62,6 +62,7 @@ export function tick(
     }
   }
 
+  const wasAir = state.mode === 'airborne';
   switch (state.mode) {
     case 'grounded':
     case 'walled':
@@ -77,4 +78,6 @@ export function tick(
       stepRailed(state, input, params, terrain, dt);
       break;
   }
+  // The spin it loaded is spent: down again, the next wind-up starts from nothing, either way.
+  if (wasAir && state.mode !== 'airborne' && params.air.windLandReset > 0) state.windUp = 0;
 }
