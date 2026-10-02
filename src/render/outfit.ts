@@ -211,19 +211,37 @@ function mitten(thumb: 1 | -1): THREE.Group {
   return g;
 }
 
-/** Rust body: boxy, hem drawn in a little by its cinch, open at the top under the yoke. */
-/** Rust body from the waist up, open at the top under the yoke. */
-function jacket(spine: number): THREE.Mesh {
+/** Fraction up the spine of the mid-back joint the upper back curls on (rig.ts `spineCurl`). */
+export const SPINE_CURL_AT = 0.45;
+
+/**
+ * Rust body from the waist up, open at the top under the yoke, in two pieces either side of
+ * the mid-back joint. Each closes over the joint with a ball centred on it, so when the upper
+ * back curls the rounding shows as a hump of jacket rather than a gap — the knee's trick.
+ */
+function jacketLower(spine: number): THREE.Mesh {
   const o = OUTFIT;
+  const mid = spine * SPINE_CURL_AT;
   // Down to −0.08, inside the skirt, so a bend at the waist never opens a gap between them.
   const p: Profile = [
     [0, -0.08],
     [o.jacketWaist, -0.08],
     [o.jacketWaist * 1.03, 0.02],
-    [o.jacketChest, spine * 0.45],
-    [o.jacketChest, spine * (o.yokeFrom + 0.04)],
-    [0, spine * (o.yokeFrom + 0.04)],
+    [o.jacketChest, mid],
   ];
+  dome(p, o.jacketChest * 0.98, mid, 1);
+  const mesh = tube(p, 1, cloth().jacket);
+  mesh.scale.set(o.jacketDepth, 1, o.jacketWidth);
+  return mesh;
+}
+
+/** The upper piece, in the same spine coordinates as the lower — its parent offsets it. */
+function jacketUpper(spine: number): THREE.Mesh {
+  const o = OUTFIT;
+  const mid = spine * SPINE_CURL_AT;
+  const p: Profile = [];
+  dome(p, o.jacketChest * 0.98, mid, -1);
+  p.push([o.jacketChest, mid + 0.01], [o.jacketChest, spine * (o.yokeFrom + 0.04)], [0, spine * (o.yokeFrom + 0.04)]);
   const mesh = tube(p, 1, cloth().jacket);
   mesh.scale.set(o.jacketDepth, 1, o.jacketWidth);
   return mesh;
@@ -324,7 +342,8 @@ function goggles(): THREE.Group {
 /** The rig's segments, as rig.ts builds them. Limb meshes are unit-tall along +Y. */
 export type Segments = {
   pelvis: THREE.Mesh;
-  torso: THREE.Mesh;
+  torso: THREE.Mesh; // hips to the mid-back joint
+  chest: THREE.Mesh; // mid-back joint to the shoulders, origin on the joint
   head: THREE.Mesh;
   thighs: THREE.Mesh[];
   shins: THREE.Mesh[];
@@ -377,8 +396,14 @@ export function dress(seg: Segments, lengths: { thigh: number; shin: number; upp
   // Seat and crotch in one piece, over both hip joints and down between the legs.
   const [sx, sy, sz] = OUTFIT.seat;
   hang(seg.pelvis, blob(c.pants, 0, -0.03, 0, sx ?? 0.17, sy ?? 0.15, sz ?? 0.25));
-  hang(seg.torso, jacket(lengths.spine));
-  hang(seg.torso, yoke(lengths.spine));
+  hang(seg.torso, jacketLower(lengths.spine));
+  // Upper back pieces keep their hips-up coordinates: a group on the chest sets them back
+  // down by the joint's height, so with no curl everything sits exactly where it did.
+  const upper = new THREE.Group();
+  upper.position.y = -lengths.spine * SPINE_CURL_AT;
+  seg.chest.add(upper);
+  hang(upper, jacketUpper(lengths.spine));
+  hang(upper, yoke(lengths.spine));
   const skirtPivot = new THREE.Group();
   skirtPivot.position.y = SKIRT_PIVOT;
   const skirtMesh = skirt();
@@ -387,7 +412,7 @@ export function dress(seg: Segments, lengths: { thigh: number; shin: number; upp
   const hoodPivot = new THREE.Group();
   hoodPivot.position.set(0.07, lengths.spine * 1.02, 0);
   hoodPivot.add(blob(c.yoke, 0.04, -0.02, 0, 0.09, 0.1, 0.14));
-  hang(seg.torso, hoodPivot);
+  hang(upper, hoodPivot);
 
   // Head: face, a shallow fisherman beanie sitting above the ears with a deep cuff and its
   // label, goggles pushed up onto the crown.

@@ -457,8 +457,10 @@ export function createScene(cfg: SlopeConfig, terrain: Terrain, camera: THREE.Pe
       drivers.hipZ += view.railContact * r.pressHipShift;
       drivers.spineSide += view.railContact * r.stanceSpineSide;
     }
-    // Wind-up and lead ride on top of whatever the grab asks for, not under it.
+    // Wind-up and lead ride on top of whatever the grab asks for, not under it. So does the
+    // hunch: the anchors were authored straight-backed, and a grab shouldn't sit the rider up.
     drivers.spineTwist += secondary.twist;
+    drivers.spineCurl += r.spineCurlBase + view.compress * r.compressSpineCurl;
     drivers.headYaw += secondary.head;
     // Loose body: arms and hips trail the board's acceleration (secondary.ts).
     drivers.frontShoulderSwing -= secondary.armX;

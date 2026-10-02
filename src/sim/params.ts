@@ -232,6 +232,7 @@ export const params = {
     hipHeight: 0.86, // m above the deck, uncompressed
     spine: 0.52, // m hips to shoulders
     neck: 0.16, // m shoulders to head
+    curlHeadLift: 0.6, // fraction of the upper-back curl the neck takes back, keeping the eyes up
     crouchDepth: 0.28, // m the hips drop at full compress
     hipStiffness: 250.0, // ω² for the hip spring — ω = sqrt of this, so 250 is ~15.8 rad/s
     hipDamping: 1.0, // ζ — 1.0 is critically damped
@@ -242,6 +243,8 @@ export const params = {
     stanceSpineSide: 0.3, // rad of spine lean into a press
     spineBendBase: 0.18, // rad of forward fold standing
     compressSpineBend: 0.25, // rad of extra fold at full compress
+    spineCurlBase: 0.45, // rad the upper back rounds riding — the hunch over the board
+    compressSpineCurl: 0.3, // rad of extra rounding at full compress
     railLean: 0.25, // m of hip shift at full rail balance — the lean you're fighting, drawn
     railTilt: 0.35, // rad the rider tips about the rail at full balance, toward the side they're falling to
     pressPitch: 0.25, // rad the board tips onto the rail at full contact — a nose press is nose down

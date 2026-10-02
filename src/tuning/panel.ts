@@ -15,6 +15,7 @@ const DRIVER_RANGE: Record<keyof RigDrivers, { min: number; max: number }> = {
   spineBend: { min: -1.6, max: 1.6 },
   spineSide: { min: -0.9, max: 0.9 },
   spineTwist: { min: -1.2, max: 1.2 },
+  spineCurl: { min: -0.4, max: 1.2 }, // upper back rounding forward on the mid-back joint
   frontHandEdge: { min: -1, max: 1 },
   frontHandT: { min: 0, max: 1 },
   backHandEdge: { min: -1, max: 1 },
