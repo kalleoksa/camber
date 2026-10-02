@@ -34,17 +34,23 @@ function jump(z: number, size: Size, landing: number, table = 0, after = shelf):
 
 const SMALL = { width: 5, deckWidth: 6 };
 const BIG = { width: 5, deckWidth: 8 };
+// Gaps, m from one landing's end to the next kicker's transition — short, so the line flows.
+const GAP_SMALL = 14;
+const GAP_BUILD = 36; // after the small ones: the steeper pitch that feeds the big ones
+const GAP_BIG = 18;
+const GAP_CORNER = 18;
+const BIG_SHELF = 0.13; // rad between the big ones: short gaps, so a steeper pitch has to rebuild the speed
 const s1 = jump(-40, { ...SMALL, lipHeight: 1.2, deckLength: 3 }, 0.25, 0.1, 0.14);
-const s2 = jump(s1.end - 22, { ...SMALL, lipHeight: 1.6, deckLength: 5 }, 0.25, 0.1, 0.14);
+const s2 = jump(s1.end - GAP_SMALL, { ...SMALL, lipHeight: 1.6, deckLength: 5 }, 0.25, 0.1, 0.14);
 const buildUp = s2.end - 8; // a steeper pitch into the big ones
-const b1 = jump(s2.end - 45, { ...BIG, lipHeight: 3, deckLength: 10 }, 0.3);
-const b2 = jump(b1.end - 28, { ...BIG, lipHeight: 3, deckLength: 10 }, 0.3);
-const b3 = jump(b2.end - 28, { ...BIG, lipHeight: 3.5, deckLength: 12.5 }, 0.3);
+const b1 = jump(s2.end - GAP_BUILD, { ...BIG, lipHeight: 3, deckLength: 10 }, 0.3, 0, BIG_SHELF);
+const b2 = jump(b1.end - GAP_BIG, { ...BIG, lipHeight: 3, deckLength: 10 }, 0.3, 0, BIG_SHELF);
+const b3 = jump(b2.end - GAP_BIG, { ...BIG, lipHeight: 3.5, deckLength: 12.5 }, 0.3); // normal shelf after: the corner is sized for ~60 km/h
 
 // Corner sized for the ~18-20 m/s the big line hands on; its deck runs long so the side
 // landings sit beside the flight, not behind it.
 const CORNER: Omit<CornerConfig, 'z'> = { x: JUMP_X, width: 8, lipHeight: 5, lipAngle: 0.45, deckLength: 24, deckWidth: 4, sideTaper: 3, landingAngle: 0.5, knuckleRadius: 5, runoutRadius: 18 };
-const cornerZ = b3.end - 25;
+const cornerZ = b3.end - GAP_CORNER;
 const cornerRunIn = (CORNER.lipHeight / (1 - Math.cos(CORNER.lipAngle))) * Math.sin(CORNER.lipAngle);
 const cornerEnd = cornerZ - cornerRunIn - CORNER.deckLength - 15; // its landings back on the slope
 // Below the corner, a short halfpipe: two quarter pipes facing each other across a flat
@@ -78,7 +84,7 @@ export const PARK: SlopeConfig = {
     { z: -14, pitch: 0.1, blend: 8 },
     ...s1.grades,
     ...s2.grades,
-    { z: buildUp, pitch: 0.2, blend: 6 },
+    { z: buildUp, pitch: 0.24, blend: 6 },
     ...b1.grades,
     ...b2.grades,
     ...b3.grades,
