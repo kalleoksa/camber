@@ -485,6 +485,7 @@ export function createScene(cfg: SlopeConfig, terrain: Terrain, camera: THREE.Pe
   const roll = new THREE.Quaternion();
   const tumble = new THREE.Quaternion();
   const zAxis = new THREE.Vector3(0, 0, 1);
+  const yAxis = new THREE.Vector3(0, 1, 0);
   const railAxis = new THREE.Vector3();
   const tumbleAxis = new THREE.Vector3(1, 0.3, 0).normalize();
   let tumbleAngle = 0;
@@ -697,6 +698,18 @@ export function createScene(cfg: SlopeConfig, terrain: Terrain, camera: THREE.Pe
       // Pose mode leaves the drivers alone — they are the thing being authored.
       pinZ = 0;
       if (!poseMode) driveFromSim(view, params, secondary);
+      if (!poseMode && drivers.shifty !== 0) {
+        // A hand holding the board can't let it yaw away under a still body: that much of
+        // the shifty turns the whole rider instead, about the same axis, and only the rest
+        // twists the board under the hips. The sim's board is the same either way.
+        const held = Math.min(1, Math.max(drivers.frontGrip, drivers.backGrip));
+        const turn = drivers.shifty * params.rig.shiftyGrabTurn * held;
+        if (turn !== 0) {
+          drivers.shifty -= turn;
+          roll.setFromAxisAngle(yAxis, turn);
+          rig.root.quaternion.multiply(roll);
+        }
+      }
       if (pinZ !== 0) {
         // Where the pressed tip ends up after the rig pitches the board about the hand
         // point, and the root moved back by that much so the tip stays on the snow.

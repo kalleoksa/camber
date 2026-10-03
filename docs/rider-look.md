@@ -17,9 +17,10 @@ Decision taken: **procedural**. No mesh files, no modelling tool, no new depende
   waist twist ever reads badly.
 - Silhouette from your references:
   - Olive, wide straight-leg pant with a soft break over the boot.
-  - Boxy two-tone raglan shell ending just below the hips, with a teal yoke, sleeves and
-    hood over a rust body.
-  - Black beanie with the goggles pushed up on it.
+  - Boxy raglan shell ending just below the hips, black (was teal yoke, sleeves and hood
+    over a rust body).
+  - Face covered (your lift photo): goggles on, a black neck gaiter pulled up to them, an
+    olive slouchy beanie over the ears.
   - Oversized mitts.
 - Fit numbers and palette are the `OUTFIT` const in `outfit.ts`, edited in code (Vite
   reloads). They aren't in Tweakpane yet.

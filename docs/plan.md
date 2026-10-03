@@ -34,7 +34,7 @@ terrain, so they replay as they were.
 
 Jump line spacing tightened (`GAP_*` in park.ts): big kickers ~62 m apart, was ~72.
 
-## 2. Jump shape — *first pass done*
+## 2. Jump shape — *done*
 
 Home park kickers: takeoffs cut square (`sideTaper` 0.3 → 0.5 m real) on tables that round
 off (`deckTaper`), 6 → ~10 m wide, pink lines along the lip and both sides of the ramp,
@@ -51,16 +51,6 @@ Kicker transitions shorter and steeper: lip 34° (was 29°), big ones ~16 m of r
 The table's uphill face no longer rises in front of the takeoff — it had been rounding every
 lip off to ~23° whatever `lipAngle` said (the corner had the same bug).
 
-
-From the references, the takeoff is what reads:
-
-- **Cut sidewalls**, near-vertical, instead of `sideTaper` rolling the sides off over 2–3 m
-  (reads as a mound). Needs fine grid columns/rows at the edges, as walls have.
-- **Tall, tight transition** to a clear lip; check `lipAngle` 0.5 (29°) against 30–35°.
-- **Wider**: ~8–10 m real.
-- **Edge lines** along the lip and both sidewalls (the references' red lines). Gameplay as
-  much as look: they let you read the lip and the speed from distance.
-- Flat table behind — already there.
 
 ## 3. Look — after §2
 
@@ -120,10 +110,17 @@ backside) is the opposite of yours (blind boardslide = frontside); yours stands.
 
 ## 5. Carried over
 
-- Clothes phase 2: skinned lower body (pants bend at the knee instead of rigid tubes).
+- Clothes phase 2 — *done*: each pant leg is one tube skinned to thigh and shin (`pantLeg`), so
+  the knee bends like cloth; outline hull skinned with it. Jacket black. Head from your photo:
+  goggles on, black neck gaiter up to them, slouchy beanie over the ears.
 - Loose feel: step 1 (your tuning pass on the body springs) and step 3.
 - `nosegrab`: the front knee goes ~10 cm through the deck in the authored pose (pose data).
 - `npm run gate` fails `method path reach 1.0109` — on main too, predates the spine work.
 - Halfpipe: wall-to-wall transfers untested by script; tune `HALFPIPE_*` and `WALL` in play.
 - Anchors have no `spineCurl` yet — the riding hunch rides on top; author curl per grab.
 - Keyboard: `STICK_RATE` and `GRAB` in `src/input/keyboard.ts` once played.
+- Grab + shifty: a hand holding the board turns the whole rider through `rig.shiftyGrabTurn`
+  (0.7) of the shifty, the rest twists the board under the body — before, the board yawed
+  away under the hand (up to 16 cm short on nose/tail grabs). Sim side, grabs checked across
+  all stick directions, tweak, shifty, switch and spins: consistent; a shifty held into the
+  landing bails (52° off the line), by design.
