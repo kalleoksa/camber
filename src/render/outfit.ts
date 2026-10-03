@@ -52,7 +52,7 @@ export const OUTFIT = {
   hemEnd: 0.03, // m above the ankle point the hem ends — at the boot, clear of the deck
   cuffTop: 0.22, // m up the boot shaft the pant cuff reaches, overlapping the shin tube
   shinEnd: 0.16, // m above the ankle the shin tube stops and domes into the cuff
-  seat: [0.17, 0.15, 0.25], // m half-extents of the seat and crotch piece, over both hip joints
+  seat: [0.17, 0.15, 0.19], // m half-extents of the seat and crotch piece, over both hip joints
 
   jacketHem: 0.14, // m below the hips — just past them
   jacketWaist: 0.2, // m radius — boxy, barely taken in
