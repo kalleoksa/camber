@@ -3,7 +3,7 @@ import { camo, toon } from './toon.ts';
 
 /**
  * The dressed rider, step 9a (docs/rider-look.md): a park silhouette from your references —
- * an olive ribbed fisherman beanie with the goggles pushed up on it, a boxy black raglan
+ * an olive ribbed slouchy beanie, goggles on and a black neck gaiter up to them, a boxy black raglan
  * shell ending just below the hips, wide straight-leg olive pants breaking softly over the
  * boot, oversized mitts.
  *
@@ -22,9 +22,8 @@ export const OUTFIT = {
   pants: 0x5a6236, // olive drab ground of the camo — ref: wide straight-leg shell pant
   camo: [0x9a8a62, 0x6e8a3a, 0x434a2a], // khaki, light green, dark: the patches over it
   camoRepeat: [1.5, 2.4], // tiles round a leg, and per metre along it: patches about hand-sized
-  beanie: 0x5f7431, // olive, ribbed — ref: shallow fisherman beanie with a deep cuff
+  beanie: 0x5f7431, // olive, ribbed — slouchy, no cuff, pulled down over the ears
   beanieRibs: 56, // ribs round the head
-  patch: 0x121314, // the woven label on the cuff, plain
   // Mitts, from your reference: rust shell, black leather palm, long gauntlet over the sleeve.
   mitt: 0xb95b24,
   palm: 0x17181b,
@@ -33,9 +32,13 @@ export const OUTFIT = {
   lens: 0x3b3d44,
   strap: 0xf0f0f0,
   strapEdge: 0x16171a,
-  goggleWidth: 0.19, // m across the lens, round the head
-  goggleHeight: 0.075, // m, a big cylindrical lens
-  face: 0xf0d9b5,
+  goggleWidth: 0.22, // m across the lens, round the head — wide, past the cheekbones
+  goggleHeight: 0.08, // m, a big cylindrical lens
+  goggleY: 0.022, // m above the head's centre: over the eyes, worn
+  // Face covered, from your reference: goggles down, a black neck gaiter pulled up from the
+  // collar to the goggles, a slouchy beanie over the ears. No skin shows.
+  face: 0x1d1e21, // under everything: the gaiter's black, so a gap reads as more gaiter
+  gaiter: 0x1d1e21,
 
   // Pants: baggy, but tucked in at the hip so the thigh tops stay under the jacket.
   thighTop: 0.085, // m radius at the hip joint — tucked, under the skirt and the seat
@@ -95,7 +98,7 @@ function tube(profile: Profile, len: number, material: THREE.Material): THREE.Me
 
 /** Shared cloth materials: shells flutter (9c), the rest don't. Built once, on first dress. */
 const cloth = (() => {
-  let made: Record<'pants' | 'jacket' | 'yoke' | 'beanie' | 'patch' | 'mitt' | 'palm' | 'strap' | 'strapEdge' | 'frame' | 'lens' | 'face', THREE.Material> | null = null;
+  let made: Record<'pants' | 'jacket' | 'yoke' | 'beanie' | 'gaiter' | 'mitt' | 'palm' | 'strap' | 'strapEdge' | 'frame' | 'lens' | 'face', THREE.Material> | null = null;
   return () => {
     if (made) return made;
     const o = OUTFIT;
@@ -106,7 +109,7 @@ const cloth = (() => {
       jacket: toon(o.jacket, { flutter: true }),
       yoke: toon(o.yoke, { flutter: true }),
       beanie: toon(0xffffff, { map: ribs(o.beanie, o.beanieRibs) }),
-      patch: toon(o.patch),
+      gaiter: toon(o.gaiter),
       mitt: toon(o.mitt),
       palm: toon(o.palm),
       strap: toon(o.strap, { twoSided: true }),
@@ -359,27 +362,76 @@ function ribs(color: number, count: number): THREE.CanvasTexture {
   return t;
 }
 
+/**
+ * Goggles worn, from your reference: a wide cylindrical lens in a frame that stands off the
+ * face, the strap round the beanie. The frame is a closed sector of a cylinder — its caps
+ * are the goggle's top and bottom, filling the space back to the face, so from the side it
+ * reads as a solid goggle rather than a curved sheet.
+ */
 function goggles(): THREE.Group {
   const o = OUTFIT;
   const c = cloth();
   const g = new THREE.Group();
-  const R = 0.118; // m, strap radius round the beanie — clear of the cuff where it tips down at the back
+  const R = 0.116; // m, strap radius round the beanie at eye height
   const ring = (r: number, h: number, y: number, m: THREE.Material): THREE.Mesh => {
     const mesh = new THREE.Mesh(new THREE.CylinderGeometry(r, r, h, 24, 1, true), m);
     mesh.position.y = y;
     return mesh;
   };
   g.add(ring(R, 0.04, 0, c.strap), ring(R + 0.001, 0.004, 0.019, c.strapEdge), ring(R + 0.001, 0.004, -0.019, c.strapEdge));
-  // Arcs centred on −X: Cylinder theta puts x = r·sin θ, so the front is θ = −π/2.
-  const arc = (r: number, w: number, h: number, m: THREE.Material): THREE.Mesh => {
+  // Sectors centred on −X: Cylinder theta puts x = r·sin θ, so the front is θ = −π/2.
+  const sector = (r: number, w: number, h: number, m: THREE.Material, open: boolean): THREE.Mesh => {
     const half = w / (2 * r);
-    return new THREE.Mesh(new THREE.CylinderGeometry(r, r, h, 20, 1, true, -Math.PI / 2 - half, 2 * half), m);
+    return new THREE.Mesh(new THREE.CylinderGeometry(r, r, h, 24, 1, open, -Math.PI / 2 - half, 2 * half), m);
   };
-  g.add(arc(R + 0.012, o.goggleWidth + 0.012, o.goggleHeight + 0.014, c.frame));
-  g.add(arc(R + 0.016, o.goggleWidth, o.goggleHeight, c.lens));
-  g.position.set(0.006, 0.098, 0);
-  g.rotation.z = -0.3; // front up: pushed up onto the forehead
+  g.add(sector(R + 0.014, o.goggleWidth + 0.014, o.goggleHeight + 0.016, c.frame, false));
+  g.add(sector(R + 0.018, o.goggleWidth, o.goggleHeight, c.lens, true));
+  g.position.set(0, o.goggleY, 0);
   return g;
+}
+
+/**
+ * Slouchy beanie: a crown taller than the head, slumped back, and a skirt that comes down
+ * over the ears and the back of the neck. Open at the front, where the goggles sit.
+ */
+function beanie(): THREE.Group {
+  const c = cloth();
+  const g = new THREE.Group();
+  const crown = new THREE.Mesh(new THREE.SphereGeometry(0.11, 24, 12, 0, Math.PI * 2, 0, Math.PI / 2), c.beanie);
+  crown.position.set(0.012, 0.045, 0);
+  crown.scale.set(1.04, 1.25, 1.02);
+  crown.rotation.z = -0.22; // top tipped back
+  g.add(crown);
+  // The slouch: spare length folded over at the back of the crown.
+  g.add(blob(c.beanie, 0.07, 0.12, 0, 0.075, 0.06, 0.085));
+  // Skirt round the sides and back, from above the strap down over the ears; the front 140°
+  // is left open for the goggles and the gaiter.
+  const open = (140 * Math.PI) / 180;
+  const skirt = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.111, 0.104, 0.13, 24, 1, true, -Math.PI / 2 + open / 2, Math.PI * 2 - open),
+    c.beanie,
+  );
+  skirt.position.set(0.006, -0.015, 0);
+  g.add(skirt);
+  return g;
+}
+
+/**
+ * Neck gaiter, pulled up from inside the collar to under the goggles: a tube round the jaw
+ * and neck with a few soft bunches at the throat, a little forward of the head's centre so
+ * it sits over the nose and chin.
+ */
+function gaiter(): THREE.Mesh {
+  const p: Profile = [[0.084, -0.19], [0.086, -0.15]];
+  for (let i = 0; i <= 8; i++) {
+    const t = i / 8;
+    p.push([0.088 + 0.006 * (0.5 - 0.5 * Math.cos(t * 3 * Math.PI * 2)), -0.14 + 0.08 * t]); // three bunches
+  }
+  p.push([0.094, -0.045], [0.102, -0.01], [0.101, 0.005], [0.06, 0.012], [0, 0.012]);
+  const mesh = tube(p, 1, cloth().gaiter);
+  mesh.position.x = -0.008;
+  mesh.scale.set(1.04, 1, 0.97); // deeper front-to-back than across: a jaw, not a pipe
+  return mesh;
 }
 
 /** The rig's segments, as rig.ts builds them. Limb meshes are unit-tall along +Y. */
@@ -477,21 +529,11 @@ export function dress(seg: Segments, lengths: { thigh: number; shin: number; upp
   hoodPivot.add(blob(c.yoke, 0.04, -0.02, 0, 0.09, 0.1, 0.14));
   hang(upper, hoodPivot);
 
-  // Head: face, a shallow fisherman beanie sitting above the ears with a deep cuff and its
-  // label, goggles pushed up onto the crown.
+  // Head, covered as in your reference: the head volume in the gaiter's black, the gaiter up
+  // to the goggles, the goggles on, the beanie over the ears.
   hang(seg.head, blob(c.face, 0, 0, 0, 0.095, 0.11, 0.095));
-  const crown = new THREE.Mesh(new THREE.SphereGeometry(0.106, 20, 8, 0, Math.PI * 2, 0, Math.PI / 2), c.beanie);
-  crown.position.set(0.006, 0.07, 0);
-  crown.scale.set(1, 0.8, 1);
-  hang(seg.head, crown);
-  const cuff = new THREE.Mesh(new THREE.CylinderGeometry(0.109, 0.113, 0.056, 20), c.beanie);
-  cuff.position.set(0.006, 0.048, 0);
-  hang(seg.head, cuff);
-  // Label on the cuff, off to the side of the front as worn.
-  const patch = new THREE.Mesh(new THREE.BoxGeometry(0.006, 0.028, 0.026), c.patch);
-  patch.position.set(0.006 - 0.113 * Math.cos(0.5), 0.046, 0.113 * Math.sin(0.5));
-  patch.rotation.y = 0.5;
-  hang(seg.head, patch);
+  hang(seg.head, gaiter());
+  hang(seg.head, beanie());
   hang(seg.head, goggles());
 
   for (const piece of pieces) piece.traverse((o) => (o.castShadow = true));
