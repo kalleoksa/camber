@@ -42,7 +42,7 @@ export const OUTFIT = {
 
   // Pants: baggy, but tucked in at the hip so the thigh tops stay under the jacket.
   thighTop: 0.085, // m radius at the hip joint — tucked, under the skirt and the seat
-  thighFull: 0.128, // m radius the thigh opens out to a third of the way down
+  thighFull: 0.115, // m radius the thigh opens out to a third of the way down
   knee: 0.124, // m radius through the knee — the thigh's and shin's domes meet here
   stackBase: 0.122, // m radius of the leg above the boot — straight, no taper
   stackAmp: 0.009, // m the bunches stand out — a soft break, not a heavy stack
@@ -54,19 +54,19 @@ export const OUTFIT = {
   shinEnd: 0.16, // m above the ankle the shin tube stops and domes into the cuff
   seat: [0.17, 0.15, 0.19], // m half-extents of the seat and crotch piece, over both hip joints
 
-  jacketHem: 0.17, // m below the hips — just past them
-  jacketWaist: 0.255, // m radius — boxy, barely taken in
-  jacketChest: 0.235, // m radius
-  skirtHem: 0.29, // m radius the skirt flares out to at the hem, clear of hips and thighs
-  skirtTop: 0.28, // m radius at the waist, where the skirt meets the body — boxy: barely less than the hem
+  jacketHem: 0.05, // m below the hips — ends at them, so the thighs leave from under it rather than through it
+  jacketWaist: 0.2, // m radius — boxy, barely taken in
+  jacketChest: 0.21, // m radius
+  skirtHem: 0.24, // m radius the skirt flares out to at the hem, clear of hips and thighs
+  skirtTop: 0.225, // m radius at the waist, where the skirt meets the body — barely less than the hem, over the hip joints
   yokeFrom: 0.72, // fraction up the spine where the teal yoke starts
-  jacketDepth: 0.92, // front-to-back squash of the jacket's round section
+  jacketDepth: 0.84, // front-to-back squash of the jacket's round section
   jacketWidth: 1.07, // shoulder-to-shoulder stretch
-  skirtDepth: 0.95, // the hem's front-to-back squash
-  skirtWidth: 1.1, // the hem's stretch across the stance: boxy and wider than the chest, over the spread thighs
-  sleeveTop: 0.088, // m radius at the shoulder
-  elbow: 0.076, // m radius
-  cuff: 0.09, // m radius, stacked at the mitt
+  skirtDepth: 0.84, // the hem's front-to-back squash
+  skirtWidth: 1.3, // the hem's stretch across the stance, wider than the chest: the hip joints sit out along it
+  sleeveTop: 0.075, // m radius at the shoulder
+  elbow: 0.066, // m radius
+  cuff: 0.08, // m radius, stacked at the mitt
 };
 
 type Profile = [number, number][]; // [radius, y] in metres along the segment
@@ -271,10 +271,12 @@ export const SPINE_CURL_AT = 0.45;
 function jacketLower(spine: number): THREE.Mesh {
   const o = OUTFIT;
   const mid = spine * SPINE_CURL_AT;
-  // Down to −0.08, inside the skirt, so a bend at the waist never opens a gap between them.
+  // Down inside the skirt, short of its hem, so a bend at the waist never opens a gap
+  // between them and the body's bottom never shows below the hem.
+  const bottom = -Math.min(0.08, o.jacketHem - 0.015);
   const p: Profile = [
-    [0, -0.08],
-    [o.jacketWaist, -0.08],
+    [0, bottom],
+    [o.jacketWaist, bottom],
     [o.jacketWaist * 1.03, 0.02],
     [o.jacketChest, mid],
   ];
@@ -304,8 +306,9 @@ function jacketUpper(spine: number): THREE.Mesh {
  */
 export function skirtProfile(): Profile {
   const o = OUTFIT;
+  // Open at the hem, as a jacket is: a closed bottom showed as a dark band between the legs.
   return [
-    [0, -o.jacketHem - SKIRT_PIVOT],
+    [o.skirtHem * 0.97, -o.jacketHem - SKIRT_PIVOT + 0.004],
     [o.skirtHem, -o.jacketHem - SKIRT_PIVOT],
     [o.skirtHem * 0.99, -o.jacketHem * 0.55 - SKIRT_PIVOT],
     [o.skirtTop, 0.03 - SKIRT_PIVOT],
