@@ -3,21 +3,22 @@ import { camo, toon } from './toon.ts';
 
 /**
  * The dressed rider, step 9a (docs/rider-look.md): a park silhouette from your references —
- * an olive ribbed fisherman beanie with the goggles pushed up on it, a boxy two-tone raglan shell (teal yoke,
- * sleeves and hood over a rust body) ending just below the hips, wide straight-leg olive
- * pants breaking softly over the boot, oversized mitts.
+ * an olive ribbed fisherman beanie with the goggles pushed up on it, a boxy black raglan
+ * shell ending just below the hips, wide straight-leg olive pants breaking softly over the
+ * boot, oversized mitts.
  *
  * Every piece is a rigid mesh parented to the rig's existing segment, so it moves with the
- * solve and needs no bones of its own. Limbs are lathe tubes with domed ends centred on the
- * joints: the thigh's dome and the shin's dome are the same sphere at the knee, so a bend
- * reads as a bent tube instead of a gap. Render only — nothing here reaches the sim.
+ * solve, except the pant legs: one tube each from hip to boot, skinned to two bones posed
+ * from the thigh and shin, so the knee bends like cloth (`pantLeg`). Arms are lathe tubes
+ * with domed ends centred on the joints, the two domes the same sphere at the elbow. Render
+ * only — nothing here reaches the sim.
  *
  * Fit numbers are here rather than in params because they don't change feel and aren't
  * part of a take. Edit and let Vite reload.
  */
 export const OUTFIT = {
-  jacket: 0xa9521f, // rust body
-  yoke: 0x14545e, // teal shoulders, sleeves, hood
+  jacket: 0x26282c, // black body — a charcoal black, so the toon bands still read against the outline
+  yoke: 0x26282c, // shoulders, sleeves, hood: the same black
   pants: 0x5a6236, // olive drab ground of the camo — ref: wide straight-leg shell pant
   camo: [0x9a8a62, 0x6e8a3a, 0x434a2a], // khaki, light green, dark: the patches over it
   camoRepeat: [1.5, 2.4], // tiles round a leg, and per metre along it: patches about hand-sized
@@ -125,24 +126,66 @@ function blob(material: THREE.Material, x: number, y: number, z: number, sx: num
   return mesh;
 }
 
-function thigh(len: number): THREE.Mesh {
+/**
+ * A pant leg from the hip to just above the boot, one tube skinned to two bones so it bends
+ * at the knee like cloth instead of two tubes meeting in a ball. Built along +Y in metres:
+ * hip at 0, knee at `thighLen`. The bones are posed from the rig's thigh and shin segments
+ * each frame (`Outfit.poseLegs`); the band either side of the knee blends between them.
+ */
+function pantLeg(thighLen: number, shinLen: number): { mesh: THREE.SkinnedMesh; thigh: THREE.Bone; shin: THREE.Bone } {
   const o = OUTFIT;
+  const k = thighLen;
   const p: Profile = [];
   dome(p, o.thighTop, 0, -1);
-  p.push([o.thighTop * 1.1, len * 0.12], [o.thighFull, len * 0.35], [o.knee * 1.02, len * 0.75]);
-  dome(p, o.knee, len, 1);
-  return tube(p, len, cloth().pants);
+  p.push([o.thighTop * 1.1, k * 0.12], [o.thighFull, k * 0.35], [o.knee * 1.02, k * 0.75]);
+  // Close rings through the knee so the bend has vertices to fold on; a little fuller there,
+  // because a blended joint loses volume on the outside of the bend.
+  for (const [dy, f] of [[-0.09, 1.02], [-0.06, 1.03], [-0.03, 1.05], [0, 1.06], [0.03, 1.05], [0.06, 1.02], [0.09, 1]] as const) {
+    p.push([o.knee * f, k + dy]);
+  }
+  p.push([o.knee * 0.97, k + shinLen * 0.35]);
+  dome(p, o.stackBase, k + shinLen - o.shinEnd, 1);
+
+  const points = p.map(([r, y]) => new THREE.Vector2(Math.max(r, 0), y));
+  const geometry = new THREE.LatheGeometry(points, 16);
+  const pos = geometry.getAttribute('position');
+  const uv = geometry.getAttribute('uv');
+  const index = new Uint16Array(pos.count * 4);
+  const weight = new Float32Array(pos.count * 4);
+  for (let i = 0; i < pos.count; i++) {
+    const y = pos.getY(i);
+    uv.setY(i, y); // metres, as `tube` does, so the camo keeps its size
+    const t = Math.min(1, Math.max(0, (y - (k - KNEE_BLEND)) / (2 * KNEE_BLEND)));
+    const w = t * t * (3 - 2 * t);
+    index[i * 4 + 1] = 1;
+    weight[i * 4] = 1 - w;
+    weight[i * 4 + 1] = w;
+  }
+  uv.needsUpdate = true;
+  geometry.setAttribute('skinIndex', new THREE.Uint16BufferAttribute(index, 4));
+  geometry.setAttribute('skinWeight', new THREE.Float32BufferAttribute(weight, 4));
+
+  // Bound at rest — straight leg, both bones unrotated — in a frame of their own. They are
+  // posed in the rig root's space later, and the mesh's own transform cancels out (attached
+  // bind mode), so where this frame sits doesn't matter.
+  const thigh = new THREE.Bone();
+  const shin = new THREE.Bone();
+  shin.position.set(0, k, 0);
+  const mesh = new THREE.SkinnedMesh(geometry, cloth().pants);
+  const rest = new THREE.Group();
+  rest.add(thigh, shin, mesh);
+  rest.updateMatrixWorld(true);
+  mesh.bind(new THREE.Skeleton([thigh, shin]));
+  mesh.frustumCulled = false; // its bounds are the rest pose's, not where the leg is
+  return { mesh, thigh, shin };
 }
 
-/** Knee down to just above the boot, where it domes into the cuff. */
-function shin(len: number): THREE.Mesh {
-  const o = OUTFIT;
-  const p: Profile = [];
-  dome(p, o.knee, 0, -1);
-  p.push([o.knee * 0.97, len * 0.35]);
-  dome(p, o.stackBase, len - o.shinEnd, 1);
-  return tube(p, len, cloth().pants);
-}
+const legUp = new THREE.Vector3();
+const legDown = new THREE.Vector3();
+const legBend = new THREE.Quaternion();
+
+/** m either side of the knee the leg blends from the thigh's bone to the shin's. */
+const KNEE_BLEND = 0.07;
 
 /**
  * The bottom of the leg: the stack and the hem, hung on the boot shaft rather than the
@@ -359,8 +402,10 @@ export type Outfit = {
   pieces: THREE.Object3D[];
   skirt: THREE.Object3D;
   hood: THREE.Object3D;
-  /** For the clip check (scripts/clip-check.ts): the skirt mesh and the pant tubes. */
+  /** For the clip check (scripts/clip-check.ts): the skirt mesh and the pant legs and cuffs. */
   fit: { skirt: THREE.Mesh; thighs: THREE.Mesh[]; shins: THREE.Mesh[] };
+  /** Pose the pant legs' bones from the thigh and shin segments. After the rig places them. */
+  poseLegs(): void;
 };
 
 /** Hang the outfit on the rig's segments. Rest lengths come from the rig params at load. */
@@ -371,16 +416,34 @@ export function dress(seg: Segments, lengths: { thigh: number; shin: number; upp
     pieces.push(piece);
   };
 
-  const thighs = seg.thighs.map((m) => {
-    const t = thigh(lengths.thigh);
-    hang(m, t);
-    return t;
+  // The legs hang beside the segments, in the rig root, rather than on them: their bones are
+  // posed from the segments' transforms, minus the length scale the segments carry.
+  const legs = seg.thighs.map((m) => {
+    const leg = pantLeg(lengths.thigh, lengths.shin);
+    m.parent?.add(leg.thigh, leg.shin);
+    hang(m.parent ?? m, leg.mesh);
+    return leg;
   });
-  const shins = seg.shins.map((m) => {
-    const t = shin(lengths.shin);
-    hang(m, t);
-    return t;
-  });
+  const thighs: THREE.Mesh[] = legs.map((l) => l.mesh);
+  const shins: THREE.Mesh[] = [];
+  const poseLegs = (): void => {
+    for (let i = 0; i < legs.length; i++) {
+      const leg = legs[i];
+      const t = seg.thighs[i];
+      const s = seg.shins[i];
+      if (!leg || !t || !s) continue;
+      leg.thigh.position.copy(t.position);
+      leg.thigh.quaternion.copy(t.quaternion);
+      leg.shin.position.copy(s.position);
+      // The thigh's frame bent at the knee, not the shin segment's own: each segment is aimed
+      // by the shortest turn from up, so the two can differ by a twist about the leg, and a
+      // twist blended across the knee wrings the tube thin.
+      legUp.set(0, 1, 0).applyQuaternion(t.quaternion);
+      legDown.set(0, 1, 0).applyQuaternion(s.quaternion);
+      legBend.setFromUnitVectors(legUp, legDown);
+      leg.shin.quaternion.copy(legBend).multiply(t.quaternion);
+    }
+  };
   for (const shaft of seg.bootShafts) {
     const c = pantCuff();
     hang(shaft, c);
@@ -432,5 +495,5 @@ export function dress(seg: Segments, lengths: { thigh: number; shin: number; upp
   hang(seg.head, goggles());
 
   for (const piece of pieces) piece.traverse((o) => (o.castShadow = true));
-  return { pieces, skirt: skirtPivot, hood: hoodPivot, fit: { skirt: skirtMesh, thighs, shins } };
+  return { pieces, skirt: skirtPivot, hood: hoodPivot, fit: { skirt: skirtMesh, thighs, shins }, poseLegs };
 }

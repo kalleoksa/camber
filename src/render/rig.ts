@@ -820,6 +820,7 @@ export function createRig(): Rig {
       solveTwoBone(kneeB, hipR, footB, r.thigh, r.shin, pole);
       placeBone(thighR, hipR, kneeB, r.thigh);
       placeBone(shinR, kneeB, footB, r.shin);
+      outfit.poseLegs();
       // Boot shafts follow the shins, in the board's frame.
       tmpQuat.copy(board.quaternion).invert();
       aimShaft(bindF, dir.subVectors(kneeF, footF).applyQuaternion(tmpQuat));

@@ -110,7 +110,9 @@ backside) is the opposite of yours (blind boardslide = frontside); yours stands.
 
 ## 5. Carried over
 
-- Clothes phase 2: skinned lower body (pants bend at the knee instead of rigid tubes).
+- Clothes phase 2 — *done*: each pant leg is one tube skinned to thigh and shin (`pantLeg`), so
+  the knee bends like cloth; outline hull skinned with it. Jacket black. Next: head and face
+  (goggles on, beanie, bandana — from your reference photo).
 - Loose feel: step 1 (your tuning pass on the body springs) and step 3.
 - `nosegrab`: the front knee goes ~10 cm through the deck in the authored pose (pose data).
 - `npm run gate` fails `method path reach 1.0109` — on main too, predates the spine work.

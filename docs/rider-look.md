@@ -17,8 +17,8 @@ Decision taken: **procedural**. No mesh files, no modelling tool, no new depende
   waist twist ever reads badly.
 - Silhouette from your references:
   - Olive, wide straight-leg pant with a soft break over the boot.
-  - Boxy two-tone raglan shell ending just below the hips, with a teal yoke, sleeves and
-    hood over a rust body.
+  - Boxy raglan shell ending just below the hips, black (was teal yoke, sleeves and hood
+    over a rust body).
   - Black beanie with the goggles pushed up on it.
   - Oversized mitts.
 - Fit numbers and palette are the `OUTFIT` const in `outfit.ts`, edited in code (Vite

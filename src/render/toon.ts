@@ -65,14 +65,22 @@ function outlineMaterial(withFlutter: boolean): THREE.ShaderMaterial {
   return new THREE.ShaderMaterial({
     side: THREE.BackSide,
     uniforms: { uColor: { value: new THREE.Color(0x14161a) }, uTime: flutter.uTime, uAmp: flutter.uAmp },
+    // Skinning chunks are no-ops on a plain mesh; on a skinned one (the pant legs) the hull
+    // bends with it.
     vertexShader: /* glsl */ `
+      #include <common>
+      #include <skinning_pars_vertex>
       uniform float uTime;
       uniform float uAmp;
       void main() {
+        #include <skinbase_vertex>
+        #include <beginnormal_vertex>
+        #include <skinnormal_vertex>
         vec3 transformed = position;
         ${withFlutter ? `${FLUTTER_VERTEX}\ntransformed += normal * flutterWave * uAmp;` : ''}
+        #include <skinning_vertex>
         vec4 mv = modelViewMatrix * vec4(transformed, 1.0);
-        vec3 n = normalize(normalMatrix * normal);
+        vec3 n = normalize(normalMatrix * objectNormal);
         mv.xyz += n * (0.006 + 0.0022 * -mv.z);
         gl_Position = projectionMatrix * mv;
       }
@@ -95,7 +103,14 @@ export function outlineAll(root: THREE.Object3D): void {
   });
   for (const mesh of meshes) {
     const material = mesh.material as THREE.MeshToonMaterial;
-    const hull = new THREE.Mesh(mesh.geometry, material.userData.flutter ? OUTLINE_FLUTTER : OUTLINE);
+    const outline = material.userData.flutter ? OUTLINE_FLUTTER : OUTLINE;
+    let hull: THREE.Mesh;
+    if (mesh instanceof THREE.SkinnedMesh) {
+      const skinned = new THREE.SkinnedMesh(mesh.geometry, outline);
+      skinned.bind(mesh.skeleton, mesh.bindMatrix);
+      skinned.frustumCulled = false;
+      hull = skinned;
+    } else hull = new THREE.Mesh(mesh.geometry, outline);
     hull.castShadow = false;
     hull.userData.outline = true;
     mesh.add(hull);
