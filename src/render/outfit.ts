@@ -54,16 +54,19 @@ export const OUTFIT = {
   shinEnd: 0.16, // m above the ankle the shin tube stops and domes into the cuff
   seat: [0.17, 0.15, 0.19], // m half-extents of the seat and crotch piece, over both hip joints
 
-  jacketHem: 0.14, // m below the hips — just past them
-  jacketWaist: 0.2, // m radius — boxy, barely taken in
-  jacketChest: 0.21, // m radius
-  skirtHem: 0.235, // m radius the skirt flares out to at the hem, clear of hips and thighs
+  jacketHem: 0.17, // m below the hips — just past them
+  jacketWaist: 0.255, // m radius — boxy, barely taken in
+  jacketChest: 0.235, // m radius
+  skirtHem: 0.29, // m radius the skirt flares out to at the hem, clear of hips and thighs
+  skirtTop: 0.28, // m radius at the waist, where the skirt meets the body — boxy: barely less than the hem
   yokeFrom: 0.72, // fraction up the spine where the teal yoke starts
-  jacketDepth: 0.84, // front-to-back squash of the jacket's round section
+  jacketDepth: 0.92, // front-to-back squash of the jacket's round section
   jacketWidth: 1.07, // shoulder-to-shoulder stretch
-  sleeveTop: 0.075, // m radius at the shoulder
-  elbow: 0.066, // m radius
-  cuff: 0.08, // m radius, stacked at the mitt
+  skirtDepth: 0.95, // the hem's front-to-back squash
+  skirtWidth: 1.1, // the hem's stretch across the stance: boxy and wider than the chest, over the spread thighs
+  sleeveTop: 0.088, // m radius at the shoulder
+  elbow: 0.076, // m radius
+  cuff: 0.09, // m radius, stacked at the mitt
 };
 
 type Profile = [number, number][]; // [radius, y] in metres along the segment
@@ -305,16 +308,16 @@ export function skirtProfile(): Profile {
     [0, -o.jacketHem - SKIRT_PIVOT],
     [o.skirtHem, -o.jacketHem - SKIRT_PIVOT],
     [o.skirtHem * 0.99, -o.jacketHem * 0.55 - SKIRT_PIVOT],
-    [o.jacketWaist * 1.02, 0.03 - SKIRT_PIVOT],
-    [o.jacketWaist * 0.97, 0.12 - SKIRT_PIVOT],
-    [o.jacketWaist * 0.85, 0.12 - SKIRT_PIVOT],
+    [o.skirtTop, 0.03 - SKIRT_PIVOT],
+    [o.skirtTop * 0.95, 0.12 - SKIRT_PIVOT],
+    [o.skirtTop * 0.83, 0.12 - SKIRT_PIVOT],
   ];
 }
 
 function skirt(): THREE.Mesh {
   const o = OUTFIT;
   const mesh = tube(skirtProfile(), 1, cloth().jacket);
-  mesh.scale.set(o.jacketDepth, 1, o.jacketWidth);
+  mesh.scale.set(o.skirtDepth, 1, o.skirtWidth);
   return mesh;
 }
 const SKIRT_PIVOT = 0.02; // m up the spine from the hips: the waist the skirt hangs from
