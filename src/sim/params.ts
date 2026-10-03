@@ -282,6 +282,7 @@ export const params = {
     armLead: 0.8, // rad the arms lead the board in the air at full spin
     hipLead: 0.2, // rad the hips lead
     armSpread: 0.9, // rad the arms open out along the board — at the lip, and to stop the spin for landing
+    shiftyGrabTurn: 0.7, // fraction of a shifty the whole rider turns through while a hand holds the board — the rest twists the board under the body. 0 leaves the hand short of the board (up to 16 cm on a nose or tail grab)
     armTuck: 0.4, // rad the arms pull in when tucking to spin faster (spin model 1)
     openTime: 0.3, // s before touchdown the rider opens up and squares to the board
     lipSpreadTime: 0.12, // s of arm spread just after leaving the snow
