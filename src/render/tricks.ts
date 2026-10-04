@@ -1,5 +1,7 @@
 import { GRABS as SIM_GRABS } from '../sim/grabs.ts';
+import type { Params } from '../sim/params.ts';
 import type { Quat } from '../sim/quat.ts';
+import { butterAmount } from '../sim/states/grounded.ts';
 import type { RiderState } from '../sim/state.ts';
 import { ANCHORS } from './poses.ts';
 
@@ -59,10 +61,13 @@ const MIN_AIR = 0.35; // s — shorter than this with nothing done is a hop, not
 const MIN_RAIL = 0.25; // s on a rail before it counts
 const MIN_WALL = 0.3; // s on a wall before it counts
 const MIN_GRAB = 0.12; // s of hold before a grab counts
+const BUTTER_ON = 0.2; // butter amount (0..1) that counts as up on an end
+const BUTTER_GAP = 0.15; // s off an end before the butter is over
+const MIN_BUTTER = (135 * Math.PI) / 180; // rad of pivot before it is a butter 180
 
 export type TrickReader = {
   /** Call after each sim tick. Returns a trick the moment one finishes. */
-  step(state: RiderState, dt: number): TrickEvent | null;
+  step(state: RiderState, dt: number, params: Params): TrickEvent | null;
   reset(): void;
 };
 
@@ -82,6 +87,12 @@ export function createTrickReader(): TrickReader {
   let railSwitch = false;
   const entryV = { x: 0, z: 0 }; // velocity on the last tick before the rail, for `crossing`
   let pendingRail = ''; // a rail trick ridden off into the air: named when the air ends
+  // Butter: rotation about up while on an end of the board, on the snow.
+  let butterSpin = 0;
+  let butterOff = 0;
+  let butterOn = false;
+  let butterSwitch = false;
+  let butterNose = true;
   // Wall.
   let wallTime = 0;
   let pendingOn = ''; // an air that landed on a rail: its name prefixes the rail trick
@@ -150,16 +161,44 @@ export function createTrickReader(): TrickReader {
   return {
     reset() {
       prevMode = '';
+      butterOn = false;
       pendingOn = '';
       pendingRail = '';
       railTally.clear();
       grabTime.clear();
     },
 
-    step(state, dt) {
+    step(state, dt, params) {
       const mode = state.mode;
       const q = state.spinFrame;
       let event: TrickEvent | null = null;
+
+      // A butter: up on the nose or tail and pivoting. Named once off the end (or off the
+      // snow) if it came round 180 or more; fs/bs as for an air.
+      const v = state.velocity;
+      const up = mode === 'grounded' ? butterAmount(state.stance, Math.hypot(v.x, v.y, v.z), params) > BUTTER_ON : false;
+      if (up) {
+        if (!butterOn) {
+          butterOn = true;
+          butterSpin = 0;
+          butterSwitch = state.switchRide;
+          butterNose = state.stance > 0;
+        }
+        butterOff = 0;
+        // World-up rotation this tick, as for the air below.
+        butterSpin += 2 * (q.w * -prevQ.y - q.x * -prevQ.z + q.y * prevQ.w + q.z * -prevQ.x) * (q.w * prevQ.w + q.x * prevQ.x + q.y * prevQ.y + q.z * prevQ.z < 0 ? -1 : 1);
+      } else if (butterOn) {
+        butterOff += dt;
+        if (butterOff > BUTTER_GAP || mode !== 'grounded') {
+          butterOn = false;
+          if (Math.abs(butterSpin) >= MIN_BUTTER) {
+            const turns = Math.round((Math.abs(butterSpin) * 180) / Math.PI / 180) * 180;
+            const side = (butterSpin > 0) !== butterSwitch ? 'fs' : 'bs';
+            const name = `${butterSwitch ? 'switch ' : ''}${side} ${butterNose ? 'nose' : 'tail'} butter ${turns}`;
+            event = { tick: state.tick, name, result: mode === 'bailed' ? 'tried' : 'done' };
+          }
+        }
+      }
 
       if (mode === 'airborne') {
         if (prevMode !== 'airborne') startAir(state);

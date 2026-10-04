@@ -150,3 +150,13 @@ from `grab.<name>Pitch/Roll/Yaw`. Seatbelt, crail, chicken salad and roast beef 
 placeholders (a neighbour's body, hand moved) — pose them and *write to anchor*. Next:
 bones (full push straightens a leg — rig work), two-hand grabs on LB+RB, the free slots.
 Old takes keep stick models 0 and 1.
+
+## 7. Butter 180s (2026-10-04)
+
+Nose or tail press past `butter.press` plus the edge stick pivots the board on that end;
+hold it for as long as the turn should go (~1 s for a 180 at `butter.yawRate` 3.2). Two
+fixes made it a trick rather than a stop: up on an end the edge stick no longer bites
+(`butter.edgeGrip` 0 — it scrubbed 6 m/s down to 1.5 with the board across), and the
+switch latch flipping mid-pivot carries the held stick through (`ground.switchCarry` —
+the smoothed press swept through zero and dropped the butter halfway). Named "fs/bs
+nose/tail butter 180" (or 360, 540) in `render/tricks.ts`. Old takes pin both off.

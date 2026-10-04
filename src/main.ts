@@ -360,7 +360,7 @@ function step(): void {
   inputOverlay.push(input);
   if (!replay) feel(previous, state);
 
-  const trick = tricks.step(state, TICK_DT);
+  const trick = tricks.step(state, TICK_DT, params);
   if (trick) {
     const text = describe(trick);
     readout.trick = text;

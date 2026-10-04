@@ -19,6 +19,7 @@ export const params = {
     drag: 0.00098, // quadratic, 1/m — scaled with the parks (÷1.63) so a full-size run holds the speeds the jumps are sized for
     switchEdges: 1, // 1: riding switch, the sticks follow the direction of travel — right turns right on the edge that's on the right, up presses the leading end
     switchSpeed: 0.5, // m/s of travel along the board before riding switch (or back) latches
+    switchCarry: 1, // 1: when the switch latch flips, the smoothed edge and press flip with it, so a held stick keeps meaning the same
     friction: 0.06, // Coulomb μ of a waxed base on groomed snow — decel μ·g on the normal load. Per surface later (powder)
     edgeDrag: 0.35, // fraction of scrubbed speed lost outright at full edge
     stanceYawGain: 0.55, // extra yaw authority at full nose/tail press
@@ -165,6 +166,7 @@ export const params = {
     speedFade: 3.0, // m/s below maxSpeed over which the butter fades in
     gripScale: 0.3, // grip multiplier at full butter — the board lets go sideways
     yawRate: 3.2, // rad/s of pivot at full butter and full edge stick, independent of speed
+    edgeGrip: 0, // 0..1 of the edge's grip (and its carve drag) kept at full butter — the edge stick steers the pivot instead of biting
     pitch: 0.2, // rad the board tips onto the pressed end at full butter — render only
   },
   /**
