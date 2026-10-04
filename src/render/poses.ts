@@ -295,11 +295,11 @@ export const ANCHORS: Record<string, RigDrivers> = {
    */
   method: pose({
     hipX: -0.2,
-    hipY: -0.67, // was −0.52: the hand reaches the board (was 12% short, ~8 cm)
+    hipY: -0.72, // was −0.67: in play (shifty on the hips) the hand was 2% short
     hipZ: 0,
     hipYaw: 1.17,
-    pelvisPitch: 0.34,
-    hipRoll: 0.09,
+    pelvisPitch: 0.48,
+    hipRoll: 0.03,
     spineBend: 0.73,
     spineSide: 0.33,
     spineTwist: 0.21,
@@ -317,15 +317,15 @@ export const ANCHORS: Record<string, RigDrivers> = {
     kneeSplay: 0.34,
     stanceScale: 1,
     frontShoulderSwing: 0.3,
-    frontShoulderOut: -0.45,
-    frontElbow: 0.45,
-    frontElbowPole: -3.1,
+    frontShoulderOut: -0.65,
+    frontElbow: 0.61,
+    frontElbowPole: -0.34,
     backShoulderSwing: 2.62,
     backShoulderOut: -0.58,
     backElbow: 0.28,
     backElbowPole: -0.27,
-    shifty: -0.44,
-    turn: -0.6, // the backside-shifty way, as grab.methodYaw was set — set it here in pose mode
+    shifty: -0.26,
+    turn: -1.01,
   }),
 
   /** Back hand, heel edge, t ≈ 0.4, arm behind the back leg. Authored. */
