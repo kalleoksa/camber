@@ -183,7 +183,3 @@ wait until powder exists.
   `rig.landBlendClean` / `landBlendSketchy` instead of one tick.
 - Trick names now appear when the landing window closes (0.22 s later), so revert and save show.
 - Old takes pin all of it off.
-- **Rideable landing flanks** (terrain): `KickerConfig.landingTaper` widens a landing's sides
-  from `deckTaper` (second half of the deck) to this by the end of the knuckle. The home park's
-  jump line sets 3 × lip height — about 25° at the steepest — so you can carve up beside a
-  landing onto the knuckle for knuckle tricks. Takes keep their stored terrain.
