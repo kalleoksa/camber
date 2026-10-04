@@ -114,9 +114,8 @@ backside) is the opposite of yours (blind boardslide = frontside); yours stands.
   the knee bends like cloth; outline hull skinned with it. Jacket black. Head from your photo:
   goggles on, black neck gaiter up to them, slouchy beanie over the ears.
 - Loose feel: step 1 (your tuning pass on the body springs) and step 3.
-- `nosegrab`: the front knee goes ~10 cm through the deck in the authored pose (pose data).
-- `npm run gate` fails `method path reach 1.0109` — on main too, predates the spine work.
 - Halfpipe: wall-to-wall transfers untested by script; tune `HALFPIPE_*` and `WALL` in play.
+- Grab anchors re-authored (crouch, indy, mute, method, stalefish); `npm run gate` passes.
 - Anchors have no `spineCurl` yet — the riding hunch rides on top; author curl per grab.
 - Keyboard: `STICK_RATE` and `GRAB` in `src/input/keyboard.ts` once played.
 - Grab + shifty: a hand holding the board turns the whole rider through `rig.shiftyGrabTurn`
