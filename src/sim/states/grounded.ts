@@ -345,7 +345,18 @@ export function takeoffSpinRate(state: RiderState, input: InputSnapshot, params:
     const w = state.windUp;
     let amount: number;
     let way: number;
-    if (Math.abs(w) > a.flickMin) {
+    if (a.windAdds > 0) {
+      // The wind-up adds to the flick rather than replacing it: a send with no wind-up is the
+      // flick's share of the spin, each bit of wind-up adds the rest on top, up to the full
+      // rate. Replacing it made a short wind-up spin *less* than none — flick 0.5, then 0.15
+      // the moment the wind-up passed `flickMin`.
+      const travel = input.lx - state.spinRef;
+      const flick = Math.min(1, Math.abs(travel) * 0.5) * a.flickGain;
+      const send = Math.min(1, Math.max(0, (w > 0 ? -input.lx : input.lx) / Math.max(a.fullStick, 1e-3)));
+      const wound = w !== 0 && send > 0;
+      amount = flick + Math.abs(w) * send * (1 - a.flickGain);
+      way = wound ? -w : travel;
+    } else if (Math.abs(w) > a.flickMin) {
       amount = Math.abs(w) * Math.min(1, Math.max(0, (w > 0 ? -input.lx : input.lx) / Math.max(a.fullStick, 1e-3)));
       way = -w;
     } else {

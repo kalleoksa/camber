@@ -82,6 +82,7 @@ export const params = {
     windLandReset: 1, // 1: touching down clears the wind-up, so the next spin can load either way. 0: older rule — it only unloads with RT off, never to zero, and the sign it had blocks loading the other way
     windSteer: 0.2, // fraction of stick X that still edges the board while winding up — the rest loads the upper body, so the board holds its line
     flickGain: 0.5, // fraction of spinTakeoff a flick gives with no wind-up — stick travel across the last ~0.2 s
+    windAdds: 1, // 1: wind-up adds to the flick's spin (continuous); 0: replaces it past flickMin (a short wind-up spun less than none)
     flickMin: 0.15, // wind-up (0..1) below which there is none, and a flick alone sets the spin
     flickWindow: 0.2, // s after the pop a flick still counts (model 1)
     fullStick: 0.7, // model 1: stick deflection that counts as full, on each axis — a diagonal (a cork) reaches ~0.7 on both
