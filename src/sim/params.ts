@@ -212,7 +212,7 @@ export const params = {
     methodYaw: -1.01, // rad the whole rider and board turn about up while the grab is held (every grab has one; pose mode's `turn` writes it). Judged at touchdown like a held shifty
     stalefishPitch: -0.18,
     stalefishRoll: 1,
-    stalefishYaw: 0,
+    stalefishYaw: 0.7,
     nosegrabPitch: 0.36,
     nosegrabRoll: -0.28,
     nosegrabYaw: 0,

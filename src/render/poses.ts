@@ -344,7 +344,7 @@ export const ANCHORS: Record<string, RigDrivers> = {
   /** Back hand, heel edge, t ≈ 0.4, arm behind the back leg. Authored. */
   stalefish: pose({
     hipX: -0.03,
-    hipY: -0.68, // was −0.63: the hand reaches the board (was 5% short)
+    hipY: -0.68,
     hipZ: -0.08,
     hipYaw: -0.39,
     pelvisPitch: -0.19,
@@ -361,8 +361,8 @@ export const ANCHORS: Record<string, RigDrivers> = {
     backGrip: 1,
     boardPitch: -0.18,
     tweakRoll: 1,
-    headYaw: 0.49,
-    headPitch: -0.02,
+    headYaw: 1.02,
+    headPitch: -0.03,
     kneeSplay: 0.53,
     stanceScale: 1,
     frontShoulderSwing: 1.49,
@@ -373,7 +373,8 @@ export const ANCHORS: Record<string, RigDrivers> = {
     backShoulderOut: -0.35,
     backElbow: 0.45,
     backElbowPole: 0,
-    shifty: -0.1,
+    shifty: -0.05,
+    turn: 0.7,
   }),
 
   /**
