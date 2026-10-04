@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { params as defaults, type Params } from '../sim/params.ts';
-import { aimShaft, BOARD, createBinding, createDeck } from './board.ts';
+import { aimShaft, BOARD, createBinding, createDeck, NOSE_END, rise, TAIL_END } from './board.ts';
 import { dress, SPINE_CURL_AT, type Outfit } from './outfit.ts';
 import { outlineAll } from './toon.ts';
 
@@ -279,10 +279,19 @@ const TIP_TAPER = 0.15;
 export function edgePoint(out: THREE.Vector3, edge: number, t: number): THREE.Vector3 {
   const fromTip = Math.min(t, 1 - t);
   const taper = Math.min(Math.max(fromTip / TIP_TAPER, 0), 1);
+  // Over the same outer 15% the point runs on out to the drawn board's tip and up its kick,
+  // so a nose or tail grab holds the actual end of the board — the 1.55 m grab board stopped
+  // 9 cm short of the 1.62 m one drawn. Between the bindings nothing moves.
+  const z0 = (t * 2 - 1) * (GRAB_HALF - 0.06);
+  const tip = t >= 0.5 ? NOSE_END - TIP_HOLD : TAIL_END + TIP_HOLD;
+  const z = z0 + (1 - taper) * (tip - z0);
   // state.edge is + for toe, and the toe side is board-local −X.
-  out.set(-edge * EDGE_X * taper, 0.035, (t * 2 - 1) * (GRAB_HALF - 0.06));
+  out.set(-edge * EDGE_X * taper, 0.035 + (1 - taper) * rise(z), z);
   return out;
 }
+
+/** m in from the very tip where a nose or tail grab holds — a hand's width. */
+const TIP_HOLD = 0.05;
 
 /** Which hand can reach: split at the midpoint between the bindings (§7.3). */
 export function handForT(t: number): 'front' | 'back' {

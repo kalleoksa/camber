@@ -44,8 +44,8 @@ export const BOARD = {
 };
 
 const STATIONS = 128;
-const NOSE_END = BOARD.length / 2 + BOARD.setback;
-const TAIL_END = -(BOARD.length / 2 - BOARD.setback);
+export const NOSE_END = BOARD.length / 2 + BOARD.setback;
+export const TAIL_END = -(BOARD.length / 2 - BOARD.setback);
 const CONTACT = BOARD.runningLength / 2;
 
 /** Superellipse falloff 1 → 0 over t 0..1: n > 2 is a blunter, squarer tip. */
@@ -72,7 +72,7 @@ function halfWidth(z: number): number {
 }
 
 /** Height of the base at `z`: camber between the contact points, rocker in the nose, a tail kick. */
-function rise(z: number): number {
+export function rise(z: number): number {
   const b = BOARD;
   let y = 0;
   if (Math.abs(z) < CONTACT) y += b.camber * (1 - (z / CONTACT) ** 2);
