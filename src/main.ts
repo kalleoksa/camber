@@ -1,5 +1,5 @@
 import { createLoop, TICK_DT } from './core/loop.ts';
-import { padRawSummary, padSummary, pollGamepad, pollMark, rumble } from './input/gamepad.ts';
+import { padRawSummary, padSummary, pollGamepad, pollMark, pollPause, rumble } from './input/gamepad.ts';
 import { mergeKeyboard } from './input/keyboard.ts';
 import {
   buildTake,
@@ -306,10 +306,33 @@ function feel(before: RiderState, after: RiderState): void {
   }
 }
 
+// Pause: P or the pad's Options/Start. The sim and the take stop; the frozen frame keeps
+// drawing, for a screenshot. `.` steps one tick while paused.
+let paused = false;
+let stepOnce = false;
+let sessionBeforePause = '';
+function togglePause(): void {
+  paused = !paused;
+  if (paused) {
+    sessionBeforePause = readout.session;
+    readout.session = 'paused — P or Options to resume, . steps a tick';
+  } else readout.session = sessionBeforePause;
+}
+addEventListener('keydown', (ev) => {
+  const t = ev.target as HTMLElement | null;
+  if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA')) return;
+  if (ev.key === 'p' || ev.key === 'P') togglePause();
+  else if (ev.key === '.' && paused) stepOnce = true;
+});
+
 function step(): void {
   // Pose mode disconnects gameplay entirely — the rider is frozen and the drivers are
   // the only thing moving (design §7.8, build order step 2).
   if (poseMode) return;
+  if (paused) {
+    if (!stepOnce) return;
+    stepOnce = false;
+  }
   copyRiderState(previous, state);
   copySecondary(secondaryPrevious, secondary);
 
@@ -488,6 +511,9 @@ let lastRender = performance.now();
 let refreshCounter = 0;
 
 function render(alpha: number): void {
+  if (pollPause() && !poseMode) togglePause();
+  // Paused, the last tick exactly: blending toward it from the one before would shake.
+  if (paused) alpha = 1;
   const now = performance.now();
   const dt = Math.min((now - lastRender) / 1000, 0.1);
   lastRender = now;
@@ -501,7 +527,7 @@ function render(alpha: number): void {
   if (poseMode) {
     orbit.update(rider);
   } else {
-    spray.update(rider, params, dt);
+    spray.update(rider, params, paused ? 0 : dt);
     chase.update(rider, params, dt);
   }
   if (audio.running) {

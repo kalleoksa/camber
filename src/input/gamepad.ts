@@ -253,6 +253,21 @@ export function pollMark(): 'note' | 'good' | 'bad' | 'bug' | 'look' | null {
   return mark;
 }
 
+let pauseHeld = false;
+
+/**
+ * Options/Start (standard button 9) pressed this frame: the pause toggle. Like a mark, read
+ * apart from `pollGamepad` — pausing is not input, so it never reaches the snapshot or a take.
+ */
+export function pollPause(): boolean {
+  const pad = findPad();
+  if (!pad || pad.mapping !== 'standard') return false;
+  const down = pressed(pad, 9);
+  const edge = down && !pauseHeld;
+  pauseHeld = down;
+  return edge;
+}
+
 /** Chrome's dual-rumble actuator; absent on Safari and Firefox, where rumble is skipped. */
 type Rumble = { playEffect(type: 'dual-rumble', p: { duration: number; strongMagnitude: number; weakMagnitude: number }): Promise<unknown> };
 

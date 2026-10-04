@@ -11,6 +11,7 @@ import type { InputSnapshot } from './snapshot.ts';
  *   Space        RT — hold to load, release to pop
  *   Q / E        LB / RB — shifty, rail slide
  *   R            Y — reset
+ *   P            pause (also the pad's Options/Start); . steps one tick while paused
  *
  * Keys are digital, so the left stick ramps at `STICK_RATE` rather than snapping: an
  * instant full edge reads as a jerk, and a spin's whip is still a fraction of a second.
