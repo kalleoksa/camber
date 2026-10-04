@@ -205,7 +205,7 @@ export const params = {
     melonRoll: 0.35,
     methodPitch: 0.55,
     methodRoll: 0.72,
-    methodYaw: 0.6, // rad the whole rider and board turn about up while a method is held: the back toward the landing. Judged at touchdown like a held shifty
+    methodYaw: -0.6, // rad the whole rider and board turn about up while a method is held, the backside-shifty way. Judged at touchdown like a held shifty
     stalefishPitch: -0.18,
     stalefishRoll: 1,
     nosegrabPitch: 0.36,
