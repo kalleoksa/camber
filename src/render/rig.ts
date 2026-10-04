@@ -318,6 +318,8 @@ function bone(color: number, thickness: number): THREE.Mesh {
 
 const up = new THREE.Vector3(0, 1, 0);
 const dir = new THREE.Vector3();
+/** Of thigh + shin: the furthest a hip sits from its binding before the body follows the foot. */
+const LEG_MAX = 0.99;
 const quat = new THREE.Quaternion();
 
 /** Recolour a limb in place. Skips the write when it already matches, so it stays cheap. */
@@ -623,6 +625,7 @@ export function createRig(): Rig {
   const hipCentre = new THREE.Vector3();
   const hipL = new THREE.Vector3();
   const hipR = new THREE.Vector3();
+  const legPull = new THREE.Vector3();
   const footF = new THREE.Vector3();
   const footB = new THREE.Vector3();
   const shoulder = new THREE.Vector3();
@@ -755,6 +758,22 @@ export function createRig(): Rig {
       pelvis.quaternion.copy(hipQuat);
       hipL.set(0, 0, halfStance * 0.42).applyQuaternion(hipQuat).add(hipCentre);
       hipR.set(0, 0, -halfStance * 0.42).applyQuaternion(hipQuat).add(hipCentre);
+      // A leg can't stretch: if a binding is out of reach — a board tweaked hard about the
+      // hand swings one end away — the body comes down to it, rather than the shin stopping
+      // short of the boot. Twice, so pulling toward one foot can't leave the other out.
+      for (let pass = 0; pass < 2; pass++) {
+        for (let side = 0; side < 2; side++) {
+          const hip = side === 0 ? hipL : hipR;
+          legPull.subVectors(side === 0 ? footF : footB, hip);
+          const over = legPull.length() - (r.thigh + r.shin) * LEG_MAX;
+          if (over <= 0) continue;
+          legPull.setLength(over);
+          hipCentre.add(legPull);
+          hipL.add(legPull);
+          hipR.add(legPull);
+        }
+      }
+      pelvis.position.copy(hipCentre);
 
       // 3. Spine chain.
       spineQuat.copy(hipQuat);
