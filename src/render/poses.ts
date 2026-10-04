@@ -336,13 +336,16 @@ export const ANCHORS: Record<string, RigDrivers> = {
    * it is what the author's slider read, not because it does anything.
    */
   nosegrab: pose({
-    hipX: -0.06,
+    // Hips over toward the heel edge (was −0.06): folded this deep, the front knee broke ~10 cm
+    // down through the deck ahead of the binding. Clear now; the lean and bend below keep the
+    // hand on the nose.
+    hipX: 0.11,
     hipY: -0.75,
     hipZ: 0.13,
     pelvisPitch: 0.18,
     hipRoll: -0.05,
-    spineBend: 0.31,
-    spineSide: 0.25, // leaning toward the nose, chasing the hand out
+    spineBend: 0.36,
+    spineSide: 0.3, // leaning toward the nose, chasing the hand out
     spineTwist: 0.47,
     frontHandEdge: 1,
     frontHandT: 1,
