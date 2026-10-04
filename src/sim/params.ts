@@ -104,6 +104,15 @@ export const params = {
     impactSketchy: 13.0, // m/s
     impactBail: 17.0, // m/s
     absorbGain: 0.25, // both limits × (1 + this·compress): RT held coming down is a legs-bent landing
+    // Skid and revert (Landing & Feel spec). The spin left at touchdown keeps turning the
+    // board on the snow, slowed by the edge, instead of stopping dead.
+    skidCarry: 0.35, // fraction of the touchdown yaw rate carried into the skid (0: rotation stops dead)
+    skidDecel: 18.0, // rad/s² the snow takes out of the skid
+    skidGrip: 0.3, // grip multiplier while skidding — the board slides round rather than carving the rider off line
+    revertAngle: 3.14, // rad a revert turns when there's no line of travel to aim at (else: to line up on the other stance). 0: no reverts
+    revertStick: 0.6, // right-stick X past which the flick counts
+    save: 1, // 1: a landing sketchy only for its rotation is saved to clean by a right-stick counter-push in the landing window
+    saveStick: 0.5, // right-stick X past which the counter-push counts
   },
   bail: {
     drag: 16.0, // m/s² while tumbling
@@ -285,6 +294,8 @@ export const params = {
     crouchDepth: 0.28, // m the hips drop at full compress
     hipStiffness: 250.0, // ω² for the hip spring — ω = sqrt of this, so 250 is ~15.8 rad/s
     hipDamping: 1.0, // ζ — 1.0 is critically damped
+    landBlendClean: 0.12, // s the drawn board takes from its air attitude onto the slope after a clean landing (render)
+    landBlendSketchy: 0.2, // s after a sketchy one
     terrainAbsorb: 0.012, // m the hips drop per m/s² the board is pushed up (transitions, a landing ramp's bottom); rise over knuckles and rollers
     terrainAbsorbMax: 0.16, // m either way
     edgeRoll: 0.55, // rad of board tip at full edge, drawn only

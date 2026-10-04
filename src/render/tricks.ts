@@ -96,6 +96,7 @@ export function createTrickReader(): TrickReader {
   // Wall.
   let wallTime = 0;
   let pendingOn = ''; // an air that landed on a rail: its name prefixes the rail trick
+  let pendingLand = ''; // an air landed on snow, waiting out the landing window (revert, save)
 
   function startAir(state: RiderState): void {
     airTime = 0;
@@ -161,6 +162,7 @@ export function createTrickReader(): TrickReader {
   return {
     reset() {
       prevMode = '';
+      pendingLand = '';
       butterOn = false;
       pendingOn = '';
       pendingRail = '';
@@ -240,11 +242,18 @@ export function createTrickReader(): TrickReader {
         } else if (mode === 'railed') pendingOn = name && name !== 'straight air' ? `${name} on` : '';
         else if (name || mode === 'bailed') {
           if (airTime >= MIN_AIR || name) {
-            const result: TrickResult =
-              mode === 'bailed' ? 'tried' : state.landing === 'clean' ? 'clean' : state.landing === 'sketchy' ? 'sketchy' : 'done';
-            event = { tick: state.tick, name: name || 'air', result };
+            // Named once the landing window is over, so a revert or a save shows in it.
+            if (mode === 'bailed') event = { tick: state.tick, name: name || 'air', result: 'tried' };
+            else pendingLand = name || 'air';
           }
         }
+      }
+
+      if (pendingLand && !event && (state.absorb <= 0 || (mode !== 'grounded' && mode !== 'walled'))) {
+        const result: TrickResult =
+          mode === 'bailed' ? 'tried' : state.landing === 'clean' ? 'clean' : state.landing === 'sketchy' ? 'sketchy' : 'done';
+        event = { tick: state.tick, name: state.reverted ? `${pendingLand} to revert` : pendingLand, result };
+        pendingLand = '';
       }
 
       if (mode === 'railed') {

@@ -162,3 +162,24 @@ fixes made it a trick rather than a stop: up on an end the edge stick no longer 
 switch latch flipping mid-pivot carries the held stick through (`ground.switchCarry` —
 the smoothed press swept through zero and dropped the butter halfway). Named "fs/bs
 nose/tail butter 180" (or 360, 540) in `render/tricks.ts`. Old takes pin both off.
+
+## 8. Landing & Feel spec (2026-10-04)
+
+Adapted to CLAUDE.md: no score, multipliers or angles on screen; tuning stays in `params.ts`
+and Tweakpane; R2 is the absorb (the spec's LT stomp), L2 the speed check; surface profiles
+wait until powder exists.
+
+- **Terrain absorb** (render): the hips follow the board's up-acceleration on snow —
+  `rig.terrainAbsorb`, `terrainAbsorbMax`; off during a landing's own absorb.
+- **Skid** (sim): `land.skidCarry` of the touchdown yaw rate keeps turning the board on the
+  snow, slowed at `land.skidDecel`; while it skids the board pivots (grip × `land.skidGrip`,
+  travel keeps its line) and the landing correction waits; the carve rides out what's left.
+- **Revert**: in the landing window (`land.absorbTime`) the right stick flicked the way of the
+  skid turns the board round to the other stance, lined up with travel. Named "… to revert".
+  A stick still held from a grab doesn't count until it has been near centre.
+- **Save**: a landing sketchy only for its rotation, pushed the way that lines it up in the
+  window, becomes clean and gets its speed back (`land.save`, `saveStick`).
+- **Slope blend** (render): the drawn board eases from its air attitude onto the slope over
+  `rig.landBlendClean` / `landBlendSketchy` instead of one tick.
+- Trick names now appear when the landing window closes (0.22 s later), so revert and save show.
+- Old takes pin all of it off.

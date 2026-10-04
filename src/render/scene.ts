@@ -521,6 +521,13 @@ export function createScene(cfg: SlopeConfig, terrain: Terrain, camera: THREE.Pe
   const railAxis = new THREE.Vector3();
   const tumbleAxis = new THREE.Vector3(1, 0.3, 0).normalize();
   let tumbleAngle = 0;
+  // Touchdown: the board is drawn from its air attitude onto the slope over a short blend
+  // instead of jumping there in one tick. Render only — the sim judged the landing at contact.
+  const landOffset = new THREE.Quaternion();
+  const lastBase = new THREE.Quaternion();
+  const baseInverse = new THREE.Quaternion();
+  const noTurn = new THREE.Quaternion();
+  let lastMode = '';
 
   const neutral = neutralDrivers();
   const base = neutralDrivers();
@@ -740,6 +747,18 @@ export function createScene(cfg: SlopeConfig, terrain: Terrain, camera: THREE.Pe
       // it carries angular momentum. Render just reads it.
       const q = view.spinFrame;
       rig.root.quaternion.set(q.x, q.y, q.z, q.w);
+      const onSnow = view.mode === 'grounded' || view.mode === 'walled';
+      if (!poseMode && onSnow && lastMode === 'airborne') {
+        // drawn = offset · sim, so at touchdown offset = last air attitude · sim⁻¹.
+        landOffset.copy(lastBase).multiply(baseInverse.copy(rig.root.quaternion).invert());
+      } else if (!onSnow) landOffset.identity();
+      lastBase.copy(rig.root.quaternion);
+      lastMode = view.mode;
+      if (Math.abs(landOffset.w) < 1 - 1e-7) {
+        const blend = view.landing === 'sketchy' ? params.rig.landBlendSketchy : params.rig.landBlendClean;
+        landOffset.slerp(noTurn, 1 - Math.exp((-3 * frameDt) / Math.max(blend, 1e-3)));
+        rig.root.quaternion.premultiply(landOffset);
+      }
 
       // Edge roll is cosmetic and only means anything on snow.
       if (view.mode === 'grounded' || view.mode === 'walled') {
