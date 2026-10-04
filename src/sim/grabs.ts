@@ -38,11 +38,11 @@ export const GRABS: readonly Spot[] = [
   { name: 'nosegrab', edge: 1, t: 1, front: true, pitch: 'nosegrabPitch', roll: 'nosegrabRoll', yaw: 'nosegrabYaw' },
   { name: 'tailgrab', edge: 1, t: 0, front: false, pitch: 'tailgrabPitch', roll: 'tailgrabRoll', yaw: 'tailgrabYaw' },
   // Stick model 2 only — kept out of the (edge, t) blend below, where chicken salad and roast
-  // beef would sit on melon's and stalefish's spots.
+  // beef would sit on mute's and indy's spots (same point, reached between the legs).
   { name: 'seatbelt', edge: 1, t: 0.12, front: true, pitch: 'seatbeltPitch', roll: 'seatbeltRoll', yaw: 'seatbeltYaw' },
   { name: 'crail', edge: 1, t: 0.99, front: false, pitch: 'crailPitch', roll: 'crailRoll', yaw: 'crailYaw' },
-  { name: 'chickenSalad', edge: -1, t: 0.5, front: true, pitch: 'chickenSaladPitch', roll: 'chickenSaladRoll', yaw: 'chickenSaladYaw' },
-  { name: 'roastBeef', edge: -1, t: 0.45, front: false, pitch: 'roastBeefPitch', roll: 'roastBeefRoll', yaw: 'roastBeefYaw' },
+  { name: 'chickenSalad', edge: 1, t: 0.51, front: true, pitch: 'chickenSaladPitch', roll: 'chickenSaladRoll', yaw: 'chickenSaladYaw' },
+  { name: 'roastBeef', edge: 1, t: 0.45, front: false, pitch: 'roastBeefPitch', roll: 'roastBeefRoll', yaw: 'roastBeefYaw' },
 ];
 /** The first seven: the grabs stick models 0 and 1 blend between by (edge, t). */
 const SPOTS_LEGACY = 7;

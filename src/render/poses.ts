@@ -484,10 +484,7 @@ export const ANCHORS: Record<string, RigDrivers> = {
   }),
 };
 
-// Stick model 2's own grabs. Placeholders: a neighbour's body with the hand moved to the
-// grab's point on the board, until posed in pose mode. Board attitude matches the
-// `grab.<name>Pitch/Roll` first guesses.
-const base = (name: string): RigDrivers => ({ ...(ANCHORS[name] ?? neutralDrivers()) });
+// Stick model 2's own grabs. Authored; board attitude and turn match `grab.<name>Pitch/Roll/Yaw`.
 /** Front hand across the body to the toe edge at the tail. Authored (pose_10). */
 ANCHORS.seatbelt = pose({
   hipX: 0.09,
@@ -558,10 +555,76 @@ ANCHORS.crail = pose({
   shifty: -0.89,
   turn: 0.66,
 });
-/** Front hand between the legs to the heel edge between the feet, front leg boned. */
-ANCHORS.chickenSalad = { ...base('melon'), frontHandEdge: -1, frontHandT: 0.5, frontGrip: 1, backGrip: 0, boardPitch: 0.2, tweakRoll: 0.4, turn: 0, shifty: 0 };
-/** Back hand between the legs to the heel edge between the feet. */
-ANCHORS.roastBeef = { ...base('stalefish'), backHandEdge: -1, backHandT: 0.45, frontGrip: 0, backGrip: 1, boardPitch: -0.1, tweakRoll: 0.5, turn: 0, shifty: 0 };
+/** Front hand between the legs to the toe edge between the feet. Authored (pose_12). */
+ANCHORS.chickenSalad = pose({
+  hipX: -0.07,
+  hipY: -0.78, // was −0.55: in play the hand was 19 cm short
+  hipZ: -0.3,
+  hipYaw: -0.83,
+  pelvisPitch: 0.89,
+  hipRoll: -0.5,
+  spineBend: 0.38,
+  spineSide: 0.2,
+  spineTwist: -0.31,
+  spineCurl: -0.21,
+  frontHandEdge: 1,
+  frontHandT: 0.51,
+  backHandEdge: -0.35,
+  backHandT: 0.26,
+  frontGrip: 1,
+  backGrip: 0,
+  boardPitch: 0.44,
+  tweakRoll: 1,
+  headYaw: 1.13,
+  headPitch: 0.16,
+  kneeSplay: 1.14,
+  stanceScale: 1,
+  frontShoulderSwing: -0.6,
+  frontShoulderOut: -1,
+  frontElbow: 0.65,
+  frontElbowPole: -3.1,
+  backShoulderSwing: 0.37,
+  backShoulderOut: -0.82,
+  backElbow: 0.78,
+  backElbowPole: -0.3,
+  shifty: -0.34,
+  turn: 0.49,
+});
+/** Back hand between the legs to the toe edge between the feet. Authored (pose_13). */
+ANCHORS.roastBeef = pose({
+  hipX: -0.1,
+  hipY: -0.4, // was −0.26: in play the hand was up to 6 cm short
+  hipZ: 0.1,
+  hipYaw: -1.07,
+  pelvisPitch: -0.31,
+  hipRoll: -0.8,
+  spineBend: 0.17,
+  spineSide: -0.22,
+  spineTwist: 0.18,
+  spineCurl: 0,
+  frontHandEdge: -0.46,
+  frontHandT: 0.29,
+  backHandEdge: 1,
+  backHandT: 0.45,
+  frontGrip: 0,
+  backGrip: 1,
+  boardPitch: 0.31,
+  tweakRoll: 1,
+  headYaw: 1.02,
+  headPitch: -0.03,
+  kneeSplay: 0.53,
+  stanceScale: 1,
+  frontShoulderSwing: 1.49,
+  frontShoulderOut: 0.38,
+  frontElbow: 0.54,
+  frontElbowPole: -2.97,
+  backShoulderSwing: 0.45,
+  backShoulderOut: -0.4,
+  backElbow: 0.96,
+  backElbowPole: -0.94,
+  shifty: 0,
+  turn: 0.8,
+});
 
 export const ANCHOR_NAMES = Object.keys(ANCHORS);
 
@@ -598,7 +661,7 @@ type GrabSpot = { pose: RigDrivers; edge: number; t: number; tweaked: RigDrivers
  */
 const SPOTS: GrabSpot[] = [];
 // Stick models 0 and 1 blend these by (edge, t). Model 2's own grabs stay out: chicken
-// salad and roast beef sit on melon's and stalefish's spots and would read as their twins.
+// salad and roast beef sit on mute's and indy's spots and would read as their twins.
 const BLENDED = ['indy', 'mute', 'melon', 'method', 'stalefish', 'nosegrab', 'tailgrab', 'japan'];
 for (const [name, pose] of Object.entries(ANCHORS)) {
   if (!BLENDED.includes(name) || Math.max(pose.frontGrip, pose.backGrip) <= 0) continue;

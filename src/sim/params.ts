@@ -230,12 +230,12 @@ export const params = {
     crailPitch: 0.82,
     crailRoll: -0.2,
     crailYaw: 0.66,
-    chickenSaladPitch: 0.2,
-    chickenSaladRoll: 0.4,
-    chickenSaladYaw: 0,
-    roastBeefPitch: -0.1,
-    roastBeefRoll: 0.5,
-    roastBeefYaw: 0,
+    chickenSaladPitch: 0.44,
+    chickenSaladRoll: 1,
+    chickenSaladYaw: 0.49,
+    roastBeefPitch: 0.31,
+    roastBeefRoll: 1,
+    roastBeefYaw: 0.8,
     reachTime: 0.18, // s, crouch to full grab
     holdTime: 0.4, // s at full grab — preview envelope only, gameplay holds while held
     releaseTime: 0.14, // s, grab back to crouch. Quicker than the reach: you snap back to land

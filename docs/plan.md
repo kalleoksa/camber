@@ -74,8 +74,8 @@ What fits the invariants and the current control scheme:
    transfers ("bs boardslide to 50-50"). — *done*; blunt is my reading of which end is
    over the rail, check it against how you'd call them.
 2. **Off-axis names**: cork (spin-led), rodeo (backflip-led), misty (frontflip-led). — *done*
-3. **More grabs** as anchors: seatbelt, crail, chicken salad, roast beef — *in*, as
-   placeholders to pose (§6). Still out: rocket, bloody dracula, double grab (two grab
+3. **More grabs** as anchors: seatbelt, crail, chicken salad, roast beef — *done*, your
+   poses (§6). Still out: rocket, bloody dracula, double grab (two grab
    points: rig change). Weddle = mute, already there.
 4. **Haptics**: rumble on pop, rail lock, landing, bail (`params.haptics`, Chrome only). — *done*
 5. **Lip timing**: measure how much a pop at the lip vs early changes the air; cue it by
@@ -146,8 +146,10 @@ bumper with the stick centred is still shifty; with a grab on, it isn't.
 
 A free slot goes to the hand's nearest filled direction. Table: `FRONT_SLOTS`/`BACK_SLOTS`
 in `src/sim/grabs.ts`. Each grab plays its own anchor exactly (no blend), board attitude
-from `grab.<name>Pitch/Roll/Yaw`. Seatbelt, crail, chicken salad and roast beef are
-placeholders (a neighbour's body, hand moved) — pose them and *write to anchor*. Next:
+from `grab.<name>Pitch/Roll/Yaw`. Seatbelt, crail, chicken salad and roast beef are your
+poses; chicken salad and roast beef reach between the legs to the **toe** edge, and their
+hips were lowered (hipY) until the hand reaches in play. `npm run gate` still checks only
+the original eight — it reads the four new ones as out of reach where play does not. Next:
 bones (full push straightens a leg — rig work), two-hand grabs on LB+RB, the free slots.
 Old takes keep stick models 0 and 1.
 
