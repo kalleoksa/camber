@@ -1,6 +1,6 @@
 import type { InputSnapshot } from '../../input/snapshot.ts';
 import type { Params } from '../params.ts';
-import { boardAttitude } from '../grabs.ts';
+import { boardAttitude, nearestSpotFront, stickT } from '../grabs.ts';
 import { axisY, axisZ, multiply, normalizeQuat, quat, rotate, setFromAxisAngle, type Quat } from '../quat.ts';
 import type { RiderState } from '../state.ts';
 import { tryCapture } from './railed.ts';
@@ -241,9 +241,13 @@ function updateGrab(state: RiderState, input: InputSnapshot, params: Params, dt:
   if (m > g.commit) {
     const edge = (input.rx / m) * g.edgeSharpness;
     state.grabEdge = edge > 1 ? 1 : edge < -1 ? -1 : edge;
-    state.grabT = 0.5 + 0.5 * (input.ry / m);
+    // Model 1: sideways is the edge's main grab and the hand is the nearest named grab's.
+    // Model 0 (old takes): t straight off stick Y, front hand on the nose half — a sideways
+    // stick sat between melon and stalefish (or mute and indy) and a few degrees picked the hand.
+    const centred = g.stickModel > 0;
+    state.grabT = centred ? stickT(input.ry, input.rx, state.grabEdge, g.stickBand) : 0.5 + 0.5 * (input.ry / m);
     if (state.grip === 0) {
-      state.grabFront = state.grabT >= 0.5;
+      state.grabFront = centred ? nearestSpotFront(state.grabEdge, state.grabT) : state.grabT >= 0.5;
       // Took off switch: the switch version of the grab, so stick up is the end that led
       // at takeoff. Mode 1 read travel at the moment of reaching instead, which mirrored
       // the grab and swapped hands whenever a spin had the tail leading — kept for old takes.

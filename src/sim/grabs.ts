@@ -1,4 +1,5 @@
 import type { Params } from './params.ts';
+import * as dm from './dmath.ts';
 
 /**
  * Board attitude per grab, sim side, because the landing test judges it (§6, §7.4).
@@ -15,17 +16,57 @@ import type { Params } from './params.ts';
 type GrabParam = keyof Params['grab'];
 // Keys spelled out, not built with a template literal — that would allocate a string per
 // spot per tick (invariant 7).
-type Spot = { edge: number; t: number; pitch: GrabParam; roll: GrabParam; tweakedPitch?: GrabParam; tweakedRoll?: GrabParam; yaw: GrabParam; tweakedYaw?: GrabParam };
+type Spot = { edge: number; t: number; front: boolean; pitch: GrabParam; roll: GrabParam; tweakedPitch?: GrabParam; tweakedRoll?: GrabParam; yaw: GrabParam; tweakedYaw?: GrabParam };
 
 const SPOTS: readonly Spot[] = [
-  { edge: 1, t: 0.38, pitch: 'indyPitch', roll: 'indyRoll', yaw: 'indyYaw' },
-  { edge: 1, t: 0.54, pitch: 'mutePitch', roll: 'muteRoll', yaw: 'muteYaw', tweakedPitch: 'japanPitch', tweakedRoll: 'japanRoll', tweakedYaw: 'japanYaw' },
-  { edge: -1, t: 0.55, pitch: 'melonPitch', roll: 'melonRoll', yaw: 'melonYaw' },
-  { edge: -1, t: 0.83, pitch: 'methodPitch', roll: 'methodRoll', yaw: 'methodYaw' },
-  { edge: -1, t: 0.39, pitch: 'stalefishPitch', roll: 'stalefishRoll', yaw: 'stalefishYaw' },
-  { edge: 1, t: 1, pitch: 'nosegrabPitch', roll: 'nosegrabRoll', yaw: 'nosegrabYaw' },
-  { edge: 1, t: 0, pitch: 'tailgrabPitch', roll: 'tailgrabRoll', yaw: 'tailgrabYaw' },
+  { edge: 1, t: 0.38, front: false, pitch: 'indyPitch', roll: 'indyRoll', yaw: 'indyYaw' },
+  { edge: 1, t: 0.54, front: true, pitch: 'mutePitch', roll: 'muteRoll', yaw: 'muteYaw', tweakedPitch: 'japanPitch', tweakedRoll: 'japanRoll', tweakedYaw: 'japanYaw' },
+  { edge: -1, t: 0.55, front: true, pitch: 'melonPitch', roll: 'melonRoll', yaw: 'melonYaw' },
+  { edge: -1, t: 0.83, front: true, pitch: 'methodPitch', roll: 'methodRoll', yaw: 'methodYaw' },
+  { edge: -1, t: 0.39, front: false, pitch: 'stalefishPitch', roll: 'stalefishRoll', yaw: 'stalefishYaw' },
+  { edge: 1, t: 1, front: true, pitch: 'nosegrabPitch', roll: 'nosegrabRoll', yaw: 'nosegrabYaw' },
+  { edge: 1, t: 0, front: false, pitch: 'tailgrabPitch', roll: 'tailgrabRoll', yaw: 'tailgrabYaw' },
 ];
+
+// The grab a sideways stick lands on, each edge: indy on the toes, melon on the heels.
+const TOE_CENTER = SPOTS[0]?.t ?? 0.5;
+const HEEL_CENTER = SPOTS[2]?.t ?? 0.5;
+
+/**
+ * Board `t` for the right stick (`up` toward the nose, `side` its X, `edge` already
+ * resolved). Within `band` rad of sideways it is the edge's main grab, past it a straight
+ * run to the nose or tail at vertical — so a thumb a few degrees off still gets an indy or
+ * a melon, and mute, stalefish and method each have a wide arc of their own.
+ */
+export function stickT(up: number, side: number, edge: number, band: number): number {
+  const center = HEEL_CENTER + (TOE_CENTER - HEEL_CENTER) * (edge + 1) * 0.5;
+  const angle = dm.atan2(up, Math.abs(side)); // rad off sideways, + toward the nose
+  const span = Math.PI / 2 - band;
+  if (angle > band) return center + (1 - center) * Math.min(1, (angle - band) / span);
+  if (angle < -band) return center - center * Math.min(1, (-angle - band) / span);
+  return center;
+}
+
+/**
+ * Which hand a grab at (`edge`, `t`) is held with: the nearest named grab's, by the same
+ * distance as the blend below (and the trick reader's), so the hand matches the name.
+ */
+export function nearestSpotFront(edge: number, t: number): boolean {
+  let best = Infinity;
+  let front = t >= 0.5;
+  for (let i = 0; i < SPOTS.length; i++) {
+    const s = SPOTS[i];
+    if (!s) continue;
+    const de = edge - s.edge;
+    const dt = (t - s.t) * 2;
+    const d = de * de + dt * dt;
+    if (d < best) {
+      best = d;
+      front = s.front;
+    }
+  }
+  return front;
+}
 
 /**
  * Written by `boardAttitude`. `roll` is 0..1 of `grab.tweakRollMax`, like the rig driver.

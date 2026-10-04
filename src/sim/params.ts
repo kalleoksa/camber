@@ -175,6 +175,8 @@ export const params = {
   grab: {
     commit: 0.35, // right-stick magnitude past which the hand goes for the board
     switchMirror: 2, // 2: a grab after a switch takeoff is the switch version — same stick, same named grab, mirrored. 1: judged by travel as the hand goes (mirrors mid-spin)
+    stickModel: 1, // 1: sideways stick is the edge's main grab (indy, melon), hand from the nearest named grab; 0: linear, hand by board half
+    stickBand: 0.2, // rad either side of sideways that is still the edge's main grab (stick model 1)
     edgeSharpness: 2.0, // stick X gain onto the edge coordinate — >30° off vertical is a full rail
     tweakEnter: 0.55, // stick magnitude past which the tweak starts
     tweakRate: 10.0, // 1/s, board shoved out toward the stick's depth
