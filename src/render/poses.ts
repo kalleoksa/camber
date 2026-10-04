@@ -397,37 +397,40 @@ export const ANCHORS: Record<string, RigDrivers> = {
     backElbowPole: 0.13,
   }),
 
-  /**
-   * Back hand at the **tail tip** — `t` is 0, the mirror coordinate to nosegrab, and `edge` is
-   * inert for the same reason.
-   *
-   * Not a mirrored pose though. `boardPitch` is −0.18 against nosegrab's +0.36, so the board
-   * tips the other way, and the spine is dead flat: `spineBend` and `spineTwist` are both
-   * exactly 0, the only anchor with no twist at all. My earlier guess in this slot claimed the
-   * spine extends here — the sliders say it just stays square, and the pose is the record.
-   */
+  /** Back hand at the **tail tip** — `t` 0, the mirror coordinate to nosegrab. Authored: tail pulled
+   * well down (boardPitch −0.55), body twisted back to it. */
   tailgrab: pose({
-    hipX: 0.08,
-    hipY: -0.67,
-    hipZ: -0.01,
-    pelvisPitch: -0.05,
-    hipRoll: -0.38,
-    spineSide: -0.08,
-    frontHandEdge: 0,
+    hipX: 0.1,
+    hipY: -0.65, // was −0.6: with spineSide below, the hand reaches the tail (was 8% short)
+    hipZ: -0.02,
+    hipYaw: 0.52,
+    pelvisPitch: -0.46,
+    hipRoll: -0.3,
+    spineBend: 0.03,
+    spineSide: -0.13, // was −0.08
+    spineTwist: -0.65,
+    spineCurl: 0.26,
+    frontHandEdge: -0.13,
     frontHandT: 0.13,
     backHandEdge: 1,
     backHandT: 0,
+    frontGrip: 0,
     backGrip: 1,
-    boardPitch: -0.18,
+    boardPitch: -0.55,
     tweakRoll: -0.2,
-    headYaw: -0.49,
-    headPitch: -0.12,
+    headYaw: 0.09,
+    headPitch: 0.05,
     kneeSplay: 0.53,
-    frontShoulderSwing: -0.16,
-    frontShoulderOut: -0.5,
+    stanceScale: 1,
+    frontShoulderSwing: 0.49,
+    frontShoulderOut: -1,
     frontElbow: 1.07,
-    frontElbowPole: -3.32, // free arm routed right round, same trick as indy and stalefish (was 2.96, −2π as above)
-    spineBend: 0,
+    frontElbowPole: -3.1,
+    backShoulderSwing: 0.2,
+    backShoulderOut: 0.2,
+    backElbow: 0.59,
+    backElbowPole: -0.81,
+    shifty: 0.37,
   }),
 
   /** Front hand, toe edge, t ≈ 0.54. Authored. Toe-side cousin of the method. */

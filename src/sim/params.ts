@@ -209,7 +209,7 @@ export const params = {
     stalefishRoll: 1,
     nosegrabPitch: 0.36,
     nosegrabRoll: -0.28,
-    tailgrabPitch: -0.18,
+    tailgrabPitch: -0.55,
     tailgrabRoll: -0.2,
     reachTime: 0.18, // s, crouch to full grab
     holdTime: 0.4, // s at full grab — preview envelope only, gameplay holds while held
