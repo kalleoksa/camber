@@ -271,7 +271,8 @@ function updateGrab(state: RiderState, input: InputSnapshot, params: Params, dt:
  */
 function composeBoard(out: Quat, state: RiderState, params: Params): Quat {
   const a = boardAttitude(state.grabEdge, state.grabT, state.grip, state.tweak, params);
-  setFromAxisAngle(shiftyQ, UP, state.shifty);
+  // The grab's own yaw rides with the shifty: both turn the drawn board about its up axis.
+  setFromAxisAngle(shiftyQ, UP, state.shifty + (state.grabSwitch ? -a.yaw : a.yaw));
   // A switch grab is the mirror image nose-for-tail: pitch turns over, roll about the
   // board's length doesn't.
   setFromAxisAngle(pitchQ, LATERAL, state.grabSwitch ? -a.pitch : a.pitch);

@@ -15,20 +15,24 @@ import type { Params } from './params.ts';
 type GrabParam = keyof Params['grab'];
 // Keys spelled out, not built with a template literal — that would allocate a string per
 // spot per tick (invariant 7).
-type Spot = { edge: number; t: number; pitch: GrabParam; roll: GrabParam; tweakedPitch?: GrabParam; tweakedRoll?: GrabParam };
+type Spot = { edge: number; t: number; pitch: GrabParam; roll: GrabParam; tweakedPitch?: GrabParam; tweakedRoll?: GrabParam; yaw?: GrabParam };
 
 const SPOTS: readonly Spot[] = [
   { edge: 1, t: 0.38, pitch: 'indyPitch', roll: 'indyRoll' },
   { edge: 1, t: 0.54, pitch: 'mutePitch', roll: 'muteRoll', tweakedPitch: 'japanPitch', tweakedRoll: 'japanRoll' },
   { edge: -1, t: 0.55, pitch: 'melonPitch', roll: 'melonRoll' },
-  { edge: -1, t: 0.83, pitch: 'methodPitch', roll: 'methodRoll' },
+  { edge: -1, t: 0.83, pitch: 'methodPitch', roll: 'methodRoll', yaw: 'methodYaw' },
   { edge: -1, t: 0.39, pitch: 'stalefishPitch', roll: 'stalefishRoll' },
   { edge: 1, t: 1, pitch: 'nosegrabPitch', roll: 'nosegrabRoll' },
   { edge: 1, t: 0, pitch: 'tailgrabPitch', roll: 'tailgrabRoll' },
 ];
 
-/** Written by `boardAttitude`. `roll` is 0..1 of `grab.tweakRollMax`, like the rig driver. */
-export const attitude = { pitch: 0, roll: 0 };
+/**
+ * Written by `boardAttitude`. `roll` is 0..1 of `grab.tweakRollMax`, like the rig driver.
+ * `yaw` (rad about board up) turns the whole rider and board together while the grab is
+ * held — a method's back to the landing — and is judged at touchdown like a held shifty.
+ */
+export const attitude = { pitch: 0, roll: 0, yaw: 0 };
 
 /**
  * Board pitch (rad, nose up) and roll for a grab at (`edge`, `t`), `grip` held, `tweak`
@@ -40,6 +44,7 @@ export function boardAttitude(edge: number, t: number, grip: number, tweak: numb
   let total = 0;
   let pitch = 0;
   let roll = 0;
+  let yaw = 0;
   const gain = 1 + params.grab.tweakGain;
   for (let i = 0; i < SPOTS.length; i++) {
     const s = SPOTS[i];
@@ -54,11 +59,13 @@ export function boardAttitude(edge: number, t: number, grip: number, tweak: numb
     const tr = s.tweakedRoll ? g[s.tweakedRoll] : br * gain;
     pitch += w * (bp + (tp - bp) * tweak);
     roll += w * (br + (tr - br) * tweak);
+    if (s.yaw) yaw += w * g[s.yaw];
     total += w;
   }
   const max = params.grab.tweakPitchMax;
   pitch = Math.max(-max, Math.min(max, (pitch / total) * grip));
   attitude.pitch = pitch;
   attitude.roll = Math.max(-1, Math.min(1, (roll / total) * grip));
+  attitude.yaw = (yaw / total) * grip;
   return attitude;
 }

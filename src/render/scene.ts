@@ -496,6 +496,9 @@ export function createScene(cfg: SlopeConfig, terrain: Terrain, camera: THREE.Pe
   // to keep one board point where the sim put it — the pressed tip of a butter on the snow,
   // the contact point of a press over the rail. `pinZ` is that point on board Z; 0 is none.
   let pinZ = 0;
+  // The grab's turn of the whole rider (sim grabs.ts `yaw`), applied to the root after the
+  // drivers — the sim's board turns by the same, so the landing judges what is drawn.
+  let grabYaw = 0;
   const tip = new THREE.Vector3();
   const pivot = new THREE.Vector3();
   const pitchQuat = new THREE.Quaternion();
@@ -547,6 +550,9 @@ export function createScene(cfg: SlopeConfig, terrain: Terrain, camera: THREE.Pe
       base.spineSide = press * r.stanceSpineSide;
     }
     base.spineBend = r.spineBendBase + view.compress * r.compressSpineBend;
+    // Riders look down the hill, not straight across the board: toward the nose, or the
+    // tail riding switch. A grab's anchor carries its own head and takes over as it comes on.
+    base.headYaw = view.switchRide ? -r.rideHeadYaw : r.rideHeadYaw;
 
     // Body leads, hand commits later — the grab path stays reachable the whole way (rig.ts).
     const bodyWeight = smoothstep(view.grip);
@@ -636,6 +642,7 @@ export function createScene(cfg: SlopeConfig, terrain: Terrain, camera: THREE.Pe
     drivers.backShoulderOut += (secondary.armZ - secondary.armOpen) * bg;
 
     const a = boardAttitude(view.grabEdge, view.grabT, view.grip, view.tweak, params);
+    grabYaw = view.grabSwitch ? -a.yaw : a.yaw;
     // A butter tips the board onto the pressed end: nose press is nose down.
     const butter = grounded ? butterAmount(view.stance, view.speed, params) : 0;
     const butterTip = butter > 0 ? Math.sign(view.stance) : 0;
@@ -697,7 +704,12 @@ export function createScene(cfg: SlopeConfig, terrain: Terrain, camera: THREE.Pe
 
       // Pose mode leaves the drivers alone — they are the thing being authored.
       pinZ = 0;
+      grabYaw = 0;
       if (!poseMode) driveFromSim(view, params, secondary);
+      if (grabYaw !== 0) {
+        roll.setFromAxisAngle(yAxis, grabYaw);
+        rig.root.quaternion.multiply(roll);
+      }
       if (!poseMode && drivers.shifty !== 0) {
         // A hand holding the board can't let it yaw away under a still body: that much of
         // the shifty turns the whole rider instead, about the same axis, and only the rest

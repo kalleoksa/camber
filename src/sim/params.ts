@@ -205,6 +205,7 @@ export const params = {
     melonRoll: 0.35,
     methodPitch: 0.55,
     methodRoll: 0.72,
+    methodYaw: 0.6, // rad the whole rider and board turn about up while a method is held: the back toward the landing. Judged at touchdown like a held shifty
     stalefishPitch: -0.18,
     stalefishRoll: 1,
     nosegrabPitch: 0.36,
@@ -282,6 +283,7 @@ export const params = {
     armLead: 0.8, // rad the arms lead the board in the air at full spin
     hipLead: 0.2, // rad the hips lead
     armSpread: 0.9, // rad the arms open out along the board — at the lip, and to stop the spin for landing
+    rideHeadYaw: 0.9, // rad the head turns from straight across the board toward the way of travel — riders look down the hill. Mirrored riding switch
     shiftyGrabTurn: 0.7, // fraction of a shifty the whole rider turns through while a hand holds the board — the rest twists the board under the body. 0 leaves the hand short of the board (up to 16 cm on a nose or tail grab)
     armTuck: 0.4, // rad the arms pull in when tucking to spin faster (spin model 1)
     openTime: 0.3, // s before touchdown the rider opens up and squares to the board
