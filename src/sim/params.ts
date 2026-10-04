@@ -285,6 +285,8 @@ export const params = {
     crouchDepth: 0.28, // m the hips drop at full compress
     hipStiffness: 250.0, // ω² for the hip spring — ω = sqrt of this, so 250 is ~15.8 rad/s
     hipDamping: 1.0, // ζ — 1.0 is critically damped
+    terrainAbsorb: 0.012, // m the hips drop per m/s² the board is pushed up (transitions, a landing ramp's bottom); rise over knuckles and rollers
+    terrainAbsorbMax: 0.16, // m either way
     edgeRoll: 0.55, // rad of board tip at full edge, drawn only
     absorbPerImpact: 0.022, // m of extra hip drop per m/s of landing impact
     edgeHipShift: 0.1, // m of hip lean toward the edge at full edge
