@@ -370,6 +370,14 @@ function edgeLines(cfg: SlopeConfig, terrain: Terrain): THREE.Group {
     const lipPts: THREE.Vector3[] = [];
     for (let i = 0; i <= 12; i++) lipPts.push(at(k.x - half + 0.05 + ((2 * half - 0.1) * i) / 12, lip + 0.02, 0, 0));
     tube(lipPts);
+    // A separate landing (gap jump): the knuckle dyed across its top, where the landing starts.
+    if ('knuckleHeight' in k && k.knuckleHeight !== undefined) {
+      const knuckle = lip - k.deckLength;
+      const deckHalf = (k.deckWidth ?? k.width) * 0.5 - 0.3;
+      const pts: THREE.Vector3[] = [];
+      for (let i = 0; i <= 16; i++) pts.push(at(k.x - deckHalf + (2 * deckHalf * i) / 16, knuckle, 0, 0));
+      tube(pts);
+    }
   }
   // A corner's deck edges too — the knuckle on all three sides, where its landings start.
   for (const c of cfg.corners ?? []) {

@@ -145,6 +145,14 @@ export type KickerConfig = {
   deckWidth?: number;
   /** m over which the table's and landing's sides fall away, when `deckWidth` is set; defaults to `sideTaper`. A short `sideTaper` with a longer `deckTaper` is a cut takeoff on a rounded table. */
   deckTaper?: number;
+  /**
+   * A big-air build rather than a table: the lip's back drops to the slope over
+   * `backLength`, and the landing is its own hill — rising gently from there to a rounded
+   * knuckle `knuckleHeight` above the slope at `deckLength` past the lip, then the landing.
+   * You can ride round the takeoff and up the rise onto the knuckle. Needs `deckWidth`.
+   */
+  knuckleHeight?: number;
+  backLength?: number; // m, the lip's back face; defaults to 0.4 × lipHeight (steep)
 };
 
 export function createContact(): Contact {
@@ -264,19 +272,21 @@ function kickerProfile(k: KickerConfig): Profile {
   const runoutLen = park ? rb * dm.sin(alpha) : 0;
   const runoutRise = park ? rb * (1 - dm.cos(alpha)) : 0;
   const slopeAlpha = park ? dm.tan(alpha) : 0;
-  const straightLen = park ? Math.max(0, k.lipHeight - knuckleDrop - runoutRise) / slopeAlpha : 0;
+  // The landing starts at the knuckle: the lip's height on a table, its own on a gap jump.
+  const top = k.knuckleHeight ?? k.lipHeight;
+  const straightLen = park ? Math.max(0, top - knuckleDrop - runoutRise) / slopeAlpha : 0;
   const knuckleEnd = deckEnd + knuckleLen;
   const straightEnd = knuckleEnd + straightLen;
   const end = park ? straightEnd + runoutLen : deckEnd + (k.landingLength ?? 0);
 
   // Deck and landing height at s ≥ runIn, park landing only (a wide table implies one).
   const tableHeight = (s: number): number => {
-    if (s < deckEnd) return k.lipHeight;
+    if (s < deckEnd) return top;
     if (s < knuckleEnd) {
       const u = s - deckEnd;
-      return k.lipHeight - (rk - Math.sqrt(rk * rk - u * u));
+      return top - (rk - Math.sqrt(rk * rk - u * u));
     }
-    if (s < straightEnd) return k.lipHeight - knuckleDrop - (s - knuckleEnd) * slopeAlpha;
+    if (s < straightEnd) return top - knuckleDrop - (s - knuckleEnd) * slopeAlpha;
     const u = end - s;
     return rb - Math.sqrt(rb * rb - u * u);
   };
@@ -284,9 +294,27 @@ function kickerProfile(k: KickerConfig): Profile {
   const deckHalf = (k.deckWidth ?? k.width) * 0.5;
   const fade = (t: number): number => (t <= 0 ? 0 : t >= 1 ? 1 : t * t * (3 - 2 * t));
 
+  const back = k.backLength ?? k.lipHeight * 0.4;
+
   return (x: number, z: number): number => {
     const s = k.z - z;
     if (s <= 0 || s >= end) return 0;
+    if (k.knuckleHeight !== undefined) {
+      // Gap jump: the takeoff at its own width, its back dropping steeply to the slope; the
+      // landing hill at the deck's width, rising from the lip to the knuckle (flat at both
+      // ends, so it meets the slope and the knuckle without a crease). The higher wins.
+      const dx = Math.abs(x - k.x);
+      let takeoff = 0;
+      if (s < runIn) takeoff = radius - Math.sqrt(radius * radius - s * s);
+      else if (s < runIn + back) takeoff = k.lipHeight * (1 - fade((s - runIn) / back));
+      takeoff *= fade(1 - (dx - k.width * 0.5) / k.sideTaper);
+      let hill = 0;
+      if (s > runIn) {
+        const along = s < deckEnd ? top * fade((s - runIn) / Math.max(deckEnd - runIn, 1e-3)) : tableHeight(s);
+        hill = along * fade(1 - (dx - deckHalf) / (k.deckTaper ?? k.sideTaper));
+      }
+      return takeoff > hill ? takeoff : hill;
+    }
     if (k.deckWidth !== undefined) {
       // Takeoff at its own width; table and landing at the deck's, its uphill face fading
       // in beside the takeoff. The wider of the two wins.

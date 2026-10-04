@@ -183,3 +183,14 @@ wait until powder exists.
   `rig.landBlendClean` / `landBlendSketchy` instead of one tick.
 - Trick names now appear when the landing window closes (0.22 s later), so revert and save show.
 - Old takes pin all of it off.
+- **Gap jumps** (terrain, from your big-air elevation): `KickerConfig.knuckleHeight` makes a
+  kicker a separate takeoff and landing — the lip's back drops steeply to the slope
+  (`backLength`, default 0.4 × lip), then the landing is its own hill, a smooth rise over
+  `deckLength` to a knuckle `knuckleHeight` up, then knuckle, landing and run-out as before.
+  The jump line uses it with the knuckle at half the lip (`KNUCKLE` in park.ts). A lower
+  knuckle has less to drop, so the kicker's landing angle eases to keep the landing as long,
+  and `LANDING_GRADE` (0.3) of that goes back as a steeper slope under it: landings ~22°
+  (were 26°); more grade = steeper landings and a faster line (~+6 km/h a kicker at 1).
+  Line speeds 41/45/50/56/57 km/h (were 41/44/50/57/58), all straight airs clean.
+  Riding round the takeoff and up the rise onto the knuckle: from ~22 km/h on the small
+  kickers, ~43 km/h on the big ones. The knuckle is dyed red. Takes keep their terrain.

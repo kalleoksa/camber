@@ -24,7 +24,7 @@ export function kickerSpan(k: KickerConfig): { deck: number; end: number } {
   const rk = k.knuckleRadius ?? 0;
   const rb = k.runoutRadius ?? 0;
   const deck = r * Math.sin(k.lipAngle) + k.deckLength;
-  const straight = Math.max(0, k.lipHeight - rk * (1 - Math.cos(a)) - rb * (1 - Math.cos(a))) / Math.tan(a);
+  const straight = Math.max(0, (k.knuckleHeight ?? k.lipHeight) - rk * (1 - Math.cos(a)) - rb * (1 - Math.cos(a))) / Math.tan(a);
   return { deck, end: deck + rk * Math.sin(a) + straight + rb * Math.sin(a) };
 }
 

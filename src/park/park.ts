@@ -15,12 +15,26 @@ const shelf = 0.08; // rad between sections — just steeper than snow friction
 const drop = 0.3; // rad, the drop-in and the run to the pipes
 
 type Size = { lipHeight: number; deckLength: number; width: number; deckWidth: number };
+const KNUCKLE = 0.5; // knuckle height over lip height
+const LANDING = 0.15; // rad a landing falls below the slope it sits on, as a table landing had it
+const LANDING_GRADE = 0.3; // share of the eased landing angle given back by steepening the slope under it: more is steeper landings and a faster line (1: the old angle, ~+6 km/h a kicker)
 /**
  * One kicker on a stepped section: inrun and table on `table` (flat for the big ones, so friction
  * bleeds what the last landing gave), the slope dropping to `landing` under it, `after` beyond.
  */
 function jump(z: number, size: Size, landing: number, table = 0, after = shelf): { kicker: KickerConfig; grades: GradeConfig[]; end: number } {
-  const kicker: KickerConfig = { z, x: JUMP_X, lipAngle: 0.6, sideTaper: 0.3, deckTaper: 2.5, landingAngle: 0.15, knuckleRadius: 6, runoutRadius: 20, ...size };
+  // Big-air build, as the reference elevation: no table — the lip's back drops away and the
+  // landing is its own hill, a gentle rise to a knuckle about half the lip's height. A lower
+  // knuckle has less to drop, which would halve the landing; so the kicker's own landing
+  // angle eases until it is as long as it was, and the slope under it steepens by the same,
+  // so the landing is as steep as it was too.
+  const knuckleRadius = 6;
+  const runoutRadius = 20;
+  const knuckleHeight = size.lipHeight * KNUCKLE;
+  const arcs = (knuckleRadius + runoutRadius) * (1 - Math.cos(LANDING));
+  const landingAngle = Math.atan((Math.tan(LANDING) * Math.max(0.01, knuckleHeight - arcs)) / Math.max(0.01, size.lipHeight - arcs));
+  landing += LANDING_GRADE * (LANDING - landingAngle);
+  const kicker: KickerConfig = { z, x: JUMP_X, lipAngle: 0.6, sideTaper: 0.3, deckTaper: 2.5, landingAngle, knuckleRadius, runoutRadius, knuckleHeight, ...size };
   const sp = kickerSpan(kicker);
   return {
     kicker,
