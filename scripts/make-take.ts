@@ -6,6 +6,7 @@ import { params } from '../src/sim/params.ts';
 import { tick } from '../src/sim/rider.ts';
 import { createRng, next } from '../src/sim/rng.ts';
 import { createRiderState } from '../src/sim/state.ts';
+import { PARK } from '../src/park/park.ts';
 import { SLOPESTYLE } from '../src/park/slopestyle.ts';
 import { SOCHI } from '../src/park/sochi.ts';
 import { createContact, createSlope, type KickerConfig, type SlopeConfig } from '../src/sim/terrain.ts';
@@ -334,4 +335,43 @@ console.log(`wrote ${take.frames.length} ticks -> takes/synthetic.json`);
   const butterTake = buildTake({ seed: SEED, dt: TICK_DT, spawn, terrain: cfg, params, frames });
   writeFileSync(new URL("../takes/butter180.json", import.meta.url), JSON.stringify(butterTake));
   console.log(`wrote ${butterTake.frames.length} ticks -> takes/butter180.json`);
+}
+
+// Landing skid and revert: one of the home park's big kickers on a plain slope. A 360 sent
+// off it lands with spin left over (the skid), then the right stick flicks a revert.
+{
+  const big = (PARK.kickers ?? [])[3];
+  if (big) {
+    const kicker: KickerConfig = { ...big, x: 0, z: -120 };
+    const cfg: SlopeConfig = { length: 400, width: 120, pitch: 0.3, kickers: [kicker] };
+    const terrain = createSlope(cfg);
+    const spawn = { position: { x: 0, y: terrain.sample(0, 0, createContact()).height + 0.2, z: 0 }, heading: Math.PI };
+    const state = createRiderState(spawn);
+    const lip = kicker.z - (kicker.lipHeight / (1 - Math.cos(kicker.lipAngle))) * Math.sin(kicker.lipAngle);
+    const frames: InputSnapshot[] = [];
+    let popped = false;
+    let landedAt = -1;
+    let reverted = false;
+    for (let i = 0; i < 16 / TICK_DT; i++) {
+      const frame = neutralInput();
+      const toLip = (state.position.z - lip) / Math.max(1, -state.velocity.z);
+      if (state.mode === 'grounded' && !popped) {
+        if (toLip < 0.52 && toLip > 0.03) frame.rt = 1;
+        if (toLip < 0.22 && toLip > 0.03) frame.lx = 1; // wind up
+        if (toLip <= 0.03) frame.lx = -1; // send
+      }
+      if (popped && state.mode === 'airborne' && state.airTime < 0.2) frame.lx = -1;
+      if (landedAt >= 0 && i - landedAt > 6 && i - landedAt < 18) frame.rx = 1; // revert flick
+      const q = quantizeInput(frame);
+      const was = state.mode;
+      tick(state, q, params, terrain, TICK_DT);
+      frames.push(q);
+      if (was !== 'airborne' && state.mode === 'airborne' && toLip < 1) popped = true;
+      if (popped && landedAt < 0 && was === 'airborne' && state.mode !== 'airborne') landedAt = i;
+      reverted ||= state.reverted;
+    }
+    const skidTake = buildTake({ seed: SEED, dt: TICK_DT, spawn, terrain: cfg, params, frames });
+    writeFileSync(new URL('../takes/skid-revert.json', import.meta.url), JSON.stringify(skidTake));
+    console.log(`wrote ${skidTake.frames.length} ticks -> takes/skid-revert.json (reverted: ${reverted})`);
+  }
 }

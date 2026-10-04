@@ -195,7 +195,12 @@ export function stepSecondary(sec: Secondary, state: RiderState, params: Params,
   const easeAir = 1 - dm.exp(-params.rig.airCrouchRate * dt);
   sec.airCrouch += (compact - sec.airCrouch) * easeAir;
   sec.inAir += ((state.mode === 'airborne' ? 1 : 0) - sec.inAir) * easeAir;
-  const target = -state.compress * params.rig.crouchDepth - absorb - sec.airCrouch * params.rig.airCrouch;
+  // On snow the legs soak up the terrain: pushed up into a transition the hips sink, over
+  // a knuckle or roller they rise. `accY` is the board-up acceleration (stepLoose, last tick).
+  // Not during a landing's absorb: the touchdown spikes it, and `absorb` already has that.
+  const onSnow = (state.mode === 'grounded' || state.mode === 'walled') && state.absorb <= 0;
+  const terrain = onSnow ? clamp(sec.accY * params.rig.terrainAbsorb, params.rig.terrainAbsorbMax) : 0;
+  const target = -state.compress * params.rig.crouchDepth - absorb - terrain - sec.airCrouch * params.rig.airCrouch;
   const k = params.rig.hipStiffness;
   const acc = k * (target - sec.hipY) - 2 * params.rig.hipDamping * Math.sqrt(k) * sec.hipVel;
   sec.hipVel += acc * dt;

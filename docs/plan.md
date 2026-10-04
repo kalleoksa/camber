@@ -162,3 +162,50 @@ fixes made it a trick rather than a stop: up on an end the edge stick no longer 
 switch latch flipping mid-pivot carries the held stick through (`ground.switchCarry` —
 the smoothed press swept through zero and dropped the butter halfway). Named "fs/bs
 nose/tail butter 180" (or 360, 540) in `render/tricks.ts`. Old takes pin both off.
+
+## 8. Landing & Feel spec (2026-10-04)
+
+Adapted to CLAUDE.md: no score, multipliers or angles on screen; tuning stays in `params.ts`
+and Tweakpane; R2 is the absorb (the spec's LT stomp), L2 the speed check; surface profiles
+wait until powder exists.
+
+- **Terrain absorb** (render): the hips follow the board's up-acceleration on snow —
+  `rig.terrainAbsorb`, `terrainAbsorbMax`; off during a landing's own absorb.
+- **Skid** (sim): `land.skidCarry` of the touchdown yaw rate keeps turning the board on the
+  snow, slowed at `land.skidDecel`; while it skids the board pivots (grip × `land.skidGrip`,
+  travel keeps its line) and the landing correction waits; the carve rides out what's left.
+- **Revert**: in the landing window (`land.absorbTime`) the right stick flicked the way of the
+  skid turns the board round to the other stance, lined up with travel. Named "… to revert".
+  A stick still held from a grab doesn't count until it has been near centre.
+- **Save**: a landing sketchy only for its rotation, pushed the way that lines it up in the
+  window, becomes clean and gets its speed back (`land.save`, `saveStick`).
+- **Slope blend** (render): the drawn board eases from its air attitude onto the slope over
+  `rig.landBlendClean` / `landBlendSketchy` instead of one tick.
+- Trick names now appear when the landing window closes (0.22 s later), so revert and save show.
+- Old takes pin all of it off.
+- **Gap jumps** (terrain, from your big-air elevation): `KickerConfig.knuckleHeight` makes a
+  kicker a separate takeoff and landing — the lip's back drops steeply to the slope
+  (`backLength`, default 0.4 × lip), then the landing is its own hill, a smooth rise over
+  `deckLength` to a knuckle `knuckleHeight` up, then knuckle, landing and run-out as before.
+  The jump line uses it with the knuckle at half the lip (`KNUCKLE` in park.ts). A lower
+  knuckle has less to drop, so the kicker's landing angle eases to keep the landing as long,
+  and `LANDING_GRADE` (0.3) of that goes back as a steeper slope under it: landings ~22°
+  (were 26°); more grade = steeper landings and a faster line (~+6 km/h a kicker at 1).
+  Line speeds 41/45/50/56/57 km/h (were 41/44/50/57/58), all straight airs clean.
+  Riding round the takeoff and up the rise onto the knuckle: from ~22 km/h on the small
+  kickers, ~43 km/h on the big ones. The knuckle is dyed red. Takes keep their terrain.
+
+## 9. Visual slope builder — to design and plan (2026-10-04)
+
+Parks are built in code today (`src/park/*.ts`, numbers per feature). We need a visual way
+to build slopes and lines. Not started; needs a design and a plan first. Open questions:
+
+- Where it lives: a separate editor page beside the game, or an edit mode in it. CLAUDE.md
+  rules out menus and UI chrome in the game, so this needs an explicit decision.
+- What it edits: grades, kickers (gap / table), corners, rails, boxes, quarters, walls —
+  placed and sized by hand, with the numbers still readable and tweakable.
+- What it saves: milestone 7's park JSON (`park/park.json` + loader), so a line is data,
+  diffable, and takes keep replaying on the terrain they stored.
+- How you test a change: ride it straight from the editor, plus `npm run airs`-style checks
+  (speed into each feature, airtime, landing spot) shown while placing.
+- Dependencies: the stack is locked; anything beyond Three.js and Tweakpane needs asking.

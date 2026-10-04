@@ -18,6 +18,8 @@ const ROWS: [string, string, string][] = [
   ['Shifty', 'L1 / R1 alone, in the air', 'Q / E'],
   ['Grab', 'Hold L1 (left hand) or R1 (right hand) + right stick', 'Q / E + arrows'],
   ['Tweak', 'Push the right stick all the way', '+ Shift'],
+  ['Revert', 'Right after landing, flick the right stick the way you were spinning', '← / →'],
+  ['Save a sketchy landing', 'Right after landing, push the right stick the way that lines the board up', '← / →'],
   ['Rail slide', 'L1 / R1 on a rail', 'Q / E'],
   ['Reset', 'Triangle / Y', 'R'],
   ['Pause', 'Options / Start', 'P'],

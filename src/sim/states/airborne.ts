@@ -22,6 +22,7 @@ import {
   vec3,
   wrapAngle,
   type Vec3,
+  planeHeading,
 } from '../vec3.ts';
 import * as dm from '../dmath.ts';
 
@@ -30,6 +31,7 @@ const spin = quat();
 const boardForward = vec3();
 const boardUp = vec3();
 const course = vec3();
+const spinWorld = vec3();
 const pitchQ = quat();
 const rollQ = quat();
 const shiftyQ = quat();
@@ -369,15 +371,21 @@ function land(state: RiderState, params: Params, n: Vec3, onWall: boolean): void
   const hard = !wall && state.impact >= params.land.impactSketchy * give;
   const broken = !wall && state.impact >= params.land.impactBail * give;
 
+  state.saveable = false;
+  state.reverted = false;
+  state.stickArmed = false;
   if (!broken && !hard && theta < params.land.clean && phi < params.land.rollClean) {
     state.landing = 'clean';
   } else if (!broken && theta < params.land.sketchy && phi < params.land.rollSketchy) {
     state.landing = 'sketchy';
+    // Sketchy only for the rotation — the board lined up, the impact taken — is a save.
+    state.saveable = params.land.save > 0 && !hard && phi < params.land.rollClean;
   } else {
     state.mode = 'bailed';
     state.landing = 'bail';
     state.bailTime = 0;
     state.spinRate = 0;
+    state.skid = 0;
     state.headingTarget = state.heading;
     return;
   }
@@ -396,18 +404,14 @@ function land(state: RiderState, params: Params, n: Vec3, onWall: boolean): void
   projectOntoPlane(v, n);
   if (state.landing === 'sketchy') scale(v, 1 - params.land.sketchySpeedLoss);
 
+  // The spin about the landing surface's normal, part of it carried into a skid on the snow.
+  // A positive turn about the normal raises heading, so it goes in as is.
+  rotate(spinWorld, state.spinFrame, state.spinAxis);
+  state.skid = wall ? 0 : params.land.skidCarry * state.spinRate * dot(spinWorld, n);
+
   state.mode = wall ? 'walled' : 'grounded';
   state.airTime = 0;
   state.spinRate = 0;
   state.absorb = params.land.absorbTime;
 }
 
-/**
- * Inverse of how grounded builds `forward`: the heading whose horizontal (sin, 0, cos),
- * projected onto the plane of `n`, points along in-plane vector `b`. Lift `b` back to
- * horizontal along `n`, then read its yaw. A plain atan2 of `b` is off on a tilted plane.
- */
-function planeHeading(b: Vec3, n: Vec3): number {
-  const s = b.y / n.y;
-  return dm.atan2(b.x - n.x * s, b.z - n.z * s);
-}

@@ -89,3 +89,13 @@ export function damp(out: Vec3, target: Vec3, rate: number, dt: number): Vec3 {
 export function dampScalar(current: number, target: number, rate: number, dt: number): number {
   return current + (target - current) * (1 - dm.exp(-rate * dt));
 }
+
+/**
+ * Inverse of how grounded builds `forward`: the heading whose horizontal (sin, 0, cos),
+ * projected onto the plane of `n`, points along in-plane vector `b`. Lift `b` back to
+ * horizontal along `n`, then read its yaw. A plain atan2 of `b` is off on a tilted plane.
+ */
+export function planeHeading(b: Vec3, n: Vec3): number {
+  const s = b.y / n.y;
+  return dm.atan2(b.x - n.x * s, b.z - n.z * s);
+}

@@ -13,6 +13,7 @@ import {
   dot,
   length,
   normalize,
+  planeHeading,
   projectOntoPlane,
   set,
   vec3,
@@ -56,8 +57,16 @@ export function stepGrounded(
   damp(state.groundNormal, contact.normal, g.normalSmoothing, dt);
   const n = contact.normal;
 
-  // Finish off a landing correction, if one is pending, before the carve reads heading.
-  if (state.absorb > 0) {
+  landingWindow(state, input, params, n);
+  // The skid: the board keeps turning on the snow and the edge takes it out. While it turns,
+  // the landing correction waits; when it stops, the carve rides out whatever angle is left.
+  if (state.skid !== 0) {
+    state.heading = wrapAngle(state.heading + state.skid * dt);
+    const slow = params.land.skidDecel * dt;
+    state.skid = Math.abs(state.skid) <= slow ? 0 : state.skid - (state.skid > 0 ? slow : -slow);
+    if (state.skid === 0) aimAtTravel(state, params, n);
+  } else if (state.absorb > 0) {
+    // Finish off a landing correction, if one is pending, before the carve reads heading.
     const delta = wrapAngle(state.headingTarget - state.heading);
     state.heading = wrapAngle(state.heading + delta * (1 - dm.exp(-params.land.headingSnap * dt)));
   }
@@ -141,6 +150,10 @@ export function stepGrounded(
   grip *= 1 - stanceMag * g.stanceGripLoss;
   grip *= 1 - input.lt * g.brakeGripLoss;
   grip *= 1 + (params.butter.gripScale - 1) * butter;
+  // A landing skid pivots the board under the rider like a butter: the edge doesn't hold
+  // and the travel keeps its line rather than following the turning board.
+  const skidding = state.skid !== 0 ? 1 : 0;
+  grip *= 1 + (params.land.skidGrip - 1) * skidding;
   const vlAfter = vl * dm.exp(-Math.max(grip, 0) * dt);
   const scrubbed = Math.abs(vl) - Math.abs(vlAfter);
 
@@ -151,7 +164,7 @@ export function stepGrounded(
   const vfRotated = Math.sign(vf) * Math.sqrt(Math.max(0, speedBefore * speedBefore - vlAfter * vlAfter));
   // A butter is a pivot, not a carve: scrub is not handed back, so the board can come round
   // while the rider keeps travelling the way they were going.
-  vf += (vfRotated - vf) * g.carveHold * (1 - butter);
+  vf += (vfRotated - vf) * g.carveHold * (1 - butter) * (1 - skidding);
   vl = vlAfter;
   state.scrub = scrubbed / dt;
 
@@ -345,7 +358,18 @@ export function takeoffSpinRate(state: RiderState, input: InputSnapshot, params:
     const w = state.windUp;
     let amount: number;
     let way: number;
-    if (Math.abs(w) > a.flickMin) {
+    if (a.windAdds > 0) {
+      // The wind-up adds to the flick rather than replacing it: a send with no wind-up is the
+      // flick's share of the spin, each bit of wind-up adds the rest on top, up to the full
+      // rate. Replacing it made a short wind-up spin *less* than none — flick 0.5, then 0.15
+      // the moment the wind-up passed `flickMin`.
+      const travel = input.lx - state.spinRef;
+      const flick = Math.min(1, Math.abs(travel) * 0.5) * a.flickGain;
+      const send = Math.min(1, Math.max(0, (w > 0 ? -input.lx : input.lx) / Math.max(a.fullStick, 1e-3)));
+      const wound = w !== 0 && send > 0;
+      amount = flick + Math.abs(w) * send * (1 - a.flickGain);
+      way = wound ? -w : travel;
+    } else if (Math.abs(w) > a.flickMin) {
       amount = Math.abs(w) * Math.min(1, Math.max(0, (w > 0 ? -input.lx : input.lx) / Math.max(a.fullStick, 1e-3)));
       way = -w;
     } else {
@@ -450,4 +474,71 @@ export function rideOff(state: RiderState, input: InputSnapshot, params: Params,
   state.spinAxis.y = 1;
   state.spinAxis.z = 0;
   state.spinRate = headingRate;
+}
+
+const travel = vec3();
+
+/** Heading target onto the direction of travel, regular or switch, whichever is nearer. */
+function aimAtTravel(state: RiderState, params: Params, n: Vec3): void {
+  travel.x = state.velocity.x;
+  travel.y = state.velocity.y;
+  travel.z = state.velocity.z;
+  projectOntoPlane(travel, n);
+  if (length(travel) <= params.ground.pivotSpeed) {
+    state.headingTarget = state.heading;
+    return;
+  }
+  const course = planeHeading(travel, n);
+  const delta = wrapAngle(course - state.heading);
+  state.headingTarget = wrapAngle(Math.abs(delta) > Math.PI / 2 ? course + Math.PI : course);
+}
+
+/**
+ * The landing window (`land.absorbTime` after touchdown): the right stick, unused on snow,
+ * flicked the way the board is turning is a revert — a skid fast enough to take it
+ * `land.revertAngle` further; pushed the way that lines a sketchy-for-rotation landing up,
+ * it is saved to clean and the speed it cost comes back. Stick right turns the board as a
+ * toe edge does (heading down), mirrored riding switch like the edges.
+ */
+function landingWindow(state: RiderState, input: InputSnapshot, params: Params, n: Vec3): void {
+  const l = params.land;
+  if (state.absorb <= 0) {
+    state.saveable = false;
+    return;
+  }
+  // A flick, not a stick still held from a grab: it counts once it has been near centre.
+  if (Math.abs(input.rx) < l.revertStick * 0.5) state.stickArmed = true;
+  if (!state.stickArmed) return;
+  const dir = params.ground.switchEdges > 0 && state.switchRide ? -1 : 1;
+  const turn = -input.rx * dir; // + raises heading
+  if (state.saveable && Math.abs(input.rx) > l.saveStick) {
+    const off = wrapAngle(state.headingTarget - state.heading);
+    if (off * turn > 0) {
+      state.landing = 'clean';
+      state.saveable = false;
+      state.skid = 0;
+      const keep = 1 - l.sketchySpeedLoss;
+      if (keep > 1e-3) {
+        state.velocity.x /= keep;
+        state.velocity.y /= keep;
+        state.velocity.z /= keep;
+      }
+      aimAtTravel(state, params, n);
+      state.stickArmed = false; // the same push isn't also a revert
+      return;
+    }
+  }
+  if (l.revertAngle > 0 && !state.reverted && Math.abs(input.rx) > l.revertStick && state.skid * turn >= 0) {
+    // Far enough, the flick's way round, to stop lined up on the other stance; revertAngle
+    // when there's no line to aim at. Then the rate that skids exactly that far to a stop
+    // at skidDecel: ω² = 2·a·θ.
+    aimAtTravel(state, params, n);
+    let need = wrapAngle(state.headingTarget + Math.PI - state.heading);
+    if (turn > 0 && need < 0) need += 2 * Math.PI;
+    if (turn < 0 && need > 0) need -= 2 * Math.PI;
+    const angle = Math.abs(need) > Math.PI / 2 && Math.abs(need) < (3 * Math.PI) / 2 ? Math.abs(need) : l.revertAngle;
+    state.skid = (turn > 0 ? 1 : -1) * Math.sqrt(2 * l.skidDecel * angle);
+    state.reverted = true;
+    state.saveable = false;
+  }
 }

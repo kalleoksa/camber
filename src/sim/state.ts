@@ -82,6 +82,14 @@ export type RiderState = {
   grabId: number;
   /** Stick model 2: bumper and stick both held — the grab is on, not letting go. */
   grabHeld: boolean;
+  /** rad/s the board keeps turning on the snow after a landing — the spin carried into a skid. + raises heading. */
+  skid: number;
+  /** A sketchy landing that was sketchy only for being under- or over-rotated: a counter-push on the right stick in the landing window saves it. */
+  saveable: boolean;
+  /** This landing was reverted (right stick flicked the way of the skid in the landing window). */
+  reverted: boolean;
+  /** The right stick has been near centre since touchdown, so a flick now is meant. */
+  stickArmed: boolean;
   /** Riding tail first, latched with `ground.switchSpeed` of hysteresis. The sticks follow it. */
   switchRide: boolean;
   grip: number; // 0 = hand at rest, 1 = locked to the board
@@ -144,6 +152,10 @@ export function createRiderState(spawn: Spawn): RiderState {
     grabSwitch: false,
     grabId: -1,
     grabHeld: false,
+    skid: 0,
+    saveable: false,
+    reverted: false,
+    stickArmed: false,
     switchRide: false,
     grip: 0,
     tweak: 0,
@@ -197,6 +209,10 @@ export function resetRiderState(state: RiderState): void {
   state.grabSwitch = false;
   state.grabId = -1;
   state.grabHeld = false;
+  state.skid = 0;
+  state.saveable = false;
+  state.reverted = false;
+  state.stickArmed = false;
   state.switchRide = false;
   state.grip = 0;
   state.tweak = 0;
@@ -251,6 +267,10 @@ export function copyRiderState(dst: RiderState, src: RiderState): void {
   dst.grabSwitch = src.grabSwitch;
   dst.grabId = src.grabId;
   dst.grabHeld = src.grabHeld;
+  dst.skid = src.skid;
+  dst.saveable = src.saveable;
+  dst.reverted = src.reverted;
+  dst.stickArmed = src.stickArmed;
   dst.switchRide = src.switchRide;
   dst.grip = src.grip;
   dst.tweak = src.tweak;
