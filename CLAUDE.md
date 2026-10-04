@@ -143,6 +143,8 @@ gameplay wiring to the rig does not wait on them.
   milestone that hasn't passed its gate.
   One agreed exception to "no UI chrome": the trick name fades in low on screen after
   each trick (`render/trickText.ts`, toggle in the panel). Names only, never a number.
+  Second agreed exception: the controls sheet (`render/controlsHelp.ts`) — a small "?" button,
+  H or the touchpad opens it and pauses the game. Controls only, no menu behind it.
 - Feel cannot be delegated. When a milestone lands, stop and say what to tune and which
   params to reach for. Don't guess at whether it feels right.
 

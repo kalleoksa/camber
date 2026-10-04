@@ -142,7 +142,7 @@ export function createPanel(
     box.style.overscrollBehavior = 'contain';
   }
 
-  const status = pane.addFolder({ title: 'status' });
+  const status = pane.addFolder({ title: 'status', expanded: false });
   status.addBinding(readout, 'session', { readonly: true });
   status.addBinding(readout, 'pad', { readonly: true });
   status.addBinding(readout, 'padRaw', { readonly: true, label: 'pad raw' });
@@ -171,13 +171,13 @@ export function createPanel(
 
   // Feedback (docs/feedback.md): mark while riding (View/Back, D-pad tags, or M), write the
   // words here afterwards, download one file to send back.
-  const notes = pane.addFolder({ title: 'feedback', expanded: true });
+  const notes = pane.addFolder({ title: 'feedback', expanded: false });
   notes.addBinding(feedback, 'tester', { label: 'your name' });
   notes.addBinding(feedback, 'status', { readonly: true, label: 'marks' });
   notes.addButton({ title: 'download feedback' }).on('click', handlers.onDownloadFeedback);
   const tagOptions = Object.fromEntries(NOTE_TAGS.map((t) => [t, t]));
 
-  const take = pane.addFolder({ title: 'take' });
+  const take = pane.addFolder({ title: 'take', expanded: false });
   take.addButton({ title: 'reset (Y)' }).on('click', handlers.onReset);
   take.addButton({ title: 'record' }).on('click', handlers.onRecord);
   take.addButton({ title: 'stop' }).on('click', handlers.onStopRecord);
@@ -224,13 +224,13 @@ export function createPanel(
     driverFolder.addBinding(drivers, key, { min: range.min, max: range.max, step: 0.01 });
   }
 
-  const preset = pane.addFolder({ title: 'preset' });
+  const preset = pane.addFolder({ title: 'preset', expanded: false });
   preset.addButton({ title: 'save preset' }).on('click', handlers.onSavePreset);
   preset.addButton({ title: 'load preset' }).on('click', () => pickFile(handlers.onLoadPreset));
 
   for (const name of Object.keys(params) as ParamGroup[]) {
     const group = params[name] as Record<string, number>;
-    const folder = pane.addFolder({ title: name, expanded: name === 'ground' });
+    const folder = pane.addFolder({ title: name, expanded: false });
     for (const key of Object.keys(group)) {
       folder.addBinding(group, key, { step: stepFor(group[key] ?? 0) });
     }

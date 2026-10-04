@@ -268,6 +268,21 @@ export function pollPause(): boolean {
   return edge;
 }
 
+let helpHeld = false;
+
+/**
+ * The touchpad click (standard button 17 on a DualSense) pressed this frame: the controls
+ * sheet. Not input either. Pads without one (Xbox) open it with H or the on-screen button.
+ */
+export function pollHelp(): boolean {
+  const pad = findPad();
+  if (!pad || pad.mapping !== 'standard') return false;
+  const down = pressed(pad, 17);
+  const edge = down && !helpHeld;
+  helpHeld = down;
+  return edge;
+}
+
 /** Chrome's dual-rumble actuator; absent on Safari and Firefox, where rumble is skipped. */
 type Rumble = { playEffect(type: 'dual-rumble', p: { duration: number; strongMagnitude: number; weakMagnitude: number }): Promise<unknown> };
 

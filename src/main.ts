@@ -1,5 +1,5 @@
 import { createLoop, TICK_DT } from './core/loop.ts';
-import { padRawSummary, padSummary, pollGamepad, pollMark, pollPause, rumble } from './input/gamepad.ts';
+import { padRawSummary, padSummary, pollGamepad, pollHelp, pollMark, pollPause, rumble } from './input/gamepad.ts';
 import { mergeKeyboard } from './input/keyboard.ts';
 import {
   buildTake,
@@ -28,6 +28,7 @@ import {
 } from './render/rig.ts';
 import { createScene, interpolateRider } from './render/scene.ts';
 import { createTrickReader, describe } from './render/tricks.ts';
+import { createControlsHelp } from './render/controlsHelp.ts';
 import { createTrickText } from './render/trickText.ts';
 import { createInputOverlay } from './render/inputOverlay.ts';
 import {
@@ -318,10 +319,26 @@ function togglePause(): void {
     readout.session = 'paused — P or Options to resume, . steps a tick';
   } else readout.session = sessionBeforePause;
 }
+// The controls sheet pauses while it's open, and resumes on close only if it was what paused.
+let pausedByHelp = false;
+const help = createControlsHelp((open) => {
+  if (open && !paused) {
+    togglePause();
+    pausedByHelp = true;
+  } else if (!open) {
+    if (pausedByHelp && paused) togglePause();
+    pausedByHelp = false;
+  }
+});
+/** Pause pressed: with the sheet up it closes the sheet (and resumes), else it toggles. */
+function pausePressed(): void {
+  if (help.isOpen()) help.toggle();
+  else togglePause();
+}
 addEventListener('keydown', (ev) => {
   const t = ev.target as HTMLElement | null;
   if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA')) return;
-  if (ev.key === 'p' || ev.key === 'P') togglePause();
+  if (ev.key === 'p' || ev.key === 'P') pausePressed();
   else if (ev.key === '.' && paused) stepOnce = true;
 });
 
@@ -511,7 +528,8 @@ let lastRender = performance.now();
 let refreshCounter = 0;
 
 function render(alpha: number): void {
-  if (pollPause() && !poseMode) togglePause();
+  if (pollPause() && !poseMode) pausePressed();
+  if (pollHelp() && !poseMode) help.toggle();
   // Paused, the last tick exactly: blending toward it from the one before would shake.
   if (paused) alpha = 1;
   const now = performance.now();

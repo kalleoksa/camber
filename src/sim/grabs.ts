@@ -40,7 +40,7 @@ export const GRABS: readonly Spot[] = [
   // Stick model 2 only — kept out of the (edge, t) blend below, where chicken salad and roast
   // beef would sit on mute's and indy's spots (same point, reached between the legs).
   { name: 'seatbelt', edge: 1, t: 0.12, front: true, pitch: 'seatbeltPitch', roll: 'seatbeltRoll', yaw: 'seatbeltYaw' },
-  { name: 'crail', edge: 1, t: 0.99, front: false, pitch: 'crailPitch', roll: 'crailRoll', yaw: 'crailYaw' },
+  { name: 'crail', edge: 1, t: 0.99, front: false, pitch: 'crailPitch', roll: 'crailRoll', yaw: 'crailYaw', tweakedPitch: 'crailTweakedPitch', tweakedRoll: 'crailTweakedRoll' },
   { name: 'chickenSalad', edge: 1, t: 0.51, front: true, pitch: 'chickenSaladPitch', roll: 'chickenSaladRoll', yaw: 'chickenSaladYaw' },
   { name: 'roastBeef', edge: 1, t: 0.45, front: false, pitch: 'roastBeefPitch', roll: 'roastBeefRoll', yaw: 'roastBeefYaw' },
 ];

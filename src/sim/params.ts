@@ -230,6 +230,8 @@ export const params = {
     crailPitch: 0.82,
     crailRoll: -0.2,
     crailYaw: 0.66,
+    crailTweakedPitch: 1.05, // full push: its own, not tweakGain's double — 1.64 rad folded the arm into the head
+    crailTweakedRoll: -0.4,
     chickenSaladPitch: 0.44,
     chickenSaladRoll: 1,
     chickenSaladYaw: 0.49,
