@@ -5,8 +5,8 @@ import type { LandingRead, RiderMode, RiderState } from '../sim/state.ts';
 import type { CornerConfig, KickerConfig, SlopeConfig, Terrain } from '../sim/terrain.ts';
 import { createContact } from '../sim/terrain.ts';
 import { length, vec3, type Vec3 } from '../sim/vec3.ts';
-import { boardAttitude } from '../sim/grabs.ts';
-import { ANCHORS, BODY_KEYS, grabBody } from './poses.ts';
+import { boardAttitude, GRABS, grabAttitude } from '../sim/grabs.ts';
+import { ANCHORS, BODY_KEYS, grabBody, namedGrabBody } from './poses.ts';
 import { butterAmount } from '../sim/states/grounded.ts';
 import { BOARD_HALF, copyDrivers, createRig, edgePoint, gripWeight, mirrorDrivers, neutralDrivers, smoothstep, type RigDrivers } from './rig.ts';
 import type { Secondary } from './secondary.ts';
@@ -42,6 +42,7 @@ export type RiderView = {
   grabT: number;
   grabFront: boolean;
   grabSwitch: boolean;
+  grabId: number;
   switchRide: boolean;
   grip: number;
   tweak: number;
@@ -79,6 +80,7 @@ const view: RiderView = {
   grabT: 0.5,
   grabFront: true,
   grabSwitch: false,
+  grabId: -1,
   switchRide: false,
   grip: 0,
   tweak: 0,
@@ -118,6 +120,7 @@ export function interpolateRider(prev: RiderState, cur: RiderState, alpha: numbe
   view.grabT = prev.grabT + (cur.grabT - prev.grabT) * alpha;
   view.grabFront = cur.grabFront;
   view.grabSwitch = cur.grabSwitch;
+  view.grabId = cur.grabId;
   view.switchRide = cur.switchRide;
   view.grip = prev.grip + (cur.grip - prev.grip) * alpha;
   view.tweak = prev.tweak + (cur.tweak - prev.tweak) * alpha;
@@ -600,7 +603,11 @@ export function createScene(cfg: SlopeConfig, terrain: Terrain, camera: THREE.Pe
     // Body leads, hand commits later — the grab path stays reachable the whole way (rig.ts).
     const bodyWeight = smoothstep(view.grip);
     const handWeight = gripWeight(view.grip, params.grab.gripDelay);
-    grabBody(body, view.grabEdge, view.grabT, view.tweak);
+    // Stick model 2 names its grab: that anchor's pose exactly, hand where it was authored.
+    const named = params.grab.stickModel >= 2 ? GRABS[view.grabId]?.name : undefined;
+    const anchor = named ? ANCHORS[named] : undefined;
+    if (named && anchor) namedGrabBody(body, named, view.tweak);
+    else grabBody(body, view.grabEdge, view.grabT, view.tweak);
     // A switch grab: the regular grab's pose (and hands, below) mirrored nose-for-tail.
     if (view.grabSwitch) mirrorDrivers(body);
     for (const k of BODY_KEYS) drivers[k] = base[k] + (body[k] - base[k]) * bodyWeight;
@@ -647,11 +654,13 @@ export function createScene(cfg: SlopeConfig, terrain: Terrain, camera: THREE.Pe
     drivers.hipZ += secondary.swayZ;
 
     const front = view.grabFront;
-    drivers.frontHandEdge = front ? view.grabEdge : neutral.frontHandEdge;
-    drivers.frontHandT = front ? view.grabT : neutral.frontHandT;
+    const handEdge = anchor ? (front ? anchor.frontHandEdge : anchor.backHandEdge) : view.grabEdge;
+    const handT = anchor ? (front ? anchor.frontHandT : anchor.backHandT) : view.grabT;
+    drivers.frontHandEdge = front ? handEdge : neutral.frontHandEdge;
+    drivers.frontHandT = front ? handT : neutral.frontHandT;
     drivers.frontGrip = front ? handWeight : 0;
-    drivers.backHandEdge = front ? neutral.backHandEdge : view.grabEdge;
-    drivers.backHandT = front ? neutral.backHandT : view.grabT;
+    drivers.backHandEdge = front ? neutral.backHandEdge : handEdge;
+    drivers.backHandT = front ? neutral.backHandT : handT;
     drivers.backGrip = front ? 0 : handWeight;
     if (view.grabSwitch) {
       // Hands only: the body above already carries its mirror.
@@ -689,7 +698,9 @@ export function createScene(cfg: SlopeConfig, terrain: Terrain, camera: THREE.Pe
     drivers.frontShoulderOut -= (secondary.armOpen + secondary.armZ) * fg;
     drivers.backShoulderOut += (secondary.armZ - secondary.armOpen) * bg;
 
-    const a = boardAttitude(view.grabEdge, view.grabT, view.grip, view.tweak, params);
+    const a = named
+      ? grabAttitude(view.grabId, view.grip, view.tweak, params)
+      : boardAttitude(view.grabEdge, view.grabT, view.grip, view.tweak, params);
     grabYaw = view.grabSwitch ? -a.yaw : a.yaw;
     // A butter tips the board onto the pressed end: nose press is nose down.
     const butter = grounded ? butterAmount(view.stance, view.speed, params) : 0;

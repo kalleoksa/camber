@@ -484,6 +484,19 @@ export const ANCHORS: Record<string, RigDrivers> = {
   }),
 };
 
+// Stick model 2's own grabs. Placeholders: a neighbour's body with the hand moved to the
+// grab's point on the board, until posed in pose mode. Board attitude matches the
+// `grab.<name>Pitch/Roll` first guesses.
+const base = (name: string): RigDrivers => ({ ...(ANCHORS[name] ?? neutralDrivers()) });
+/** Front hand across the body to the toe edge at the tail. */
+ANCHORS.seatbelt = { ...base('mute'), frontHandEdge: 1, frontHandT: 0.12, frontGrip: 1, backGrip: 0, boardPitch: -0.3, tweakRoll: -0.2, turn: 0, shifty: 0 };
+/** Back hand to the toe edge near the nose. */
+ANCHORS.crail = { ...base('indy'), backHandEdge: 1, backHandT: 0.85, frontGrip: 0, backGrip: 1, boardPitch: 0.3, tweakRoll: -0.2, turn: 0, shifty: 0 };
+/** Front hand between the legs to the heel edge between the feet, front leg boned. */
+ANCHORS.chickenSalad = { ...base('melon'), frontHandEdge: -1, frontHandT: 0.5, frontGrip: 1, backGrip: 0, boardPitch: 0.2, tweakRoll: 0.4, turn: 0, shifty: 0 };
+/** Back hand between the legs to the heel edge between the feet. */
+ANCHORS.roastBeef = { ...base('stalefish'), backHandEdge: -1, backHandT: 0.45, frontGrip: 0, backGrip: 1, boardPitch: -0.1, tweakRoll: 0.5, turn: 0, shifty: 0 };
+
 export const ANCHOR_NAMES = Object.keys(ANCHORS);
 
 /**
@@ -518,8 +531,11 @@ type GrabSpot = { pose: RigDrivers; edge: number; t: number; tweaked: RigDrivers
  * with more board attitude becomes the other's tweaked variant.
  */
 const SPOTS: GrabSpot[] = [];
+// Stick models 0 and 1 blend these by (edge, t). Model 2's own grabs stay out: chicken
+// salad and roast beef sit on melon's and stalefish's spots and would read as their twins.
+const BLENDED = ['indy', 'mute', 'melon', 'method', 'stalefish', 'nosegrab', 'tailgrab', 'japan'];
 for (const [name, pose] of Object.entries(ANCHORS)) {
-  if (name === 'neutral' || name === 'crouch' || Math.max(pose.frontGrip, pose.backGrip) <= 0) continue;
+  if (!BLENDED.includes(name) || Math.max(pose.frontGrip, pose.backGrip) <= 0) continue;
   const front = pose.frontGrip >= pose.backGrip;
   const edge = front ? pose.frontHandEdge : pose.backHandEdge;
   const t = front ? pose.frontHandT : pose.backHandT;
@@ -568,5 +584,28 @@ export function grabBody(out: RigDrivers, edge: number, t: number, tweak: number
     }
     out[k] = v / total;
   }
+  return out;
+}
+
+/** Stick model 2's tweaked siblings: full push on the first is the second's pose. */
+const TWEAKED: Record<string, string> = { mute: 'japan' };
+
+/**
+ * Body pose for named grab `name`, `tweak` deep: that anchor exactly, blended toward its
+ * tweaked sibling where it has one. Body keys only, like `grabBody`, with the posed shifty
+ * moved onto the hips.
+ */
+export function namedGrabBody(out: RigDrivers, name: string, tweak: number): RigDrivers {
+  const pose = ANCHORS[name];
+  if (!pose) return out;
+  const sibling = TWEAKED[name];
+  const tweaked = sibling ? ANCHORS[sibling] : undefined;
+  const w = tweaked ? tweak : 0;
+  for (const k of BODY_KEYS) {
+    const to = tweaked ? tweaked[k] : pose[k];
+    out[k] = pose[k] + (to - pose[k]) * w;
+  }
+  const shifty = pose.shifty + ((tweaked ? tweaked.shifty : pose.shifty) - pose.shifty) * w;
+  out.hipYaw -= shifty;
   return out;
 }

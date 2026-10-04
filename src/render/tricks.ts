@@ -1,3 +1,4 @@
+import { GRABS as SIM_GRABS } from '../sim/grabs.ts';
 import type { Quat } from '../sim/quat.ts';
 import type { RiderState } from '../sim/state.ts';
 import { ANCHORS } from './poses.ts';
@@ -35,6 +36,9 @@ const GRABS = ['indy', 'mute', 'melon', 'method', 'stalefish', 'japan', 'nosegra
   const front = a.frontGrip > a.backGrip;
   return [{ name, edge: front ? a.frontHandEdge : a.backHandEdge, t: front ? a.frontHandT : a.backHandT }];
 });
+
+/** Display names for the sim's grab table (GRABS in sim/grabs.ts). */
+const GRAB_LABELS = SIM_GRABS.map((g) => g.name.replace(/[A-Z]/g, (c) => ` ${c.toLowerCase()}`));
 
 function nearestGrab(edge: number, t: number): string {
   let best = '';
@@ -116,7 +120,8 @@ export function createTrickReader(): TrickReader {
         grab = name;
       }
     }
-    if (grab) parts.push(maxTweak > 0.6 ? `tweaked ${grab}` : grab);
+    // A mute shoved out all the way is a japan, its own name rather than "tweaked mute".
+    if (grab) parts.push(maxTweak > 0.6 ? (grab === 'mute' ? 'japan' : `tweaked ${grab}`) : grab);
     if (parts.length === 0 || (parts.length === 1 && switchAtTakeoff)) {
       return airTime > 0.8 ? `${switchAtTakeoff ? 'switch ' : ''}straight air` : '';
     }
@@ -174,7 +179,8 @@ export function createTrickReader(): TrickReader {
         spin += 2 * sw * wy; // small-angle: angle·axis ≈ 2·vector part
         flip += 2 * sl * lx;
         if (state.grip > 0.8) {
-          const name = nearestGrab(state.grabEdge, state.grabT);
+          // Stick model 2 names its grab outright; before it, the nearest pose to the hand.
+          const name = state.grabId >= 0 ? (GRAB_LABELS[state.grabId] ?? '') : nearestGrab(state.grabEdge, state.grabT);
           grabTime.set(name, (grabTime.get(name) ?? 0) + dt);
           if (state.tweak > maxTweak) maxTweak = state.tweak;
         }

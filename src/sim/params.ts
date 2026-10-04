@@ -175,7 +175,7 @@ export const params = {
   grab: {
     commit: 0.35, // right-stick magnitude past which the hand goes for the board
     switchMirror: 2, // 2: a grab after a switch takeoff is the switch version — same stick, same named grab, mirrored. 1: judged by travel as the hand goes (mirrors mid-spin)
-    stickModel: 1, // 1: sideways stick is the edge's main grab (indy, melon), hand from the nearest named grab; 0: linear, hand by board half
+    stickModel: 2, // 2: LB (left/front hand) or RB (right/back hand) held + stick direction picks a named grab, never mirrored riding switch. 1: stick alone, sideways is indy/melon. 0: stick alone, linear
     stickBand: 0.2, // rad either side of sideways that is still the edge's main grab (stick model 1)
     edgeSharpness: 2.0, // stick X gain onto the edge coordinate — >30° off vertical is a full rail
     tweakEnter: 0.55, // stick magnitude past which the tweak starts
@@ -221,6 +221,19 @@ export const params = {
     tailgrabPitch: -0.55,
     tailgrabRoll: -0.2,
     tailgrabYaw: 0,
+    // Stick model 2's own grabs. First guesses until posed in pose mode and written back.
+    seatbeltPitch: -0.3,
+    seatbeltRoll: -0.2,
+    seatbeltYaw: 0,
+    crailPitch: 0.3,
+    crailRoll: -0.2,
+    crailYaw: 0,
+    chickenSaladPitch: 0.2,
+    chickenSaladRoll: 0.4,
+    chickenSaladYaw: 0,
+    roastBeefPitch: -0.1,
+    roastBeefRoll: 0.5,
+    roastBeefYaw: 0,
     reachTime: 0.18, // s, crouch to full grab
     holdTime: 0.4, // s at full grab — preview envelope only, gameplay holds while held
     releaseTime: 0.14, // s, grab back to crouch. Quicker than the reach: you snap back to land

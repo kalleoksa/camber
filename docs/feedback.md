@@ -26,7 +26,7 @@ mode changes and landings (with impact), then a timeline of speed, mode and stic
 ## Brief to send testers
 
 > Play at <preview link>. A gamepad is best (Xbox or PlayStation, Chrome).
-> Left stick edges and spins, hold and release RT to pop, right stick grabs, Y resets.
+> Left stick edges and spins, hold and release RT to pop, hold LB or RB (left or right hand) and point the right stick to grab, Y resets.
 > Whenever something feels good, wrong or broken, press **View/Back** (or **M**) right
 > then. On the D-pad: up = felt good, down = felt wrong, left = bug, right = looks off.
 > Afterwards, open **feedback** in the panel on the right, write a few words under each

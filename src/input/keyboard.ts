@@ -6,10 +6,10 @@ import type { InputSnapshot } from './snapshot.ts';
  *
  *   A / D        left stick X — carve, spin
  *   W / S        left stick Y — nose / tail press, flips
- *   arrows       right stick — grab where they point
- *   Shift        LT — speed check; with arrows, tweak the grab
+ *   Q / E        LB / RB — left / right hand; alone, shifty and rail slide
+ *   arrows       right stick — with Q or E held, grab where they point
+ *   Shift        LT — speed check; with a grab, tweak it
  *   Space        RT — hold to load, release to pop
- *   Q / E        LB / RB — shifty, rail slide
  *   R            Y — reset
  *   P            pause (also the pad's Options/Start); . steps one tick while paused
  *

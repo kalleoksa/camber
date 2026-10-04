@@ -74,8 +74,9 @@ What fits the invariants and the current control scheme:
    transfers ("bs boardslide to 50-50"). — *done*; blunt is my reading of which end is
    over the rail, check it against how you'd call them.
 2. **Off-axis names**: cork (spin-led), rodeo (backflip-led), misty (frontflip-led). — *done*
-3. **More grabs** as anchors: seatbelt, crail, rocket, bloody dracula, double grab (two
-   grab points: rig change). Poses are yours to author. Weddle = mute, already there.
+3. **More grabs** as anchors: seatbelt, crail, chicken salad, roast beef — *in*, as
+   placeholders to pose (§6). Still out: rocket, bloody dracula, double grab (two grab
+   points: rig change). Weddle = mute, already there.
 4. **Haptics**: rumble on pop, rail lock, landing, bail (`params.haptics`, Chrome only). — *done*
 5. **Lip timing**: measure how much a pop at the lip vs early changes the air; cue it by
    sound, not UI.
@@ -84,8 +85,7 @@ What fits the invariants and the current control scheme:
 
 Left out, and why: scoring, trick book unlocks (progression), angle numbers on screen,
 wind-up meter and lip highlight (UI chrome — CLAUDE.md); spin on the right stick (collides
-with grabs; current left-stick spin/flip works); grabs on LB/RB (those are shifty and rail
-slide; the stick-as-board-point grab covers more); camera presets on the D-pad (feedback
+with grabs; current left-stick spin/flip works); camera presets on the D-pad (feedback
 marks live there); pause/menus; Vitest (dependency — the scripts already test recorded
 takes); 60 Hz sampling (the sim is 120 Hz). The spec's rail-side convention (heelside =
 backside) is the opposite of yours (blind boardslide = frontside); yours stands.
@@ -123,3 +123,30 @@ backside) is the opposite of yours (blind boardslide = frontside); yours stands.
   away under the hand (up to 16 cm short on nose/tail grabs). Sim side, grabs checked across
   all stick directions, tweak, shifty, switch and spins: consistent; a shifty held into the
   landing bails (52° off the line), by design.
+
+## 6. Grabs on the bumpers (stick model 2, 2026-10-04)
+
+The stick alone picked the hand from where it pointed, and a sideways stick sat between two
+grabs, so a few degrees of thumb swapped hands. Now **LB is the left hand and RB the right**
+(riding regular: front and back), and the right stick picks where the hand goes. The grab is
+fixed as the hand reaches and held while both are held; push depth past `grab.tweakEnter`
+tweaks it. Riding switch nothing mirrors — same buttons, same grab, "switch" in the name. A
+bumper with the stick centred is still shifty; with a grab on, it isn't.
+
+| Stick | LB — front hand | RB — back hand |
+|---|---|---|
+| ↑ nose | nosegrab | crail |
+| ↗ | *free* | *free* |
+| → toes | mute (full push: japan) | indy |
+| ↘ | *free* | *free* |
+| ↓ tail | seatbelt | tailgrab |
+| ↙ | chicken salad | *free* |
+| ← heels | melon | stalefish |
+| ↖ | method | roast beef |
+
+A free slot goes to the hand's nearest filled direction. Table: `FRONT_SLOTS`/`BACK_SLOTS`
+in `src/sim/grabs.ts`. Each grab plays its own anchor exactly (no blend), board attitude
+from `grab.<name>Pitch/Roll/Yaw`. Seatbelt, crail, chicken salad and roast beef are
+placeholders (a neighbour's body, hand moved) — pose them and *write to anchor*. Next:
+bones (full push straightens a leg — rig work), two-hand grabs on LB+RB, the free slots.
+Old takes keep stick models 0 and 1.

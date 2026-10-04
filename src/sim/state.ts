@@ -78,6 +78,10 @@ export type RiderState = {
    * asked for — mirrored nose-for-tail, so the same stick is the same named grab either way.
    */
   grabSwitch: boolean;
+  /** Stick model 2: the named grab (index into GRABS in grabs.ts) the hand went for; −1 none. Kept through the release. */
+  grabId: number;
+  /** Stick model 2: bumper and stick both held — the grab is on, not letting go. */
+  grabHeld: boolean;
   /** Riding tail first, latched with `ground.switchSpeed` of hysteresis. The sticks follow it. */
   switchRide: boolean;
   grip: number; // 0 = hand at rest, 1 = locked to the board
@@ -138,6 +142,8 @@ export function createRiderState(spawn: Spawn): RiderState {
     grabT: 0.5,
     grabFront: true,
     grabSwitch: false,
+    grabId: -1,
+    grabHeld: false,
     switchRide: false,
     grip: 0,
     tweak: 0,
@@ -189,6 +195,8 @@ export function resetRiderState(state: RiderState): void {
   state.grabT = 0.5;
   state.grabFront = true;
   state.grabSwitch = false;
+  state.grabId = -1;
+  state.grabHeld = false;
   state.switchRide = false;
   state.grip = 0;
   state.tweak = 0;
@@ -241,6 +249,8 @@ export function copyRiderState(dst: RiderState, src: RiderState): void {
   dst.grabT = src.grabT;
   dst.grabFront = src.grabFront;
   dst.grabSwitch = src.grabSwitch;
+  dst.grabId = src.grabId;
+  dst.grabHeld = src.grabHeld;
   dst.switchRide = src.switchRide;
   dst.grip = src.grip;
   dst.tweak = src.tweak;
