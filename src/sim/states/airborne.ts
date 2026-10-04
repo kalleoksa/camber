@@ -244,11 +244,17 @@ function updateGrab(state: RiderState, input: InputSnapshot, params: Params, dt:
     state.grabT = 0.5 + 0.5 * (input.ry / m);
     if (state.grip === 0) {
       state.grabFront = state.grabT >= 0.5;
-      // Travelling tail first as the hand goes: the switch version of the grab. The stick
-      // is read against the direction of travel, so up is the leading end either way.
-      axisZ(grabForward, state.spinFrame);
-      const v = state.velocity;
-      state.grabSwitch = params.grab.switchMirror > 0 && grabForward.x * v.x + grabForward.z * v.z < 0;
+      // Took off switch: the switch version of the grab, so stick up is the end that led
+      // at takeoff. Mode 1 read travel at the moment of reaching instead, which mirrored
+      // the grab and swapped hands whenever a spin had the tail leading — kept for old takes.
+      const mirror = params.grab.switchMirror;
+      if (mirror >= 2) {
+        state.grabSwitch = state.switchRide;
+      } else {
+        axisZ(grabForward, state.spinFrame);
+        const v = state.velocity;
+        state.grabSwitch = mirror > 0 && grabForward.x * v.x + grabForward.z * v.z < 0;
+      }
     }
     state.grip = Math.min(1, state.grip + dt / g.reachTime);
     // Only a hand that has hold of the board can shove it.
