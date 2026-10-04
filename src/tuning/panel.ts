@@ -130,6 +130,15 @@ export function createPanel(
   handlers: PanelHandlers,
 ): Panel {
   const pane = new Pane({ title: 'camber' });
+  // Tweakpane's default box is fixed top-right with no height limit, so a long folder (pose
+  // mode's sliders) ran off the bottom of the screen. Cap it to the window and let it scroll;
+  // `contain` keeps a scroll at its end from moving the page behind.
+  const box = pane.element.parentElement;
+  if (box) {
+    box.style.maxHeight = 'calc(100vh - 16px)';
+    box.style.overflowY = 'auto';
+    box.style.overscrollBehavior = 'contain';
+  }
 
   const status = pane.addFolder({ title: 'status' });
   status.addBinding(readout, 'session', { readonly: true });
