@@ -225,15 +225,15 @@ export const ANCHORS: Record<string, RigDrivers> = {
    * placement control, which was not what it was built for but is a fair use of it.
    */
   mute: pose({
-    hipX: 0.1,
-    hipY: -0.68, // was −0.63: the hand reaches the board (was 5% short)
-    hipZ: -0.11,
+    hipX: 0.2, // was 0.1
+    hipY: -0.73, // was −0.68: with hipX and hipZ, the hand reaches the board (in play it was 13% short) and the knee stays above the deck
+    hipZ: 0.04, // was −0.11
     hipYaw: -0.29,
     pelvisPitch: -0.21,
-    hipRoll: -0.35,
-    spineBend: 0.38,
+    hipRoll: -0.57,
+    spineBend: 0.33,
     spineSide: -0.1,
-    spineTwist: -0.52,
+    spineTwist: -0.34,
     spineCurl: 0,
     frontHandEdge: 1,
     frontHandT: 0.54,
@@ -242,12 +242,12 @@ export const ANCHORS: Record<string, RigDrivers> = {
     frontGrip: 1,
     backGrip: 0,
     boardPitch: 0.34,
-    tweakRoll: 0.04,
+    tweakRoll: -0.61,
     headYaw: 0.37,
     headPitch: -0.07,
-    kneeSplay: 0.48,
-    stanceScale: 1.01,
-    frontShoulderSwing: -0.12,
+    kneeSplay: 0.6,
+    stanceScale: 1,
+    frontShoulderSwing: 0.26,
     frontShoulderOut: -0.48,
     frontElbow: 0.73,
     frontElbowPole: -0.2,
@@ -255,7 +255,8 @@ export const ANCHORS: Record<string, RigDrivers> = {
     backShoulderOut: -0.71,
     backElbow: 1.87,
     backElbowPole: 0,
-    shifty: 0.03,
+    shifty: 0.33,
+    turn: 0.37,
   }),
 
   /**
@@ -264,26 +265,38 @@ export const ANCHORS: Record<string, RigDrivers> = {
    * fall out of the hand target, and the trailing arm is up and out as the counterweight.
    */
   melon: pose({
-    hipX: 0.05,
-    hipY: -0.71,
-    hipZ: -0.21,
-    hipYaw: 0.03,
-    pelvisPitch: 0.24,
-    spineBend: 0.17,
-    spineTwist: 0.23,
+    hipX: 0.1, // was 0.05
+    hipY: -0.65, // was −0.55: with hipX, the hand reaches the board (in play it was 8% short) and the knee stays above the deck
+    hipZ: -0.29,
+    hipYaw: -0.59,
+    pelvisPitch: 0.65,
+    hipRoll: -0.1,
+    spineBend: 0.3,
+    spineSide: 0.3,
+    spineTwist: 0.81,
+    spineCurl: 0,
     frontHandEdge: -1,
     frontHandT: 0.55,
-    frontGrip: 1,
     backHandEdge: -0.35,
     backHandT: 0.26,
+    frontGrip: 1,
+    backGrip: 0,
     boardPitch: 0.31,
     tweakRoll: 0.35,
+    headYaw: 0.79,
+    headPitch: 0,
+    kneeSplay: 0.72,
+    stanceScale: 1,
     frontShoulderSwing: -0.6,
     frontShoulderOut: -1,
     frontElbow: 0.65,
     frontElbowPole: -0.47,
-    backShoulderSwing: 1.25,
-    backShoulderOut: -0.58,
+    backShoulderSwing: 0.37,
+    backShoulderOut: -0.82,
+    backElbow: 0.78,
+    backElbowPole: -0.3,
+    shifty: -0.51,
+    turn: 0,
   }),
 
   /**
