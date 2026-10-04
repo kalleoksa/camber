@@ -145,6 +145,12 @@ export type KickerConfig = {
   deckWidth?: number;
   /** m over which the table's and landing's sides fall away, when `deckWidth` is set; defaults to `sideTaper`. A short `sideTaper` with a longer `deckTaper` is a cut takeoff on a rounded table. */
   deckTaper?: number;
+  /**
+   * m over which the landing's sides fall away, when `deckWidth` is set: long enough and the
+   * flanks are ramps you can ride up onto the knuckle from beside the landing. Widens from
+   * `deckTaper` over the second half of the deck to this by the end of the knuckle.
+   */
+  landingTaper?: number;
 };
 
 export function createContact(): Contact {
@@ -301,7 +307,12 @@ function kickerProfile(k: KickerConfig): Profile {
       const front = k.deckTaper !== undefined && s < runIn && dx <= k.width * 0.5;
       if (s >= runIn - deckTaper && !front) {
         const along = s < runIn ? k.lipHeight * fade(1 - (runIn - s) / deckTaper) : tableHeight(s);
-        table = along * fade(1 - (dx - deckHalf) / deckTaper);
+        let taper = deckTaper;
+        if (k.landingTaper !== undefined) {
+          const from = deckEnd - k.deckLength * 0.5;
+          taper += (k.landingTaper - deckTaper) * fade((s - from) / Math.max(knuckleEnd - from, 1e-3));
+        }
+        table = along * fade(1 - (dx - deckHalf) / taper);
       }
       return takeoff > table ? takeoff : table;
     }

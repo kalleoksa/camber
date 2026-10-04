@@ -20,7 +20,9 @@ type Size = { lipHeight: number; deckLength: number; width: number; deckWidth: n
  * bleeds what the last landing gave), the slope dropping to `landing` under it, `after` beyond.
  */
 function jump(z: number, size: Size, landing: number, table = 0, after = shelf): { kicker: KickerConfig; grades: GradeConfig[]; end: number } {
-  const kicker: KickerConfig = { z, x: JUMP_X, lipAngle: 0.6, sideTaper: 0.3, deckTaper: 2.5, landingAngle: 0.15, knuckleRadius: 6, runoutRadius: 20, ...size };
+  // Landing sides you can ride up onto the knuckle: about 25° at their steepest.
+  const landingTaper = size.lipHeight * 3;
+  const kicker: KickerConfig = { z, x: JUMP_X, lipAngle: 0.6, sideTaper: 0.3, deckTaper: 2.5, landingTaper, landingAngle: 0.15, knuckleRadius: 6, runoutRadius: 20, ...size };
   const sp = kickerSpan(kicker);
   return {
     kicker,
