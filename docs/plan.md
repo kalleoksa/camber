@@ -194,3 +194,18 @@ wait until powder exists.
   Line speeds 41/45/50/56/57 km/h (were 41/44/50/57/58), all straight airs clean.
   Riding round the takeoff and up the rise onto the knuckle: from ~22 km/h on the small
   kickers, ~43 km/h on the big ones. The knuckle is dyed red. Takes keep their terrain.
+
+## 9. Visual slope builder — to design and plan (2026-10-04)
+
+Parks are built in code today (`src/park/*.ts`, numbers per feature). We need a visual way
+to build slopes and lines. Not started; needs a design and a plan first. Open questions:
+
+- Where it lives: a separate editor page beside the game, or an edit mode in it. CLAUDE.md
+  rules out menus and UI chrome in the game, so this needs an explicit decision.
+- What it edits: grades, kickers (gap / table), corners, rails, boxes, quarters, walls —
+  placed and sized by hand, with the numbers still readable and tweakable.
+- What it saves: milestone 7's park JSON (`park/park.json` + loader), so a line is data,
+  diffable, and takes keep replaying on the terrain they stored.
+- How you test a change: ride it straight from the editor, plus `npm run airs`-style checks
+  (speed into each feature, airtime, landing spot) shown while placing.
+- Dependencies: the stack is locked; anything beyond Three.js and Tweakpane needs asking.
