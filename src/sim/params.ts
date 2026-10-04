@@ -224,9 +224,9 @@ export const params = {
     tailgrabRoll: -0.2,
     tailgrabYaw: 0,
     // Stick model 2's own grabs. First guesses until posed in pose mode and written back.
-    seatbeltPitch: -0.3,
-    seatbeltRoll: -0.2,
-    seatbeltYaw: 0,
+    seatbeltPitch: -0.52,
+    seatbeltRoll: -0.37,
+    seatbeltYaw: 0.82,
     crailPitch: 0.3,
     crailRoll: -0.2,
     crailYaw: 0,

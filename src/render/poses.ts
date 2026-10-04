@@ -488,8 +488,41 @@ export const ANCHORS: Record<string, RigDrivers> = {
 // grab's point on the board, until posed in pose mode. Board attitude matches the
 // `grab.<name>Pitch/Roll` first guesses.
 const base = (name: string): RigDrivers => ({ ...(ANCHORS[name] ?? neutralDrivers()) });
-/** Front hand across the body to the toe edge at the tail. */
-ANCHORS.seatbelt = { ...base('mute'), frontHandEdge: 1, frontHandT: 0.12, frontGrip: 1, backGrip: 0, boardPitch: -0.3, tweakRoll: -0.2, turn: 0, shifty: 0 };
+/** Front hand across the body to the toe edge at the tail. Authored (pose_10). */
+ANCHORS.seatbelt = pose({
+  hipX: 0.09,
+  hipY: -0.67,
+  hipZ: 0.04,
+  hipYaw: -0.78,
+  pelvisPitch: -0.27,
+  hipRoll: -0.63,
+  spineBend: 0.31,
+  spineSide: 0.02,
+  spineTwist: -0.42,
+  spineCurl: -0.4,
+  frontHandEdge: 1,
+  frontHandT: 0.12,
+  backHandEdge: -0.24,
+  backHandT: 0.16,
+  frontGrip: 1,
+  backGrip: 0,
+  boardPitch: -0.52,
+  tweakRoll: -0.37,
+  headYaw: 1.03,
+  headPitch: 0.14,
+  kneeSplay: 0.6,
+  stanceScale: 1,
+  frontShoulderSwing: -0.48,
+  frontShoulderOut: -1,
+  frontElbow: 0.54,
+  frontElbowPole: -0.13,
+  backShoulderSwing: 0.45,
+  backShoulderOut: -1,
+  backElbow: 1.07,
+  backElbowPole: 0.27,
+  shifty: 0.1,
+  turn: 0.82,
+});
 /** Back hand to the toe edge near the nose. */
 ANCHORS.crail = { ...base('indy'), backHandEdge: 1, backHandT: 0.85, frontGrip: 0, backGrip: 1, boardPitch: 0.3, tweakRoll: -0.2, turn: 0, shifty: 0 };
 /** Front hand between the legs to the heel edge between the feet, front leg boned. */
