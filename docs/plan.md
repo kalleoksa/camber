@@ -209,3 +209,13 @@ to build slopes and lines. Not started; needs a design and a plan first. Open qu
 - How you test a change: ride it straight from the editor, plus `npm run airs`-style checks
   (speed into each feature, airtime, landing spot) shown while placing.
 - Dependencies: the stack is locked; anything beyond Three.js and Tweakpane needs asking.
+
+## 10. Spin landings look the right way (2026-10-04)
+
+One rule: a backside spin lands with the head over the nose shoulder, a frontside one over
+the tail's (as the takeoff stance had them; switch mirrors). With the half-turns that gives
+bs 360/720 and fs 180/540 looking down the hill, bs 180/540 and fs 360/720 blind (uphill).
+Render only (`render/secondary.ts`): set from the spin's direction once it passes
+`rig.spinLookMin`, held `rig.landLookHold` (0.3 s) past touchdown, then the head comes
+round to the riding look at its spring rate. `rig.spinLook` 0 turns it off; old takes pin 0.
+Next if wanted: the shoulders follow the head partway on a blind landing.

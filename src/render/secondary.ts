@@ -63,6 +63,14 @@ export type Secondary = {
   hipYaw: number; // rad, the hips; the shoulders' `twist` is measured from the board too
   hipYawVel: number;
   airCrouch: number; // 0..1, the compact no-grab air: knees up, back rounded
+  /**
+   * Spin landings: which shoulder the head goes over, relative to the board — +1 the nose,
+   * −1 the tail, 0 the riding look. Set by the spin's direction, held `rig.landLookHold`
+   * past touchdown, so a blind landing reads as one before the head comes round.
+   */
+  lookSign: number;
+  lookHold: number; // s left of the hold after touchdown
+  ridingLook: number; // rad, the riding look `head` was measured from last tick
   inAir: number; // 0..1, eased airborne — fades out the ground-only body shifts (presses)
 };
 
@@ -98,6 +106,9 @@ const CLOTH_KEYS = [
   'hipYawVel',
   'airCrouch',
   'inAir',
+  'lookSign',
+  'lookHold',
+  'ridingLook',
 ] as const;
 type ClothKey = (typeof CLOTH_KEYS)[number];
 
@@ -140,6 +151,9 @@ export function createSecondary(): Secondary {
     hipYawVel: 0,
     airCrouch: 0,
     inAir: 0,
+    lookSign: 0,
+    lookHold: 0,
+    ridingLook: 0,
   };
 }
 
@@ -233,7 +247,31 @@ export function stepSecondary(sec: Secondary, state: RiderState, params: Params,
     : airborne
       ? spinFraction * r.shoulderLead * (1 - square)
       : 0;
-  const headTarget = airborne ? Math.max(-r.headTurnMax, Math.min(r.headTurnMax, yawRate * r.headLead)) : 0;
+  // Spin landings (systematic): backside the head goes over the nose shoulder, frontside the
+  // tail's — both as the takeoff stance had them. With the half-turns that makes bs 180/540
+  // and fs 360/720 blind (looking uphill), bs 360 and fs 180/540 looking down the hill.
+  if (r.spinLook > 0) {
+    if (airborne && state.airTime <= dt) sec.lookSign = 0;
+    if (airborne && Math.abs(yawRate) > r.spinLookMin) {
+      const frontside = yawRate > 0 !== state.switchRide;
+      sec.lookSign = (state.switchRide ? -1 : 1) * (frontside ? -1 : 1);
+      sec.lookHold = r.landLookHold;
+    } else if (!airborne && sec.lookSign !== 0) {
+      sec.lookHold -= dt;
+      if (sec.lookHold <= 0 || state.mode === 'bailed') sec.lookSign = 0;
+    }
+  }
+  // The look as an offset from the riding look the rig already has (scene.ts: toward the
+  // leading end), which flips with the switch latch on landing.
+  const ridingLook = (state.switchRide ? -1 : 1) * r.rideHeadYaw;
+  // The riding look flips with the switch latch, in one tick; carry the jump into the spring
+  // so the drawn head (look + offset) doesn't jump with it.
+  if (r.spinLook > 0) {
+    if (sec.ridingLook !== 0) sec.head += sec.ridingLook - ridingLook;
+    sec.ridingLook = ridingLook;
+  }
+  const spinLook = sec.lookSign !== 0 ? sec.lookSign * r.rideHeadYaw - ridingLook : 0;
+  const headTarget = spinLook + (airborne ? Math.max(-r.headTurnMax, Math.min(r.headTurnMax, yawRate * r.headLead)) : 0);
   const ks = r.spineStiffness;
   const cs = 2 * r.spineDamping * Math.sqrt(ks);
   const kt = r.shoulderChainStiffness;
