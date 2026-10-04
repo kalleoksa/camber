@@ -325,6 +325,7 @@ export const ANCHORS: Record<string, RigDrivers> = {
     backElbow: 0.28,
     backElbowPole: -0.27,
     shifty: -0.44,
+    turn: -0.6, // the backside-shifty way, as grab.methodYaw was set — set it here in pose mode
   }),
 
   /** Back hand, heel edge, t ≈ 0.4, arm behind the back leg. Authored. */
@@ -489,6 +490,7 @@ export const BODY_KEYS = (Object.keys(neutralDrivers()) as (keyof RigDrivers)[])
       'boardPitch',
       'tweakRoll',
       'shifty',
+      'turn',
       'stanceScale',
     ].includes(k),
 );

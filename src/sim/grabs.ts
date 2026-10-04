@@ -15,16 +15,16 @@ import type { Params } from './params.ts';
 type GrabParam = keyof Params['grab'];
 // Keys spelled out, not built with a template literal — that would allocate a string per
 // spot per tick (invariant 7).
-type Spot = { edge: number; t: number; pitch: GrabParam; roll: GrabParam; tweakedPitch?: GrabParam; tweakedRoll?: GrabParam; yaw?: GrabParam };
+type Spot = { edge: number; t: number; pitch: GrabParam; roll: GrabParam; tweakedPitch?: GrabParam; tweakedRoll?: GrabParam; yaw: GrabParam; tweakedYaw?: GrabParam };
 
 const SPOTS: readonly Spot[] = [
-  { edge: 1, t: 0.38, pitch: 'indyPitch', roll: 'indyRoll' },
-  { edge: 1, t: 0.54, pitch: 'mutePitch', roll: 'muteRoll', tweakedPitch: 'japanPitch', tweakedRoll: 'japanRoll' },
-  { edge: -1, t: 0.55, pitch: 'melonPitch', roll: 'melonRoll' },
+  { edge: 1, t: 0.38, pitch: 'indyPitch', roll: 'indyRoll', yaw: 'indyYaw' },
+  { edge: 1, t: 0.54, pitch: 'mutePitch', roll: 'muteRoll', yaw: 'muteYaw', tweakedPitch: 'japanPitch', tweakedRoll: 'japanRoll', tweakedYaw: 'japanYaw' },
+  { edge: -1, t: 0.55, pitch: 'melonPitch', roll: 'melonRoll', yaw: 'melonYaw' },
   { edge: -1, t: 0.83, pitch: 'methodPitch', roll: 'methodRoll', yaw: 'methodYaw' },
-  { edge: -1, t: 0.39, pitch: 'stalefishPitch', roll: 'stalefishRoll' },
-  { edge: 1, t: 1, pitch: 'nosegrabPitch', roll: 'nosegrabRoll' },
-  { edge: 1, t: 0, pitch: 'tailgrabPitch', roll: 'tailgrabRoll' },
+  { edge: -1, t: 0.39, pitch: 'stalefishPitch', roll: 'stalefishRoll', yaw: 'stalefishYaw' },
+  { edge: 1, t: 1, pitch: 'nosegrabPitch', roll: 'nosegrabRoll', yaw: 'nosegrabYaw' },
+  { edge: 1, t: 0, pitch: 'tailgrabPitch', roll: 'tailgrabRoll', yaw: 'tailgrabYaw' },
 ];
 
 /**
@@ -59,7 +59,8 @@ export function boardAttitude(edge: number, t: number, grip: number, tweak: numb
     const tr = s.tweakedRoll ? g[s.tweakedRoll] : br * gain;
     pitch += w * (bp + (tp - bp) * tweak);
     roll += w * (br + (tr - br) * tweak);
-    if (s.yaw) yaw += w * g[s.yaw];
+    const by = g[s.yaw];
+    yaw += w * (by + ((s.tweakedYaw ? g[s.tweakedYaw] : by) - by) * tweak);
     total += w;
   }
   const max = params.grab.tweakPitchMax;

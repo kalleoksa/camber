@@ -410,6 +410,24 @@ function edgeLines(cfg: SlopeConfig, terrain: Terrain): THREE.Group {
   return group;
 }
 
+/** A flat arrow on the snow along board +Z, the way of travel: shaft and head, 1.3 m long. */
+function downhillArrow(): THREE.Mesh {
+  const shape = new THREE.Shape();
+  shape.moveTo(-0.05, -0.2);
+  shape.lineTo(0.05, -0.2);
+  shape.lineTo(0.05, 0.8);
+  shape.lineTo(0.16, 0.8);
+  shape.lineTo(0, 1.1);
+  shape.lineTo(-0.16, 0.8);
+  shape.lineTo(-0.05, 0.8);
+  shape.closePath();
+  const geometry = new THREE.ShapeGeometry(shape);
+  geometry.rotateX(Math.PI / 2); // shape +Y → board +Z, lying flat, facing up
+  geometry.translate(0, 0.005, 0);
+  const material = new THREE.MeshBasicMaterial({ color: 0xd8325a, side: THREE.DoubleSide });
+  return new THREE.Mesh(geometry, material);
+}
+
 function railMeshes(terrain: Terrain): THREE.Group {
   const group = new THREE.Group();
   const material = new THREE.MeshStandardMaterial({ color: 0x8a939c, roughness: 0.35, metalness: 0.8 });
@@ -451,7 +469,11 @@ function railMeshes(terrain: Terrain): THREE.Group {
 export function createScene(cfg: SlopeConfig, terrain: Terrain, camera: THREE.PerspectiveCamera, cell = 0.75): SceneView {
   const renderer = new THREE.WebGLRenderer({ antialias: true });
   renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
-  renderer.setSize(innerWidth, innerHeight);
+  // CSS sizes the canvas to the screen (index.html); `resize` matches the drawing buffer to
+  // it. Sized from innerHeight instead, iPad Safari left a band at the bottom when its
+  // toolbars changed the visible height without a resize event.
+  renderer.setSize(innerWidth, innerHeight, false);
+  renderer.domElement.id = 'view';
   document.body.appendChild(renderer.domElement);
 
   const scene = new THREE.Scene();
@@ -474,6 +496,11 @@ export function createScene(cfg: SlopeConfig, terrain: Terrain, camera: THREE.Pe
   const rails = railMeshes(terrain);
   scene.add(rails);
   scene.add(edgeLines(cfg, terrain));
+  // Pose mode: an arrow under the rider along the direction of travel, down the hill, to set
+  // a grab's turn against.
+  const downhill = downhillArrow();
+  downhill.visible = false;
+  scene.add(downhill);
   const skyColour = new THREE.Color(0x9db6cc);
   const stageColour = new THREE.Color(0xeef2f6);
   const fog = scene.fog;
@@ -706,8 +733,13 @@ export function createScene(cfg: SlopeConfig, terrain: Terrain, camera: THREE.Pe
       pinZ = 0;
       grabYaw = 0;
       if (!poseMode) driveFromSim(view, params, secondary);
-      if (grabYaw !== 0) {
-        roll.setFromAxisAngle(yAxis, grabYaw);
+      // The arrow down the hill keeps the rider's frame before the turn: the turn is measured
+      // against it. In pose mode the turn is the driver being authored; in play, the grab's.
+      downhill.position.copy(rig.root.position);
+      downhill.quaternion.copy(rig.root.quaternion);
+      const turn = poseMode ? drivers.turn : grabYaw;
+      if (turn !== 0) {
+        roll.setFromAxisAngle(yAxis, turn);
         rig.root.quaternion.multiply(roll);
       }
       if (!poseMode && drivers.shifty !== 0) {
@@ -752,6 +784,7 @@ export function createScene(cfg: SlopeConfig, terrain: Terrain, camera: THREE.Pe
       scene.background = clean ? stageColour : skyColour;
       // Reach diagnostics belong to authoring, not to play.
       rig.showReach(clean);
+      downhill.visible = clean;
     },
 
     setDressed(on) {
@@ -759,9 +792,11 @@ export function createScene(cfg: SlopeConfig, terrain: Terrain, camera: THREE.Pe
     },
 
     resize() {
-      camera.aspect = innerWidth / innerHeight;
+      const w = renderer.domElement.clientWidth || innerWidth;
+      const h = renderer.domElement.clientHeight || innerHeight;
+      camera.aspect = w / h;
       camera.updateProjectionMatrix();
-      renderer.setSize(innerWidth, innerHeight);
+      renderer.setSize(w, h, false);
     },
   };
 }

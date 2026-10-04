@@ -105,6 +105,13 @@ export type RigDrivers = {
   backElbowPole: number;
   /** rad, board yawed under the body about its own centre — LB/RB in the air. */
   shifty: number;
+  /**
+   * rad, the whole rider and board turned about up against the direction of travel — how a
+   * grab sits to the slope (a method's back to the landing). Pose mode draws it with an arrow
+   * down the hill; "write to anchor" copies it to `grab.<name>Yaw`, which the sim turns the
+   * board by and the landing judges.
+   */
+  turn: number;
 };
 
 export function neutralDrivers(): RigDrivers {
@@ -144,6 +151,7 @@ export function neutralDrivers(): RigDrivers {
     backElbow: 0.45,
     backElbowPole: 0,
     shifty: 0,
+    turn: 0,
   };
 }
 
@@ -189,6 +197,7 @@ export function mirrorDrivers(d: RigDrivers): void {
   d.frontElbowPole = wrapPi(Math.PI * (1 - Math.min(d.frontGrip, 1)) - d.backElbowPole);
   d.backElbowPole = wrapPi(Math.PI * (1 - Math.min(d.backGrip, 1)) - t);
   d.shifty = -d.shifty; // board yaw about up flips with the nose
+  d.turn = -d.turn; // so does the turn to the slope
 }
 
 function wrapPi(a: number): number {

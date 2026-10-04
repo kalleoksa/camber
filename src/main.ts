@@ -135,6 +135,10 @@ const chase = createChaseCamera(params);
 // Parks are full size, their features 1.63× the old: so is the coarse grid cell.
 const view = createScene(slopeConfig, terrain, chase.camera, 0.75 * (PARK_GRAVITY / REAL_GRAVITY));
 addEventListener('resize', view.resize);
+// The canvas follows the visible screen by CSS; whenever its size changes — including iPad
+// Safari's toolbars sliding, which doesn't always fire a resize — the buffer follows.
+new ResizeObserver(() => view.resize()).observe(view.renderer.domElement);
+view.resize();
 
 const spray = createSpray();
 view.scene.add(spray.object);
@@ -174,6 +178,7 @@ function anchorToParams(name: string, anchor: RigDrivers): void {
   const g = params.grab as Record<string, number>;
   if (`${name}Pitch` in g) g[`${name}Pitch`] = anchor.boardPitch;
   if (`${name}Roll` in g) g[`${name}Roll`] = anchor.tweakRoll;
+  if (`${name}Yaw` in g) g[`${name}Yaw`] = anchor.turn;
 }
 
 function applyAnchors(saved: Record<string, Partial<RigDrivers>>): void {

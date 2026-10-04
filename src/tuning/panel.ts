@@ -25,6 +25,7 @@ const DRIVER_RANGE: Record<keyof RigDrivers, { min: number; max: number }> = {
   boardPitch: { min: -1.2, max: 1.2 }, // nose up; also what makes one leg straighter than the other
   tweakRoll: { min: -1, max: 1 },
   shifty: { min: -1.2, max: 1.2 },
+  turn: { min: -1.6, max: 1.6 },
   headYaw: { min: -1.4, max: 1.4 },
   headPitch: { min: -0.8, max: 0.8 },
   kneeSplay: { min: -1.2, max: 3.1 }, // past pi/2 the knees break back — a method needs it
@@ -135,7 +136,8 @@ export function createPanel(
   // `contain` keeps a scroll at its end from moving the page behind.
   const box = pane.element.parentElement;
   if (box) {
-    box.style.maxHeight = 'calc(100vh - 16px)';
+    // dvh: the visible height on iPad Safari, where 100vh runs under the toolbar.
+    box.style.maxHeight = CSS.supports('height', '100dvh') ? 'calc(100dvh - 16px)' : 'calc(100vh - 16px)';
     box.style.overflowY = 'auto';
     box.style.overscrollBehavior = 'contain';
   }

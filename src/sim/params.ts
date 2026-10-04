@@ -197,21 +197,28 @@ export const params = {
     // pose mode's "write to anchor" copies an anchor's boardPitch/tweakRoll into these.
     indyPitch: -0.16,
     indyRoll: 0,
+    indyYaw: 0,
     mutePitch: 0.34,
     muteRoll: 0.04,
+    muteYaw: 0,
     japanPitch: 0.91, // japan is mute shoved out: mute's spot at full tweak
     japanRoll: 1,
+    japanYaw: 0,
     melonPitch: 0.31,
     melonRoll: 0.35,
+    melonYaw: 0,
     methodPitch: 0.55,
     methodRoll: 0.72,
-    methodYaw: -0.6, // rad the whole rider and board turn about up while a method is held, the backside-shifty way. Judged at touchdown like a held shifty
+    methodYaw: -0.6, // rad the whole rider and board turn about up while the grab is held (every grab has one; pose mode's `turn` writes it). Judged at touchdown like a held shifty
     stalefishPitch: -0.18,
     stalefishRoll: 1,
+    stalefishYaw: 0,
     nosegrabPitch: 0.36,
     nosegrabRoll: -0.28,
+    nosegrabYaw: 0,
     tailgrabPitch: -0.55,
     tailgrabRoll: -0.2,
+    tailgrabYaw: 0,
     reachTime: 0.18, // s, crouch to full grab
     holdTime: 0.4, // s at full grab — preview envelope only, gameplay holds while held
     releaseTime: 0.14, // s, grab back to crouch. Quicker than the reach: you snap back to land
