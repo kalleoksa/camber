@@ -523,8 +523,41 @@ ANCHORS.seatbelt = pose({
   shifty: 0.1,
   turn: 0.82,
 });
-/** Back hand to the toe edge near the nose. */
-ANCHORS.crail = { ...base('indy'), backHandEdge: 1, backHandT: 0.85, frontGrip: 0, backGrip: 1, boardPitch: 0.3, tweakRoll: -0.2, turn: 0, shifty: 0 };
+/** Back hand to the toe edge at the nose. Authored (pose_11). */
+ANCHORS.crail = pose({
+  hipX: 0.2,
+  hipY: -0.75,
+  hipZ: 0.05,
+  hipYaw: 0.77,
+  pelvisPitch: 0.24,
+  hipRoll: -0.23,
+  spineBend: 0.63,
+  spineSide: -0.14,
+  spineTwist: 0.47,
+  spineCurl: 0.07,
+  frontHandEdge: -1,
+  frontHandT: 0.02,
+  backHandEdge: 1,
+  backHandT: 0.99,
+  frontGrip: 0,
+  backGrip: 1,
+  boardPitch: 0.82,
+  tweakRoll: -0.2,
+  headYaw: 0.18,
+  headPitch: -0.07,
+  kneeSplay: 0.5,
+  stanceScale: 1.06,
+  frontShoulderSwing: 0.33,
+  frontShoulderOut: -1,
+  frontElbow: 0.51,
+  frontElbowPole: -2.7,
+  backShoulderSwing: 0.77,
+  backShoulderOut: -0.14,
+  backElbow: 0.37,
+  backElbowPole: -3.1,
+  shifty: -0.89,
+  turn: 0.66,
+});
 /** Front hand between the legs to the heel edge between the feet, front leg boned. */
 ANCHORS.chickenSalad = { ...base('melon'), frontHandEdge: -1, frontHandT: 0.5, frontGrip: 1, backGrip: 0, boardPitch: 0.2, tweakRoll: 0.4, turn: 0, shifty: 0 };
 /** Back hand between the legs to the heel edge between the feet. */
