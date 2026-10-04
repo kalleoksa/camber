@@ -47,12 +47,23 @@ export const ANCHORS: Record<string, RigDrivers> = {
     hipZ: 0.01,
     hipYaw: 0.03,
     pelvisPitch: 0.4,
-    spineBend: 0.56,
-    spineSide: 0.02,
-    spineTwist: 0.03,
+    hipRoll: 0,
+    spineBend: 0.66,
+    spineSide: -0.02,
+    spineTwist: 0,
+    spineCurl: 0.3,
     frontHandEdge: -0.09,
+    frontHandT: 0.62,
+    backHandEdge: 0,
+    backHandT: 0.34,
+    frontGrip: 0,
+    backGrip: 0,
+    boardPitch: 0,
+    tweakRoll: 0,
     headYaw: 0.94,
+    headPitch: 0,
     kneeSplay: 0.62,
+    stanceScale: 1,
     frontShoulderSwing: 0.04,
     frontShoulderOut: -0.58,
     frontElbow: 0.88,
@@ -61,6 +72,7 @@ export const ANCHORS: Record<string, RigDrivers> = {
     backShoulderOut: -0.71,
     backElbow: 0.62,
     backElbowPole: -0.68,
+    shifty: 0,
   }),
 
   // --- rail slides (docs: slide plan) — first pass from reference photos, refine in pose
@@ -168,30 +180,39 @@ export const ANCHORS: Record<string, RigDrivers> = {
   // --- grab coordinates, bodies unposed (grabs.md §3) -------------------------------
   // `t` runs tail 0 to nose 1. `edge` is −1 heel, +1 toe, matching state.edge's sign.
 
-  /** Back hand, toe edge, t ≈ 0.38. Authored. The easiest grab — the toe edge comes up to it. */
+  /** Back hand, toe edge, t ≈ 0.43. Authored. The easiest grab — the toe edge comes up to it. */
   indy: pose({
     hipX: 0.21,
-    hipY: -0.6, // the 6 cm that closed the reach
-    hipZ: -0.13,
-    hipYaw: 0.23,
-    pelvisPitch: 0.08,
-    hipRoll: -0.3,
-    spineBend: 0.42,
+    hipY: -0.67, // was −0.6: the hand reaches the board, at rest and on the way in from the crouch
+    hipZ: -0.11,
+    hipYaw: 0.16,
+    pelvisPitch: 0.16,
+    hipRoll: -0.03,
+    spineBend: 0.66,
     spineSide: -0.04,
     spineTwist: 0.42,
+    spineCurl: -0.19,
+    frontHandEdge: -0.28,
+    frontHandT: 0.34,
     backHandEdge: 1,
-    backHandT: 0.38,
+    backHandT: 0.43,
+    frontGrip: 0,
     backGrip: 1,
-    frontHandEdge: -0.04,
-    frontHandT: 0.33,
     boardPitch: -0.16,
+    tweakRoll: 0,
     headYaw: 0.18,
     headPitch: -0.07,
-    frontShoulderSwing: 0,
-    frontShoulderOut: -0.22,
-    frontElbow: 1.05,
-    frontElbowPole: -3.45, // the free arm routed round, which is what the pole is for (was 2.83: same angle, −2π, so blends from neutral's −π take the short way)
-    backShoulderSwing: 0.49,
+    kneeSplay: 0.5,
+    stanceScale: 1.06,
+    frontShoulderSwing: 0.33,
+    frontShoulderOut: -0.56,
+    frontElbow: 0.51,
+    frontElbowPole: -2.7,
+    backShoulderSwing: 0.77,
+    backShoulderOut: -0.14,
+    backElbow: 0.37,
+    backElbowPole: -3.1,
+    shifty: -0.34,
   }),
 
   /**
@@ -205,36 +226,27 @@ export const ANCHORS: Record<string, RigDrivers> = {
    */
   mute: pose({
     hipX: 0.1,
-    /**
-     * Authored at −0.62, dropped 1 cm. At −0.62 the endpoint was reach 0.9994 and the
-     * *transition* peaked at 1.0028 — invalid by under 2 mm of arm, for a few frames, which
-     * the two-decimal readout rounded to a passing 1.00. One centimetre here takes the path
-     * peak to 0.9900. The alternative was raising gripDelay to 0.90 globally, which barely
-     * cleared and would snap every other grab's hand shut over the last tenth of its blend.
-     */
-    hipY: -0.63,
-    hipZ: -0.12,
-    hipYaw: -0.16,
-    pelvisPitch: -0.31,
+    hipY: -0.68, // was −0.63: the hand reaches the board (was 5% short)
+    hipZ: -0.11,
+    hipYaw: -0.29,
+    pelvisPitch: -0.21,
     hipRoll: -0.35,
     spineBend: 0.38,
-    // Flipped from +0.35: the earlier lean toward the nose was buying reach the long way
-    // round, and this pass gets it from the pelvis and the shoulder instead.
     spineSide: -0.1,
-    spineTwist: -0.52, // toward the tail, which is what grabs.md asks a mute for
+    spineTwist: -0.52,
+    spineCurl: 0,
     frontHandEdge: 1,
     frontHandT: 0.54,
-    frontGrip: 1,
     backHandEdge: -0.24,
     backHandT: 0.16,
-    backGrip: 0.25,
+    frontGrip: 1,
+    backGrip: 0,
     boardPitch: 0.34,
-    tweakRoll: 0.17,
+    tweakRoll: 0.04,
     headYaw: 0.37,
     headPitch: -0.07,
     kneeSplay: 0.48,
     stanceScale: 1.01,
-    // Front arm authored through the shoulder rather than left where the hand target put it.
     frontShoulderSwing: -0.12,
     frontShoulderOut: -0.48,
     frontElbow: 0.73,
@@ -242,6 +254,8 @@ export const ANCHORS: Record<string, RigDrivers> = {
     backShoulderSwing: 0.93,
     backShoulderOut: -0.71,
     backElbow: 1.87,
+    backElbowPole: 0,
+    shifty: 0.03,
   }),
 
   /**
@@ -281,52 +295,71 @@ export const ANCHORS: Record<string, RigDrivers> = {
    */
   method: pose({
     hipX: -0.2,
-    hipY: -0.52,
+    hipY: -0.67, // was −0.52: the hand reaches the board (was 12% short, ~8 cm)
+    hipZ: 0,
     hipYaw: 1.17,
-    pelvisPitch: 0.28,
-    hipRoll: 0.21,
-    spineBend: 0.76,
+    pelvisPitch: 0.34,
+    hipRoll: 0.09,
+    spineBend: 0.73,
     spineSide: 0.33,
     spineTwist: 0.21,
+    spineCurl: 0,
     frontHandEdge: -1,
     frontHandT: 0.83,
+    backHandEdge: 0,
+    backHandT: 0.34,
     frontGrip: 1,
+    backGrip: 0,
     boardPitch: 0.55,
     tweakRoll: 0.72,
-    headYaw: 0.21,
-    headPitch: -0.16,
+    headYaw: 1.37,
+    headPitch: -0.12,
     kneeSplay: 0.34,
-    backShoulderSwing: 2.62, // the trailing arm up, which is what a method's counterweight is
+    stanceScale: 1,
+    frontShoulderSwing: 0.3,
+    frontShoulderOut: -0.45,
+    frontElbow: 0.45,
+    frontElbowPole: -3.1,
+    backShoulderSwing: 2.62,
     backShoulderOut: -0.58,
     backElbow: 0.28,
     backElbowPole: -0.27,
+    shifty: -0.44,
   }),
 
   /** Back hand, heel edge, t ≈ 0.4, arm behind the back leg. Authored. */
   stalefish: pose({
     hipX: -0.03,
-    hipY: -0.63, // 23 cm lower than the first pass — this is what the 1.40 reach cost
+    hipY: -0.68, // was −0.63: the hand reaches the board (was 5% short)
     hipZ: -0.08,
     hipYaw: -0.39,
-    pelvisPitch: 0.26,
+    pelvisPitch: -0.19,
     hipRoll: -0.35,
     spineBend: 0.17,
     spineSide: -0.04,
     spineTwist: -0.47,
-    backHandEdge: -1,
-    backHandT: 0.39,
-    backGrip: 1,
+    spineCurl: 0,
     frontHandEdge: -0.46,
     frontHandT: 0.29,
-    boardPitch: -0.18, // flipped sign from the second pass: tail down, not nose down
+    backHandEdge: -1,
+    backHandT: 0.39,
+    frontGrip: 0,
+    backGrip: 1,
+    boardPitch: -0.18,
     tweakRoll: 1,
-    headPitch: 0.02,
+    headYaw: 0.49,
+    headPitch: -0.02,
     kneeSplay: 0.53,
-    frontShoulderSwing: 0.57,
-    frontShoulderOut: -0.48,
-    frontElbow: 0.85,
-    frontElbowPole: -2.49, // free arm routed the other way round from the first pass
+    stanceScale: 1,
+    frontShoulderSwing: 1.49,
+    frontShoulderOut: 0.38,
+    frontElbow: 0.54,
+    frontElbowPole: -2.97,
     backShoulderSwing: 0.89,
+    backShoulderOut: -0.35,
+    backElbow: 0.45,
+    backElbowPole: 0,
+    shifty: -0.1,
   }),
 
   /**
@@ -508,7 +541,10 @@ export function grabBody(out: RigDrivers, edge: number, t: number, tweak: number
     for (let i = 0; i < SPOTS.length; i++) {
       const s = SPOTS[i];
       if (!s) continue;
-      const p = s.tweaked ? s.pose[k] + (s.tweaked[k] - s.pose[k]) * tweak : s.pose[k];
+      let p = s.tweaked ? s.pose[k] + (s.tweaked[k] - s.pose[k]) * tweak : s.pose[k];
+      // Posed against a board yawed under the body (`shifty`); in play the sim owns the
+      // board, so the same relative turn goes on the hips, as the rail slides do (scene.ts).
+      if (k === 'hipYaw') p -= s.tweaked ? s.pose.shifty + (s.tweaked.shifty - s.pose.shifty) * tweak : s.pose.shifty;
       v += p * (weights[i] ?? 0);
     }
     out[k] = v / total;

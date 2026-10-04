@@ -198,7 +198,7 @@ export const params = {
     indyPitch: -0.16,
     indyRoll: 0,
     mutePitch: 0.34,
-    muteRoll: 0.17,
+    muteRoll: 0.04,
     japanPitch: 0.91, // japan is mute shoved out: mute's spot at full tweak
     japanRoll: 1,
     melonPitch: 0.31,
