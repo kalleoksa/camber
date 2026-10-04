@@ -729,6 +729,12 @@ const panel = createPanel(params, readout, view.drivers, preview, feedback, {
       : `${result.stream} diverged @ ${result.divergedAt}`;
   },
   onSaveTake: () => {
+    // The run being ridden, not the last one a reset finished — saving mid-session used
+    // to hand over whatever short run came before. Recording resumes at the next reset.
+    if (recorder.recording && !cursor) {
+      finishRun();
+      readout.session = `take saved (${currentTake?.frames.length ?? 0} ticks) — reset (Y) to record again`;
+    }
     if (currentTake) download(`take-${currentTake.frames.length}.json`, JSON.stringify(currentTake));
   },
   onLoadTake: (json) => {
