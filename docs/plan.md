@@ -197,6 +197,8 @@ wait until powder exists.
 
 ## 9. Visual slope builder — to design and plan (2026-10-04)
 
+Spec: "Camber — Terrain & Level Design Spec" (Claude Docs, https://claude.ai/artifact/FwXRXvXLWbYxoRp47dnN1q), checked against the code on 2026-10-05: build order starts from milestone 7's layout JSON for the existing park.
+
 Parks are built in code today (`src/park/*.ts`, numbers per feature). We need a visual way
 to build slopes and lines. Not started; needs a design and a plan first. Open questions:
 
