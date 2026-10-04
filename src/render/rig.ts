@@ -356,6 +356,59 @@ const armQuat = new THREE.Quaternion();
 const armZ = new THREE.Vector3(0, 0, 1);
 const armX = new THREE.Vector3(1, 0, 0);
 
+const fkHand = new THREE.Vector3();
+const chordNow = new THREE.Vector3();
+const chordFrom = new THREE.Vector3();
+const pole0 = new THREE.Vector3();
+const pole1 = new THREE.Vector3();
+const carry = new THREE.Quaternion();
+const turnQuat = new THREE.Quaternion();
+const idQuat = new THREE.Quaternion();
+
+/**
+ * Elbow pole for a hand on its way to the board, `g` of the way. Two directions, each kept
+ * relative to the shoulder→hand line as that line swings: the free arm's elbow (where the
+ * shoulder drivers aimed it) and the authored gripping elbow (that aim turned by the pole
+ * angle about the line to the grab point). They blend by `g`, so the reaching arm starts as
+ * the free arm exactly and ends as the authored grab exactly. Projected raw, one fixed aim
+ * could cross the line partway — the elbow flipped (up to 24 cm in a tick as a hand
+ * committed) — and the pole angle applied in full at the first touch of grip snapped it
+ * sideways.
+ */
+function gripPole(
+  out: THREE.Vector3,
+  aim: THREE.Vector3,
+  shoulder: THREE.Vector3,
+  fk: THREE.Vector3,
+  grabAt: THREE.Vector3,
+  hand: THREE.Vector3,
+  poleAngle: number,
+  g: number,
+): void {
+  chordNow.subVectors(hand, shoulder).normalize();
+  // Free arm's elbow, carried with the line from where the hand was to where it is.
+  chordFrom.subVectors(fk, shoulder).normalize();
+  carry.setFromUnitVectors(chordFrom, chordNow);
+  pole0.copy(aim).applyQuaternion(carry);
+  pole0.addScaledVector(chordNow, -pole0.dot(chordNow));
+  // Authored elbow: the aim turned about the line to the grab, carried to the line now.
+  chordFrom.subVectors(grabAt, shoulder).normalize();
+  turnQuat.setFromAxisAngle(chordFrom, poleAngle);
+  carry.setFromUnitVectors(chordFrom, chordNow);
+  pole1.copy(aim).applyQuaternion(turnQuat).applyQuaternion(carry);
+  pole1.addScaledVector(chordNow, -pole1.dot(chordNow));
+  if (pole0.lengthSq() < 1e-10 || pole1.lengthSq() < 1e-10) {
+    out.copy(pole1.lengthSq() >= 1e-10 ? pole1 : aim);
+    return;
+  }
+  pole0.normalize();
+  pole1.normalize();
+  // Swing from one to the other about the line, `g` of the way.
+  carry.setFromUnitVectors(pole0, pole1);
+  turnQuat.slerpQuaternions(idQuat, carry, g);
+  out.copy(pole0).applyQuaternion(turnQuat);
+}
+
 /**
  * Forward kinematics down one arm, in torso space: shoulder swing and abduction aim the
  * upper arm, then the elbow bends the forearm about an axis `pole` sweeps around it.
@@ -761,6 +814,7 @@ export function createRig(): Rig {
           // Gripping: the hand is pulled to the grab point and the elbow solves to suit.
           edgePoint(grab, front ? d.frontHandEdge : d.backHandEdge, front ? d.frontHandT : d.backHandT);
           grab.applyQuaternion(board.quaternion).add(board.position);
+          fkHand.copy(hand);
           hand.lerp(grab, Math.min(g, 1));
 
           // The pole is the elbow direction the shoulder drivers asked for, not a ring at a
@@ -772,12 +826,7 @@ export function createRig(): Rig {
           //
           // `flex` stays genuinely inert here, and correctly so: once both ends are fixed the
           // elbow angle follows from the distance and is not free to choose.
-          pole.copy(elbowAim);
-          if (poleAngle !== 0) {
-            dir.subVectors(hand, shoulder).normalize();
-            tmpQuat.setFromAxisAngle(dir, poleAngle);
-            pole.applyQuaternion(tmpQuat);
-          }
+          gripPole(pole, elbowAim, shoulder, fkHand, grab, hand, poleAngle, Math.min(g, 1));
           solveTwoBone(elbow, shoulder, hand, r.upperArm, r.forearm, pole);
         }
         const span = shoulder.distanceTo(hand);

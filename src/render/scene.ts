@@ -142,6 +142,8 @@ export type SceneView = {
   strain: { front: number; back: number };
   /** How far each hand falls short of its grab point, m. 0 when it reaches. */
   shortfall: { front: number; back: number };
+  /** Solved elbow positions in the rider's frame, as rig.ts reports them. A diagnostic. */
+  elbowAt: { front: THREE.Vector3; back: THREE.Vector3 };
   /** Hip-to-foot distance per leg. The knee angle it implies is what boardPitch tunes. */
   legSpan: { front: number; back: number };
   /** `secondary` carries the tick-stepped springs; `dt` is only for the unhashed tumble. */
@@ -549,6 +551,20 @@ export function createScene(cfg: SlopeConfig, terrain: Terrain, camera: THREE.Pe
     }
   };
 
+  const armToward = (front: boolean, from: RigDrivers, to: RigDrivers, w: number): void => {
+    if (front) {
+      drivers.frontShoulderSwing = from.frontShoulderSwing + (to.frontShoulderSwing - from.frontShoulderSwing) * w;
+      drivers.frontShoulderOut = from.frontShoulderOut + (to.frontShoulderOut - from.frontShoulderOut) * w;
+      drivers.frontElbow = from.frontElbow + (to.frontElbow - from.frontElbow) * w;
+      drivers.frontElbowPole = from.frontElbowPole + Math.atan2(Math.sin(to.frontElbowPole - from.frontElbowPole), Math.cos(to.frontElbowPole - from.frontElbowPole)) * w;
+    } else {
+      drivers.backShoulderSwing = from.backShoulderSwing + (to.backShoulderSwing - from.backShoulderSwing) * w;
+      drivers.backShoulderOut = from.backShoulderOut + (to.backShoulderOut - from.backShoulderOut) * w;
+      drivers.backElbow = from.backElbow + (to.backElbow - from.backElbow) * w;
+      drivers.backElbowPole = from.backElbowPole + Math.atan2(Math.sin(to.backElbowPole - from.backElbowPole), Math.cos(to.backElbowPole - from.backElbowPole)) * w;
+    }
+  };
+
   const driveFromSim = (view: RiderView, params: Params, secondary: Secondary): void => {
     const r = params.rig;
     const grounded = view.mode === 'grounded' || view.mode === 'walled';
@@ -588,6 +604,11 @@ export function createScene(cfg: SlopeConfig, terrain: Terrain, camera: THREE.Pe
     // A switch grab: the regular grab's pose (and hands, below) mirrored nose-for-tail.
     if (view.grabSwitch) mirrorDrivers(body);
     for (const k of BODY_KEYS) drivers[k] = base[k] + (body[k] - base[k]) * bodyWeight;
+    // The gripping arm's drivers were authored for a hand on the board, where they only steer
+    // the elbow; as a free arm they fling the hand out wide. So that arm stays in the riding
+    // pose until the hand commits and moves into the grab with it, elbow the short way round.
+    const frontReaches = view.grabFront !== view.grabSwitch;
+    armToward(frontReaches, base, body, handWeight);
     if (trick) {
       // Slide poses (poses.ts): across the rail toward the toes is the backside
       // boardslide (open), toward the heels the frontside (blind) — travel in board frame is (sin slide, ·, cos slide)
@@ -693,6 +714,7 @@ export function createScene(cfg: SlopeConfig, terrain: Terrain, camera: THREE.Pe
     strain: rig.strain,
     shortfall: rig.shortfall,
     legSpan: rig.legSpan,
+    elbowAt: rig.elbowAt,
 
     updateRider(view, params, poseMode, secondary, dt) {
       const frameDt = Math.min(dt, MAX_FRAME_DT);
