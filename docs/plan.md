@@ -219,3 +219,20 @@ Render only (`render/secondary.ts`): set from the spin's direction once it passe
 `rig.spinLookMin`, held `rig.landLookHold` (0.3 s) past touchdown, then the head comes
 round to the riding look at its spring rate. `rig.spinLook` 0 turns it off; old takes pin 0.
 Next if wanted: the shoulders follow the head partway on a blind landing.
+
+## 11. Jump section three lanes wide (2026-10-04)
+
+Every row of the jump line is now three gap jumps abreast: smaller on the left (`LANE_L`),
+the original in the middle, bigger on the right (`LANE_R`), 15 m apart (pre-scale), the side
+ones nudged ±2.5 m row by row so no line runs straight. Side kickers put their knuckle on the
+row's knuckle (`laneKicker`), so every lane lands on the row's landing grade; their takeoffs
+fall where their size puts them. Landing hills are 11 m across rounding off over 4, so
+neighbouring lanes' hills meet: jump one lane, land the next (transfer). Three corners abreast
+at the bottom, the side landings meeting between them. Rows 24 / 28 m apart (were 14 / 18),
+room to switch lanes. Park 220 m wide (was 140), rail lane moved right to x 30.
+
+`npm run lanes -- RMLMRL`: rides a route (a lane per row, then the corner) and prints speed,
+airtime, landing past the knuckle. Straight lanes: all rows clean in all three; corners land
+(middle and right sketchy on impact). Switching every row (bot steering, crude) makes it
+through, landing a few metres short on the rise after the hardest switches — a human plans
+them earlier. Terrain mesh 1.44M triangles (was 0.85M) — watch the frame rate on iPad.
