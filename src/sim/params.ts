@@ -19,6 +19,7 @@ export const params = {
     drag: 0.00098, // quadratic, 1/m — scaled with the parks (÷1.63) so a full-size run holds the speeds the jumps are sized for
     switchEdges: 1, // 1: riding switch, the sticks follow the direction of travel — right turns right on the edge that's on the right, up presses the leading end
     switchSpeed: 0.5, // m/s of travel along the board before riding switch (or back) latches
+    switchCarry: 1, // 1: when the switch latch flips, the smoothed edge and press flip with it, so a held stick keeps meaning the same
     friction: 0.06, // Coulomb μ of a waxed base on groomed snow — decel μ·g on the normal load. Per surface later (powder)
     edgeDrag: 0.35, // fraction of scrubbed speed lost outright at full edge
     stanceYawGain: 0.55, // extra yaw authority at full nose/tail press
@@ -165,6 +166,7 @@ export const params = {
     speedFade: 3.0, // m/s below maxSpeed over which the butter fades in
     gripScale: 0.3, // grip multiplier at full butter — the board lets go sideways
     yawRate: 3.2, // rad/s of pivot at full butter and full edge stick, independent of speed
+    edgeGrip: 0, // 0..1 of the edge's grip (and its carve drag) kept at full butter — the edge stick steers the pivot instead of biting
     pitch: 0.2, // rad the board tips onto the pressed end at full butter — render only
   },
   /**
@@ -174,7 +176,9 @@ export const params = {
    */
   grab: {
     commit: 0.35, // right-stick magnitude past which the hand goes for the board
-    switchMirror: 1, // 1: a grab reached riding switch is the switch version — same stick, same named grab, mirrored
+    switchMirror: 2, // 2: a grab after a switch takeoff is the switch version — same stick, same named grab, mirrored. 1: judged by travel as the hand goes (mirrors mid-spin)
+    stickModel: 2, // 2: LB (left/front hand) or RB (right/back hand) held + stick direction picks a named grab, never mirrored riding switch. 1: stick alone, sideways is indy/melon. 0: stick alone, linear
+    stickBand: 0.2, // rad either side of sideways that is still the edge's main grab (stick model 1)
     edgeSharpness: 2.0, // stick X gain onto the edge coordinate — >30° off vertical is a full rail
     tweakEnter: 0.55, // stick magnitude past which the tweak starts
     tweakRate: 10.0, // 1/s, board shoved out toward the stick's depth
@@ -197,20 +201,43 @@ export const params = {
     // pose mode's "write to anchor" copies an anchor's boardPitch/tweakRoll into these.
     indyPitch: -0.16,
     indyRoll: 0,
+    indyYaw: 0,
     mutePitch: 0.34,
-    muteRoll: 0.17,
+    muteRoll: -0.61,
+    muteYaw: 0.37,
     japanPitch: 0.91, // japan is mute shoved out: mute's spot at full tweak
     japanRoll: 1,
+    japanYaw: 0,
     melonPitch: 0.31,
     melonRoll: 0.35,
+    melonYaw: 0,
     methodPitch: 0.55,
     methodRoll: 0.72,
+    methodYaw: -1.01, // rad the whole rider and board turn about up while the grab is held (every grab has one; pose mode's `turn` writes it). Judged at touchdown like a held shifty
     stalefishPitch: -0.18,
     stalefishRoll: 1,
+    stalefishYaw: 0.7,
     nosegrabPitch: 0.36,
     nosegrabRoll: -0.28,
-    tailgrabPitch: -0.18,
+    nosegrabYaw: 0,
+    tailgrabPitch: -0.55,
     tailgrabRoll: -0.2,
+    tailgrabYaw: 0,
+    // Stick model 2's own grabs. First guesses until posed in pose mode and written back.
+    seatbeltPitch: -0.52,
+    seatbeltRoll: -0.37,
+    seatbeltYaw: 0.82,
+    crailPitch: 0.82,
+    crailRoll: -0.2,
+    crailYaw: 0.66,
+    crailTweakedPitch: 1.05, // full push: its own, not tweakGain's double — 1.64 rad folded the arm into the head
+    crailTweakedRoll: -0.4,
+    chickenSaladPitch: 0.44,
+    chickenSaladRoll: 1,
+    chickenSaladYaw: 0.49,
+    roastBeefPitch: 0.31,
+    roastBeefRoll: 1,
+    roastBeefYaw: 0.8,
     reachTime: 0.18, // s, crouch to full grab
     holdTime: 0.4, // s at full grab — preview envelope only, gameplay holds while held
     releaseTime: 0.14, // s, grab back to crouch. Quicker than the reach: you snap back to land
@@ -282,6 +309,8 @@ export const params = {
     armLead: 0.8, // rad the arms lead the board in the air at full spin
     hipLead: 0.2, // rad the hips lead
     armSpread: 0.9, // rad the arms open out along the board — at the lip, and to stop the spin for landing
+    rideHeadYaw: 0.9, // rad the head turns from straight across the board toward the way of travel — riders look down the hill. Mirrored riding switch
+    shiftyGrabTurn: 0.7, // fraction of a shifty the whole rider turns through while a hand holds the board — the rest twists the board under the body. 0 leaves the hand short of the board (up to 16 cm on a nose or tail grab)
     armTuck: 0.4, // rad the arms pull in when tucking to spin faster (spin model 1)
     openTime: 0.3, // s before touchdown the rider opens up and squares to the board
     lipSpreadTime: 0.12, // s of arm spread just after leaving the snow

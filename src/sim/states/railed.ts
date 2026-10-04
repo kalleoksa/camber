@@ -259,6 +259,7 @@ export function tryCapture(state: RiderState, params: Params, terrain: Terrain, 
     state.airTime = 0;
     state.popWindow = 0;
     state.grip = 0;
+    state.grabHeld = false;
     state.tweak = 0;
     state.shifty = 0;
     return true;

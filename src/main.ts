@@ -1,5 +1,5 @@
 import { createLoop, TICK_DT } from './core/loop.ts';
-import { padRawSummary, padSummary, pollGamepad, pollMark, rumble } from './input/gamepad.ts';
+import { padRawSummary, padSummary, pollGamepad, pollHelp, pollMark, pollPause, rumble } from './input/gamepad.ts';
 import { mergeKeyboard } from './input/keyboard.ts';
 import {
   buildTake,
@@ -28,6 +28,7 @@ import {
 } from './render/rig.ts';
 import { createScene, interpolateRider } from './render/scene.ts';
 import { createTrickReader, describe } from './render/tricks.ts';
+import { createControlsHelp } from './render/controlsHelp.ts';
 import { createTrickText } from './render/trickText.ts';
 import { createInputOverlay } from './render/inputOverlay.ts';
 import {
@@ -135,6 +136,10 @@ const chase = createChaseCamera(params);
 // Parks are full size, their features 1.63× the old: so is the coarse grid cell.
 const view = createScene(slopeConfig, terrain, chase.camera, 0.75 * (PARK_GRAVITY / REAL_GRAVITY));
 addEventListener('resize', view.resize);
+// The canvas follows the visible screen by CSS; whenever its size changes — including iPad
+// Safari's toolbars sliding, which doesn't always fire a resize — the buffer follows.
+new ResizeObserver(() => view.resize()).observe(view.renderer.domElement);
+view.resize();
 
 const spray = createSpray();
 view.scene.add(spray.object);
@@ -174,6 +179,7 @@ function anchorToParams(name: string, anchor: RigDrivers): void {
   const g = params.grab as Record<string, number>;
   if (`${name}Pitch` in g) g[`${name}Pitch`] = anchor.boardPitch;
   if (`${name}Roll` in g) g[`${name}Roll`] = anchor.tweakRoll;
+  if (`${name}Yaw` in g) g[`${name}Yaw`] = anchor.turn;
 }
 
 function applyAnchors(saved: Record<string, Partial<RigDrivers>>): void {
@@ -301,10 +307,49 @@ function feel(before: RiderState, after: RiderState): void {
   }
 }
 
+// Pause: P or the pad's Options/Start. The sim and the take stop; the frozen frame keeps
+// drawing, for a screenshot. `.` steps one tick while paused.
+let paused = false;
+let stepOnce = false;
+let sessionBeforePause = '';
+function togglePause(): void {
+  paused = !paused;
+  if (paused) {
+    sessionBeforePause = readout.session;
+    readout.session = 'paused — P or Options to resume, . steps a tick';
+  } else readout.session = sessionBeforePause;
+}
+// The controls sheet pauses while it's open, and resumes on close only if it was what paused.
+let pausedByHelp = false;
+const help = createControlsHelp((open) => {
+  if (open && !paused) {
+    togglePause();
+    pausedByHelp = true;
+  } else if (!open) {
+    if (pausedByHelp && paused) togglePause();
+    pausedByHelp = false;
+  }
+});
+/** Pause pressed: with the sheet up it closes the sheet (and resumes), else it toggles. */
+function pausePressed(): void {
+  if (help.isOpen()) help.toggle();
+  else togglePause();
+}
+addEventListener('keydown', (ev) => {
+  const t = ev.target as HTMLElement | null;
+  if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA')) return;
+  if (ev.key === 'p' || ev.key === 'P') pausePressed();
+  else if (ev.key === '.' && paused) stepOnce = true;
+});
+
 function step(): void {
   // Pose mode disconnects gameplay entirely — the rider is frozen and the drivers are
   // the only thing moving (design §7.8, build order step 2).
   if (poseMode) return;
+  if (paused) {
+    if (!stepOnce) return;
+    stepOnce = false;
+  }
   copyRiderState(previous, state);
   copySecondary(secondaryPrevious, secondary);
 
@@ -332,7 +377,7 @@ function step(): void {
   inputOverlay.push(input);
   if (!replay) feel(previous, state);
 
-  const trick = tricks.step(state, TICK_DT);
+  const trick = tricks.step(state, TICK_DT, params);
   if (trick) {
     const text = describe(trick);
     readout.trick = text;
@@ -483,6 +528,10 @@ let lastRender = performance.now();
 let refreshCounter = 0;
 
 function render(alpha: number): void {
+  if (pollPause() && !poseMode) pausePressed();
+  if (pollHelp() && !poseMode) help.toggle();
+  // Paused, the last tick exactly: blending toward it from the one before would shake.
+  if (paused) alpha = 1;
   const now = performance.now();
   const dt = Math.min((now - lastRender) / 1000, 0.1);
   lastRender = now;
@@ -496,7 +545,7 @@ function render(alpha: number): void {
   if (poseMode) {
     orbit.update(rider);
   } else {
-    spray.update(rider, params, dt);
+    spray.update(rider, params, paused ? 0 : dt);
     chase.update(rider, params, dt);
   }
   if (audio.running) {
@@ -698,6 +747,12 @@ const panel = createPanel(params, readout, view.drivers, preview, feedback, {
       : `${result.stream} diverged @ ${result.divergedAt}`;
   },
   onSaveTake: () => {
+    // The run being ridden, not the last one a reset finished — saving mid-session used
+    // to hand over whatever short run came before. Recording resumes at the next reset.
+    if (recorder.recording && !cursor) {
+      finishRun();
+      readout.session = `take saved (${currentTake?.frames.length ?? 0} ticks) — reset (Y) to record again`;
+    }
     if (currentTake) download(`take-${currentTake.frames.length}.json`, JSON.stringify(currentTake));
   },
   onLoadTake: (json) => {

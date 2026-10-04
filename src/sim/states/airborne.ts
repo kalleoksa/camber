@@ -1,6 +1,6 @@
 import type { InputSnapshot } from '../../input/snapshot.ts';
 import type { Params } from '../params.ts';
-import { boardAttitude } from '../grabs.ts';
+import { boardAttitude, GRABS, grabAttitude, nearestSpotFront, pickGrab, stickT } from '../grabs.ts';
 import { axisY, axisZ, multiply, normalizeQuat, quat, rotate, setFromAxisAngle, type Quat } from '../quat.ts';
 import type { RiderState } from '../state.ts';
 import { tryCapture } from './railed.ts';
@@ -108,7 +108,9 @@ export function stepAirborne(
 
   // Shifty: board yawed under a still body. Buttons, so it's all or nothing in intent;
   // the spring is what makes it a motion rather than a snap.
-  const shiftyTarget = ((input.rb ? 1 : 0) - (input.lb ? 1 : 0)) * params.air.shiftyMax;
+  // Stick model 2: a bumper with the stick out is a grab, not a shifty.
+  const shifting = params.grab.stickModel < 2 || !state.grabHeld;
+  const shiftyTarget = shifting ? ((input.rb ? 1 : 0) - (input.lb ? 1 : 0)) * params.air.shiftyMax : 0;
   state.shifty = dampScalar(state.shifty, shiftyTarget, params.air.shiftyRate, dt);
 
   // A grab tucks the body in and spins faster; shoving the board out on a tweak extends
@@ -238,17 +240,51 @@ function updateGrab(state: RiderState, input: InputSnapshot, params: Params, dt:
   const m = Math.min(1, Math.sqrt(input.rx * input.rx + input.ry * input.ry));
   let tweakTarget = 0;
 
-  if (m > g.commit) {
+  if (g.stickModel >= 2) {
+    // LB is the left hand and RB the right, always — riding regular that is front and back,
+    // and riding switch nothing mirrors. The stick picks where the hand goes; the grab is
+    // fixed when the hand reaches and held until either is let go, so sweeping the stick
+    // mid-grab only changes the tweak. Both bumpers: not yet anything (two-hand grabs).
+    const hand = input.lb !== input.rb;
+    const held = hand && m > g.commit;
+    if (held && !state.grabHeld) {
+      state.grabFront = input.lb;
+      state.grabId = pickGrab(state.grabFront, input.rx, input.ry);
+      const spot = GRABS[state.grabId];
+      state.grabEdge = spot ? spot.edge : 0;
+      state.grabT = spot ? spot.t : 0.5;
+      state.grabSwitch = false;
+    }
+    // Let go with one hand and grab with the other: a different grab, picked fresh.
+    if (held && state.grabHeld && input.lb !== state.grabFront) state.grabHeld = false;
+    else state.grabHeld = held;
+    if (held) {
+      state.grip = Math.min(1, state.grip + dt / g.reachTime);
+      if (m > g.tweakEnter) tweakTarget = ((m - g.tweakEnter) / (1 - g.tweakEnter)) * state.grip;
+    } else {
+      state.grip = Math.max(0, state.grip - dt / g.releaseTime);
+    }
+  } else if (m > g.commit) {
     const edge = (input.rx / m) * g.edgeSharpness;
     state.grabEdge = edge > 1 ? 1 : edge < -1 ? -1 : edge;
-    state.grabT = 0.5 + 0.5 * (input.ry / m);
+    // Model 1: sideways is the edge's main grab and the hand is the nearest named grab's.
+    // Model 0 (old takes): t straight off stick Y, front hand on the nose half — a sideways
+    // stick sat between melon and stalefish (or mute and indy) and a few degrees picked the hand.
+    const centred = g.stickModel > 0;
+    state.grabT = centred ? stickT(input.ry, input.rx, state.grabEdge, g.stickBand) : 0.5 + 0.5 * (input.ry / m);
     if (state.grip === 0) {
-      state.grabFront = state.grabT >= 0.5;
-      // Travelling tail first as the hand goes: the switch version of the grab. The stick
-      // is read against the direction of travel, so up is the leading end either way.
-      axisZ(grabForward, state.spinFrame);
-      const v = state.velocity;
-      state.grabSwitch = params.grab.switchMirror > 0 && grabForward.x * v.x + grabForward.z * v.z < 0;
+      state.grabFront = centred ? nearestSpotFront(state.grabEdge, state.grabT) : state.grabT >= 0.5;
+      // Took off switch: the switch version of the grab, so stick up is the end that led
+      // at takeoff. Mode 1 read travel at the moment of reaching instead, which mirrored
+      // the grab and swapped hands whenever a spin had the tail leading — kept for old takes.
+      const mirror = params.grab.switchMirror;
+      if (mirror >= 2) {
+        state.grabSwitch = state.switchRide;
+      } else {
+        axisZ(grabForward, state.spinFrame);
+        const v = state.velocity;
+        state.grabSwitch = mirror > 0 && grabForward.x * v.x + grabForward.z * v.z < 0;
+      }
     }
     state.grip = Math.min(1, state.grip + dt / g.reachTime);
     // Only a hand that has hold of the board can shove it.
@@ -270,8 +306,12 @@ function updateGrab(state: RiderState, input: InputSnapshot, params: Params, dt:
  * The pivot about the grab point only moves the board, so it doesn't enter the angles.
  */
 function composeBoard(out: Quat, state: RiderState, params: Params): Quat {
-  const a = boardAttitude(state.grabEdge, state.grabT, state.grip, state.tweak, params);
-  setFromAxisAngle(shiftyQ, UP, state.shifty);
+  const a =
+    params.grab.stickModel >= 2
+      ? grabAttitude(state.grabId, state.grip, state.tweak, params)
+      : boardAttitude(state.grabEdge, state.grabT, state.grip, state.tweak, params);
+  // The grab's own yaw rides with the shifty: both turn the drawn board about its up axis.
+  setFromAxisAngle(shiftyQ, UP, state.shifty + (state.grabSwitch ? -a.yaw : a.yaw));
   // A switch grab is the mirror image nose-for-tail: pitch turns over, roll about the
   // board's length doesn't.
   setFromAxisAngle(pitchQ, LATERAL, state.grabSwitch ? -a.pitch : a.pitch);
@@ -296,6 +336,7 @@ function land(state: RiderState, params: Params, n: Vec3, onWall: boolean): void
   axisZ(boardForward, composed);
   axisY(boardUp, composed);
   state.grip = 0;
+  state.grabHeld = false;
   state.tweak = 0;
   state.shifty = 0;
   projectOntoPlane(boardForward, n);

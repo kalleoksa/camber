@@ -25,6 +25,7 @@ const DRIVER_RANGE: Record<keyof RigDrivers, { min: number; max: number }> = {
   boardPitch: { min: -1.2, max: 1.2 }, // nose up; also what makes one leg straighter than the other
   tweakRoll: { min: -1, max: 1 },
   shifty: { min: -1.2, max: 1.2 },
+  turn: { min: -1.6, max: 1.6 },
   headYaw: { min: -1.4, max: 1.4 },
   headPitch: { min: -0.8, max: 0.8 },
   kneeSplay: { min: -1.2, max: 3.1 }, // past pi/2 the knees break back — a method needs it
@@ -130,8 +131,18 @@ export function createPanel(
   handlers: PanelHandlers,
 ): Panel {
   const pane = new Pane({ title: 'camber' });
+  // Tweakpane's default box is fixed top-right with no height limit, so a long folder (pose
+  // mode's sliders) ran off the bottom of the screen. Cap it to the window and let it scroll;
+  // `contain` keeps a scroll at its end from moving the page behind.
+  const box = pane.element.parentElement;
+  if (box) {
+    // dvh: the visible height on iPad Safari, where 100vh runs under the toolbar.
+    box.style.maxHeight = CSS.supports('height', '100dvh') ? 'calc(100dvh - 16px)' : 'calc(100vh - 16px)';
+    box.style.overflowY = 'auto';
+    box.style.overscrollBehavior = 'contain';
+  }
 
-  const status = pane.addFolder({ title: 'status' });
+  const status = pane.addFolder({ title: 'status', expanded: false });
   status.addBinding(readout, 'session', { readonly: true });
   status.addBinding(readout, 'pad', { readonly: true });
   status.addBinding(readout, 'padRaw', { readonly: true, label: 'pad raw' });
@@ -160,13 +171,13 @@ export function createPanel(
 
   // Feedback (docs/feedback.md): mark while riding (View/Back, D-pad tags, or M), write the
   // words here afterwards, download one file to send back.
-  const notes = pane.addFolder({ title: 'feedback', expanded: true });
+  const notes = pane.addFolder({ title: 'feedback', expanded: false });
   notes.addBinding(feedback, 'tester', { label: 'your name' });
   notes.addBinding(feedback, 'status', { readonly: true, label: 'marks' });
   notes.addButton({ title: 'download feedback' }).on('click', handlers.onDownloadFeedback);
   const tagOptions = Object.fromEntries(NOTE_TAGS.map((t) => [t, t]));
 
-  const take = pane.addFolder({ title: 'take' });
+  const take = pane.addFolder({ title: 'take', expanded: false });
   take.addButton({ title: 'reset (Y)' }).on('click', handlers.onReset);
   take.addButton({ title: 'record' }).on('click', handlers.onRecord);
   take.addButton({ title: 'stop' }).on('click', handlers.onStopRecord);
@@ -213,13 +224,13 @@ export function createPanel(
     driverFolder.addBinding(drivers, key, { min: range.min, max: range.max, step: 0.01 });
   }
 
-  const preset = pane.addFolder({ title: 'preset' });
+  const preset = pane.addFolder({ title: 'preset', expanded: false });
   preset.addButton({ title: 'save preset' }).on('click', handlers.onSavePreset);
   preset.addButton({ title: 'load preset' }).on('click', () => pickFile(handlers.onLoadPreset));
 
   for (const name of Object.keys(params) as ParamGroup[]) {
     const group = params[name] as Record<string, number>;
-    const folder = pane.addFolder({ title: name, expanded: name === 'ground' });
+    const folder = pane.addFolder({ title: name, expanded: false });
     for (const key of Object.keys(group)) {
       folder.addBinding(group, key, { step: stepFor(group[key] ?? 0) });
     }

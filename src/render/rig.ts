@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { params as defaults, type Params } from '../sim/params.ts';
-import { aimShaft, BOARD, createBinding, createDeck } from './board.ts';
+import { aimShaft, BOARD, createBinding, createDeck, NOSE_END, rise, TAIL_END } from './board.ts';
 import { dress, SPINE_CURL_AT, type Outfit } from './outfit.ts';
 import { outlineAll } from './toon.ts';
 
@@ -105,6 +105,13 @@ export type RigDrivers = {
   backElbowPole: number;
   /** rad, board yawed under the body about its own centre — LB/RB in the air. */
   shifty: number;
+  /**
+   * rad, the whole rider and board turned about up against the direction of travel — how a
+   * grab sits to the slope (a method's back to the landing). Pose mode draws it with an arrow
+   * down the hill; "write to anchor" copies it to `grab.<name>Yaw`, which the sim turns the
+   * board by and the landing judges.
+   */
+  turn: number;
 };
 
 export function neutralDrivers(): RigDrivers {
@@ -144,6 +151,7 @@ export function neutralDrivers(): RigDrivers {
     backElbow: 0.45,
     backElbowPole: 0,
     shifty: 0,
+    turn: 0,
   };
 }
 
@@ -189,6 +197,7 @@ export function mirrorDrivers(d: RigDrivers): void {
   d.frontElbowPole = wrapPi(Math.PI * (1 - Math.min(d.frontGrip, 1)) - d.backElbowPole);
   d.backElbowPole = wrapPi(Math.PI * (1 - Math.min(d.backGrip, 1)) - t);
   d.shifty = -d.shifty; // board yaw about up flips with the nose
+  d.turn = -d.turn; // so does the turn to the slope
 }
 
 function wrapPi(a: number): number {
@@ -279,10 +288,19 @@ const TIP_TAPER = 0.15;
 export function edgePoint(out: THREE.Vector3, edge: number, t: number): THREE.Vector3 {
   const fromTip = Math.min(t, 1 - t);
   const taper = Math.min(Math.max(fromTip / TIP_TAPER, 0), 1);
+  // Over the same outer 15% the point runs on out to the drawn board's tip and up its kick,
+  // so a nose or tail grab holds the actual end of the board — the 1.55 m grab board stopped
+  // 9 cm short of the 1.62 m one drawn. Between the bindings nothing moves.
+  const z0 = (t * 2 - 1) * (GRAB_HALF - 0.06);
+  const tip = t >= 0.5 ? NOSE_END - TIP_HOLD : TAIL_END + TIP_HOLD;
+  const z = z0 + (1 - taper) * (tip - z0);
   // state.edge is + for toe, and the toe side is board-local −X.
-  out.set(-edge * EDGE_X * taper, 0.035, (t * 2 - 1) * (GRAB_HALF - 0.06));
+  out.set(-edge * EDGE_X * taper, 0.035 + (1 - taper) * rise(z), z);
   return out;
 }
+
+/** m in from the very tip where a nose or tail grab holds — a hand's width. */
+const TIP_HOLD = 0.05;
 
 /** Which hand can reach: split at the midpoint between the bindings (§7.3). */
 export function handForT(t: number): 'front' | 'back' {
@@ -300,6 +318,8 @@ function bone(color: number, thickness: number): THREE.Mesh {
 
 const up = new THREE.Vector3(0, 1, 0);
 const dir = new THREE.Vector3();
+/** Of thigh + shin: the furthest a hip sits from its binding before the body follows the foot. */
+const LEG_MAX = 0.99;
 const quat = new THREE.Quaternion();
 
 /** Recolour a limb in place. Skips the write when it already matches, so it stays cheap. */
@@ -337,6 +357,59 @@ const armRef = new THREE.Vector3();
 const armQuat = new THREE.Quaternion();
 const armZ = new THREE.Vector3(0, 0, 1);
 const armX = new THREE.Vector3(1, 0, 0);
+
+const fkHand = new THREE.Vector3();
+const chordNow = new THREE.Vector3();
+const chordFrom = new THREE.Vector3();
+const pole0 = new THREE.Vector3();
+const pole1 = new THREE.Vector3();
+const carry = new THREE.Quaternion();
+const turnQuat = new THREE.Quaternion();
+const idQuat = new THREE.Quaternion();
+
+/**
+ * Elbow pole for a hand on its way to the board, `g` of the way. Two directions, each kept
+ * relative to the shoulder→hand line as that line swings: the free arm's elbow (where the
+ * shoulder drivers aimed it) and the authored gripping elbow (that aim turned by the pole
+ * angle about the line to the grab point). They blend by `g`, so the reaching arm starts as
+ * the free arm exactly and ends as the authored grab exactly. Projected raw, one fixed aim
+ * could cross the line partway — the elbow flipped (up to 24 cm in a tick as a hand
+ * committed) — and the pole angle applied in full at the first touch of grip snapped it
+ * sideways.
+ */
+function gripPole(
+  out: THREE.Vector3,
+  aim: THREE.Vector3,
+  shoulder: THREE.Vector3,
+  fk: THREE.Vector3,
+  grabAt: THREE.Vector3,
+  hand: THREE.Vector3,
+  poleAngle: number,
+  g: number,
+): void {
+  chordNow.subVectors(hand, shoulder).normalize();
+  // Free arm's elbow, carried with the line from where the hand was to where it is.
+  chordFrom.subVectors(fk, shoulder).normalize();
+  carry.setFromUnitVectors(chordFrom, chordNow);
+  pole0.copy(aim).applyQuaternion(carry);
+  pole0.addScaledVector(chordNow, -pole0.dot(chordNow));
+  // Authored elbow: the aim turned about the line to the grab, carried to the line now.
+  chordFrom.subVectors(grabAt, shoulder).normalize();
+  turnQuat.setFromAxisAngle(chordFrom, poleAngle);
+  carry.setFromUnitVectors(chordFrom, chordNow);
+  pole1.copy(aim).applyQuaternion(turnQuat).applyQuaternion(carry);
+  pole1.addScaledVector(chordNow, -pole1.dot(chordNow));
+  if (pole0.lengthSq() < 1e-10 || pole1.lengthSq() < 1e-10) {
+    out.copy(pole1.lengthSq() >= 1e-10 ? pole1 : aim);
+    return;
+  }
+  pole0.normalize();
+  pole1.normalize();
+  // Swing from one to the other about the line, `g` of the way.
+  carry.setFromUnitVectors(pole0, pole1);
+  turnQuat.slerpQuaternions(idQuat, carry, g);
+  out.copy(pole0).applyQuaternion(turnQuat);
+}
 
 /**
  * Forward kinematics down one arm, in torso space: shoulder swing and abduction aim the
@@ -552,6 +625,7 @@ export function createRig(): Rig {
   const hipCentre = new THREE.Vector3();
   const hipL = new THREE.Vector3();
   const hipR = new THREE.Vector3();
+  const legPull = new THREE.Vector3();
   const footF = new THREE.Vector3();
   const footB = new THREE.Vector3();
   const shoulder = new THREE.Vector3();
@@ -684,6 +758,22 @@ export function createRig(): Rig {
       pelvis.quaternion.copy(hipQuat);
       hipL.set(0, 0, halfStance * 0.42).applyQuaternion(hipQuat).add(hipCentre);
       hipR.set(0, 0, -halfStance * 0.42).applyQuaternion(hipQuat).add(hipCentre);
+      // A leg can't stretch: if a binding is out of reach — a board tweaked hard about the
+      // hand swings one end away — the body comes down to it, rather than the shin stopping
+      // short of the boot. Twice, so pulling toward one foot can't leave the other out.
+      for (let pass = 0; pass < 2; pass++) {
+        for (let side = 0; side < 2; side++) {
+          const hip = side === 0 ? hipL : hipR;
+          legPull.subVectors(side === 0 ? footF : footB, hip);
+          const over = legPull.length() - (r.thigh + r.shin) * LEG_MAX;
+          if (over <= 0) continue;
+          legPull.setLength(over);
+          hipCentre.add(legPull);
+          hipL.add(legPull);
+          hipR.add(legPull);
+        }
+      }
+      pelvis.position.copy(hipCentre);
 
       // 3. Spine chain.
       spineQuat.copy(hipQuat);
@@ -743,6 +833,7 @@ export function createRig(): Rig {
           // Gripping: the hand is pulled to the grab point and the elbow solves to suit.
           edgePoint(grab, front ? d.frontHandEdge : d.backHandEdge, front ? d.frontHandT : d.backHandT);
           grab.applyQuaternion(board.quaternion).add(board.position);
+          fkHand.copy(hand);
           hand.lerp(grab, Math.min(g, 1));
 
           // The pole is the elbow direction the shoulder drivers asked for, not a ring at a
@@ -754,12 +845,7 @@ export function createRig(): Rig {
           //
           // `flex` stays genuinely inert here, and correctly so: once both ends are fixed the
           // elbow angle follows from the distance and is not free to choose.
-          pole.copy(elbowAim);
-          if (poleAngle !== 0) {
-            dir.subVectors(hand, shoulder).normalize();
-            tmpQuat.setFromAxisAngle(dir, poleAngle);
-            pole.applyQuaternion(tmpQuat);
-          }
+          gripPole(pole, elbowAim, shoulder, fkHand, grab, hand, poleAngle, Math.min(g, 1));
           solveTwoBone(elbow, shoulder, hand, r.upperArm, r.forearm, pole);
         }
         const span = shoulder.distanceTo(hand);
@@ -820,6 +906,7 @@ export function createRig(): Rig {
       solveTwoBone(kneeB, hipR, footB, r.thigh, r.shin, pole);
       placeBone(thighR, hipR, kneeB, r.thigh);
       placeBone(shinR, kneeB, footB, r.shin);
+      outfit.poseLegs();
       // Boot shafts follow the shins, in the board's frame.
       tmpQuat.copy(board.quaternion).invert();
       aimShaft(bindF, dir.subVectors(kneeF, footF).applyQuaternion(tmpQuat));

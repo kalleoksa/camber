@@ -7,7 +7,8 @@
       import * as THREE from 'three';
       import { blendToGrab, createRig, gripWeight, neutralDrivers } from '/src/render/rig.ts';
       import { ANCHORS } from '/src/render/poses.ts';
-      import { skirtProfile } from '/src/render/outfit.ts';
+      import { OUTFIT, skirtProfile } from '/src/render/outfit.ts';
+      const SKIRT_WIDTH = OUTFIT.skirtWidth; // the widest way the skirt's lathe is stretched
       import { params } from '/src/sim/params.ts';
 
       const rig = createRig();
@@ -39,27 +40,30 @@
         for (const t of rig.fit.thighs) {
           const pos = t.geometry.getAttribute('position');
           for (let i = 0; i < pos.count; i++) {
-            if (pos.getY(i) > 0.3) continue; // upper part of the thigh only: the hip region
-            v.fromBufferAttribute(pos, i).applyMatrix4(t.matrixWorld).applyMatrix4(inv);
+            // The upper thigh, hip to past mid-thigh: in a wide stance it is the sides of the
+            // thigh that poke out, not just its top. Further down, a raised knee is meant to come
+            // out from under the hem. The leg is built in metres from the hip.
+            if (pos.getY(i) > 0.6 * params.rig.thigh) continue;
+            t.getVertexPosition(i, v).applyMatrix4(t.matrixWorld).applyMatrix4(inv);
             if (v.y < hemY || v.y > topY) continue;
             // Lathe space is unscaled inside the skirt's matrix, so the radius compares
             // directly; the poke is scaled back to metres by the skirt's width.
             const over = Math.hypot(v.x, v.z) - skirtR(v.y);
-            if (over > hip) hip = over;
+            if (over > hip) { hip = over; window.__hipAt = [v.x.toFixed(3), v.y.toFixed(3), v.z.toFixed(3), skirtR(v.y).toFixed(3)]; }
           }
         }
         inv.copy(rig.board.matrixWorld).invert();
         let deck = 0;
-        for (const s of rig.fit.shins) {
+        for (const s of [...rig.fit.thighs, ...rig.fit.shins]) { // the whole leg and the cuffs
           const pos = s.geometry.getAttribute('position');
           for (let i = 0; i < pos.count; i++) {
-            v.fromBufferAttribute(pos, i).applyMatrix4(s.matrixWorld).applyMatrix4(inv);
+            s.getVertexPosition(i, v).applyMatrix4(s.matrixWorld).applyMatrix4(inv);
             if (Math.abs(v.x) > 0.15 || Math.abs(v.z) > 0.8) continue; // off the board: nothing to cut
             const below = DECK_TOP - v.y;
-            if (below > deck) { deck = below; window.__worst = [rig.fit.shins.indexOf(s), pos.getY(i).toFixed(3), v.y.toFixed(3)]; }
+            if (below > deck) { deck = below; window.__worst = [s.name, pos.getY(i).toFixed(3), v.y.toFixed(3)]; }
           }
         }
-        return { hip: hip * 1.07, deck, worst: deck > 0 ? window.__worst : null }; // ×jacketWidth: the widest way the lathe is stretched
+        return { hip: hip * SKIRT_WIDTH, hipAt: window.__hipAt, deck, worst: deck > 0 ? window.__worst : null }; // ×skirtWidth: the widest way the lathe is stretched
       }
 
       const rows = [];

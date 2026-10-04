@@ -22,6 +22,7 @@ export function createInputOverlay(): InputOverlay {
   canvas.height = SIZE.h * ratio;
   Object.assign(canvas.style, {
     position: 'fixed',
+    zIndex: '1', // above the game canvas, which is fixed too and added later
     left: '12px',
     bottom: '12px',
     width: `${SIZE.w}px`,

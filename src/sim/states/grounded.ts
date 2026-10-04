@@ -114,22 +114,32 @@ export function stepGrounded(
   let vf = dot(v, forward);
   let vl = dot(v, toeSide);
   if (params.ground.switchEdges > 0) {
+    const was = state.switchRide;
     if (vf < -params.ground.switchSpeed) state.switchRide = true;
     else if (vf > params.ground.switchSpeed) state.switchRide = false;
+    // The sticks are read through the latch (rider.ts), so when it flips a held stick's
+    // smoothed edge and press flip with it — not sweep through zero, which dropped a
+    // butter halfway round with the board across.
+    if (state.switchRide !== was && params.ground.switchCarry > 0) {
+      state.edge = -state.edge;
+      state.stance = -state.stance;
+    }
   }
 
   const edgeMag = Math.min(Math.abs(state.edge), 1);
   const stanceMag = Math.min(Math.abs(state.stance), 1);
 
   // The one curve carving lives on: flat base skids, a set edge locks.
-  let grip = g.gripFlat + (g.gripEdge - g.gripFlat) * dm.pow(edgeMag, g.gripCurve);
-  grip *= 1 - stanceMag * g.stanceGripLoss;
-  grip *= 1 - input.lt * g.brakeGripLoss;
-
   const speedBefore = Math.sqrt(vf * vf + vl * vl);
   // Butter: a hard press at low speed goes up on the nose or tail. Grip lets go and the
   // board pivots on the pressed end, so a ground 180 or 360 is there to be had.
   const butter = walled ? 0 : butterAmount(state.stance, speedBefore, params);
+  // Up on one end the edge isn't in the snow: the edge stick steers the pivot, and only
+  // `butter.edgeGrip` of its grip stays — otherwise a board swung across scrubs to a stop.
+  const edgeGrip = 1 - butter * (1 - params.butter.edgeGrip);
+  let grip = g.gripFlat + (g.gripEdge - g.gripFlat) * dm.pow(edgeMag, g.gripCurve) * edgeGrip;
+  grip *= 1 - stanceMag * g.stanceGripLoss;
+  grip *= 1 - input.lt * g.brakeGripLoss;
   grip *= 1 + (params.butter.gripScale - 1) * butter;
   const vlAfter = vl * dm.exp(-Math.max(grip, 0) * dt);
   const scrubbed = Math.abs(vl) - Math.abs(vlAfter);
@@ -150,7 +160,7 @@ export function stepGrounded(
     // Snow friction on the normal load, then air drag, brake and wall drag.
     const friction = g.friction * params.world.gravity * n.y;
     const drag = (g.drag * speed * speed + input.lt * g.brakeDecel + (walled ? params.wall.drag : 0) + friction) * dt;
-    const carveCost = g.edgeDrag * edgeMag * scrubbed;
+    const carveCost = g.edgeDrag * edgeMag * edgeGrip * scrubbed;
     const keep = Math.max(0, speed - drag - carveCost) / speed;
     vf *= keep;
     vl *= keep;

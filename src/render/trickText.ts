@@ -11,6 +11,7 @@ export function createTrickText(): TrickText {
   const el = document.createElement('div');
   Object.assign(el.style, {
     position: 'fixed',
+    zIndex: '1', // above the game canvas, which is fixed too and added later
     left: '50%',
     bottom: '12%',
     transform: 'translateX(-50%)',

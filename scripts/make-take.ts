@@ -265,3 +265,73 @@ console.log(`wrote ${take.frames.length} ticks -> takes/synthetic.json`);
   writeFileSync(new URL('../takes/switch.json', import.meta.url), JSON.stringify(switchTake));
   console.log(`wrote ${switchTake.frames.length} ticks -> takes/switch.json (switch grab: ${grabbedSwitch})`);
 }
+
+// Stick model 2: a bumper picks the hand, the stick the grab. One pop per grab on a plain
+// slope — nosegrab then a shifty, seatbelt and stalefish tweaked, chicken salad, roast beef,
+// and a mute pushed out to a japan.
+{
+  const cfg: SlopeConfig = { length: 400, width: 120, pitch: 0.34 };
+  const terrain = createSlope(cfg);
+  const spawn = { position: { x: 0, y: terrain.sample(0, 0, createContact()).height + 0.2, z: 0 }, heading: Math.PI };
+  const state = createRiderState(spawn);
+  const frames: InputSnapshot[] = [];
+  // [LB, RB, stick X (toe), stick Y (nose), push]
+  const plan: [boolean, boolean, number, number, number][] = [
+    [true, false, 0, 1, 0.5],
+    [true, false, 0, -1, 1],
+    [false, true, -1, 0, 1],
+    [true, false, -0.7, -0.7, 0.5],
+    [false, true, -0.7, 0.7, 0.5],
+    [true, false, 1, 0, 1],
+  ];
+  for (let i = 0; i < 16 / TICK_DT; i++) {
+    const t = i * TICK_DT;
+    const frame = neutralInput();
+    const k = Math.floor((t - 1.5) / 2.2);
+    const local = t - 1.5 - k * 2.2;
+    const p = plan[k];
+    if (p && local >= 0) {
+      if (local < 0.3) frame.rt = 1;
+      else if (local > 0.4 && local < 1.0) {
+        frame.lb = p[0];
+        frame.rb = p[1];
+        const m = Math.hypot(p[2], p[3]);
+        frame.rx = (p[2] / m) * p[4];
+        frame.ry = (p[3] / m) * p[4];
+      } else if (local > 1.0 && local < 1.2 && k === 0) frame.lb = true;
+    }
+    const q = quantizeInput(frame);
+    tick(state, q, params, terrain, TICK_DT);
+    frames.push(q);
+  }
+  const grabTake = buildTake({ seed: SEED, dt: TICK_DT, spawn, terrain: cfg, params, frames });
+  writeFileSync(new URL('../takes/grabs-model2.json', import.meta.url), JSON.stringify(grabTake));
+  console.log(`wrote ${grabTake.frames.length} ticks -> takes/grabs-model2.json`);
+}
+
+// Butter 180s on a gentle slope: nose press with the toe edge (bs), then riding switch a
+// tail-end press with the heel edge back round (fs) — the latch flips mid-pivot both times.
+{
+  const cfg: SlopeConfig = { length: 400, width: 120, pitch: 0.1 };
+  const terrain = createSlope(cfg);
+  const spawn = { position: { x: 0, y: terrain.sample(0, 0, createContact()).height + 0.2, z: 0 }, heading: Math.PI };
+  const state = createRiderState(spawn);
+  const frames: InputSnapshot[] = [];
+  for (let i = 0; i < 9 / TICK_DT; i++) {
+    const t = i * TICK_DT;
+    const frame = neutralInput();
+    if (t > 3 && t < 3.95) {
+      frame.ly = 1;
+      frame.lx = 1;
+    } else if (t > 6 && t < 6.95) {
+      frame.ly = 1;
+      frame.lx = -1;
+    }
+    const q = quantizeInput(frame);
+    tick(state, q, params, terrain, TICK_DT);
+    frames.push(q);
+  }
+  const butterTake = buildTake({ seed: SEED, dt: TICK_DT, spawn, terrain: cfg, params, frames });
+  writeFileSync(new URL("../takes/butter180.json", import.meta.url), JSON.stringify(butterTake));
+  console.log(`wrote ${butterTake.frames.length} ticks -> takes/butter180.json`);
+}

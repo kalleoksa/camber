@@ -5,8 +5,8 @@ import type { LandingRead, RiderMode, RiderState } from '../sim/state.ts';
 import type { CornerConfig, KickerConfig, SlopeConfig, Terrain } from '../sim/terrain.ts';
 import { createContact } from '../sim/terrain.ts';
 import { length, vec3, type Vec3 } from '../sim/vec3.ts';
-import { boardAttitude } from '../sim/grabs.ts';
-import { ANCHORS, BODY_KEYS, grabBody } from './poses.ts';
+import { boardAttitude, GRABS, grabAttitude } from '../sim/grabs.ts';
+import { ANCHORS, BODY_KEYS, grabBody, namedGrabBody } from './poses.ts';
 import { butterAmount } from '../sim/states/grounded.ts';
 import { BOARD_HALF, copyDrivers, createRig, edgePoint, gripWeight, mirrorDrivers, neutralDrivers, smoothstep, type RigDrivers } from './rig.ts';
 import type { Secondary } from './secondary.ts';
@@ -42,6 +42,7 @@ export type RiderView = {
   grabT: number;
   grabFront: boolean;
   grabSwitch: boolean;
+  grabId: number;
   switchRide: boolean;
   grip: number;
   tweak: number;
@@ -79,6 +80,7 @@ const view: RiderView = {
   grabT: 0.5,
   grabFront: true,
   grabSwitch: false,
+  grabId: -1,
   switchRide: false,
   grip: 0,
   tweak: 0,
@@ -118,6 +120,7 @@ export function interpolateRider(prev: RiderState, cur: RiderState, alpha: numbe
   view.grabT = prev.grabT + (cur.grabT - prev.grabT) * alpha;
   view.grabFront = cur.grabFront;
   view.grabSwitch = cur.grabSwitch;
+  view.grabId = cur.grabId;
   view.switchRide = cur.switchRide;
   view.grip = prev.grip + (cur.grip - prev.grip) * alpha;
   view.tweak = prev.tweak + (cur.tweak - prev.tweak) * alpha;
@@ -142,6 +145,8 @@ export type SceneView = {
   strain: { front: number; back: number };
   /** How far each hand falls short of its grab point, m. 0 when it reaches. */
   shortfall: { front: number; back: number };
+  /** Solved elbow positions in the rider's frame, as rig.ts reports them. A diagnostic. */
+  elbowAt: { front: THREE.Vector3; back: THREE.Vector3 };
   /** Hip-to-foot distance per leg. The knee angle it implies is what boardPitch tunes. */
   legSpan: { front: number; back: number };
   /** `secondary` carries the tick-stepped springs; `dt` is only for the unhashed tumble. */
@@ -410,6 +415,24 @@ function edgeLines(cfg: SlopeConfig, terrain: Terrain): THREE.Group {
   return group;
 }
 
+/** A flat arrow on the snow along board +Z, the way of travel: shaft and head, 1.3 m long. */
+function downhillArrow(): THREE.Mesh {
+  const shape = new THREE.Shape();
+  shape.moveTo(-0.05, -0.2);
+  shape.lineTo(0.05, -0.2);
+  shape.lineTo(0.05, 0.8);
+  shape.lineTo(0.16, 0.8);
+  shape.lineTo(0, 1.1);
+  shape.lineTo(-0.16, 0.8);
+  shape.lineTo(-0.05, 0.8);
+  shape.closePath();
+  const geometry = new THREE.ShapeGeometry(shape);
+  geometry.rotateX(Math.PI / 2); // shape +Y → board +Z, lying flat, facing up
+  geometry.translate(0, 0.005, 0);
+  const material = new THREE.MeshBasicMaterial({ color: 0xd8325a, side: THREE.DoubleSide });
+  return new THREE.Mesh(geometry, material);
+}
+
 function railMeshes(terrain: Terrain): THREE.Group {
   const group = new THREE.Group();
   const material = new THREE.MeshStandardMaterial({ color: 0x8a939c, roughness: 0.35, metalness: 0.8 });
@@ -451,7 +474,11 @@ function railMeshes(terrain: Terrain): THREE.Group {
 export function createScene(cfg: SlopeConfig, terrain: Terrain, camera: THREE.PerspectiveCamera, cell = 0.75): SceneView {
   const renderer = new THREE.WebGLRenderer({ antialias: true });
   renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
-  renderer.setSize(innerWidth, innerHeight);
+  // CSS sizes the canvas to the screen (index.html); `resize` matches the drawing buffer to
+  // it. Sized from innerHeight instead, iPad Safari left a band at the bottom when its
+  // toolbars changed the visible height without a resize event.
+  renderer.setSize(innerWidth, innerHeight, false);
+  renderer.domElement.id = 'view';
   document.body.appendChild(renderer.domElement);
 
   const scene = new THREE.Scene();
@@ -474,6 +501,11 @@ export function createScene(cfg: SlopeConfig, terrain: Terrain, camera: THREE.Pe
   const rails = railMeshes(terrain);
   scene.add(rails);
   scene.add(edgeLines(cfg, terrain));
+  // Pose mode: an arrow under the rider along the direction of travel, down the hill, to set
+  // a grab's turn against.
+  const downhill = downhillArrow();
+  downhill.visible = false;
+  scene.add(downhill);
   const skyColour = new THREE.Color(0x9db6cc);
   const stageColour = new THREE.Color(0xeef2f6);
   const fog = scene.fog;
@@ -485,6 +517,7 @@ export function createScene(cfg: SlopeConfig, terrain: Terrain, camera: THREE.Pe
   const roll = new THREE.Quaternion();
   const tumble = new THREE.Quaternion();
   const zAxis = new THREE.Vector3(0, 0, 1);
+  const yAxis = new THREE.Vector3(0, 1, 0);
   const railAxis = new THREE.Vector3();
   const tumbleAxis = new THREE.Vector3(1, 0.3, 0).normalize();
   let tumbleAngle = 0;
@@ -495,6 +528,9 @@ export function createScene(cfg: SlopeConfig, terrain: Terrain, camera: THREE.Pe
   // to keep one board point where the sim put it — the pressed tip of a butter on the snow,
   // the contact point of a press over the rail. `pinZ` is that point on board Z; 0 is none.
   let pinZ = 0;
+  // The grab's turn of the whole rider (sim grabs.ts `yaw`), applied to the root after the
+  // drivers — the sim's board turns by the same, so the landing judges what is drawn.
+  let grabYaw = 0;
   const tip = new THREE.Vector3();
   const pivot = new THREE.Vector3();
   const pitchQuat = new THREE.Quaternion();
@@ -515,6 +551,20 @@ export function createScene(cfg: SlopeConfig, terrain: Terrain, camera: THREE.Pe
       let d = to[k] - out[k];
       if (k === 'frontElbowPole' || k === 'backElbowPole') d = Math.atan2(Math.sin(d), Math.cos(d));
       out[k] += d * w;
+    }
+  };
+
+  const armToward = (front: boolean, from: RigDrivers, to: RigDrivers, w: number): void => {
+    if (front) {
+      drivers.frontShoulderSwing = from.frontShoulderSwing + (to.frontShoulderSwing - from.frontShoulderSwing) * w;
+      drivers.frontShoulderOut = from.frontShoulderOut + (to.frontShoulderOut - from.frontShoulderOut) * w;
+      drivers.frontElbow = from.frontElbow + (to.frontElbow - from.frontElbow) * w;
+      drivers.frontElbowPole = from.frontElbowPole + Math.atan2(Math.sin(to.frontElbowPole - from.frontElbowPole), Math.cos(to.frontElbowPole - from.frontElbowPole)) * w;
+    } else {
+      drivers.backShoulderSwing = from.backShoulderSwing + (to.backShoulderSwing - from.backShoulderSwing) * w;
+      drivers.backShoulderOut = from.backShoulderOut + (to.backShoulderOut - from.backShoulderOut) * w;
+      drivers.backElbow = from.backElbow + (to.backElbow - from.backElbow) * w;
+      drivers.backElbowPole = from.backElbowPole + Math.atan2(Math.sin(to.backElbowPole - from.backElbowPole), Math.cos(to.backElbowPole - from.backElbowPole)) * w;
     }
   };
 
@@ -546,14 +596,26 @@ export function createScene(cfg: SlopeConfig, terrain: Terrain, camera: THREE.Pe
       base.spineSide = press * r.stanceSpineSide;
     }
     base.spineBend = r.spineBendBase + view.compress * r.compressSpineBend;
+    // Riders look down the hill, not straight across the board: toward the nose, or the
+    // tail riding switch. A grab's anchor carries its own head and takes over as it comes on.
+    base.headYaw = view.switchRide ? -r.rideHeadYaw : r.rideHeadYaw;
 
     // Body leads, hand commits later — the grab path stays reachable the whole way (rig.ts).
     const bodyWeight = smoothstep(view.grip);
     const handWeight = gripWeight(view.grip, params.grab.gripDelay);
-    grabBody(body, view.grabEdge, view.grabT, view.tweak);
+    // Stick model 2 names its grab: that anchor's pose exactly, hand where it was authored.
+    const named = params.grab.stickModel >= 2 ? GRABS[view.grabId]?.name : undefined;
+    const anchor = named ? ANCHORS[named] : undefined;
+    if (named && anchor) namedGrabBody(body, named, view.tweak);
+    else grabBody(body, view.grabEdge, view.grabT, view.tweak);
     // A switch grab: the regular grab's pose (and hands, below) mirrored nose-for-tail.
     if (view.grabSwitch) mirrorDrivers(body);
     for (const k of BODY_KEYS) drivers[k] = base[k] + (body[k] - base[k]) * bodyWeight;
+    // The gripping arm's drivers were authored for a hand on the board, where they only steer
+    // the elbow; as a free arm they fling the hand out wide. So that arm stays in the riding
+    // pose until the hand commits and moves into the grab with it, elbow the short way round.
+    const frontReaches = view.grabFront !== view.grabSwitch;
+    armToward(frontReaches, base, body, handWeight);
     if (trick) {
       // Slide poses (poses.ts): across the rail toward the toes is the backside
       // boardslide (open), toward the heels the frontside (blind) — travel in board frame is (sin slide, ·, cos slide)
@@ -592,11 +654,13 @@ export function createScene(cfg: SlopeConfig, terrain: Terrain, camera: THREE.Pe
     drivers.hipZ += secondary.swayZ;
 
     const front = view.grabFront;
-    drivers.frontHandEdge = front ? view.grabEdge : neutral.frontHandEdge;
-    drivers.frontHandT = front ? view.grabT : neutral.frontHandT;
+    const handEdge = anchor ? (front ? anchor.frontHandEdge : anchor.backHandEdge) : view.grabEdge;
+    const handT = anchor ? (front ? anchor.frontHandT : anchor.backHandT) : view.grabT;
+    drivers.frontHandEdge = front ? handEdge : neutral.frontHandEdge;
+    drivers.frontHandT = front ? handT : neutral.frontHandT;
     drivers.frontGrip = front ? handWeight : 0;
-    drivers.backHandEdge = front ? neutral.backHandEdge : view.grabEdge;
-    drivers.backHandT = front ? neutral.backHandT : view.grabT;
+    drivers.backHandEdge = front ? neutral.backHandEdge : handEdge;
+    drivers.backHandT = front ? neutral.backHandT : handT;
     drivers.backGrip = front ? 0 : handWeight;
     if (view.grabSwitch) {
       // Hands only: the body above already carries its mirror.
@@ -634,7 +698,10 @@ export function createScene(cfg: SlopeConfig, terrain: Terrain, camera: THREE.Pe
     drivers.frontShoulderOut -= (secondary.armOpen + secondary.armZ) * fg;
     drivers.backShoulderOut += (secondary.armZ - secondary.armOpen) * bg;
 
-    const a = boardAttitude(view.grabEdge, view.grabT, view.grip, view.tweak, params);
+    const a = named
+      ? grabAttitude(view.grabId, view.grip, view.tweak, params)
+      : boardAttitude(view.grabEdge, view.grabT, view.grip, view.tweak, params);
+    grabYaw = view.grabSwitch ? -a.yaw : a.yaw;
     // A butter tips the board onto the pressed end: nose press is nose down.
     const butter = grounded ? butterAmount(view.stance, view.speed, params) : 0;
     const butterTip = butter > 0 ? Math.sign(view.stance) : 0;
@@ -658,6 +725,7 @@ export function createScene(cfg: SlopeConfig, terrain: Terrain, camera: THREE.Pe
     strain: rig.strain,
     shortfall: rig.shortfall,
     legSpan: rig.legSpan,
+    elbowAt: rig.elbowAt,
 
     updateRider(view, params, poseMode, secondary, dt) {
       const frameDt = Math.min(dt, MAX_FRAME_DT);
@@ -696,7 +764,29 @@ export function createScene(cfg: SlopeConfig, terrain: Terrain, camera: THREE.Pe
 
       // Pose mode leaves the drivers alone — they are the thing being authored.
       pinZ = 0;
+      grabYaw = 0;
       if (!poseMode) driveFromSim(view, params, secondary);
+      // The arrow down the hill keeps the rider's frame before the turn: the turn is measured
+      // against it. In pose mode the turn is the driver being authored; in play, the grab's.
+      downhill.position.copy(rig.root.position);
+      downhill.quaternion.copy(rig.root.quaternion);
+      const turn = poseMode ? drivers.turn : grabYaw;
+      if (turn !== 0) {
+        roll.setFromAxisAngle(yAxis, turn);
+        rig.root.quaternion.multiply(roll);
+      }
+      if (!poseMode && drivers.shifty !== 0) {
+        // A hand holding the board can't let it yaw away under a still body: that much of
+        // the shifty turns the whole rider instead, about the same axis, and only the rest
+        // twists the board under the hips. The sim's board is the same either way.
+        const held = Math.min(1, Math.max(drivers.frontGrip, drivers.backGrip));
+        const turn = drivers.shifty * params.rig.shiftyGrabTurn * held;
+        if (turn !== 0) {
+          drivers.shifty -= turn;
+          roll.setFromAxisAngle(yAxis, turn);
+          rig.root.quaternion.multiply(roll);
+        }
+      }
       if (pinZ !== 0) {
         // Where the pressed tip ends up after the rig pitches the board about the hand
         // point, and the root moved back by that much so the tip stays on the snow.
@@ -727,6 +817,7 @@ export function createScene(cfg: SlopeConfig, terrain: Terrain, camera: THREE.Pe
       scene.background = clean ? stageColour : skyColour;
       // Reach diagnostics belong to authoring, not to play.
       rig.showReach(clean);
+      downhill.visible = clean;
     },
 
     setDressed(on) {
@@ -734,9 +825,11 @@ export function createScene(cfg: SlopeConfig, terrain: Terrain, camera: THREE.Pe
     },
 
     resize() {
-      camera.aspect = innerWidth / innerHeight;
+      const w = renderer.domElement.clientWidth || innerWidth;
+      const h = renderer.domElement.clientHeight || innerHeight;
+      camera.aspect = w / h;
       camera.updateProjectionMatrix();
-      renderer.setSize(innerWidth, innerHeight);
+      renderer.setSize(w, h, false);
     },
   };
 }
