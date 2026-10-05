@@ -27,9 +27,11 @@ export type Place = { x: number; z: number; yaw: number };
  * takes the middle of its range (a chance, the likelier side).
  */
 export type Inputs = Record<string, number>;
-export type Draw = { rng?: Rng; inputs: Inputs };
+/** `ranges`, when given, collects each input's [min, max] as drawn, for the editor's sliders. */
+export type Draw = { rng?: Rng; inputs: Inputs; ranges?: Record<string, readonly number[]> };
 
 export function pick(d: Draw, key: string, r: readonly number[]): number {
+  if (d.ranges) d.ranges[key] = r;
   const have = d.inputs[key];
   if (have !== undefined) return have;
   const v = d.rng ? range(d.rng, r) : ((r[0] ?? 0) + (r[1] ?? 0)) / 2;
@@ -39,6 +41,7 @@ export function pick(d: Draw, key: string, r: readonly number[]): number {
 
 /** 1 with odds `odds`, else 0, as an input. */
 export function chance(d: Draw, key: string, odds: number): number {
+  if (d.ranges) d.ranges[key] = [0, 1, 1];
   const have = d.inputs[key];
   if (have !== undefined) return have;
   const v = (d.rng ? next(d.rng) < odds : odds >= 0.5) ? 1 : 0;

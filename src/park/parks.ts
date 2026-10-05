@@ -2,7 +2,6 @@ import { layoutFromSlope, type Layout } from './layout.ts';
 import { PARK } from './park.ts';
 import { SLOPESTYLE } from './slopestyle.ts';
 import { SOCHI } from './sochi.ts';
-import talma from '../../parks/talma-reference.json';
 
 const DOWN = Math.PI; // nose down the fall line (-Z)
 
@@ -14,6 +13,8 @@ export const PARKS: Record<string, Layout> = {
   home: HOME,
   slopestyle: layoutFromSlope('slopestyle', SLOPESTYLE, { x: 0, z: 0, heading: DOWN }),
   sochi: layoutFromSlope('sochi', SOCHI, { x: 0, z: 0, heading: DOWN }),
-  // Built by scripts/build-talma.ts; JSON's arrays type as number[], not the layout's tuples.
-  talma: talma as unknown as Layout,
 };
+
+// Every layout in parks/ (the park editor's exports, scripts/build-talma.ts), by its name.
+const files = import.meta.glob<Layout>('../../parks/*.json', { eager: true, import: 'default' });
+for (const layout of Object.values(files)) PARKS[layout.name] = layout;

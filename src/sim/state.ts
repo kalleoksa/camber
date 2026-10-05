@@ -10,6 +10,7 @@ export type LandingRead = 'none' | 'clean' | 'sketchy' | 'bail';
 export type Spawn = {
   position: Vec3;
   heading: number;
+  speed?: number; // m/s along the heading at the start (the park editor's "ride from here"); 0 when absent
 };
 
 /** The single source of truth. Everything render, audio and the panel read comes from here. */
@@ -129,7 +130,7 @@ export function createRiderState(spawn: Spawn): RiderState {
     tick: 0,
     mode: 'airborne',
     position: copy(spawn.position),
-    velocity: vec3(),
+    velocity: spawn.speed ? vec3(dm.sin(spawn.heading) * spawn.speed, 0, dm.cos(spawn.heading) * spawn.speed) : vec3(),
     heading: spawn.heading,
     headingTarget: spawn.heading,
     edge: 0,
@@ -182,7 +183,7 @@ export function createRiderState(spawn: Spawn): RiderState {
     railContactVel: 0,
     resetLatch: false,
     popLatch: false,
-    spawn: { position: copy(spawn.position), heading: spawn.heading },
+    spawn: spawn.speed ? { position: copy(spawn.position), heading: spawn.heading, speed: spawn.speed } : { position: copy(spawn.position), heading: spawn.heading },
   };
 }
 
@@ -192,7 +193,9 @@ export function resetRiderState(state: RiderState): void {
   state.tick = 0;
   state.mode = 'airborne';
   copyInto(state.position, spawn.position);
-  setXYZ(state.velocity, 0, 0, 0);
+  // No speed: exactly 0, not cos(π)·0 = −0, which hashes differently and breaks old takes.
+  if (spawn.speed) setXYZ(state.velocity, dm.sin(spawn.heading) * spawn.speed, 0, dm.cos(spawn.heading) * spawn.speed);
+  else setXYZ(state.velocity, 0, 0, 0);
   setXYZ(state.groundNormal, 0, 1, 0);
   yawFrame(state.spinFrame, spawn.heading);
   setXYZ(state.spinAxis, 0, 1, 0);

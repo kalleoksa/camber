@@ -41,7 +41,8 @@ const table = (head: string[], rows: string[][]): string =>
     .map((r) => `<tr>${r.map((c) => `<td>${c}</td>`).join('')}</tr>`)
     .join('')}</table>`;
 
-export function createControlsHelp(onChange: (open: boolean) => void): ControlsHelp {
+/** `onEdit`: the sheet's "edit this park" button (the park editor; ?edit=1 opens it too). */
+export function createControlsHelp(onChange: (open: boolean) => void, onEdit: () => void): ControlsHelp {
   const style = document.createElement('style');
   style.textContent = `
     #controls-btn { position: fixed; left: 12px; top: 12px; z-index: 1; width: 32px; height: 32px;
@@ -58,6 +59,8 @@ export function createControlsHelp(onChange: (open: boolean) => void): ControlsH
     #controls-sheet td { padding: 4px 8px; border-top: 1px solid rgba(255,255,255,0.08); vertical-align: top; }
     #controls-sheet td:first-child { white-space: nowrap; color: #fff; }
     #controls-sheet .hint { color: #9fb2c4; margin-top: 18px; }
+    #controls-sheet button { font: 14px system-ui, sans-serif; padding: 6px 12px; border-radius: 6px;
+      border: 1px solid rgba(255,255,255,0.3); background: transparent; color: #e8edf2; cursor: pointer; }
   `;
   document.head.appendChild(style);
 
@@ -78,6 +81,7 @@ export function createControlsHelp(onChange: (open: boolean) => void): ControlsH
     <h2>Grabs — L1 / R1 + right stick</h2>
     ${table(['Stick', 'L1 · left (front) hand', 'R1 · right (back) hand'], GRABS)}
     <p class="hint">Riding switch nothing mirrors: same buttons, same grab. Click, H, Esc or the touchpad to close.</p>
+    <p><button id="controls-edit">Edit this park</button> <span class="hint">Tab switches between editing and riding once it's open.</span></p>
   </div>`;
   document.body.appendChild(sheet);
 
@@ -89,6 +93,11 @@ export function createControlsHelp(onChange: (open: boolean) => void): ControlsH
   };
   button.addEventListener('click', toggle);
   sheet.addEventListener('click', toggle);
+  sheet.querySelector('#controls-edit')?.addEventListener('click', (ev) => {
+    ev.stopPropagation();
+    toggle();
+    onEdit();
+  });
   addEventListener('keydown', (ev) => {
     const t = ev.target as HTMLElement | null;
     if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA')) return;

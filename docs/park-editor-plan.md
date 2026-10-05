@@ -170,6 +170,26 @@ shared ride bot. (`meta.group` is done.)
 6. Export/import, autosave, undo/redo.
 7. Terrain patch panel with outline and live heatmap.
 
+*Phase 1 done* (`src/editor/`: `editor.ts`, `edits.ts`, `camera.ts`, `groundPanel.ts`,
+`store.ts`). Where it differs from the above:
+- **Camera:** an orbit round a point on the snow (drag, right-drag/two fingers, wheel/pinch;
+  WASD moves the point) rather than a free fly: editing is done looking at one spot, and it
+  works the same on touch.
+- **Palette:** a kind list and a size list plus one "place" button, not a button per kind × size.
+- **Toggle:** Tab only; the pad's Select is the mark button. "?" sheet → "Edit this park".
+  Tab back to riding restarts from the last start; Enter rides from the selected feature
+  (`Spawn.speed`, absent = 0, so old takes are unchanged).
+- **Local copy:** localStorage (`camber-edit:<park>`), not IndexedDB. It overrides the park for
+  riding too, until "reset to the shipped park".
+- **Publish:** every `parks/*.json` loads as `?park=<its name>` (Vite glob in `parks.ts`).
+- **Hand features:** their config's top-level numbers (angles in degrees); a rail's points
+  move only with the gizmo.
+- **Re-solve:** a designed obstacle re-solves on release of a drag, an input or its size. Over
+  an edited ground they keep their shape until "re-solve designed features". Several obstacles
+  dragged together move rigidly. A corner's heading comes from its `turn` input, so turning
+  one with the gizmo springs back on release.
+- **Clamps:** each design input's slider runs over the range the kit draws it from (`Draw.ranges`).
+
 **Phase 2, design tools:**
 8. Profile editor.
 9. Impact overlay and validation dots.

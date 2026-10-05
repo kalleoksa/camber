@@ -263,10 +263,13 @@ export function build(kind: Kind, want: Want, place: Place, rng: Rng, ground: Te
   return parts;
 }
 
-/** A designed feature built again from its design: `ground` is the ground alone, as the generator had it. */
-export function redesign(design: Design, ground: Terrain, cfg: GenConfig, params: Params): FeatureSpec[] {
+/**
+ * A designed feature built again from its design: `ground` is the ground alone, as the generator
+ * had it. `ranges`, when given, collects each input's range (the editor's sliders).
+ */
+export function redesign(design: Design, ground: Terrain, cfg: GenConfig, params: Params, ranges?: Record<string, readonly number[]>): FeatureSpec[] {
   const want: Want = { size: design.size as Size, speed: design.speed, lipHeight: 0, runIn: 0 };
-  const d: Draw = { inputs: { ...design.inputs } };
+  const d: Draw = ranges ? { inputs: { ...design.inputs }, ranges } : { inputs: { ...design.inputs } };
   const parts = designed(design.kind as Kind, want, design.place, d, ground, cfg, params);
   const first = parts[0];
   if (first) first.meta = { ...(first.meta ?? { type: first.kind }), design: { ...design, inputs: d.inputs } };
