@@ -2,7 +2,7 @@ import { normalize, vec3, type Vec3 } from './vec3.ts';
 import * as dm from './dmath.ts';
 import { shapeProfile, turned, type ShapeConfig } from './features.ts';
 import { hipProfile, type HipShape } from './hip.ts';
-import { buildField, sampleField, type FieldConfig, type FieldSample } from './heightfield.ts';
+import { buildField, sampleField, type Field, type FieldConfig, type FieldSample } from './heightfield.ts';
 import { buildRail, type Rail, type RailConfig } from './rails.ts';
 
 export type SurfaceType = 'snow' | 'rail' | 'wall' | 'quarter';
@@ -28,6 +28,8 @@ export type Terrain = {
   sample(x: number, z: number, out: Contact): Contact;
   /** Rails in world space, built from the config. Empty when there are none. */
   rails: readonly Rail[];
+  /** The baked heightfield, when the config has one: pass it back to `createSlope` to skip the bake. */
+  field?: Field;
 };
 
 export type SlopeConfig = {
@@ -187,7 +189,12 @@ export function createContact(): Contact {
  * Constant-pitch plane falling toward -Z, with the sides rolled up slightly so a run
  * that drifts wide is pushed back to the fall line instead of off the edge.
  */
-export function createSlope(cfg: SlopeConfig): Terrain {
+/**
+ * `baked`: the field a terrain built from the same `cfg.field` already baked (`terrain.field`).
+ * The bake is the slow part, and moving a feature doesn't change the ground; the heights are
+ * the same either way.
+ */
+export function createSlope(cfg: SlopeConfig, baked?: Field): Terrain {
   const slope = dm.tan(cfg.pitch);
   const half = cfg.width * 0.5;
   const bankHeight = cfg.width * 0.06;
@@ -229,7 +236,7 @@ export function createSlope(cfg: SlopeConfig): Terrain {
     return h;
   };
 
-  const field = cfg.field ? buildField(cfg.field) : undefined;
+  const field = cfg.field ? (baked ?? buildField(cfg.field)) : undefined;
   const fs: FieldSample = { h: 0, dx: 0, dz: 0 };
   const groundAt = (x: number, z: number): number => (field ? sampleField(field, x, z, fs).h : z * slope + bank(x));
   const heightAt = (x: number, z: number): number => groundAt(x, z) + featureHeight(x, z);
@@ -237,6 +244,7 @@ export function createSlope(cfg: SlopeConfig): Terrain {
 
   return {
     rails,
+    ...(field ? { field } : {}),
     sample(x, z, out) {
       const eps = 0.05;
       if (field) {
