@@ -3,7 +3,8 @@ import { shapeLip, type ShapeConfig, type SideHitConfig } from '../sim/features.
 import type { Params } from '../sim/params.ts';
 import type { RailConfig } from '../sim/rails.ts';
 import { hipTakeoff } from '../sim/hip.ts';
-import { createSlope, type HipConfig, type KickerConfig, type QuarterConfig, type Terrain } from '../sim/terrain.ts';
+import { createContact, createSlope, type HipConfig, type KickerConfig, type QuarterConfig, type Terrain } from '../sim/terrain.ts';
+import { normalize } from '../sim/vec3.ts';
 import { next, type Rng } from '../sim/rng.ts';
 import type { FeatureSpec } from '../park/layout.ts';
 import type { GenConfig } from './config.ts';
@@ -22,7 +23,65 @@ export type Place = { x: number; z: number; yaw: number };
 /** One designed air, for overlays and checks. */
 export type ArcCheck = { speed: number; pop: number; grade: Grade; impact: number; past: number }; // past: m beyond the knuckle
 
-export function designKicker(place: Place, size: Size, groundPitch: number, cfg: GenConfig, params: Params): FeatureSpec {
+/**
+ * The real ground seen from a feature at `place`: local (0, 0) is the place, local −Z its axis
+ * and +X across it — the frame every solve here works in. Heights are the ground's own; normals
+ * turn with the frame. No rails: a solve flies and rides over snow.
+ */
+export function groundFrame(world: Terrain, place: Place): Terrain {
+  const sn = dm.sin(place.yaw);
+  const cs = dm.cos(place.yaw);
+  return {
+    rails: [],
+    sample(x, z, out) {
+      world.sample(place.x - z * sn + x * cs, place.z + z * cs + x * sn, out);
+      const nx = out.normal.x;
+      const nz = out.normal.z;
+      out.normal.x = nx * cs + nz * sn;
+      out.normal.z = -nx * sn + nz * cs;
+      return out;
+    },
+  };
+}
+
+/** Features built on flat ground (pitch 0) set onto `ground`: heights add, and so do slopes. */
+export function stack(ground: Terrain, features: Terrain): Terrain {
+  const f = createContact();
+  return {
+    rails: [],
+    sample(x, z, out) {
+      features.sample(x, z, f);
+      ground.sample(x, z, out);
+      const dx = out.normal.x / out.normal.y + f.normal.x / f.normal.y;
+      const dz = out.normal.z / out.normal.y + f.normal.z / f.normal.y;
+      out.height += f.height;
+      out.normal.x = dx;
+      out.normal.y = 1;
+      out.normal.z = dz;
+      normalize(out.normal);
+      if (f.height > 0) {
+        out.surface = f.surface;
+        out.faceX = f.faceX;
+        out.faceZ = f.faceZ;
+      }
+      return out;
+    },
+  };
+}
+
+/** The ground a feature at `place` is solved on: the real one when given, else a plane at `pitch`. */
+function baseFor(place: Place, pitch: number, ground?: Terrain): Terrain {
+  return ground ? groundFrame(ground, place) : createSlope({ length: 600, width: 600, pitch });
+}
+
+const onBase = (base: Terrain, kickers: KickerConfig[]): Terrain => stack(base, createSlope({ length: 600, width: 600, pitch: 0, kickers }));
+
+/**
+ * A kicker solved for the speeds of its size. On `ground` (the real ground, features left out)
+ * the flights and the ride run over it as it is — a landing that falls away steepens under
+ * them — otherwise over a plane at `groundPitch`, the grade under the landing.
+ */
+export function designKicker(place: Place, size: Size, groundPitch: number, cfg: GenConfig, params: Params, ground?: Terrain): FeatureSpec {
   const k = cfg.kicker;
   const preset = k.sizes[size];
   const H = preset.lip;
@@ -33,8 +92,10 @@ export function designKicker(place: Place, size: Size, groundPitch: number, cfg:
   const theta = k.lipAngle * RAD;
   const phi = groundPitch;
 
-  // The kicker on a plane at the local grade, at the origin, facing straight down it: the sim's
-  // own height function, so the solve and the ride agree.
+  // The kicker at the origin facing straight down its axis, on the ground it will stand on: the
+  // sim's own height function, so the solve and the ride agree.
+  const base = baseFor(place, phi, ground);
+  const under = createContact();
   const build = (deckLength: number, knuckleHeight: number, landingAngle: number): KickerConfig => {
     const [knuckleRadius, runoutRadius] = fitRadii(knuckleHeight, landingAngle, k.knuckleRadius, k.runoutRadius);
     return {
@@ -56,7 +117,7 @@ export function designKicker(place: Place, size: Size, groundPitch: number, cfg:
   const radius = H / (1 - dm.cos(theta));
   const runIn = radius * dm.sin(theta);
   const air = (kc: KickerConfig, speed: number, pop: number): ReturnType<typeof fly> => {
-    const t = createSlope({ length: 600, width: 600, pitch: phi, kickers: [kc] });
+    const t = onBase(base, [kc]);
     const lipZ = -runIn + 0.02;
     const l = launch(t, 0, lipZ, 0, -1, speed, pop);
     return fly(t, params, 0, l.y, lipZ, l.vx, l.vy, l.vz, 6, false);
@@ -68,7 +129,7 @@ export function designKicker(place: Place, size: Size, groundPitch: number, cfg:
   let alphaAbs = ((k.landing[0] ?? 28) + (k.landing[1] ?? 35)) * 0.5 * RAD;
   let deck = 0;
   for (let it = 0; it < k.iterations; it++) {
-    const probe = createSlope({ length: 600, width: 600, pitch: phi, kickers: [{ ...build(0.01, H, 0.5), deckWidth: k.width, knuckleHeight: undefined, landingAngle: undefined, deckLength: 0, landingLength: 0 }] });
+    const probe = onBase(base, [{ ...build(0.01, H, 0.5), deckWidth: k.width, knuckleHeight: undefined, landingAngle: undefined, deckLength: 0, landingLength: 0 }]);
     const lipZ = -runIn + 0.02;
     const l = launch(probe, 0, lipZ, 0, -1, vMin, popMin);
     // Step the flight until it is at knuckle height above the plane, coming down.
@@ -80,8 +141,7 @@ export function designKicker(place: Place, size: Size, groundPitch: number, cfg:
       vy -= params.world.gravity * dt;
       py += vy * dt;
       pz += l.vz * dt;
-      const ground = pz * dm.tan(phi); // plane height under the point
-      if (vy < 0 && py - ground <= hk) break;
+      if (vy < 0 && py - base.sample(0, pz, under).height <= hk) break; // knuckle height above the ground under it
     }
     deck = Math.max(2, -pz - runIn - k.knuckleClear);
 
@@ -104,7 +164,7 @@ export function designKicker(place: Place, size: Size, groundPitch: number, cfg:
   // Against the sim: the real rider at vMin without a pop lands short of the closed-form
   // flight (what the lip does to it isn't in that model). Move the knuckle so it clears it.
   const alphaRel = Math.max(0.05, alphaAbs - phi);
-  const slow = rideKicker(createSlope({ length: 600, width: 600, pitch: phi, kickers: [build(deck, hk, alphaRel)] }), params, 0, runIn, deck, vMin, false);
+  const slow = rideKicker(onBase(base, [build(deck, hk, alphaRel)]), params, 0, runIn, deck, vMin, false);
   if (slow.landing && slow.past < k.knuckleClear * 0.5) deck = Math.max(2, deck + slow.past - k.knuckleClear * 0.5);
   const local = build(deck, hk, alphaRel);
   const checks: ArcCheck[] = [];

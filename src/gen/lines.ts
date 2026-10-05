@@ -246,7 +246,7 @@ export function build(kind: Kind, want: Want, place: Place, rng: Rng, ground: Te
   const h1 = ground.sample(place.x + dm.sin(place.yaw) * (8 + d), place.z - dm.cos(place.yaw) * (8 + d), c).height;
   const landingPitch = dm.atan(Math.max(0, (h0 - h1) / d));
   if (kind === 'kicker') {
-    const f = designKicker(place, want.size, landingPitch, cfg, params);
+    const f = designKicker(place, want.size, landingPitch, cfg, params, ground);
     if (f.meta) f.meta.type = 'kicker';
     return [f];
   }
