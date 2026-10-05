@@ -65,14 +65,15 @@ import { createSkid } from './render/skid.ts';
 import { createPanel, download, type FeedbackState, type Readout } from './tuning/panel.ts';
 
 const SEED = 1;
-// Parks are layouts (src/park/layout.ts). By default a generated park (src/gen), seed 1 or
-// ?seed=N — the same seed always builds the same park. ?park=home for the old hand-built park
+// Parks are layouts (src/park/layout.ts). By default the Talma-style park (parks/talma-reference.json,
+// built by scripts/build-talma.ts). ?park=gen or ?seed=N for a generated park (src/gen) — the same
+// seed always builds the same park. ?park=home for the old hand-built park
 // (src/park/park.ts), ?park=sochi for Sochi 2014, ?park=slopestyle for the first park,
 // ?park=file for a layout loaded from a JSON file (park folder). All full size under real
 // gravity. A take stores its terrain and params, so takes from before (16 m/s², 0.61-scale
 // parks) replay as they were.
 const query = new URLSearchParams(location.search);
-const parkName = query.get('park') ?? 'gen';
+const parkName = query.get('park') ?? (query.has('seed') ? 'gen' : 'talma');
 const seed = Math.max(1, Math.round(Number(query.get('seed') ?? 1)) || 1);
 const layout = parkName === 'gen' ? await generating(seed) : parkName === 'file' ? (loadedLayout() ?? HOME) : (PARKS[parkName] ?? HOME);
 const slopeConfig: SlopeConfig = toSlopeConfig(layout);
