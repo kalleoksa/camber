@@ -57,7 +57,8 @@ function attempt(seed: number, roll: number, cfg: GenConfig, params: Params): La
     seed,
     roll,
     ground: { length: cfg.zone.length, width: cfg.zone.width, pitch: field.pitch, field },
-    spawn: { x: 0, z: -5, heading: Math.PI },
+    // At the top of the middle line, facing down it.
+    spawn: { x: lines[Math.floor(lines.length / 2)]?.path?.[0]?.[0] ?? 0, z: -5, heading: Math.PI },
     features: f,
     lines,
     links: [],

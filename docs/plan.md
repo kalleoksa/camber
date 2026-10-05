@@ -361,3 +361,8 @@ touchdown coloured clean / sketchy / bail; in the air, the rest of the flight. C
 the real rider on the home park's middle lane: at takeoff, landings within 0.2 m of the
 prediction, with and without a full pop (it was 2–13 m short until it used the full speed
 along the lip's face rather than the horizontal part).
+
+Step 9 done: the generated park is the default (no `?park`: seed 1; `?seed=N`), starting at the
+top of its middle line. `?park=home` is the old park; `?park=gen&seed=N` still works. The park
+folder shows the seed (and re-roll), exports the layout as JSON and loads one (`?park=file`,
+kept in this browser) — the way in for hand-built parks, same format.

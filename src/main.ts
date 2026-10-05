@@ -65,15 +65,29 @@ import { createTrajectoryPreview } from './render/trajectory.ts';
 import { createPanel, download, type FeedbackState, type Readout } from './tuning/panel.ts';
 
 const SEED = 1;
-// Parks are layouts (src/park/layout.ts). The home park (src/park/park.ts) by default;
-// ?park=sochi for Sochi 2014, ?park=slopestyle for the first park. All full size under real
+// Parks are layouts (src/park/layout.ts). By default a generated park (src/gen), seed 1 or
+// ?seed=N — the same seed always builds the same park. ?park=home for the old hand-built park
+// (src/park/park.ts), ?park=sochi for Sochi 2014, ?park=slopestyle for the first park,
+// ?park=file for a layout loaded from a JSON file (park folder). All full size under real
 // gravity. A take stores its terrain and params, so takes from before (16 m/s², 0.61-scale
 // parks) replay as they were.
 const query = new URLSearchParams(location.search);
-const parkName = query.get('park') ?? 'home';
+const parkName = query.get('park') ?? 'gen';
 const seed = Math.max(1, Math.round(Number(query.get('seed') ?? 1)) || 1);
-// ?park=gen&seed=N: the generated park (src/gen); the same seed always builds the same park.
-const layout = parkName === 'gen' ? await generating(seed) : (PARKS[parkName] ?? HOME);
+const layout = parkName === 'gen' ? await generating(seed) : parkName === 'file' ? (loadedLayout() ?? HOME) : (PARKS[parkName] ?? HOME);
+const slopeConfig: SlopeConfig = toSlopeConfig(layout);
+// ?spin=0 starts on the older spin model (air.spinModel in the panel switches live).
+if (query.get('spin') === '0') params.air.spinModel = 0;
+
+/** A layout JSON loaded from the park folder, kept in this browser until another replaces it. */
+function loadedLayout(): Layout | undefined {
+  try {
+    const json = localStorage.getItem('camber-layout');
+    return json ? (JSON.parse(json) as Layout) : undefined;
+  } catch {
+    return undefined;
+  }
+}
 
 /** A generated park takes seconds the first time; say so plainly until it's there. */
 async function generating(s: number): Promise<Layout> {
@@ -87,9 +101,6 @@ async function generating(s: number): Promise<Layout> {
     note.remove();
   }
 }
-const slopeConfig: SlopeConfig = toSlopeConfig(layout);
-// ?spin=0 starts on the older spin model (air.spinModel in the panel switches live).
-if (query.get('spin') === '0') params.air.spinModel = 0;
 
 const terrain = createSlope(slopeConfig);
 // &at=x,z[,deg] starts the run there instead, facing down the hill or `deg` off it (+ toward
@@ -803,7 +814,18 @@ const panel = createPanel(params, readout, view.drivers, preview, feedback, {
 // The speed map only means something on generated ground (a zone with a field).
 const field = slopeConfig.field;
 const speedMap = field ? computeSpeedMap(terrain, params, { width: field.width, length: field.length, ...GEN.speedMap }) : undefined;
-addParkFolder(panel.pane, layout.name, layout.seed ?? seed, createOverlays(view.scene, view.ground, terrain, speedMap, layout, params), {
+addParkFolder(panel.pane, layout, seed, createOverlays(view.scene, view.ground, terrain, speedMap, layout, params), {
+  onExport: () => download(`camber-park-${layout.name}${layout.seed !== undefined ? `-${layout.seed}` : ''}.json`, JSON.stringify(layout)),
+  onLoadLayout: (json) => {
+    try {
+      const l = JSON.parse(json) as Layout;
+      if (l.version !== 1 || !l.ground || !Array.isArray(l.features)) throw new Error('not a Camber layout');
+      localStorage.setItem('camber-layout', json);
+      location.search = '?park=file';
+    } catch (e) {
+      alert(`Couldn't load that layout: ${(e as Error).message}`);
+    }
+  },
   onOverview: (on) => {
     overview.on = on;
     view.scene.fog = on ? null : sceneFog;
