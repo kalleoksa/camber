@@ -412,3 +412,23 @@ the footprints around it.
 
 gen-check seeds 1–4: steepest spot 30–36°, no walls, restart stuck 3–6%. A zone takes room:
 10–14 band patches remain per park (was 16–21), so the rest of the hill is a little more even.
+
+## Hip quarter, measured (2026-10-05, `npm run hip-quarter`)
+
+Two 3.5 m quarter-pipe sections, 12 m each, meeting at a corner; the second turned β. Rides up
+the first toward the corner at 9 and 12 m/s, 20–50° off straight in. Judged on the air (the
+bot doesn't spin, so it bails most pipe airs, the straight pipe's too).
+
+| Corner | Airs that come down on the second section's face | Lined up with its fall line |
+|---|---|---|
+| Straight pipe (β 0) | — (along the same wall, or off its end) | 57–81° off |
+| Inside, β 30–60° (bends toward the rider) | 7 of 18 | 8–36° off in 4 of them; impact 0–9 m/s |
+| Outside, β −30 to −60° (bends away) | 0 of 18 (back into the first face, round without leaving, or past onto the snow) | — |
+
+- **Inside corners work with today's rules.** `vertExit` keeps the speed along the coping and
+  the next face is in the way of the air.
+- **Outside corners don't.** `vertExit` sends the air back into the face it climbed and drops
+  the speed that would carry it over the corner onto the next face. Making them work needs the
+  rule to use the face the air will come down on — a sim change (`grounded.ts`), not built.
+- Both build as two `QuarterConfig`s meeting at a corner; the max merge leaves a valley line in
+  an inside corner (as a bowl's corner), which rides; no mitre needed for those.
