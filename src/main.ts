@@ -53,9 +53,9 @@ import {
 } from './sim/state.ts';
 import { createContact, createSlope, type SlopeConfig } from './sim/terrain.ts';
 import { GEN } from './gen/config.ts';
-import { generateLayout } from './gen/generate.ts';
+import { loadGenerated } from './gen/load.ts';
 import { computeSpeedMap } from './gen/speedmap.ts';
-import { toSlopeConfig } from './park/layout.ts';
+import { toSlopeConfig, type Layout } from './park/layout.ts';
 import { HOME, PARKS } from './park/parks.ts';
 import { PARK_GRAVITY, REAL_GRAVITY } from './park/scale.ts';
 import { length } from './sim/vec3.ts';
@@ -72,7 +72,20 @@ const query = new URLSearchParams(location.search);
 const parkName = query.get('park') ?? 'home';
 const seed = Math.max(1, Math.round(Number(query.get('seed') ?? 1)) || 1);
 // ?park=gen&seed=N: the generated park (src/gen); the same seed always builds the same park.
-const layout = parkName === 'gen' ? generateLayout(seed) : (PARKS[parkName] ?? HOME);
+const layout = parkName === 'gen' ? await generating(seed) : (PARKS[parkName] ?? HOME);
+
+/** A generated park takes seconds the first time; say so plainly until it's there. */
+async function generating(s: number): Promise<Layout> {
+  const note = document.createElement('div');
+  note.textContent = `generating park ${s}…`;
+  note.style.cssText = 'position:fixed;inset:0;display:grid;place-items:center;font:15px system-ui;color:#556;background:#eef2f6;z-index:2';
+  document.body.appendChild(note);
+  try {
+    return await loadGenerated(s);
+  } finally {
+    note.remove();
+  }
+}
 const slopeConfig: SlopeConfig = toSlopeConfig(layout);
 // ?spin=0 starts on the older spin model (air.spinModel in the panel switches live).
 if (query.get('spin') === '0') params.air.spinModel = 0;

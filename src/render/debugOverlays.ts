@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { fly, launch, popRange } from '../gen/flight.ts';
 import { footprint } from '../gen/footprint.ts';
+import { chains } from '../gen/graph.ts';
 import { GEN } from '../gen/config.ts';
 import type { SpeedMap } from '../gen/speedmap.ts';
 import { speedAt } from '../gen/speedmap.ts';
@@ -13,7 +14,7 @@ import { createContact, type Terrain } from '../sim/terrain.ts';
  * over the terrain mesh, sharing its vertices, and only read the terrain: nothing here feeds
  * back into the sim.
  */
-export type OverlayName = 'none' | 'slope' | 'speed' | 'arcs' | 'lines';
+export type OverlayName = 'none' | 'slope' | 'speed' | 'arcs' | 'lines' | 'graph';
 export type Overlays = { show(name: OverlayName): void };
 
 const DEG = 180 / Math.PI;
@@ -44,6 +45,7 @@ export const LEGEND: Record<OverlayName, string> = {
   slope: 'blue 0–5° · cyan 5–10 · green 10–20 · yellow 20–25 · orange 25–30 · red 30–35 · magenta >35',
   speed: 'straight down the fall line, km/h: purple <5 (stalls) · blue <25 · green 25–45 · yellow <65 · orange <80 · red faster. Ticks: fall line',
   lines: 'spine lines as traced, one colour each; a tall post marks each line\'s hero, a short one its other features. Grey: fill. Outlines: each feature\'s footprint — its ground and clear run-in',
+  graph: 'links: from a takeoff, a clean landing rides on to the next lip (thin grey) or lands on another feature (magenta, a transfer). The five longest chains drawn thick, one colour each',
   arcs: 'per kicker, the designed airs: blue slowest (no pop) · green middle · red fastest (medium pop). Ball at touchdown: white clean, orange sketchy, red bail. Post: the knuckle',
 };
 
@@ -87,6 +89,11 @@ export function createOverlays(scene: THREE.Scene, ground: THREE.Mesh, terrain: 
     }
     if (name === 'lines') {
       const group = linePaths(layout, terrain);
+      scene.add(group);
+      return group;
+    }
+    if (name === 'graph') {
+      const group = graphLines(layout, terrain);
       scene.add(group);
       return group;
     }
@@ -224,5 +231,50 @@ function linePaths(layout: Layout, terrain: Terrain): THREE.Group {
       group.add(m);
     }
   });
+  return group;
+}
+
+const CHAIN_COLOURS = [0xd9452b, 0x3d7bd9, 0x2e9e44, 0xc534c9, 0xe0a020];
+
+/** Each link as a line between the two features' lips, and the longest chains thick. */
+function graphLines(layout: Layout, terrain: Terrain): THREE.Group {
+  const group = new THREE.Group();
+  const contact = createContact();
+  const at = (i: number): THREE.Vector3 => {
+    const f = layout.features[i];
+    let x = 0;
+    let z = 0;
+    if (f?.kind === 'rail') {
+      x = f.cfg.points[0]?.[0] ?? 0;
+      z = f.cfg.points[0]?.[2] ?? 0;
+    } else if (f) {
+      const k = f.cfg as { x: number; z: number; yaw?: number };
+      const lip = f.meta?.lip ?? 0;
+      x = k.x + Math.sin(k.yaw ?? 0) * lip;
+      z = k.z - Math.cos(k.yaw ?? 0) * lip;
+    }
+    return new THREE.Vector3(x, terrain.sample(x, z, contact).height + 2.5, z);
+  };
+  const seg = (a: number, b: number, colour: number): void => {
+    const geometry = new THREE.BufferGeometry().setFromPoints([at(a), at(b)]);
+    group.add(new THREE.Line(geometry, new THREE.LineBasicMaterial({ color: colour })));
+  };
+  for (const l of layout.links) seg(l.from, l.to, l.kind === 'transfer' ? 0xc534c9 : 0x8a96a3);
+  const z = (i: number): number => at(i).z;
+  chains(layout.features.length, layout.links, z)
+    .slice(0, 5)
+    .forEach((chain, ci) => {
+      const colour = CHAIN_COLOURS[ci] ?? 0xffffff;
+      for (let k = 0; k + 1 < chain.length; k++) {
+        const a = at(chain[k] ?? 0);
+        const b = at(chain[k + 1] ?? 0);
+        // Thick: a thin box along the link (WebGL lines are always 1 px).
+        const len = a.distanceTo(b);
+        const bar = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.6, len), new THREE.MeshBasicMaterial({ color: colour }));
+        bar.position.copy(a).add(b).multiplyScalar(0.5);
+        bar.lookAt(b);
+        group.add(bar);
+      }
+    });
   return group;
 }

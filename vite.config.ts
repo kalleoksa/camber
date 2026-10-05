@@ -15,5 +15,6 @@ function commit(): string {
 export default defineConfig({
   server: { host: true },
   build: { target: 'es2022' },
+  worker: { format: 'es' }, // the park generator's worker imports modules
   define: { __BUILD__: JSON.stringify(commit()) },
 });

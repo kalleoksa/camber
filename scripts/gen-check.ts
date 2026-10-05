@@ -5,7 +5,7 @@
  */
 import { createHash } from 'node:crypto';
 import { GEN } from '../src/gen/config.ts';
-import { generateLayout } from '../src/gen/generate.ts';
+import { generateLayout, longChains } from '../src/gen/generate.ts';
 import { computeSpeedMap } from '../src/gen/speedmap.ts';
 import { params } from '../src/sim/params.ts';
 import { toSlopeConfig } from '../src/park/layout.ts';
@@ -63,6 +63,7 @@ for (let seed = from; seed <= to; seed++) {
       }
     }
   }
+  console.log(`  graph: roll ${layout.roll ?? 0} · ${layout.links.length} links (${layout.links.filter((l) => l.kind === 'transfer').length} transfers) · ${new Set(layout.links.map((l) => l.to)).size} features entered · chains of ${GEN.graph.chainLinks}+ links: ${longChains(layout)}`);
   console.log(`  features ${layout.features.length} · lines ${layout.lines.map((l) => l.features.length).join('/')} · walls ${walls}${wallAt.length ? ` (at ${wallAt.join(' ')})` : ''}`);
   // Restart: a rider back on their feet after a fall, from standing, straight down the fall
   // line on the finished park — metres until 30 km/h, or stuck (never gets there in 150 m).

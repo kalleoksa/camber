@@ -341,3 +341,15 @@ Ground steepened (feedback: after a fall a rider couldn't get going again). Base
 30 km/h: was median 30 m with 21–28% of spots stuck, now median 18–19 m (slowest quarter 28 m),
 1–6% stuck (spots inside features). Straight-lining now reaches top speed on ~70% of the zone:
 L2 does the speed control, as intended. The line bot rides seed 1's lines further than before.
+
+Step 7 done: connection graph (`src/gen/graph.ts`). From every takeoff (kicker and hip lips,
+side hits, roller crests, rail ends), airs at 3 speeds across its range × 7 headings within
+±30°, flown over the finished park. A clean landing links on to every feature whose lip is
+downhill of it, 8–90 m away, in front of its axis (6 m + 0.6 × distance off it), reached at
+its slowest design speed — or, landing on another feature's own landing, a transfer. Features
+nothing leads into (not near the top, not a line's first) are dropped and the graph rebuilt;
+fewer than 3 chains of 4+ links re-rolls the seed (best of 5 kept; `layout.roll`). Seeds 1–5:
+roll 0 each, 50–68 features, 68–123 links, 0–1 transfers (hips are rare), 3–5 chains of 4+,
+longest 8–15 links — chains cross between the planned lines and the fill. Generation now
+5–10 s: runs in a Web Worker (`src/gen/worker.ts`, `load.ts`) behind a "generating park"
+note, cached in localStorage per build and seed. Overlay `graph`.

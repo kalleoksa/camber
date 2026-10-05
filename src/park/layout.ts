@@ -14,6 +14,7 @@ export type Layout = {
   version: 1;
   name: string;
   seed?: number;
+  roll?: number; // generated: which re-roll of the seed this is (0 = the first try passed)
   ground: Ground;
   spawn: { x: number; z: number; heading: number }; // heading in rad, π = nose down the fall line
   features: FeatureSpec[];
@@ -49,8 +50,11 @@ export type FeatureSpec =
  */
 export type LineSpec = { name: string; features: number[]; speed: number[]; path?: [number, number, number][] }; // path: x, z, predicted m/s
 
-/** A takeoff on one feature reaches a clean landing on another. */
-export type LinkSpec = { from: number; to: number; speed: [number, number] };
+/**
+ * From one feature's takeoff a clean landing leads on to another: riding on to its lip
+ * ('ride'), or landing on its own landing ('transfer'). `speed`: m/s off the first that do it.
+ */
+export type LinkSpec = { from: number; to: number; speed: [number, number]; kind?: 'ride' | 'transfer' };
 
 export function toSlopeConfig(layout: Layout): SlopeConfig {
   const g = layout.ground;

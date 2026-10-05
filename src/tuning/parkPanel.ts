@@ -4,13 +4,13 @@ import { LEGEND, type OverlayName, type Overlays } from '../render/debugOverlays
 /**
  * The park folder: which park, the generator's seed, and the debug overlays. A new seed
  * reloads the page on it (?park=gen&seed=N), so the whole world is rebuilt from the layout
- * and the URL can be shared; ?overlay=slope|speed|arcs|lines starts with that overlay showing,
+ * and the URL can be shared; ?overlay=slope|speed|arcs|lines|graph starts with that overlay showing,
  * &view=top with the overview camera, &at=x,z at that spot.
  */
 export function addParkFolder(pane: Pane, park: string, seed: number, overlays: Overlays, onOverview: (on: boolean) => void): void {
   const query = new URLSearchParams(location.search);
   const start = query.get('overlay');
-  const overlay: OverlayName = start === 'slope' || start === 'speed' || start === 'arcs' || start === 'lines' ? start : 'none';
+  const overlay: OverlayName = start === 'slope' || start === 'speed' || start === 'arcs' || start === 'lines' || start === 'graph' ? start : 'none';
   const state = { park, seed, overlay, legend: LEGEND[overlay], overview: query.get('view') === 'top' };
   overlays.show(overlay);
   onOverview(state.overview);
@@ -27,7 +27,7 @@ export function addParkFolder(pane: Pane, park: string, seed: number, overlays: 
   });
   const legend = folder.addBinding(state, 'legend', { readonly: true, multiline: true, rows: 4, label: 'key' });
   folder
-    .addBinding(state, 'overlay', { options: { none: 'none', 'slope heatmap': 'slope', 'speed map': 'speed', 'design arcs': 'arcs', lines: 'lines' } })
+    .addBinding(state, 'overlay', { options: { none: 'none', 'slope heatmap': 'slope', 'speed map': 'speed', 'design arcs': 'arcs', lines: 'lines', 'connection graph': 'graph' } })
     .on('change', (ev) => {
       overlays.show(ev.value);
       state.legend = LEGEND[ev.value];

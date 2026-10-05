@@ -67,6 +67,21 @@ export const GEN = {
     sideHit: 0.15, // odds a fill feature is a side hit near the zone's edge instead
   },
 
+  // Connection graph (graph.ts): from every takeoff, airs at `speeds` speeds across its range
+  // and `headings` headings within ±`heading`° of straight; clean landings link on.
+  graph: {
+    speeds: 3,
+    headings: 7,
+    heading: 30, // °
+    reach: [8, 90], // m from touchdown to the next lip
+    steer: [6, 0.6], // m off its axis a touchdown may be: this much plus this × the distance
+    shapeSpeed: [0.6, 0.9], // side hits, rollers: of the straight-line speed there
+    top: 120, // m from the top within which a feature needs no way in (you start there)
+    chainLinks: 4, // a chain this many links long counts as a line
+    minChains: 3, // fewer than this and the seed re-rolls
+    rolls: 4, // re-rolls before keeping the best try
+  },
+
   // Feature kit (kit.ts). Kicker landings are solved from the flight, never set by hand: these
   // are the inputs and the rules the solve follows (terrain spec, jump generator).
   kicker: {
