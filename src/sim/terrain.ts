@@ -67,6 +67,13 @@ export type CornerConfig = {
   landingAngle: number; // rad the landings fall away below the slope
   knuckleRadius: number; // m
   runoutRadius: number; // m
+  /**
+   * Ridge hip: the side landings run the takeoff's full length, hinged on its edges from the
+   * base up to the deck, so you can leave sideways anywhere up the ramp. Knuckles are straight
+   * and the deck's corners stay square. The takeoff is `deckWidth` wide; `width`, `sideTaper`
+   * and `deckTaper` only feed the mesh and the paint.
+   */
+  ridge?: boolean;
 };
 
 /**
@@ -441,6 +448,24 @@ function cornerProfile(c: CornerConfig): Profile {
     const u = end - d;
     return rb - Math.sqrt(rb * rb - u * u);
   };
+
+  if (c.ridge) {
+    return (x: number, z: number): number => {
+      const s = c.z - z;
+      if (s <= 0 || s >= deckEnd + end) return 0;
+      const dx = Math.abs(x - c.x);
+      if (dx >= halfDeck + end) return 0;
+      // Spine height here: the takeoff arc, then the deck.
+      const top = s < runIn ? radius - Math.sqrt(radius * radius - s * s) : c.lipHeight;
+      // Chebyshev distance off the spine: straight knuckles, square corners.
+      const d = Math.max(dx - halfDeck, s - deckEnd);
+      if (d <= 0) return top;
+      if (top <= 0) return 0;
+      // A lower spine gets the same landing shrunk to its height: same angle, tighter radii.
+      const k = c.lipHeight / top;
+      return landing(d * k) / k;
+    };
+  }
 
   return (x: number, z: number): number => {
     const s = c.z - z;
