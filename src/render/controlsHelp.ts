@@ -9,7 +9,7 @@ const ROWS: [string, string, string][] = [
   ['Carve', 'Left stick ← →', 'A / D'],
   ['Nose / tail press', 'Left stick ↑ ↓', 'W / S'],
   ['Butter 180', 'Press nose or tail + edge (diagonal), hold ~1 s', 'W/S + A/D'],
-  ['Speed check', 'L2 / LT', 'Shift'],
+  ['Speed check (board sideways)', 'L2 / LT', 'Shift'],
   ['Crouch, then pop', 'Hold R2 / RT, release', 'Space'],
   ['Wind up a spin', 'While crouching, left stick against the spin', 'A / D'],
   ['Send the spin', 'At the pop, left stick toward the spin (diagonal: cork)', 'A / D'],

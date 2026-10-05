@@ -32,6 +32,7 @@ export type RiderView = {
   stance: number;
   compress: number;
   scrub: number;
+  brake: number;
   speed: number;
   mode: RiderMode;
   landing: LandingRead;
@@ -70,6 +71,7 @@ const view: RiderView = {
   stance: 0,
   compress: 0,
   scrub: 0,
+  brake: 0,
   speed: 0,
   mode: 'airborne',
   landing: 'none',
@@ -110,6 +112,7 @@ export function interpolateRider(prev: RiderState, cur: RiderState, alpha: numbe
   view.stance = prev.stance + (cur.stance - prev.stance) * alpha;
   view.compress = prev.compress + (cur.compress - prev.compress) * alpha;
   view.scrub = cur.scrub;
+  view.brake = cur.brake;
   view.speed = length(cur.velocity);
   view.time = (prev.tick + (cur.tick - prev.tick) * alpha) * TICK_DT;
   view.mode = cur.mode;

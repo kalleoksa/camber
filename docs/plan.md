@@ -366,3 +366,10 @@ Step 9 done: the generated park is the default (no `?park`: seed 1; `?seed=N`), 
 top of its middle line. `?park=home` is the old park; `?park=gen&seed=N` still works. The park
 folder shows the seed (and re-roll), exports the layout as JSON and loads one (`?park=file`,
 kept in this browser) — the way in for hand-built parks, same format.
+
+Speed check drawn (feedback: it should look like one — the board turned sideways). L2 already
+braked (9 m/s²); now the drawn board swings up to ~70° across the travel toward the edge you're
+on (heelside by default), the edge digs in and spray comes off it, and it swings back on
+release (`render/skid.ts`, `rig.skidYaw/skidRate/skidEdge/skidSpray`). Render only: the sim's
+brake is unchanged; `state.brake` mirrors L2 for the render (not hashed — a copy of input).
+The camera keeps following the real heading. Old takes pin `rig.skidYaw` 0.
