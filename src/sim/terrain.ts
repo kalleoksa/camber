@@ -70,13 +70,8 @@ export type CornerConfig = {
   landingAngle: number; // rad the landings fall away below the slope
   knuckleRadius: number; // m
   runoutRadius: number; // m
-  /**
-   * Ridge hip: the side landings run the takeoff's full length at lip height, falling straight
-   * off the sides, with the takeoff cut into the block between them. Knuckles are straight and
-   * the deck's corners square. The takeoff is `deckWidth` wide; the landings' uphill ends are
-   * cut over `sideTaper`; `width` and `deckTaper` only feed the mesh and the paint.
-   */
-  ridge?: boolean;
+  /** Square the deck's downhill corners: straight knuckles meeting in a crease, not rounded off. */
+  squareCorners?: boolean;
 };
 
 /**
@@ -462,25 +457,6 @@ function cornerProfile(c: CornerConfig): Profile {
     return rb - Math.sqrt(rb * rb - u * u);
   };
 
-  if (c.ridge) {
-    return (x: number, z: number): number => {
-      const s = c.z - z;
-      if (s <= 0 || s >= deckEnd + end) return 0;
-      const dx = Math.abs(x - c.x);
-      if (dx >= halfDeck + end) return 0;
-      const outX = dx - halfDeck;
-      const outS = s - deckEnd;
-      // Inside: the takeoff arc, cut into the block, then the deck.
-      if (outX <= 0 && outS <= 0) return s < runIn ? radius - Math.sqrt(radius * radius - s * s) : c.lipHeight;
-      // Outside: landings at full height the whole way, falling straight off the sides and the
-      // end (Chebyshev distance: straight knuckles, square corners). Their uphill ends are cut.
-      const h = landing(Math.max(outX, outS));
-      if (s >= c.sideTaper) return h;
-      const t = s / c.sideTaper;
-      return h * t * t * (3 - 2 * t);
-    };
-  }
-
   return (x: number, z: number): number => {
     const s = c.z - z;
     if (s <= 0 || s >= deckEnd + end) return 0;
@@ -502,7 +478,7 @@ function cornerProfile(c: CornerConfig): Profile {
     // ends slope rather than stand as walls beside the takeoff.
     const outX = Math.max(0, dx - halfDeck);
     const outS = Math.max(0, s - deckEnd);
-    let land = landing(Math.sqrt(outX * outX + outS * outS));
+    let land = landing(c.squareCorners ? Math.max(outX, outS) : Math.sqrt(outX * outX + outS * outS));
     if (s < runIn) {
       const t = Math.max(0, 1 - (runIn - s) / (c.deckTaper ?? c.sideTaper));
       land *= t * t * (3 - 2 * t);

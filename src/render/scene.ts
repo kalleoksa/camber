@@ -387,12 +387,9 @@ function edgeLines(cfg: SlopeConfig, terrain: Terrain): THREE.Group {
     const lip = c.z - (c.lipHeight / (1 - Math.cos(c.lipAngle))) * Math.sin(c.lipAngle);
     const end = lip - c.deckLength + 0.05;
     const half = c.deckWidth * 0.5 - 0.05;
-    // A ridge's knuckles run the full length on the landings' tops, outside the cut takeoff.
-    const from = c.ridge ? c.z - c.sideTaper : lip;
     for (const side of [-1, 1]) {
       const pts: THREE.Vector3[] = [];
-      const inset = c.ridge ? -side * 0.1 : side * 0.05;
-      for (let i = 0; i <= 24; i++) pts.push(at(c.x + side * half, from - ((from - end) * i) / 24, inset, 0));
+      for (let i = 0; i <= 12; i++) pts.push(at(c.x + side * half, lip - ((lip - end) * i) / 12, side * 0.05, 0));
       tube(pts);
     }
     const back: THREE.Vector3[] = [];
