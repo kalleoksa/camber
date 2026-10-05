@@ -1,6 +1,7 @@
 # Park editor — spec against the code
 
-2026-10-05. Source: Park Editor Spec (`docs/park-editor-spec.md`), checked against
+2026-10-05, amended the same day (terrain patches in v1, chunked mesh, baked-field reuse,
+shared ride bot, touch). Source: Park Editor Spec (`docs/park-editor-spec.md`), checked against
 `claude/project-analysis-plan-shg4g6` (PR #23). This keeps the source's core loop (shape →
 check → ride → adjust) and changes what the code makes simpler or what CLAUDE.md rules out.
 
@@ -18,9 +19,10 @@ The editor is CLAUDE.md's third agreed exception to "no UI chrome" (added 2026-1
 | Kicker landings solved from flight | Done: `designKicker` (`src/gen/kit.ts`) |
 | Arcs, speed map, slope heatmap, lines + footprints overlays | Done: `render/debugOverlays.ts`, park folder |
 | Overview camera, `&at=x,z` spawn | Done |
-| Connection graph | Not started (generator step 7) |
-| Trajectory preview | Not started (generator step 8) |
-| Feature regenerates in < 50 ms | **No.** The terrain mesh is one 1.44M-triangle build. |
+| Connection graph | Done: `src/gen/graph.ts`, `Layout.links` |
+| Trajectory preview | Done: `createTrajectoryPreview` (`main.ts`) |
+| Terrain mesh in chunks | Done (`028e197`): `render/terrainMesh.ts`, 64 m chunks at three detail levels. Rebuilding only part of it is still missing (phase 0, item 2) |
+| Ride bot for speed checks | Done, in a script: `scripts/talma-check.ts` (moves to `src/park/check.ts`, phase 0, item 4) |
 | Shared building blocks | **Dropped.** Per-feature configs plus kit functions already give "features are data". |
 | Impact-height (EFH) per landing point | **Dropped.** Use the game's impact test (m/s), as everywhere. |
 
@@ -30,10 +32,15 @@ The editor is CLAUDE.md's third agreed exception to "no UI chrome" (added 2026-1
    values inside. Split each into `draw*(rng) → inputs` and `solve*(inputs) → FeatureSpec`, and
    store the inputs in `meta.design`. The editor edits `meta.design` and re-solves. One file,
    `kit.ts`.
-2. **Tiled terrain mesh.** The mesh is built in 32 × 32 m tiles. An edit rebuilds only the
-   tiles under the changed feature's footprint (old and new). Target: < 50 ms per edit.
-   Render-only.
-3. **`meta.group`** (shared with the obstacles spec): composites move as one.
+2. **Partial mesh rebuild.** The mesh is already chunked (`render/terrainMesh.ts`). Add
+   `invalidate(rect)`, which rebuilds the chunks under a feature's old and new footprints, and
+   `dispose()`. Rebuilding the park in place also needs `terrain` / `slopeConfig` as `let` in
+   `main.ts` and `scene.setPark(cfg, terrain)`. Target: < 50 ms per edit. Render-only.
+3. **`meta.group`** (shared with the obstacles spec): composites move as one. *Done.*
+4. **Reuse the baked field:** `createSlope(cfg, bakedField?)`, so moving a feature doesn't
+   re-bake the heightfield. Heights are identical, so the sim doesn't change.
+5. **Shared ride bot:** move the bot in `scripts/talma-check.ts` to `src/park/check.ts`; the
+   script and the editor's speed check both use it.
 
 ## Two kinds of feature in the editor
 
@@ -50,6 +57,8 @@ The editor is CLAUDE.md's third agreed exception to "no UI chrome" (added 2026-1
 - **Ride:** the normal game; editor panels hidden; overlays as the park folder sets them.
 - **Toggle:** Tab, or gamepad Select if free. Riding keys (WASD, QE, R, Space, Shift, arrows)
   are only read in ride mode, so edit-mode keys don't collide.
+- **Opening it:** `?edit=1`, or a button on the "?" controls sheet — `?edit=1` alone is awkward
+  on an iPad.
 - **Ride from here** (Enter / A): rebuild the terrain from the layout and spawn
   `GEN.clear.runIn` (20 m) uphill of the selected feature's lip on its axis, at its design
   mid speed. **Back to edit** returns to the same camera and selection. Round trip < 1 s.
@@ -69,6 +78,19 @@ The editor is CLAUDE.md's third agreed exception to "no UI chrome" (added 2026-1
   sign). Groups select as one.
 - **Clamps:** every input clamps to its `GEN` range. Out-of-range shapes are never generated.
   Heights and drops are inputs, never gizmo axes, so landings re-solve.
+- **Touch and mouse both:** every key action also has a panel button — duplicate, mirror,
+  delete, undo/redo, ride from here — so the editor works on an iPad.
+
+## Terrain patches (v1)
+
+Not sculpting: the panel edits the heightfield's data. Talma's terraces and its jump-to-rail
+transition need this.
+
+- **Ground:** base pitch and banks.
+- **Band patches:** per patch `x`, `z`, `yaw`, `width` (`halfWidth`), `edge`, `blend`, and its
+  `[length, pitch°]` segments, with add and remove (patches and segments).
+- **Feedback:** the selected patch's outline drawn on the snow; the slope heatmap toggle shows
+  the result live. The field re-bakes on release; features re-solve over the new ground.
 
 ## Profile editor (phase 2)
 
@@ -116,8 +138,8 @@ A 2D canvas docked at the bottom, a side section along the selected feature's ax
 - **Publish:** export the JSON, commit it to `parks/<name>.json`, deploy. `parks.ts` loads repo
   parks as the defaults; a local copy overrides until reset. If the repo version changed since
   the copy was made, show a notice in edit mode.
-- **Out of scope for v1:** terrain sculpting (the ground stays seed + generator config),
-  raw block editing, multi-user editing, server saving.
+- **Out of scope for v1:** freeform terrain sculpting (patch editing is in, above), raw block
+  editing, multi-user editing, server saving.
 
 ## Invariants
 
@@ -129,7 +151,8 @@ A 2D canvas docked at the bottom, a side section along the selected feature's ax
 
 ## Build order
 
-**Phase 0:** kit split + `meta.design`, tiled terrain mesh, `meta.group`.
+**Phase 0:** kit split + `meta.design`, partial mesh rebuild + `setPark`, baked-field reuse,
+shared ride bot. (`meta.group` is done.)
 
 **Phase 1, core:**
 1. Edit/ride toggle, free-fly camera.
@@ -138,13 +161,16 @@ A 2D canvas docked at the bottom, a side section along the selected feature's ax
 4. Parameter panel with live re-solve.
 5. Ride from here / back to edit.
 6. Export/import, autosave, undo/redo.
+7. Terrain patch panel with outline and live heatmap.
 
 **Phase 2, design tools:**
-7. Profile editor.
-8. Impact overlay and validation dots.
-9. Connection graph overlay (after generator step 7).
+8. Profile editor.
+9. Impact overlay and validation dots.
+10. Connection graph overlay (`Layout.links` exists).
 
 ## Done when
+
+First use: fix the Talma reference park with it and export its JSON for `parks/`.
 
 A new line can be built in the editor in under 10 minutes, ridden from each feature, saved to
 `parks/<name>.json`, and loaded by `?park=<name>` on another machine with the same frames for
