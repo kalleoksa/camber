@@ -108,10 +108,11 @@ const LANES: KickerConfig[] = [
 // square at the lip (deckTaper), cut like the takeoff's sides.
 const CORNER: Omit<CornerConfig, 'z'> = { x: JUMP_X, width: 7, lipHeight: 5, lipAngle: 0.85, deckLength: 14, deckWidth: 7, sideTaper: 0.3, deckTaper: 0.3, landingAngle: 0.5, knuckleRadius: 5, runoutRadius: 18 };
 const cornerZ = b3.end - GAP_CORNER;
-// Three corners abreast, one a lane, the middle one with square deck corners, the left one smaller and a little higher, the right one
+// Three corners abreast, one a lane, the middle one a Shredders-style hip (square deck corners,
+// side landings down to the takeoff's base), the left one smaller and a little higher, the right one
 // a little lower: side landings meet between them, so one corner's air can land on the next.
 const CORNERS: CornerConfig[] = [
-  { z: cornerZ, ...CORNER, squareCorners: true },
+  { z: cornerZ, ...CORNER, squareCorners: true, hip: { flare: 2.5, edgeSlope: 1.7 } }, // landings reach down the takeoff's sides
   { z: cornerZ + 4, ...CORNER, x: LANE_L, lipHeight: 4, deckLength: 12 },
   { z: cornerZ - 3, ...CORNER, x: LANE_R },
 ];

@@ -72,6 +72,13 @@ export type CornerConfig = {
   runoutRadius: number; // m
   /** Square the deck's downhill corners: straight knuckles meeting in a crease, not rounded off. */
   squareCorners?: boolean;
+  /**
+   * A hip's run-in, as Shredders builds them: the takeoff flares out `flare` m each side toward
+   * its base, and each side landing hangs off a straight knuckle running from the lip's corner
+   * down to the snow at the base, falling away sideways. Between the takeoff's edge and that
+   * knuckle a strip of snow rises at `edgeSlope` (rise per m).
+   */
+  hip?: { flare: number; edgeSlope: number };
 };
 
 /**
@@ -457,11 +464,45 @@ function cornerProfile(c: CornerConfig): Profile {
     return rb - Math.sqrt(rb * rb - u * u);
   };
 
+  // Where on the landing (distance past the knuckle) it stands at height h: landing() inverted,
+  // tabled once, so a lower knuckle beside the takeoff gets the same face, cut higher up.
+  const INV = 64;
+  const inverse = new Float64Array(INV + 1);
+  for (let i = 0; i <= INV; i++) {
+    const h = (c.lipHeight * i) / INV;
+    let lo = 0;
+    let hi = end;
+    for (let k = 0; k < 40; k++) {
+      const mid = (lo + hi) / 2;
+      if (landing(mid) > h) lo = mid;
+      else hi = mid;
+    }
+    inverse[INV - i] = lo; // index by depth below the lip, so 0 is the knuckle itself
+  }
+  const landingBelow = (h: number): number => {
+    const u = Math.min(INV, Math.max(0, ((c.lipHeight - h) / c.lipHeight) * INV));
+    const i = Math.min(INV - 1, Math.floor(u));
+    return (inverse[i] ?? 0) * (i + 1 - u) + (inverse[i + 1] ?? 0) * (u - i);
+  };
+
   return (x: number, z: number): number => {
     const s = c.z - z;
     if (s <= 0 || s >= deckEnd + end) return 0;
     const dx = Math.abs(x - c.x);
-    if (dx >= halfDeck + end) return 0;
+    const reach = c.hip ? halfDeck + c.hip.flare + end : halfDeck + end;
+    if (dx >= reach) return 0;
+
+    if (c.hip && s < runIn) {
+      const u = s / runIn;
+      const arc = radius - Math.sqrt(radius * radius - s * s);
+      const d = dx - (halfDeck + c.hip.flare * (1 - u)); // past the takeoff's flared edge
+      if (d <= 0) return arc;
+      // The landing face below a straight knuckle at u × lip height, and the strip rising to it
+      // from the takeoff's edge; the knuckle line is where they meet.
+      const flank = landing(d + landingBelow(c.lipHeight * u));
+      const strip = arc + d * c.hip.edgeSlope;
+      return flank < strip ? flank : strip;
+    }
 
     // Takeoff: the kicker's arc, sides rolled off.
     let takeoff = 0;

@@ -27,7 +27,7 @@ export function scalePark(cfg: SlopeConfig, s: number): SlopeConfig {
     ...scaleObject(cfg, s),
     kicker: cfg.kicker && scaleObject(cfg.kicker, s),
     kickers: cfg.kickers?.map((k) => scaleObject(k, s)),
-    corners: cfg.corners?.map((c) => scaleObject(c, s)),
+    corners: cfg.corners?.map((c) => ({ ...scaleObject(c, s), ...(c.hip && { hip: { ...c.hip, flare: c.hip.flare * s } }) })),
     quarters: cfg.quarters?.map((q) => scaleObject(q, s)),
     walls: cfg.walls?.map((w) => scaleObject(w, s)),
     grades: cfg.grades?.map((g) => scaleObject(g, s)),

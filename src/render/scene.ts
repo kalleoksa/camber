@@ -249,6 +249,13 @@ function gridColumns(cfg: SlopeConfig, cell: number): number[] {
       for (let x = edge - 0.3; x <= edge + 0.3 + k.sideTaper; x += 0.1) xs.push(side > 0 ? x : 2 * edge - x);
     }
   }
+  // A hip's flared run-in: its edges run diagonally, so fine columns across the whole flare.
+  for (const c of cfg.corners ?? []) {
+    if (!c.hip) continue;
+    for (const side of [-1, 1]) {
+      for (let d = c.deckWidth * 0.5 - 0.3; d <= c.deckWidth * 0.5 + c.hip.flare + 3; d += 0.15) xs.push(c.x + side * d);
+    }
+  }
   // Quarter pipes facing across the slope: their face runs along Z, like a wall's. Only the
   // transition and face need it — deck and back are gentle, and these run the park's length.
   for (const q of cfg.quarters ?? []) {
@@ -364,6 +371,7 @@ function edgeLines(cfg: SlopeConfig, terrain: Terrain): THREE.Group {
     const lip = k.z - runIn;
     const half = k.width * 0.5;
     for (const side of [-1, 1]) {
+      if ('hip' in k && k.hip) break; // drawn with the corner's knuckles below
       const x = k.x + side * (half - 0.05);
       const pts: THREE.Vector3[] = [];
       for (let i = 0; i <= 24; i++) pts.push(at(x, k.z - (runIn * i) / 24, side * 0.05, 0));
@@ -395,6 +403,31 @@ function edgeLines(cfg: SlopeConfig, terrain: Terrain): THREE.Group {
     const back: THREE.Vector3[] = [];
     for (let i = 0; i <= 8; i++) back.push(at(c.x - half + (2 * half * i) / 8, end, 0, -0.05));
     tube(back);
+    // A hip's run-in: the takeoff's flared edge, and the knuckle where the side landing starts —
+    // found as the highest point just outside that edge.
+    if (c.hip) {
+      const runIn = c.z - lip;
+      for (const side of [-1, 1]) {
+        const edge: THREE.Vector3[] = [];
+        const knuckle: THREE.Vector3[] = [];
+        for (let i = 1; i <= 24; i++) {
+          const s = (runIn * i) / 24;
+          const ex = c.deckWidth * 0.5 + c.hip.flare * (1 - s / runIn);
+          edge.push(at(c.x + side * (ex - 0.05), c.z - s, side * 0.05, 0));
+          let best = ex;
+          let top = -Infinity;
+          for (let d = 0; d < 6; d += 0.05) {
+            const y = terrain.sample(c.x + side * (ex + d), c.z - s, contact).height;
+            if (y < top) break;
+            top = y;
+            best = ex + d;
+          }
+          knuckle.push(at(c.x + side * best, c.z - s, 0, 0));
+        }
+        tube(edge);
+        tube(knuckle);
+      }
+    }
     // The side landings' cut uphill ends, from the deck corner down to the snow.
     if (c.deckTaper !== undefined && c.deckTaper <= 1) {
       const reach = 3 * c.lipHeight / Math.tan(c.landingAngle); // past the landing's end; the line stops at the snow
