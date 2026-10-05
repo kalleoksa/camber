@@ -6,9 +6,9 @@
  */
 import { TICK_DT } from '../src/core/loop.ts';
 import { GEN } from '../src/gen/config.ts';
-import { designEuroGap, designGapToRail, designJibTable, designKnoll, designLog, designMini, designMiniPipe } from '../src/gen/kit.ts';
+import { designBooter, designCorner, designDrop, designEuroGap, designGapToRail, designJibTable, designKnoll, designLog, designMini, designMiniPipe, designStepDown, groundFrame } from '../src/gen/kit.ts';
 import { neutralInput } from '../src/input/snapshot.ts';
-import { toSlopeConfig, type FeatureSpec } from '../src/park/layout.ts';
+import { toSlopeConfig, type FeatureSpec, type Ground } from '../src/park/layout.ts';
 import { params } from '../src/sim/params.ts';
 import { createRng } from '../src/sim/rng.ts';
 import { tick } from '../src/sim/rider.ts';
@@ -19,8 +19,9 @@ const DEG = Math.PI / 180;
 const c = createContact();
 const place = { x: 0, z: 0, yaw: 0 };
 
-function world(parts: FeatureSpec[], pitch: number): Terrain {
-  return createSlope(toSlopeConfig({ version: 1, name: '', ground: { length: 600, width: 300, pitch }, spawn: { x: 0, z: 0, heading: 0 }, features: parts, lines: [], links: [] }));
+function world(parts: FeatureSpec[], pitch: number | Ground): Terrain {
+  const ground = typeof pitch === 'number' ? { length: 600, width: 300, pitch } : pitch;
+  return createSlope(toSlopeConfig({ version: 1, name: '', ground, spawn: { x: 0, z: 0, heading: 0 }, features: parts, lines: [], links: [] }));
 }
 
 type Run = { at: number; modes: string; landings: string[]; touch: number[]; railTime: number; end: number; airs: number; shortest: number };
@@ -142,4 +143,42 @@ for (const deg of [12, 20]) {
     console.log(`mini pipe (${len.toFixed(0)} m) down the middle 6 m/s: ${fmt(ride(world(mp, pitch), -2, 6, 0, -len))}`);
     for (const across of [3, 5, 7]) console.log(`mini pipe into the wall 8 m/s, ${across} m/s across: ${fmt(ride(world(mp, pitch), -2, 8, 0, -len, across))}`);
   }
+}
+
+// Build step 3, on ground that falls away: 12° steepening to 32° from z = −18 (step-down,
+// booter) or −50 (the drop, whose shelf rises 30–50 m before its edge).
+{
+  console.log('\n== real ground ==');
+  const steepAt = (z: number): Ground => ({ length: 600, width: 300, pitch: 12 * DEG, grades: [{ z, pitch: 32 * DEG, blend: 6 }] });
+  const sd = designStepDown(place, 'M', 20 * DEG, world([], steepAt(-18)), GEN, params);
+  if (!sd.length) console.log('step-down: no fit');
+  else {
+    const [vMin = 0, vMax = 0] = sd[0]!.meta?.speed ?? [];
+    for (const [v, pop] of [[vMin, 0], [vMin, 1], [vMax, 0.5], [vMax, 1]] as const) console.log(`step-down M ${v} m/s pop ${pop}: ${fmt(ride(world(sd, steepAt(-18)), lipZ(sd[0]!), v, pop, -90))}`);
+  }
+  const bo = designBooter(place, world([], steepAt(-18)), createRng(8), GEN, params);
+  if (!bo.length) console.log('booter: no fit');
+  else {
+    const [a = 0, b = 0] = bo[0]!.meta?.speed ?? [];
+    for (const [v, pop] of [[a, 0.5], [(a + b) / 2, 0], [(a + b) / 2, 1], [b, 0.5]] as const) console.log(`booter ${v} m/s pop ${pop}: ${fmt(ride(world(bo, steepAt(-18)), lipZ(bo[0]!), v, pop, -120))}`);
+  }
+  const dr = designDrop(place, world([], steepAt(-50)), createRng(9), GEN, params);
+  if (!dr.length) console.log('drop: no fit');
+  else {
+    const f = dr[0]!;
+    const h = f.kind === 'shape' && f.cfg.kind === 'shelf' ? f.cfg.height : 0;
+    for (const [v, pop] of [[6, 0], [10, 0], [14, 0.5], [3, 0]] as const) console.log(`drop ${h} m (edge ${(-lipZ(f)).toFixed(0)} m) ${v} m/s pop ${pop}: ${fmt(ride(world(dr, steepAt(-50)), lipZ(f), v, pop, lipZ(f) - 60))}`);
+  }
+  // Corner: across a 13° plane at 60° off the fall line, ridden in its own frame.
+  const across = { x: 0, z: 0, yaw: 60 * DEG };
+  const plane = world([], 13 * DEG);
+  const co = designCorner(across, 'M', plane, GEN, params);
+  const k = co[0]?.kind === 'kicker' ? co[0].cfg : undefined;
+  console.log(`corner M at 60°: tilt ${(((k?.tilt ?? 0) / DEG)).toFixed(1)}°`);
+  const view = groundFrame(world(co, 13 * DEG), across);
+  const [vMin = 0, vMax = 0] = co[0]?.meta?.speed ?? [];
+  for (const [v, pop] of [[vMin, 0], [vMin, 1], [vMax, 0.5]] as const) console.log(`corner M ${v} m/s pop ${pop}: ${fmt(ride(view, lipZ(co[0]!), v, pop, -70))}`);
+  // Cross-fall of the landing just past the knuckle, levelled vs the bare ground.
+  const n = view.sample(0, lipZ(co[0]!) - (k?.deckLength ?? 0) - 2, c).normal;
+  console.log(`corner landing cross-fall 2 m past the knuckle: ${(Math.atan(n.x / n.y) / DEG).toFixed(1)}° (ground ${((k?.tilt ?? 0) / DEG).toFixed(1)}°)`);
 }

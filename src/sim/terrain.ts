@@ -169,6 +169,13 @@ export type KickerConfig = {
   /** m of flat top at knuckle height before the landing starts: with `knuckleHeight` above the lip, a step-up. */
   topLength?: number;
   yaw?: number; // rad, turned about (x, z) off the fall line, toward +X as it grows
+  /**
+   * Gap builds only: rad the ground under it falls across its axis, toward +X in its own frame
+   * (negative: toward −X). The low side is built up in proportion to the feature's height, so a
+   * kicker set across a slope has a level lip and a landing level at its knuckle, easing back to
+   * the ground's own cross-fall at the run-out.
+   */
+  tilt?: number;
 };
 
 export function createContact(): Contact {
@@ -325,6 +332,8 @@ function kickerProfile(k: KickerConfig): Profile {
   const fade = (t: number): number => (t <= 0 ? 0 : t >= 1 ? 1 : t * t * (3 - 2 * t));
 
   const back = k.backLength ?? k.lipHeight * 0.4;
+  const tilt = dm.tan(k.tilt ?? 0);
+  const low = tilt >= 0 ? 1 : -1; // the side of its width the ground falls to
 
   return (x: number, z: number): number => {
     const s = k.z - z;
@@ -337,10 +346,12 @@ function kickerProfile(k: KickerConfig): Profile {
       let takeoff = 0;
       if (s < runIn) takeoff = radius - Math.sqrt(radius * radius - s * s);
       else if (s < runIn + back) takeoff = k.lipHeight * (1 - fade((s - runIn) / back));
+      if (tilt !== 0) takeoff *= 1 + Math.max(0, (x - k.x + low * k.width * 0.5) * tilt) / k.lipHeight;
       takeoff *= fade(1 - (dx - k.width * 0.5) / k.sideTaper);
       let hill = 0;
       if (s > runIn) {
-        const along = s < deckEnd ? top * fade((s - runIn) / Math.max(deckEnd - runIn, 1e-3)) : tableHeight(s);
+        let along = s < deckEnd ? top * fade((s - runIn) / Math.max(deckEnd - runIn, 1e-3)) : tableHeight(s);
+        if (tilt !== 0 && top > 0) along *= 1 + Math.max(0, (x - k.x + low * deckHalf) * tilt) / top;
         hill = along * fade(1 - (dx - deckHalf) / (k.deckTaper ?? k.sideTaper));
       }
       return takeoff > hill ? takeoff : hill;

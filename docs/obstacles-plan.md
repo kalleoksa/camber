@@ -73,8 +73,9 @@ Landing starts lower than the lip, so more airtime at the same speed.
   ride run over the **real layout terrain**, not a plane at the local grade. This is the shared
   prerequisite for §1, §3, §4 and §12: the kit gets a `terrainAt(place)` sampler.
 - **Starting values:** sizes S–XL, lip 18–26°, table 0–10 m, drop 1–6 m.
-- **Generator:** placed only where the field drops ≥ the chosen drop within the landing zone.
-  Line odds 0.06.
+- **Generator:** every generated kicker is solved over the real ground; one whose ground falls
+  ≥ 0.5 m below the run-in's grade 30 m on is labelled a step-down. Generated ground is gentle
+  (mostly 10–20°): a 1 m drop at 20 m fit 0.7% of spots, 0.5 m at 30 m fits about a quarter.
 - **Done when:** the slowest air clears the knuckle, and mid speed lands clean.
 
 ### 2. Mini / roller kicker
@@ -94,8 +95,9 @@ Big backcountry kicker, no table; the natural slope below is the landing.
 
 - **Build:** `KickerConfig` with no landing (`landingLength: 0`, steep `backLength`). Lip
   28–32°, height 2.5–4 m.
-- **Kit:** `designBooter`. Search down the field from a candidate takeoff for a band at 30–38°
-  where mid-speed flight comes down. Reject the spot if none. Needs §1's real-terrain solve.
+- **Kit:** `designBooter`: a natural side hit (lip 28–32°, 2.5–4 m) kept only where, over at
+  least 2 m/s of speeds in 10–18, a medium air lands clean on ground 22–38° steep, then one
+  real ride at the middle speed. The generator's ground has almost none: 2 of 120 spots fit.
 - **Generator:** natural zones only. The generated steep bands (28–35°) are the landings. No paint.
 - **Powder** is not required; it can come later.
 - **Done when:** mid speed lands clean on the steep band; max speed doesn't overshoot it.
@@ -108,9 +110,11 @@ turns back downhill after the landing.
 - **Naming:** the code's `HipConfig` (formerly `CornerConfig`) is a hip; its data keys
   `corners` and `kind: 'corner'` keep the old name so takes and layouts load. Use
   `meta.type: 'corner'` for this obstacle.
-- **Build:** `KickerConfig` with `yaw` 45–90°. New option `levelAcross?: boolean`: the
-  landing hill's cross profile cancels the ground's cross-slope so the landing is level across
-  its width. The spec allows < 10° of tilt; a 13° slope at 90° yaw would be 13° without it.
+- **Build:** `KickerConfig` with `yaw` 45–70° and new option `tilt` (rad the ground falls
+  across it): the low side is built up in proportion to the feature's height, so the lip is
+  level and the landing level at its knuckle, easing back to the ground's cross-fall at the
+  run-out. Past ~70° the axis is nearly a traverse and fast airs overshoot onto flat ground,
+  so 45–70° and sizes S–M.
 - **Kit:** `designCorner(place, size, yaw)`, solved over the real terrain (§1).
 - **Outrun:** the ground turns the rider back downhill; nothing built. Optionally a berm (§14)
   on the outside.
@@ -292,7 +296,9 @@ steep back, on a ridge in natural zones. Lowest priority.
 1. **Turned-feature paint** and `meta.group` in the layout. *Done.*
 2. **Cheap, on existing machinery:** mini kicker, knoll, log, mini pipe, euro gap, gap to rail,
    jib tables in the generator. *Done* — `npm run obstacle-check` rides each one; results below.
-3. **Real-terrain solve in the kit**, then step-down, booter, cliff, corner.
+3. **Real-terrain solve in the kit**, then step-down, booter, cliff, corner. *Done* —
+   `groundFrame` / `stack` in `kit.ts`; every generated kicker is now solved over the real
+   ground (slowest air short of the knuckle: 21 of 60 → 5 of 61 on seeds 1–3).
 4. **New shapes:** wedge (then fun box), berm and wall `yaw`, step-down hip.
 5. **Physics first:** the hip quarter measurement, then tombstone taps (ask before the sim
    change).
@@ -317,3 +323,22 @@ never inline.
 
 Known: the generated terrain mesh is 2 m cells, so a mini pipe's 1–2 m walls render as soft
 rolls; the sim surface is exact. A finer mesh is the editor's tiled-mesh prerequisite.
+
+## Step 3 results (`npm run obstacle-check`, real ground)
+
+Test ground: 12° steepening to 32° (step-down, booter, drop); a 13° plane crossed at 60°
+(corner).
+
+| Obstacle | Result |
+|---|---|
+| Step-down M, 9 and 13 m/s, no / half / full pop | clean every time |
+| Booter, 10–14 m/s, no / half / full pop | clean every time |
+| Drop (6 m shelf), rolled off at 3–14 m/s | clean every time |
+| Corner M at 60° | levelled from 11.3° to 1.7° cross-fall past the knuckle; slowest speed no pop clean; full pop and top speed sketchy |
+
+The corner's sketchy airs come mostly from the test bot: with the stick neutral it can't hold a
+traverse, drifts 1–3 m down the cross-slope and lands off the levelled part. Needs riding.
+
+In generated parks (seeds 1–4) step-downs appear 4–8 times a park; booters and drops once in a
+few parks, because the generated ground has almost no slope over 25°. A natural zone with steep
+ground would make room for them.

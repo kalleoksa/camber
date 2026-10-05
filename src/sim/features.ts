@@ -6,7 +6,7 @@ import * as dm from './dmath.ts';
  * axis from (x, z) — the axis points down the fall line at yaw 0 and turns toward +X as yaw
  * grows — and `w` metres across it.
  */
-export type ShapeConfig = RollerConfig | SpineConfig | SideHitConfig | KnollConfig;
+export type ShapeConfig = RollerConfig | SpineConfig | SideHitConfig | KnollConfig | ShelfConfig;
 
 /** A smooth bump across the run: pump it for speed or pop a small air off it. */
 export type RollerConfig = { kind: 'roller'; x: number; z: number; yaw: number; height: number; length: number; width: number; taper: number };
@@ -40,6 +40,13 @@ export type SideHitConfig = { kind: 'sideHit'; x: number; z: number; yaw: number
  * `back` m downhill — shorter is a steeper back to drop. Pop off the top or roll over it.
  */
 export type KnollConfig = { kind: 'knoll'; x: number; z: number; yaw: number; height: number; radius: number; back: number };
+
+/**
+ * A drop, built up rather than dug: the ground rises gently over `rise` m to `height`, runs flat
+ * (with the ground) for `top` m, then ends in a face at `face` rad. Ride off the edge; the ground
+ * below is the landing, so it goes where the ground is already steep.
+ */
+export type ShelfConfig = { kind: 'shelf'; x: number; z: number; yaw: number; height: number; rise: number; top: number; face: number; width: number; taper: number };
 
 type Profile = (x: number, z: number) => number;
 
@@ -105,6 +112,17 @@ export function shapeProfile(cfg: ShapeConfig): Profile {
       return k.height * 0.5 * (1 + dm.cos(Math.PI * Math.sqrt(r2)));
     });
   }
+  if (cfg.kind === 'shelf') {
+    const f = cfg;
+    const edge = f.rise + f.top;
+    const end = edge + f.height / dm.tan(f.face);
+    return inFrame(f.x, f.z, f.yaw, (s, w) => {
+      if (s <= 0 || s >= end) return 0;
+      const across = smooth(1 - (Math.abs(w) - f.width / 2) / f.taper);
+      const up = s < f.rise ? f.height * smooth(s / f.rise) : s < edge ? f.height : f.height * (1 - (s - edge) / (end - edge));
+      return across * up;
+    });
+  }
   const h = cfg;
   const radius = h.height / (1 - dm.cos(h.angle));
   const runIn = radius * dm.sin(h.angle);
@@ -121,5 +139,6 @@ export function shapeLip(cfg: ShapeConfig): number {
   if (cfg.kind === 'sideHit') return (cfg.height / (1 - dm.cos(cfg.angle))) * dm.sin(cfg.angle);
   if (cfg.kind === 'roller') return cfg.length / 2;
   if (cfg.kind === 'knoll') return 0;
+  if (cfg.kind === 'shelf') return cfg.rise + cfg.top;
   return -1;
 }

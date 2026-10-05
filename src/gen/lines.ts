@@ -8,7 +8,7 @@ import type { GenConfig } from './config.ts';
 import { fly, launch, popRange } from './flight.ts';
 import { footprint, overlaps, type Footprint } from './footprint.ts';
 import { RAD, range } from './ground.ts';
-import { designEuroGap, designGapToRail, designHip, designJibTable, designKicker, designKnoll, designLog, designMini, designMiniPipe, designQuarter, designRail, designShape, designStepUp, type Place, type Size } from './kit.ts';
+import { designBooter, designCorner, dropAhead, designDrop, designEuroGap, designGapToRail, designHip, designJibTable, designKicker, designKnoll, designLog, designMini, designMiniPipe, designQuarter, designRail, designShape, designStepDown, designStepUp, type Place, type Size } from './kit.ts';
 
 /**
  * Spine lines: a few lines traced from the top down the fall line, drifting off it, with
@@ -20,7 +20,7 @@ import { designEuroGap, designGapToRail, designHip, designJibTable, designKicker
  */
 export type LinesResult = { features: FeatureSpec[]; lines: LineSpec[]; prints: Footprint[] };
 
-export type Kind = 'kicker' | 'stepUp' | 'hip' | 'rail' | 'roller' | 'spine' | 'mini' | 'euroGap' | 'gapToRail' | 'jibTable' | 'knoll' | 'log' | 'miniPipe';
+export type Kind = 'kicker' | 'stepUp' | 'hip' | 'rail' | 'roller' | 'spine' | 'mini' | 'euroGap' | 'gapToRail' | 'jibTable' | 'knoll' | 'log' | 'miniPipe' | 'stepDown' | 'booter' | 'drop' | 'corner';
 const SIZES: Size[] = ['S', 'M', 'L', 'XL'];
 const HIP_SPEED = { S: 13.5, M: 15.5, L: 18.5 }; // m/s at the lip each hip was built for (the home corner: ~18–20)
 
@@ -210,8 +210,8 @@ export function wantedSpeed(kind: Kind, hero: boolean, v: number, rng: Rng, cfg:
   const theta = k.lipAngle * RAD;
   const runIn = (h: number): number => (h / (1 - dm.cos(theta))) * dm.sin(theta);
   const lipSpeed = (h: number): number => Math.sqrt(Math.max(0, v * v - 2 * g * h - 2 * params.ground.friction * g * runIn(h)));
-  if (kind === 'kicker' || kind === 'stepUp' || kind === 'euroGap') {
-    const sizes = hero ? (['L', 'XL'] as Size[]) : kind === 'stepUp' ? (['M'] as Size[]) : kind === 'euroGap' ? (cfg.euroGap.sizes as Size[]) : SIZES;
+  if (kind === 'kicker' || kind === 'stepUp' || kind === 'euroGap' || kind === 'stepDown' || kind === 'corner') {
+    const sizes = hero ? (['L', 'XL'] as Size[]) : kind === 'stepUp' ? (['M'] as Size[]) : kind === 'euroGap' ? (cfg.euroGap.sizes as Size[]) : kind === 'corner' ? (cfg.corner.sizes as Size[]) : SIZES;
     // The largest size the speed reaches; a bench takes care of too much. Some randomness so
     // not every jump is the biggest that fits.
     let size = sizes[0] ?? 'M';
@@ -233,6 +233,8 @@ export function wantedSpeed(kind: Kind, hero: boolean, v: number, rng: Rng, cfg:
     return { size: 'S', hipSize: 'S', speed: cfg.lines.railSpeed as [number, number], lipHeight: cfg.jibTable.lip, runIn: (cfg.jibTable.lip / (1 - dm.cos(a))) * dm.sin(a) };
   }
   if (kind === 'gapToRail') return { size: 'S', hipSize: 'S', speed: cfg.gapToRail.speed as [number, number], lipHeight: cfg.gapToRail.height[1] ?? 1, runIn: 3 };
+  if (kind === 'booter') return { size: 'L', hipSize: 'S', speed: cfg.booter.speed as [number, number], lipHeight: cfg.booter.height[1] ?? 4, runIn: 8 };
+  if (kind === 'drop') return { size: 'S', hipSize: 'S', speed: cfg.drop.speed as [number, number], lipHeight: cfg.drop.height[1] ?? 6, runIn: 0 };
   if (kind === 'mini') return { size: 'S', hipSize: 'S', speed: cfg.mini.speed as [number, number], lipHeight: cfg.mini.height[1] ?? 0.7, runIn: 2 };
   return { size: 'S', hipSize: 'S', speed: [0, 1e9], lipHeight: 0, runIn: 0 };
 }
@@ -247,7 +249,8 @@ export function build(kind: Kind, want: Want, place: Place, rng: Rng, ground: Te
   const landingPitch = dm.atan(Math.max(0, (h0 - h1) / d));
   if (kind === 'kicker') {
     const f = designKicker(place, want.size, landingPitch, cfg, params, ground);
-    if (f.meta) f.meta.type = 'kicker';
+    // Solved over the ground as it is, so where that falls away below it, it is a step-down.
+    if (f.meta) f.meta.type = dropAhead(ground, place, cfg.stepDown.probe) >= (cfg.stepDown.drop[0] ?? 0.5) ? 'stepDown' : 'kicker';
     return [f];
   }
   if (kind === 'stepUp') return [designStepUp(place, rng, landingPitch, cfg, params)];
@@ -263,6 +266,16 @@ export function build(kind: Kind, want: Want, place: Place, rng: Rng, ground: Te
   if (kind === 'jibTable') return designJibTable(place, rng, cfg);
   if (kind === 'euroGap') return designEuroGap(place, want.size, landingPitch, rng, cfg, params);
   if (kind === 'gapToRail') return designGapToRail(place, landingPitch, rng, cfg, params);
+  if (kind === 'stepDown') return designStepDown(place, want.size, landingPitch, ground, cfg, params);
+  if (kind === 'booter') return designBooter(place, ground, rng, cfg, params);
+  if (kind === 'drop') return designDrop(place, ground, rng, cfg, params);
+  if (kind === 'corner') {
+    // Turned across the slope, either way.
+    const n = ground.sample(place.x, place.z, c).normal;
+    const off = (cfg.corner.yaw[0] ?? 45) + next(rng) * ((cfg.corner.yaw[1] ?? 90) - (cfg.corner.yaw[0] ?? 45));
+    const yaw = dm.atan2(n.x, -n.z) + (next(rng) < 0.5 ? -1 : 1) * off * RAD;
+    return designCorner({ ...place, yaw }, want.size, ground, cfg, params);
+  }
   if (kind === 'miniPipe') {
     // Down the fall line, give or take a little: a pipe across the hill would be a traverse.
     const n = ground.sample(place.x, place.z, c).normal;

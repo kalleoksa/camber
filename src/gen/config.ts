@@ -45,7 +45,7 @@ export const GEN = {
     spacing: [15, 40], // m between one feature's run-out and the next one's run-in
     lead: 30, // m of riding before the first feature
     endMargin: 60, // m before the zone's bottom to stop placing
-    mix: { kicker: 0.4, stepUp: 0.08, hip: 0.1, rail: 0.15, roller: 0.08, spine: 0.07, mini: 0.06, euroGap: 0.04, gapToRail: 0.04, jibTable: 0.06 }, // relative odds per feature
+    mix: { kicker: 0.42, stepUp: 0.08, hip: 0.1, rail: 0.15, roller: 0.08, spine: 0.07, mini: 0.06, euroGap: 0.04, gapToRail: 0.04, jibTable: 0.06 }, // relative odds per feature
     hero: 0.55, // fraction of the way down a line where its hero (an L/XL kicker or a big hip) goes
     railSpeed: [4, 10], // m/s a rail or box is ridden at
     spineSpeed: 9, // m/s to get up and over a spine
@@ -63,7 +63,7 @@ export const GEN = {
     attempts: 1500,
     spacing: 30, // m at least between a fill feature and any other feature's origin
     yaw: 60, // ° off the fall line, at most
-    mix: { kicker: 0.28, stepUp: 0.05, hip: 0.13, rail: 0.15, roller: 0.08, spine: 0.08, mini: 0.08, euroGap: 0.03, gapToRail: 0.03, jibTable: 0.05, knoll: 0.07, log: 0.04, miniPipe: 0.04 },
+    mix: { kicker: 0.28, stepUp: 0.05, hip: 0.13, rail: 0.15, roller: 0.08, spine: 0.08, mini: 0.08, euroGap: 0.03, gapToRail: 0.03, jibTable: 0.05, knoll: 0.07, log: 0.04, miniPipe: 0.04, booter: 0.04, drop: 0.04, corner: 0.05 },
     sideHit: 0.15, // odds a fill feature is a side hit near the zone's edge instead
   },
 
@@ -142,6 +142,11 @@ export const GEN = {
     gap: [1, 4], // m from the takeoff's back to the rail
     rail: { length: [4, 8], height: [0.5, 2.5], end: 0.5, over: 0.15, steep: 0.75 }, // a down rail. height: m above the snow at its start; end: at its end; over: m above its top the air is where it starts; steep: fraction of rail.captureAngle the air may meet it at
   },
+  // Build step 3: solved over the real ground (kit.ts groundFrame).
+  stepDown: { drop: [0.5, 6], probe: 30 }, // drop: m the ground below falls away from the run-in's grade, `probe` m past the takeoff — generated ground is gentle, so a kicker that has it is called a step-down
+  booter: { height: [2.5, 4], angle: [28, 32], back: 2.5, width: [5, 6], taper: 1.5, speed: [10, 18], landing: [22, 38], span: 2 }, // a natural kicker, no landing built: lands on ground at `landing`° (from horizontal); span: m/s of speeds that must work
+  drop: { height: [2, 6], rise: [30, 50], top: [6, 10], face: 70, width: [8, 14], taper: 3, speed: [6, 14] }, // a cliff built as a shelf: rise, top in m; face in °
+  corner: { yaw: [45, 70], sizes: ['S', 'M'] }, // ° off the fall line the takeoff faces: past ~70° its axis is nearly a traverse and fast airs overshoot onto flat ground
   jibTable: { lip: 1.5, lipAngle: 23, width: 8, deck: [12, 20], sideTaper: 3, landingAngle: 20, knuckleRadius: 10, runoutRadius: 10, rail: { start: 1, end: 2, length: [6, 12], height: [0.3, 0.5] }, box: 0.5 },
 };
 

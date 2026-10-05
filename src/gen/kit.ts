@@ -1,5 +1,5 @@
 import * as dm from '../sim/dmath.ts';
-import { shapeLip, type ShapeConfig, type SideHitConfig } from '../sim/features.ts';
+import { shapeLip, type ShapeConfig, type ShelfConfig, type SideHitConfig } from '../sim/features.ts';
 import type { Params } from '../sim/params.ts';
 import type { RailConfig } from '../sim/rails.ts';
 import { hipTakeoff } from '../sim/hip.ts';
@@ -81,7 +81,7 @@ const onBase = (base: Terrain, kickers: KickerConfig[]): Terrain => stack(base, 
  * the flights and the ride run over it as it is — a landing that falls away steepens under
  * them — otherwise over a plane at `groundPitch`, the grade under the landing.
  */
-export function designKicker(place: Place, size: Size, groundPitch: number, cfg: GenConfig, params: Params, ground?: Terrain): FeatureSpec {
+export function designKicker(place: Place, size: Size, groundPitch: number, cfg: GenConfig, params: Params, ground?: Terrain, tilt = 0): FeatureSpec {
   const k = cfg.kicker;
   const preset = k.sizes[size];
   const H = preset.lip;
@@ -112,6 +112,7 @@ export function designKicker(place: Place, size: Size, groundPitch: number, cfg:
     landingAngle,
     knuckleRadius,
     runoutRadius,
+    ...(tilt !== 0 ? { tilt } : {}),
     };
   };
   const radius = H / (1 - dm.cos(theta));
@@ -596,4 +597,105 @@ export function designJibTable(place: Place, rng: Rng, cfg: GenConfig): FeatureS
     { kind: 'kicker', cfg: table, meta: { type: 'jibTable', speed: cfg.lines.railSpeed as [number, number], lip: runIn } },
     { kind: 'rail', cfg: box ? { points, width: J.box } : { points }, meta: { type: box ? 'box' : 'rail' } },
   ];
+}
+
+// Build step 3: obstacles solved over the real ground. `ground` is the ground alone (no
+// features), as the generator has it.
+
+/** m the ground falls away below the run-in's grade, `probe` m along `place`'s axis. */
+export function dropAhead(ground: Terrain, place: Place, probe: number): number {
+  const base = groundFrame(ground, place);
+  const c = createContact();
+  const h0 = base.sample(0, 0, c).height;
+  const grade = (h0 - base.sample(0, -8, c).height) / 8; // the run-in's fall per metre
+  return h0 - grade * probe - base.sample(0, -probe, c).height;
+}
+
+/** Step-down: a kicker where the ground falls away below it, solved over that ground. */
+export function designStepDown(place: Place, size: Size, groundPitch: number, ground: Terrain, cfg: GenConfig, params: Params): FeatureSpec[] {
+  const drop = dropAhead(ground, place, cfg.stepDown.probe);
+  if (drop < (cfg.stepDown.drop[0] ?? 1) || drop > (cfg.stepDown.drop[1] ?? 6)) return [];
+  const f = designKicker(place, size, groundPitch, cfg, params, ground);
+  f.meta = { ...(f.meta ?? { type: 'stepDown' }), type: 'stepDown' };
+  return [f];
+}
+
+/**
+ * Booter: a big natural kicker with nothing built after it — the ground below is the landing.
+ * Only where, over a run of speeds `span` m/s wide, a medium air comes down clean on ground
+ * that is `landing`° steep; then the real rider rides it once at the middle speed.
+ */
+export function designBooter(place: Place, ground: Terrain, rng: Rng, cfg: GenConfig, params: Params): FeatureSpec[] {
+  const B = cfg.booter;
+  const hit: SideHitConfig = { kind: 'sideHit', x: 0, z: 0, yaw: 0, height: range(rng, B.height), angle: range(rng, B.angle) * RAD, back: B.back, width: range(rng, B.width), taper: B.taper };
+  const runIn = shapeLip(hit);
+  const base = groundFrame(ground, place);
+  const t = stack(base, createSlope({ length: 600, width: 600, pitch: 0, shapes: [hit] }));
+  const [popMin, popMax] = popRange(params);
+  const c = createContact();
+  const good: number[] = [];
+  for (let v = B.speed[0] ?? 10; v <= (B.speed[1] ?? 18) + 1e-9; v += 1) {
+    const lipZ = -runIn + 0.02;
+    const l = launch(t, 0, lipZ, 0, -1, v, (popMin + popMax) / 2);
+    const f = fly(t, params, 0, l.y, lipZ, l.vx, l.vy, l.vz, 6, false);
+    const steep = dm.acos(base.sample(f.x, f.z, c).normal.y) / RAD;
+    if (f.grade === 'clean' && steep >= (B.landing[0] ?? 28) && steep <= (B.landing[1] ?? 38)) good.push(v);
+    else if (good.length) break;
+  }
+  const lo = good[0];
+  const hi = good[good.length - 1];
+  if (lo === undefined || hi === undefined || hi - lo < B.span) return [];
+  const mid = (lo + hi) / 2;
+  if (rideKicker(t, params, 0, runIn, 0, mid, false).landing !== 'clean') return [];
+  return [{ kind: 'shape', cfg: { ...hit, ...place }, meta: { type: 'booter', speed: [lo, hi], lip: runIn } }];
+}
+
+/**
+ * Cliff drop, built as a shelf the ground rises onto (the ground can't be cut). The tallest
+ * height in range whose edge, ridden off without a pop or with a medium one at the slowest,
+ * middle and top speed, lands clean on the ground below; then the real rider rides it once.
+ */
+export function designDrop(place: Place, ground: Terrain, rng: Rng, cfg: GenConfig, params: Params): FeatureSpec[] {
+  const D = cfg.drop;
+  const base = groundFrame(ground, place);
+  const [vMin = 6, vMax = 14] = D.speed;
+  const [popMin, popMax] = popRange(params);
+  const rise = range(rng, D.rise);
+  const top = range(rng, D.top);
+  const width = range(rng, D.width);
+  const edge = rise + top;
+  for (let height = D.height[1] ?? 6; height >= (D.height[0] ?? 2) - 1e-9; height -= 0.5) {
+    const shelf: ShelfConfig = { kind: 'shelf', x: 0, z: 0, yaw: 0, height, rise, top, face: D.face * RAD, width, taper: D.taper };
+    const t = stack(base, createSlope({ length: 600, width: 600, pitch: 0, shapes: [shelf] }));
+    let ok = true;
+    for (const v of [vMin, (vMin + vMax) / 2, vMax]) {
+      for (const pop of [0, (popMin + popMax) / 2]) {
+        const lipZ = -edge + 0.02;
+        const l = launch(t, 0, lipZ, 0, -1, v, pop);
+        if (fly(t, params, 0, l.y, lipZ, l.vx, l.vy, l.vz, 6, false).grade !== 'clean') ok = false;
+      }
+    }
+    if (!ok) continue;
+    if (rideKicker(t, params, 0, edge, 0, (vMin + vMax) / 2, false).landing !== 'clean') continue;
+    return [{ kind: 'shape', cfg: { ...shelf, ...place }, meta: { type: 'drop', speed: [vMin, vMax], lip: edge } }];
+  }
+  return [];
+}
+
+/**
+ * Corner: a kicker whose takeoff faces across the slope; the landing lines up with the flight
+ * and the ground turns the rider back down the hill after it. Built level across (`tilt`),
+ * solved over the real ground.
+ */
+export function designCorner(place: Place, size: Size, ground: Terrain, cfg: GenConfig, params: Params): FeatureSpec[] {
+  const base = groundFrame(ground, place);
+  const c = createContact();
+  // The ground's fall across the axis and along it, a little way down the landing.
+  const n = base.sample(0, -15, c).normal;
+  const tilt = dm.atan(n.x / n.y);
+  const h0 = base.sample(0, -8, c).height;
+  const along = dm.atan(Math.max(0, (h0 - base.sample(0, -26, c).height) / 18));
+  const f = designKicker(place, size, along, cfg, params, ground, tilt);
+  f.meta = { ...(f.meta ?? { type: 'corner' }), type: 'corner' };
+  return [f];
 }
