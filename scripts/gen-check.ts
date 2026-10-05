@@ -23,7 +23,8 @@ for (let seed = from; seed <= to; seed++) {
   const hash = createHash('sha1').update(JSON.stringify(layout)).digest('hex').slice(0, 10);
   const again = createHash('sha1').update(JSON.stringify(generateLayout(seed))).digest('hex').slice(0, 10);
   const t1 = performance.now();
-  const terrain = createSlope(toSlopeConfig(layout));
+  // Ground only: the features would count their own faces as steep spots.
+  const terrain = createSlope(toSlopeConfig({ ...layout, features: [] }));
   const bakeMs = performance.now() - t1;
   const c = createContact();
   const count = BANDS.map(() => 0);

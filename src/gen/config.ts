@@ -30,6 +30,38 @@ export const GEN = {
     cruise: [10, 20], // the grade a patch recovers on
     maxPitch: 35, // no recovery segment steeper than this; it runs longer instead
   },
+
+  // Feature kit (kit.ts). Kicker landings are solved from the flight, never set by hand: these
+  // are the inputs and the rules the solve follows (terrain spec, jump generator).
+  kicker: {
+    lipAngle: 30, // ° above the ground under it
+    sizes: {
+      S: { lip: 1.5, speed: [7, 10] }, // m lip height, m/s at the lip
+      M: { lip: 2.5, speed: [9, 13] },
+      L: { lip: 3.5, speed: [12, 15] },
+      XL: { lip: 5, speed: [15, 18] },
+    },
+    knuckleFraction: 0.5, // knuckle height as a fraction of the lip's, to start from
+    knuckleClear: 1, // m short of where the slowest, unpopped air comes down to knuckle height
+    knuckleRadius: 10,
+    runoutRadius: 20,
+    landing: [28, 35], // ° from horizontal
+    sweetOffset: 4, // ° the landing is laid back from the flight at the sweet spot
+    landingMargin: 0.2, // landing runs this much past the fastest air's touchdown (vMax, medium pop)
+    knuckleMax: 1, // knuckle height cap, × lip: higher than the lip is a step-up
+    width: 5, // m of takeoff
+    landingExtra: 6, // m the landing hill is wider than the takeoff
+    sideTaper: 1, // m the takeoff's sides roll off over
+    deckTaper: 4, // m the landing hill's sides roll off over
+    iterations: 12,
+  },
+  stepUp: { size: 'M', rise: [1.5, 3], face: 2, landingOnTop: 2, topMargin: 3 }, // rise: m the top stands above the lip; land this far onto it at vMin
+  hip: { scale: { S: 0.55, M: 0.75, L: 1 }, lip: 8.2, lipAngle: 49, deckLength: 22.8, deckWidth: 11.4, landingAngle: 29, knuckleRadius: 8, runoutRadius: 29, flare: 4, edgeSlope: 1.7 },
+  quarter: { height: [3, 4.5], angle: 83, radius: [3.5, 5], width: [12, 20], deck: 3, sideTaper: 3 },
+  spine: { height: [2, 3.5], angle: 30, knuckleRadius: 6, footRadius: 10, width: [8, 14], taper: 3 },
+  roller: { height: [0.8, 1.6], length: [10, 16], width: [10, 18], taper: 4 },
+  sideHit: { height: [0.8, 1.5], angle: 25, back: 2, width: [3, 5], taper: 1.5 },
+  rail: { length: [8, 16], height: [0.4, 0.7], boxWidth: 0.5, kink: 0.35 }, // kink: rise of a flat-down's flat part, m
 };
 
 export type GenConfig = typeof GEN;

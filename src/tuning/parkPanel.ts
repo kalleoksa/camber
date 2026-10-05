@@ -4,19 +4,21 @@ import { LEGEND, type OverlayName, type Overlays } from '../render/debugOverlays
 /**
  * The park folder: which park, the generator's seed, and the debug overlays. A new seed
  * reloads the page on it (?park=gen&seed=N), so the whole world is rebuilt from the layout
- * and the URL can be shared; ?overlay=slope|speed starts with that overlay showing.
+ * and the URL can be shared; ?overlay=slope|speed|arcs starts with that overlay showing,
+ * &view=top with the overview camera, &at=x,z at that spot.
  */
-export function addParkFolder(pane: Pane, park: string, seed: number, overlays: Overlays): void {
+export function addParkFolder(pane: Pane, park: string, seed: number, overlays: Overlays, onOverview: (on: boolean) => void): void {
   const query = new URLSearchParams(location.search);
   const start = query.get('overlay');
-  const overlay: OverlayName = start === 'slope' || start === 'speed' ? start : 'none';
-  const state = { park, seed, overlay, legend: LEGEND[overlay] };
+  const overlay: OverlayName = start === 'slope' || start === 'speed' || start === 'arcs' ? start : 'none';
+  const state = { park, seed, overlay, legend: LEGEND[overlay], overview: query.get('view') === 'top' };
   overlays.show(overlay);
+  onOverview(state.overview);
   const folder = pane.addFolder({ title: 'park', expanded: false });
   folder.addBinding(state, 'park', { readonly: true });
   folder.addBinding(state, 'seed', { step: 1, min: 1, format: (v: number) => v.toFixed(0) });
   const go = (s: number): void => {
-    location.search = `?park=gen&seed=${s}${state.overlay !== 'none' ? `&overlay=${state.overlay}` : ''}`;
+    location.search = `?park=gen&seed=${s}${state.overlay !== 'none' ? `&overlay=${state.overlay}` : ''}${state.overview ? '&view=top' : ''}`;
   };
   folder.addButton({ title: 'load seed' }).on('click', () => go(Math.round(state.seed)));
   folder.addButton({ title: 'regenerate (new seed)' }).on('click', () => go(1 + Math.floor(Math.random() * 99999)));
@@ -25,10 +27,12 @@ export function addParkFolder(pane: Pane, park: string, seed: number, overlays: 
   });
   const legend = folder.addBinding(state, 'legend', { readonly: true, multiline: true, rows: 4, label: 'key' });
   folder
-    .addBinding(state, 'overlay', { options: { none: 'none', 'slope heatmap': 'slope', 'speed map': 'speed' } })
+    .addBinding(state, 'overlay', { options: { none: 'none', 'slope heatmap': 'slope', 'speed map': 'speed', 'design arcs': 'arcs' } })
     .on('change', (ev) => {
       overlays.show(ev.value);
       state.legend = LEGEND[ev.value];
       legend.refresh();
     });
+  // A camera high above the rider looking down the hill, for reading the overlays (&view=top).
+  folder.addBinding(state, 'overview', { label: 'overview camera' }).on('change', (ev) => onOverview(ev.value));
 }

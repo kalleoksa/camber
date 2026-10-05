@@ -1,5 +1,6 @@
 import { normalize, vec3, type Vec3 } from './vec3.ts';
 import * as dm from './dmath.ts';
+import { shapeProfile, turned, type ShapeConfig } from './features.ts';
 import { buildField, sampleField, type FieldConfig, type FieldSample } from './heightfield.ts';
 import { buildRail, type Rail, type RailConfig } from './rails.ts';
 
@@ -48,6 +49,8 @@ export type SlopeConfig = {
   grades?: GradeConfig[];
   /** Generated ground (heightfield.ts) in place of the plane, its banks and grades. */
   field?: FieldConfig;
+  /** Rollers, spines, side hits (features.ts). */
+  shapes?: ShapeConfig[];
 };
 
 /**
@@ -79,6 +82,7 @@ export type CornerConfig = {
    * knuckle a strip of snow rises at `edgeSlope` (rise per m).
    */
   hip?: { flare: number; edgeSlope: number };
+  yaw?: number; // rad, turned about (x, z) off the fall line, toward +X as it grows
 };
 
 /**
@@ -99,6 +103,7 @@ export type QuarterConfig = {
   sideTaper: number; // m over which the sides roll off
   side?: 1 | -1; // set: faces across the slope, rising toward +X or −X, as one wall of a halfpipe
   backAngle?: number; // rad of the back face; defaults to `angle`, a drop off the deck
+  yaw?: number; // rad, turned about (x, z) off the fall line, toward +X as it grows
 };
 
 export type GradeConfig = {
@@ -165,6 +170,9 @@ export type KickerConfig = {
    */
   knuckleHeight?: number;
   backLength?: number; // m, the lip's back face; defaults to 0.4 × lipHeight (steep)
+  /** m of flat top at knuckle height before the landing starts: with `knuckleHeight` above the lip, a step-up. */
+  topLength?: number;
+  yaw?: number; // rad, turned about (x, z) off the fall line, toward +X as it grows
 };
 
 export function createContact(): Contact {
@@ -188,10 +196,11 @@ export function createSlope(cfg: SlopeConfig): Terrain {
     return bankHeight * t * t;
   };
 
-  const kickers = (cfg.kickers ?? (cfg.kicker ? [cfg.kicker] : [])).map(kickerProfile);
+  const kickers = (cfg.kickers ?? (cfg.kicker ? [cfg.kicker] : [])).map((k) => turned(k.x, k.z, k.yaw, kickerProfile(k)));
   const walls = (cfg.walls ?? []).map(wallProfile);
-  const corners = (cfg.corners ?? []).map(cornerProfile);
-  const quarters = (cfg.quarters ?? []).map(quarterProfile);
+  const corners = (cfg.corners ?? []).map((c) => turned(c.x, c.z, c.yaw, cornerProfile(c)));
+  const quarters = (cfg.quarters ?? []).map((q) => turned(q.x, q.z, q.yaw, quarterProfile(q)));
+  const shapes = (cfg.shapes ?? []).map(shapeProfile);
   const grades = gradeProfile(cfg.pitch, cfg.grades ?? []);
 
   // Features merge by max, so twin kickers can share a table; each is ≥ 0, so where only
@@ -203,6 +212,7 @@ export function createSlope(cfg: SlopeConfig): Terrain {
     for (let i = 0; i < walls.length; i++) h = Math.max(h, walls[i]?.(x, z) ?? 0);
     for (let i = 0; i < corners.length; i++) h = Math.max(h, corners[i]?.(x, z) ?? 0);
     for (let i = 0; i < quarters.length; i++) h = Math.max(h, quarters[i]?.(x, z) ?? 0);
+    for (let i = 0; i < shapes.length; i++) h = Math.max(h, shapes[i]?.(x, z) ?? 0);
     if (grades) h += grades(x, z);
     return h;
   };
@@ -297,15 +307,17 @@ function kickerProfile(k: KickerConfig): Profile {
   // The landing starts at the knuckle: the lip's height on a table, its own on a gap jump.
   const top = k.knuckleHeight ?? k.lipHeight;
   const straightLen = park ? Math.max(0, top - knuckleDrop - runoutRise) / slopeAlpha : 0;
-  const knuckleEnd = deckEnd + knuckleLen;
+  // A step-up holds its top flat for `topLength` before the knuckle: somewhere to land.
+  const landStart = deckEnd + (k.topLength ?? 0);
+  const knuckleEnd = landStart + knuckleLen;
   const straightEnd = knuckleEnd + straightLen;
   const end = park ? straightEnd + runoutLen : deckEnd + (k.landingLength ?? 0);
 
   // Deck and landing height at s ≥ runIn, park landing only (a wide table implies one).
   const tableHeight = (s: number): number => {
-    if (s < deckEnd) return top;
+    if (s < landStart) return top;
     if (s < knuckleEnd) {
-      const u = s - deckEnd;
+      const u = s - landStart;
       return top - (rk - Math.sqrt(rk * rk - u * u));
     }
     if (s < straightEnd) return top - knuckleDrop - (s - knuckleEnd) * slopeAlpha;

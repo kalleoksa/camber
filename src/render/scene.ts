@@ -241,9 +241,10 @@ function gridColumns(cfg: SlopeConfig, cell: number): number[] {
     const to = Math.max(w.x, w.x + w.side * span) + 0.5;
     for (let x = from; x <= to; x += 0.1) xs.push(x);
   }
-  // Cut takeoffs: fine columns across each side so the wall is a wall, not a ramp.
+  // Cut takeoffs: fine columns across each side so the wall is a wall, not a ramp. Turned
+  // ones (yaw) run across the columns, so they don't get them.
   for (const k of takeoffs(cfg)) {
-    if (k.sideTaper > 1) continue;
+    if (k.sideTaper > 1 || k.yaw) continue;
     for (const side of [-1, 1]) {
       const edge = k.x + side * k.width * 0.5;
       for (let x = edge - 0.3; x <= edge + 0.3 + k.sideTaper; x += 0.1) xs.push(side > 0 ? x : 2 * edge - x);
@@ -251,7 +252,7 @@ function gridColumns(cfg: SlopeConfig, cell: number): number[] {
   }
   // A hip's flared run-in: its edges run diagonally, so fine columns across the whole flare.
   for (const c of cfg.corners ?? []) {
-    if (!c.hip) continue;
+    if (!c.hip || c.yaw) continue;
     for (const side of [-1, 1]) {
       for (let d = c.deckWidth * 0.5 - 0.3; d <= c.deckWidth * 0.5 + c.hip.flare + 3; d += 0.15) xs.push(c.x + side * d);
     }
@@ -366,7 +367,7 @@ function edgeLines(cfg: SlopeConfig, terrain: Terrain): THREE.Group {
     group.add(new THREE.Mesh(new THREE.TubeGeometry(curve, points.length * 2, 0.045, 6, false), material));
   };
   for (const k of takeoffs(cfg)) {
-    if (k.sideTaper > 1) continue;
+    if (k.sideTaper > 1 || k.yaw) continue; // paint runs along the axes; turned features go without for now
     const runIn = (k.lipHeight / (1 - Math.cos(k.lipAngle))) * Math.sin(k.lipAngle);
     const lip = k.z - runIn;
     const half = k.width * 0.5;
@@ -391,7 +392,7 @@ function edgeLines(cfg: SlopeConfig, terrain: Terrain): THREE.Group {
   }
   // A corner's deck edges too — the knuckle on all three sides, where its landings start.
   for (const c of cfg.corners ?? []) {
-    if (c.sideTaper > 1) continue;
+    if (c.sideTaper > 1 || c.yaw) continue;
     const lip = c.z - (c.lipHeight / (1 - Math.cos(c.lipAngle))) * Math.sin(c.lipAngle);
     const end = lip - c.deckLength + 0.05;
     const half = c.deckWidth * 0.5 - 0.05;

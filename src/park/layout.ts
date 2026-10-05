@@ -1,4 +1,5 @@
 import type { RailConfig } from '../sim/rails.ts';
+import type { ShapeConfig } from '../sim/features.ts';
 import type { FieldConfig } from '../sim/heightfield.ts';
 import type { CornerConfig, GradeConfig, KickerConfig, QuarterConfig, SlopeConfig, WallConfig } from '../sim/terrain.ts';
 
@@ -23,14 +24,22 @@ export type Layout = {
 /** The base slope: a plane at `pitch` reshaped by grades down the hill, or a generated field. */
 export type Ground = { length: number; width: number; pitch: number; grades?: GradeConfig[]; field?: FieldConfig };
 
-export type FeatureMeta = { type: string; speed?: [number, number]; hero?: boolean };
+export type FeatureMeta = {
+  type: string;
+  size?: string;
+  speed?: [number, number]; // m/s at the lip it was designed for
+  hero?: boolean;
+  lip?: number; // m along its axis from (x, z) to where it takes off
+  checks?: { speed: number; pop: number; grade: string; impact: number; past: number }[]; // designed airs
+};
 
 export type FeatureSpec =
   | { kind: 'kicker'; cfg: KickerConfig; meta?: FeatureMeta }
   | { kind: 'corner'; cfg: CornerConfig; meta?: FeatureMeta }
   | { kind: 'quarter'; cfg: QuarterConfig; meta?: FeatureMeta }
   | { kind: 'wall'; cfg: WallConfig; meta?: FeatureMeta }
-  | { kind: 'rail'; cfg: RailConfig; meta?: FeatureMeta };
+  | { kind: 'rail'; cfg: RailConfig; meta?: FeatureMeta }
+  | { kind: 'shape'; cfg: ShapeConfig; meta?: FeatureMeta };
 
 /** A line: feature indices in riding order, with the speed each is designed to be hit at. */
 export type LineSpec = { name: string; features: number[]; speed: number[] };
@@ -48,11 +57,13 @@ export function toSlopeConfig(layout: Layout): SlopeConfig {
   const quarters: QuarterConfig[] = [];
   const walls: WallConfig[] = [];
   const rails: RailConfig[] = [];
+  const shapes: ShapeConfig[] = [];
   for (const f of layout.features) {
     if (f.kind === 'kicker') kickers.push(f.cfg);
     else if (f.kind === 'corner') corners.push(f.cfg);
     else if (f.kind === 'quarter') quarters.push(f.cfg);
     else if (f.kind === 'wall') walls.push(f.cfg);
+    else if (f.kind === 'shape') shapes.push(f.cfg);
     else rails.push(f.cfg);
   }
   if (kickers.length) cfg.kickers = kickers;
@@ -60,6 +71,7 @@ export function toSlopeConfig(layout: Layout): SlopeConfig {
   if (quarters.length) cfg.quarters = quarters;
   if (walls.length) cfg.walls = walls;
   if (rails.length) cfg.rails = rails;
+  if (shapes.length) cfg.shapes = shapes;
   return cfg;
 }
 

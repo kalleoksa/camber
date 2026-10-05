@@ -1,6 +1,9 @@
 import * as THREE from 'three';
+import { fly, launch, popRange } from '../gen/flight.ts';
 import type { SpeedMap } from '../gen/speedmap.ts';
 import { speedAt } from '../gen/speedmap.ts';
+import type { Layout } from '../park/layout.ts';
+import type { Params } from '../sim/params.ts';
 import { createContact, type Terrain } from '../sim/terrain.ts';
 
 /**
@@ -8,7 +11,7 @@ import { createContact, type Terrain } from '../sim/terrain.ts';
  * over the terrain mesh, sharing its vertices, and only read the terrain: nothing here feeds
  * back into the sim.
  */
-export type OverlayName = 'none' | 'slope' | 'speed';
+export type OverlayName = 'none' | 'slope' | 'speed' | 'arcs';
 export type Overlays = { show(name: OverlayName): void };
 
 const DEG = 180 / Math.PI;
@@ -38,9 +41,10 @@ export const LEGEND: Record<OverlayName, string> = {
   none: '',
   slope: 'blue 0–5° · cyan 5–10 · green 10–20 · yellow 20–25 · orange 25–30 · red 30–35 · magenta >35',
   speed: 'straight down the fall line, km/h: purple <5 (stalls) · blue <25 · green 25–45 · yellow <65 · orange <80 · red faster. Ticks: fall line',
+  arcs: 'per kicker, the designed airs: blue slowest (no pop) · green middle · red fastest (medium pop). Ball at touchdown: white clean, orange sketchy, red bail. Post: the knuckle',
 };
 
-export function createOverlays(scene: THREE.Scene, ground: THREE.Mesh, terrain: Terrain, speedMap: SpeedMap | undefined): Overlays {
+export function createOverlays(scene: THREE.Scene, ground: THREE.Mesh, terrain: Terrain, speedMap: SpeedMap | undefined, layout: Layout, params: Params): Overlays {
   const position = ground.geometry.getAttribute('position');
   const contact = createContact();
   const colour = new THREE.Color();
@@ -78,6 +82,11 @@ export function createOverlays(scene: THREE.Scene, ground: THREE.Mesh, terrain: 
       scene.add(group);
       return group;
     }
+    if (name === 'arcs') {
+      const group = designArcs(layout, terrain, params);
+      scene.add(group);
+      return group;
+    }
     return undefined;
   };
 
@@ -112,4 +121,49 @@ function fallLineTicks(map: SpeedMap, terrain: Terrain): THREE.LineSegments {
   const geometry = new THREE.BufferGeometry();
   geometry.setAttribute('position', new THREE.Float32BufferAttribute(points, 3));
   return new THREE.LineSegments(geometry, new THREE.LineBasicMaterial({ color: 0x1b2430 }));
+}
+
+const GRADE_COLOUR = { clean: 0xffffff, sketchy: 0xec9a2c, bail: 0xd9452b };
+
+/** Each kicker's designed airs, flown over the real terrain from its lip. */
+function designArcs(layout: Layout, terrain: Terrain, params: Params): THREE.Group {
+  const group = new THREE.Group();
+  const [popMin, popMax] = popRange(params);
+  const popMid = (popMin + popMax) / 2;
+  const ball = new THREE.SphereGeometry(0.35, 10, 8);
+  const post = new THREE.CylinderGeometry(0.08, 0.08, 3, 6);
+  const contact = createContact();
+  for (const f of layout.features) {
+    if (f.kind !== 'kicker' || !f.meta?.speed || f.meta.lip === undefined) continue;
+    const k = f.cfg;
+    const yaw = k.yaw ?? 0;
+    const dx = Math.sin(yaw);
+    const dz = -Math.cos(yaw);
+    const lipX = k.x + dx * (f.meta.lip - 0.02);
+    const lipZ = k.z + dz * (f.meta.lip - 0.02);
+    const [vMin, vMax] = f.meta.speed;
+    const airs: [number, number, number][] = [
+      [vMin, popMin, 0x3d7bd9],
+      [(vMin + vMax) / 2, popMid, 0x4fbf5a],
+      [vMax, popMid, 0xd9452b],
+    ];
+    for (const [speed, pop, colour] of airs) {
+      const l = launch(terrain, lipX, lipZ, dx, dz, speed, pop);
+      const flight = fly(terrain, params, lipX, l.y, lipZ, l.vx, l.vy, l.vz);
+      const geometry = new THREE.BufferGeometry();
+      geometry.setAttribute('position', new THREE.Float32BufferAttribute([lipX, l.y, lipZ, ...flight.points], 3));
+      group.add(new THREE.Line(geometry, new THREE.LineBasicMaterial({ color: colour })));
+      const touch = new THREE.Mesh(ball, new THREE.MeshBasicMaterial({ color: GRADE_COLOUR[flight.grade] }));
+      touch.position.set(flight.x, flight.y + 0.2, flight.z);
+      group.add(touch);
+    }
+    // The knuckle, where the landing starts.
+    const s = f.meta.lip + k.deckLength;
+    const kx = k.x + dx * s;
+    const kz = k.z + dz * s;
+    const marker = new THREE.Mesh(post, new THREE.MeshBasicMaterial({ color: 0x1b2430 }));
+    marker.position.set(kx, terrain.sample(kx, kz, contact).height + 1.5, kz);
+    group.add(marker);
+  }
+  return group;
 }

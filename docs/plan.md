@@ -273,3 +273,19 @@ park folder's overlay picker replaces the heatmap toggle. Finding: straight-lini
 generated ground hits terminal (94 km/h) after ~350 m — about half the zone; jump speeds
 (40–70 km/h) are ~15% of it. Speed control is step 5's job (flats before features), with
 `basePitch` the blunt lever.
+
+Step 4 done: feature kit. Sim side: `yaw` on kickers, corners and quarters (`turned()` in
+`src/sim/features.ts`), new shapes there (roller, spine, side hit), `topLength` on gap kickers
+(a step-up's flat top). Generator side (`src/gen/kit.ts`): kicker sized S–XL from a speed range
+at the lip — knuckle where the slowest unpopped air comes down to knuckle height, landing
+angle from the middle air (−4°, 28–35° from horizontal), knuckle raised until the fastest air
+(medium pop) lands on the straight; then one ride of the real rider (`src/gen/ride.ts`) moves
+the knuckle so that slowest air clears it by 0.5 m. `npm run kit-check` rides each size on
+12° and 20°: slowest air +0.4–0.6 m past the knuckle, clean; top speed with a full pop
+overshoots L/XL (sketchy; XL on 12° bails) — a landing can't be taller than its lip here.
+Step-up (rise solved down until the air reaches the top), hip (the home corner's hip scaled
+S/M/L — not physics-sized yet), quarter, spine, roller, side hit, rails/boxes (straight or
+flat-down, either end). The generated park shows one of each (showcase, until step 5).
+Overlays: `arcs` (designed airs flown over the real terrain, touchdown by grade, knuckle post),
+overview camera (`&view=top`), `&at=x,z` spawn. Turned features get no red paint and no fine
+mesh columns yet.

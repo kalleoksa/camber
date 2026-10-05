@@ -78,8 +78,11 @@ const slopeConfig: SlopeConfig = toSlopeConfig(layout);
 if (query.get('spin') === '0') params.air.spinModel = 0;
 
 const terrain = createSlope(slopeConfig);
+// &at=x,z starts the run there instead, facing down the hill — for looking at one spot.
+const at = (query.get('at') ?? '').split(',').map(Number);
+const [spawnX, spawnZ] = at.length === 2 && at.every(Number.isFinite) ? (at as [number, number]) : [layout.spawn.x, layout.spawn.z];
 const spawn = {
-  position: { x: layout.spawn.x, y: terrain.sample(layout.spawn.x, layout.spawn.z, createContact()).height + 1.5, z: layout.spawn.z },
+  position: { x: spawnX, y: terrain.sample(spawnX, spawnZ, createContact()).height + 1.5, z: spawnZ },
   heading: layout.spawn.heading,
 };
 
@@ -141,6 +144,8 @@ let runTricks: { tick: number; text: string }[] = [];
 const chase = createChaseCamera(params);
 // Parks are full size, their features 1.63× the old: so is the coarse grid cell.
 const view = createScene(slopeConfig, terrain, chase.camera, 0.75 * (PARK_GRAVITY / REAL_GRAVITY));
+const sceneFog = view.scene.fog;
+const overview = { on: false };
 addEventListener('resize', view.resize);
 // The canvas follows the visible screen by CSS; whenever its size changes — including iPad
 // Safari's toolbars sliding, which doesn't always fire a resize — the buffer follows.
@@ -553,6 +558,11 @@ function render(alpha: number): void {
   } else {
     spray.update(rider, params, paused ? 0 : dt);
     chase.update(rider, params, dt);
+    // Debug overview: high above and behind, looking down the hill past the rider, no fog.
+    if (overview.on) {
+      chase.camera.position.set(rider.position.x, rider.position.y + 130, rider.position.z + 70);
+      chase.camera.lookAt(rider.position.x, rider.position.y - 20, rider.position.z - 110);
+    }
   }
   if (audio.running) {
     audio.update(rider, params);
@@ -775,7 +785,10 @@ const panel = createPanel(params, readout, view.drivers, preview, feedback, {
 // The speed map only means something on generated ground (a zone with a field).
 const field = slopeConfig.field;
 const speedMap = field ? computeSpeedMap(terrain, params, { width: field.width, length: field.length, ...GEN.speedMap }) : undefined;
-addParkFolder(panel.pane, layout.name, layout.seed ?? seed, createOverlays(view.scene, view.ground, terrain, speedMap));
+addParkFolder(panel.pane, layout.name, layout.seed ?? seed, createOverlays(view.scene, view.ground, terrain, speedMap, layout, params), (on) => {
+  overview.on = on;
+  view.scene.fog = on ? null : sceneFog;
+});
 
 function restart(): void {
   finishRun();
