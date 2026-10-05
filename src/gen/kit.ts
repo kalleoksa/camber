@@ -94,7 +94,10 @@ export function designKicker(place: Place, size: Size, groundPitch: number, cfg:
 
   // The kicker at the origin facing straight down its axis, on the ground it will stand on: the
   // sim's own height function, so the solve and the ride agree.
+  // On a plane the kicker is built on it directly, as it always was, so plane solves stay
+  // bit-identical (parks built from them, like Talma, rebuild byte for byte).
   const base = baseFor(place, phi, ground);
+  const on = (kickers: KickerConfig[]): Terrain => (ground ? onBase(base, kickers) : createSlope({ length: 600, width: 600, pitch: phi, kickers }));
   const under = createContact();
   const build = (deckLength: number, knuckleHeight: number, landingAngle: number): KickerConfig => {
     const [knuckleRadius, runoutRadius] = fitRadii(knuckleHeight, landingAngle, k.knuckleRadius, k.runoutRadius);
@@ -118,7 +121,7 @@ export function designKicker(place: Place, size: Size, groundPitch: number, cfg:
   const radius = H / (1 - dm.cos(theta));
   const runIn = radius * dm.sin(theta);
   const air = (kc: KickerConfig, speed: number, pop: number): ReturnType<typeof fly> => {
-    const t = onBase(base, [kc]);
+    const t = on([kc]);
     const lipZ = -runIn + 0.02;
     const l = launch(t, 0, lipZ, 0, -1, speed, pop);
     return fly(t, params, 0, l.y, lipZ, l.vx, l.vy, l.vz, 6, false);
@@ -130,7 +133,7 @@ export function designKicker(place: Place, size: Size, groundPitch: number, cfg:
   let alphaAbs = ((k.landing[0] ?? 28) + (k.landing[1] ?? 35)) * 0.5 * RAD;
   let deck = 0;
   for (let it = 0; it < k.iterations; it++) {
-    const probe = onBase(base, [{ ...build(0.01, H, 0.5), deckWidth: k.width, knuckleHeight: undefined, landingAngle: undefined, deckLength: 0, landingLength: 0 }]);
+    const probe = on([{ ...build(0.01, H, 0.5), deckWidth: k.width, knuckleHeight: undefined, landingAngle: undefined, deckLength: 0, landingLength: 0 }]);
     const lipZ = -runIn + 0.02;
     const l = launch(probe, 0, lipZ, 0, -1, vMin, popMin);
     // Step the flight until it is at knuckle height above the plane, coming down.
@@ -142,7 +145,8 @@ export function designKicker(place: Place, size: Size, groundPitch: number, cfg:
       vy -= params.world.gravity * dt;
       py += vy * dt;
       pz += l.vz * dt;
-      if (vy < 0 && py - base.sample(0, pz, under).height <= hk) break; // knuckle height above the ground under it
+      const below = ground ? base.sample(0, pz, under).height : pz * dm.tan(phi); // the ground under the point
+      if (vy < 0 && py - below <= hk) break;
     }
     deck = Math.max(2, -pz - runIn - k.knuckleClear);
 
@@ -165,7 +169,7 @@ export function designKicker(place: Place, size: Size, groundPitch: number, cfg:
   // Against the sim: the real rider at vMin without a pop lands short of the closed-form
   // flight (what the lip does to it isn't in that model). Move the knuckle so it clears it.
   const alphaRel = Math.max(0.05, alphaAbs - phi);
-  const slow = rideKicker(onBase(base, [build(deck, hk, alphaRel)]), params, 0, runIn, deck, vMin, false);
+  const slow = rideKicker(on([build(deck, hk, alphaRel)]), params, 0, runIn, deck, vMin, false);
   if (slow.landing && slow.past < k.knuckleClear * 0.5) deck = Math.max(2, deck + slow.past - k.knuckleClear * 0.5);
   const local = build(deck, hk, alphaRel);
   const checks: ArcCheck[] = [];
@@ -363,6 +367,29 @@ export function designQuarter(place: Place, rng: Rng, cfg: GenConfig): FeatureSp
     sideTaper: q.sideTaper,
   };
   return { kind: 'quarter', cfg: c, meta: { type: 'quarter' } };
+}
+
+/**
+ * Hip quarter: two quarter-pipe sections meeting at an inside corner at `place`, facing back up
+ * its axis. The first runs off to one side; the second turns toward the rider by `angle`, so an
+ * air along the first one's coping comes down on the second's face. Each section turns about
+ * its own origin, so the origins go at the turned offsets and the pair turns as one.
+ */
+export function designHipQuarter(place: Place, rng: Rng, cfg: GenConfig): FeatureSpec[] {
+  const H = cfg.hipQuarter;
+  const q = cfg.quarter;
+  const m = next(rng) < 0.5 ? -1 : 1; // which side the first section runs off to
+  const W = range(rng, H.width);
+  const b = range(rng, H.angle) * RAD;
+  const shape = { width: W, height: range(rng, q.height), angle: q.angle * RAD, radius: range(rng, q.radius), deck: q.deck, sideTaper: q.sideTaper };
+  const cs = dm.cos(place.yaw);
+  const sn = dm.sin(place.yaw);
+  // Offsets in the pair's own frame (x across, z back up the axis), turned with it.
+  const at = (x: number, z: number, yaw: number): QuarterConfig => ({ ...shape, x: place.x + x * cs - z * sn, z: place.z + x * sn + z * cs, yaw: place.yaw + yaw });
+  return [
+    { kind: 'quarter', cfg: at((-m * W) / 2, 0, 0), meta: { type: 'hipQuarter' } },
+    { kind: 'quarter', cfg: at((m * W * dm.cos(b)) / 2, (W * dm.sin(b)) / 2, m * b), meta: { type: 'hipQuarter' } },
+  ];
 }
 
 export function designShape(kind: 'roller' | 'spine' | 'sideHit', place: Place, rng: Rng, cfg: GenConfig): FeatureSpec {

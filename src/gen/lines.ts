@@ -8,7 +8,7 @@ import type { GenConfig } from './config.ts';
 import { fly, launch, popRange } from './flight.ts';
 import { footprint, overlaps, type Footprint } from './footprint.ts';
 import { RAD, range } from './ground.ts';
-import { designBerm, designBooter, designCorner, designFunBox, designStepDownHip, designWallRide, designWedge, dropAhead, designDrop, designEuroGap, designGapToRail, designHip, designJibTable, designKicker, designKnoll, designLog, designMini, designMiniPipe, designQuarter, designRail, designShape, designStepDown, designStepUp, type Place, type Size } from './kit.ts';
+import { designHipQuarter, designBerm, designBooter, designCorner, designFunBox, designStepDownHip, designWallRide, designWedge, dropAhead, designDrop, designEuroGap, designGapToRail, designHip, designJibTable, designKicker, designKnoll, designLog, designMini, designMiniPipe, designQuarter, designRail, designShape, designStepDown, designStepUp, type Place, type Size } from './kit.ts';
 
 /**
  * Spine lines: a few lines traced from the top down the fall line, drifting off it, with
@@ -20,7 +20,7 @@ import { designBerm, designBooter, designCorner, designFunBox, designStepDownHip
  */
 export type LinesResult = { features: FeatureSpec[]; lines: LineSpec[]; prints: Footprint[] };
 
-export type Kind = 'kicker' | 'stepUp' | 'hip' | 'rail' | 'roller' | 'spine' | 'mini' | 'euroGap' | 'gapToRail' | 'jibTable' | 'knoll' | 'log' | 'miniPipe' | 'stepDown' | 'booter' | 'drop' | 'corner' | 'wedge' | 'funBox' | 'berm' | 'wallRide' | 'stepDownHip';
+export type Kind = 'kicker' | 'stepUp' | 'hip' | 'rail' | 'roller' | 'spine' | 'mini' | 'euroGap' | 'gapToRail' | 'jibTable' | 'knoll' | 'log' | 'miniPipe' | 'stepDown' | 'booter' | 'drop' | 'corner' | 'wedge' | 'funBox' | 'berm' | 'wallRide' | 'stepDownHip' | 'hipQuarter';
 const SIZES: Size[] = ['S', 'M', 'L', 'XL'];
 const HIP_DECK = 3; // m a hip's deck typically stands above the ground once solved: for the speed it takes to climb onto
 
@@ -168,14 +168,15 @@ export function placeLines(rng: Rng, field: FieldConfig, cfg: GenConfig, params:
       lastEnd = s;
       nextAt = s + range(rng, L.spacing);
     }
-    // Finish the line in a quarter pipe if there is room below.
+    // Finish the line in a quarter pipe, or a hip quarter, if there is room below.
     if (z > -cfg.zone.length + 25) {
-      const q = designQuarter({ x, z: z - 6, yaw: 0 }, rng, cfg);
-      const print = footprint(q, cfg.clear.runIn, cfg.clear.margin);
-      if (!prints.some((p) => p.line !== li && overlaps(p.print, print))) {
-        prints.push({ line: li, print });
-        features.push(q);
-        line.features.push(features.length - 1);
+      const end = next(rng) < cfg.hipQuarter.end ? designHipQuarter({ x, z: z - 6, yaw: 0 }, rng, cfg) : [designQuarter({ x, z: z - 6, yaw: 0 }, rng, cfg)];
+      const ends = end.map((q) => footprint(q, cfg.clear.runIn, cfg.clear.margin));
+      if (!ends.some((print) => prints.some((p) => p.line !== li && overlaps(p.print, print)))) {
+        for (const print of ends) prints.push({ line: li, print });
+        group(end, features.length);
+        features.push(...end);
+        line.features.push(features.length - end.length);
         line.speed.push(Number(v.toFixed(2)));
       }
     }
@@ -273,6 +274,7 @@ export function build(kind: Kind, want: Want, place: Place, rng: Rng, ground: Te
   if (kind === 'jibTable') return designJibTable(place, rng, cfg);
   if (kind === 'euroGap') return designEuroGap(place, want.size, landingPitch, rng, cfg, params);
   if (kind === 'gapToRail') return designGapToRail(place, landingPitch, rng, cfg, params);
+  if (kind === 'hipQuarter') return designHipQuarter(place, rng, cfg);
   if (kind === 'wedge') return designWedge(place, rng, cfg);
   if (kind === 'funBox') return designFunBox(place, rng, cfg);
   if (kind === 'berm') return designBerm(place, rng, cfg);

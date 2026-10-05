@@ -432,3 +432,8 @@ bot doesn't spin, so it bails most pipe airs, the straight pipe's too).
   rule to use the face the air will come down on — a sim change (`grounded.ts`), not built.
 - Both build as two `QuarterConfig`s meeting at a corner; the max merge leaves a valley line in
   an inside corner (as a bowl's corner), which rides; no mitre needed for those.
+
+Built (inside corners only): `designHipQuarter` — two `QuarterConfig` sections, 10–14 m, meeting
+at 30–60°, either way round, grouped. A line ends in one 30% of the time (a straight quarter
+otherwise); fill odds 0.03. `npm run obstacle-check`: 3–4 of 6 airs along the first section's
+coping come down on the second section's face, both ways round.

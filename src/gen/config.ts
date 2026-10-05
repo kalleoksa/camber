@@ -83,7 +83,7 @@ export const GEN = {
     attempts: 1500,
     spacing: 30, // m at least between a fill feature and any other feature's origin
     yaw: 60, // ° off the fall line, at most
-    mix: { kicker: 0.28, stepUp: 0.05, hip: 0.13, rail: 0.15, roller: 0.08, spine: 0.08, mini: 0.08, euroGap: 0.03, gapToRail: 0.03, jibTable: 0.05, knoll: 0.07, log: 0.04, miniPipe: 0.04, booter: 0.04, drop: 0.04, corner: 0.05, wedge: 0.06, funBox: 0.02, berm: 0.04, wallRide: 0.03, stepDownHip: 0.03 },
+    mix: { kicker: 0.28, stepUp: 0.05, hip: 0.13, rail: 0.15, roller: 0.08, spine: 0.08, mini: 0.08, euroGap: 0.03, gapToRail: 0.03, jibTable: 0.05, knoll: 0.07, log: 0.04, miniPipe: 0.04, booter: 0.04, drop: 0.04, corner: 0.05, wedge: 0.06, funBox: 0.02, berm: 0.04, wallRide: 0.03, stepDownHip: 0.03, hipQuarter: 0.03 },
     sideHit: 0.15, // odds a fill feature is a side hit near the zone's edge instead
   },
 
@@ -147,6 +147,9 @@ export const GEN = {
     knuckleClear: 1, // m the table ends short of where the middle air at the lowest aim comes down to deck height
   },
   quarter: { height: [3, 4.5], angle: 83, radius: [3.5, 5], width: [12, 20], deck: 3, sideTaper: 3 },
+  // Two quarter-pipe sections meeting at an inside corner (the second bent toward the rider): airs
+  // along the coping come down on the next section (npm run hip-quarter). Height, face and radius as `quarter`.
+  hipQuarter: { width: [10, 14], angle: [30, 60], end: 0.3 }, // width: m per section; angle: ° between them; end: odds a line ends in one instead of a straight quarter
   spine: { height: [2, 3.5], angle: 30, knuckleRadius: 6, footRadius: 10, width: [8, 14], taper: 3 },
   roller: { height: [0.8, 1.6], length: [10, 16], width: [10, 18], taper: 4 },
   sideHit: { height: [0.8, 1.5], angle: 25, back: 2, width: [3, 5], taper: 1.5 },

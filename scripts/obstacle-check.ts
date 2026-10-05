@@ -6,7 +6,7 @@
  */
 import { TICK_DT } from '../src/core/loop.ts';
 import { GEN } from '../src/gen/config.ts';
-import { designBerm, designBooter, designCorner, designDrop, designEuroGap, designFunBox, designGapToRail, designHip, designJibTable, designKnoll, designLog, designMini, designMiniPipe, designStepDown, designStepDownHip, designWallRide, designWedge, groundFrame } from '../src/gen/kit.ts';
+import { designHipQuarter, designBerm, designBooter, designCorner, designDrop, designEuroGap, designFunBox, designGapToRail, designHip, designJibTable, designKnoll, designLog, designMini, designMiniPipe, designStepDown, designStepDownHip, designWallRide, designWedge, groundFrame } from '../src/gen/kit.ts';
 import { neutralInput } from '../src/input/snapshot.ts';
 import { toSlopeConfig, type FeatureSpec, type Ground } from '../src/park/layout.ts';
 import { params } from '../src/sim/params.ts';
@@ -234,4 +234,44 @@ for (const deg of [12, 20]) {
   }
   const sdh = designStepDownHip(place, 'M', createRng(16), GEN, params, pitch);
   hipRuns(sdh[0]!, `${sdh[0]!.meta?.type} M`);
+}
+
+// Hip quarter (inside corner), both ways round: airs up the first section toward the corner.
+// The bot doesn't spin, so judge the air: does it come down on the second section's face?
+{
+  console.log('\n== hip quarter (10° plane) ==');
+  const pitch = 10 * DEG;
+  for (const seed of [20, 21, 22, 23]) {
+    const hq = designHipQuarter(place, createRng(seed), GEN);
+    const [a, b] = hq.map((f) => f.cfg as { x: number; z: number; yaw?: number; width: number });
+    const t = world(hq, pitch);
+    const onA = world([hq[0]!], pitch);
+    const onB = world([hq[1]!], pitch);
+    const flat = createSlope({ length: 600, width: 300, pitch });
+    const side = Math.sign(a!.x) || 1; // the first section's side; ride toward the corner from it
+    let onFace = 0;
+    let total = 0;
+    for (const v of [9, 12]) for (const off of [20, 35, 50]) {
+      const x0 = side * 8;
+      const s = createRiderState({ position: { x: x0, y: t.sample(x0, 14, c).height + 0.05, z: 14 }, heading: Math.PI + side * off * DEG });
+      s.mode = 'grounded' as typeof s.mode;
+      s.velocity.x = -side * v * Math.sin(off * DEG);
+      s.velocity.z = -v * Math.cos(off * DEG);
+      let air = 0;
+      for (let i = 0; i < 120 * 8; i++) {
+        const was = s.mode;
+        tick(s, neutralInput(), params, t, TICK_DT);
+        if (s.mode === 'airborne') air += TICK_DT;
+        if (was === 'airborne' && s.mode !== 'airborne' && air > 0.25) {
+          total++;
+          const hb = onB.sample(s.position.x, s.position.z, c).height - flat.sample(s.position.x, s.position.z, c).height;
+          const ha = onA.sample(s.position.x, s.position.z, c).height - flat.sample(s.position.x, s.position.z, c).height;
+          if (hb > ha && hb > 0.3) onFace++;
+          break;
+        }
+        if (s.mode === 'bailed') break;
+      }
+    }
+    console.log(`hip quarter ${b!.width.toFixed(0)} m sections, ${(Math.abs((b!.yaw ?? 0) - (a!.yaw ?? 0)) / DEG).toFixed(0)}°, first section to ${side > 0 ? '+X' : '−X'}: ${onFace} of ${total} airs come down on the second section's face`);
+  }
 }
