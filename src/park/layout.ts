@@ -34,7 +34,16 @@ export type FeatureMeta = {
   lip?: number; // m along its axis from (x, z) to where it takes off
   checks?: { speed: number; pop: number; grade: string; impact: number; past: number }[]; // designed airs
   group?: number; // parts of one obstacle (a table and its rail) share this id and move as one
+  design?: Design; // on the first part: what the kit was asked for, so the editor can change it and re-solve
 };
+
+/**
+ * A feature as the generator's kit designed it: which obstacle, where and which way, its size
+ * and design speeds, and its random inputs by name (kit.ts `Inputs`). `redesign` in
+ * src/gen/lines.ts builds it again from these — the same parts, or new ones with an input
+ * changed.
+ */
+export type Design = { kind: string; place: { x: number; z: number; yaw: number }; size: string; speed: [number, number]; inputs: Record<string, number> };
 
 export type FeatureSpec =
   | { kind: 'kicker'; cfg: KickerConfig; meta?: FeatureMeta }

@@ -7,7 +7,7 @@ import type { FeatureSpec, LineSpec } from '../park/layout.ts';
 import type { GenConfig } from './config.ts';
 import { covers, footprint, overlaps, type Footprint } from './footprint.ts';
 import { RAD, range } from './ground.ts';
-import { designShape, type Place } from './kit.ts';
+import type { Place } from './kit.ts';
 import { build, group, pick, wantedSpeed } from './lines.ts';
 import { computeSpeedMap, speedAt } from './speedmap.ts';
 
@@ -87,7 +87,7 @@ export function placeFill(
     if (nearEdge && next(rng) < F.sideHit) {
       // A side hit along the run's edge, kicking back in toward the middle.
       const yaw = fall - Math.sign(x) * range(rng, [0.3, 0.8]);
-      parts = [designShape('sideHit', { x, z, yaw }, rng, cfg)];
+      parts = build('sideHit', { size: 'S', speed: [0, 1e9], lipHeight: 0, runIn: 0 }, { x, z, yaw }, rng, ground, cfg, params);
     } else {
       const yaw = fall + (next(rng) * 2 - 1) * F.yaw * RAD;
       const place: Place = { x, z, yaw };

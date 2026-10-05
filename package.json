@@ -21,6 +21,7 @@
     "line-check": "node scripts/line-check.ts",
     "obstacle-check": "node scripts/obstacle-check.ts",
     "hip-quarter": "node scripts/hip-quarter.ts",
+    "redesign-check": "node scripts/redesign-check.ts",
     "talma": "node scripts/build-talma.ts && node scripts/talma-check.ts"
   },
   "dependencies": {

@@ -18,6 +18,8 @@ import { createContact, createSlope, type Terrain } from '../src/sim/terrain.ts'
 const DEG = Math.PI / 180;
 const c = createContact();
 const place = { x: 0, z: 0, yaw: 0 };
+/** A kit design's inputs, drawn from a seed. */
+const draw = (seed: number): { rng: ReturnType<typeof createRng>; inputs: Record<string, number> } => ({ rng: createRng(seed), inputs: {} });
 
 function world(parts: FeatureSpec[], pitch: number | Ground): Terrain {
   const ground = typeof pitch === 'number' ? { length: 600, width: 300, pitch } : pitch;
@@ -95,20 +97,20 @@ for (const deg of [12, 20]) {
   console.log(`\n== ${deg}° ==`);
 
   // Mini kicker — done when: popped at 6–10 m/s, lands clean 3–8 m past the lip.
-  const mini = designMini(place, createRng(1), GEN);
+  const mini = designMini(place, draw(1), GEN);
   for (const v of [6, 8, 10]) console.log(`mini ${v} m/s pop: ${fmt(ride(world(mini, pitch), lipZ(mini[0]!), v, 1, -40))}`);
 
   // Knoll — done when: popped at its crest at 8–14 m/s, lands clean.
-  const knoll = designKnoll(place, createRng(2), GEN);
+  const knoll = designKnoll(place, draw(2), GEN);
   for (const v of [8, 11, 14]) console.log(`knoll ${v} m/s pop: ${fmt(ride(world(knoll, pitch), 0, v, true, -50))}`);
 
   // Log — an ollie onto it (bonk or slide) at 6 m/s.
-  const log = designLog(place, createRng(3), GEN);
+  const log = designLog(place, draw(3), GEN);
   for (const pop of [0.3, 1]) console.log(`log 6 m/s pop ${pop}: ${fmt(ride(world(log, pitch), railStart(log[0]) + 0.8, 6, pop, railEnd(log[0]) - 20))}`);
 
   // Euro gap — done when: the slowest speed clears the rail; going short locks onto it.
   for (const size of ['M', 'L'] as const) {
-    const eg = designEuroGap(place, size, pitch, createRng(4), GEN, params);
+    const eg = designEuroGap(place, size, pitch, draw(4), GEN, params);
     if (!eg.length) {
       console.log(`euro gap ${size}: no fit`);
       continue;
@@ -120,7 +122,7 @@ for (const deg of [12, 20]) {
   }
 
   // Gap to rail — done when: at mid design speed, popped, it locks on near the rail's start.
-  const g2r = designGapToRail(place, pitch, createRng(5), GEN, params);
+  const g2r = designGapToRail(place, pitch, draw(5), GEN, params);
   if (!g2r.length) console.log('gap to rail: no fit');
   else {
     const [a = 0, b = 0] = g2r[0]!.meta?.speed ?? [];
@@ -130,14 +132,14 @@ for (const deg of [12, 20]) {
   }
 
   // Jib table — done when: popped onto the rail at rail speed, it rides to the end.
-  const jt = designJibTable(place, createRng(6), GEN);
+  const jt = designJibTable(place, draw(6), GEN);
   for (const [v, pop] of [[5, 0.3], [7, 0.3], [7, 1]] as const) {
     console.log(`jib table ${v} m/s pop ${pop} at rail (${(-railStart(jt[1])).toFixed(1)}–${(-railEnd(jt[1])).toFixed(1)} m): ${fmt(ride(world(jt, pitch), railStart(jt[1]) + 0.8, v, pop, railEnd(jt[1]) - 10))}`);
   }
 
   // Mini pipe — only on its grade. Done when: ridden down the middle it doesn't stop; ridden
   // into a wall it comes back without a bail.
-  const mp = designMiniPipe(place, pitch, createRng(7), GEN);
+  const mp = designMiniPipe(place, pitch, draw(7), GEN);
   if (!mp.length) console.log('mini pipe: not on this grade');
   else {
     const len = mp[0]!.kind === 'quarter' ? mp[0]!.cfg.width : 0;
@@ -157,13 +159,13 @@ for (const deg of [12, 20]) {
     const [vMin = 0, vMax = 0] = sd[0]!.meta?.speed ?? [];
     for (const [v, pop] of [[vMin, 0], [vMin, 1], [vMax, 0.5], [vMax, 1]] as const) console.log(`step-down M ${v} m/s pop ${pop}: ${fmt(ride(world(sd, steepAt(-18)), lipZ(sd[0]!), v, pop, -90))}`);
   }
-  const bo = designBooter(place, world([], steepAt(-18)), createRng(8), GEN, params);
+  const bo = designBooter(place, world([], steepAt(-18)), draw(8), GEN, params);
   if (!bo.length) console.log('booter: no fit');
   else {
     const [a = 0, b = 0] = bo[0]!.meta?.speed ?? [];
     for (const [v, pop] of [[a, 0.5], [(a + b) / 2, 0], [(a + b) / 2, 1], [b, 0.5]] as const) console.log(`booter ${v} m/s pop ${pop}: ${fmt(ride(world(bo, steepAt(-18)), lipZ(bo[0]!), v, pop, -120))}`);
   }
-  const dr = designDrop(place, world([], steepAt(-50)), createRng(9), GEN, params);
+  const dr = designDrop(place, world([], steepAt(-50)), draw(9), GEN, params);
   if (!dr.length) console.log('drop: no fit');
   else {
     const f = dr[0]!;
@@ -189,14 +191,14 @@ for (const deg of [12, 20]) {
   console.log('\n== step 4 (14°) ==');
   const pitch = 14 * DEG;
   for (const seed of [10, 11, 12, 17]) {
-    const wg = designWedge(place, createRng(seed), GEN);
+    const wg = designWedge(place, draw(seed), GEN);
     const g = wg[0]!.cfg as { faces: number; height: number; top: number };
     for (const [v, pop] of [[8, 0], [8, 0.5], [11, 0.5]] as const) console.log(`${wg[0]!.meta?.type} ${g.height.toFixed(1)} m, top ${g.top.toFixed(1)} m, ${v} m/s pop ${pop}: ${fmt(ride(world(wg, pitch), lipZ(wg[0]!), v, pop, -60))}`);
   }
-  const fb = designFunBox(place, createRng(13), GEN);
+  const fb = designFunBox(place, draw(13), GEN);
   for (const [v, pop] of [[7, 0.3], [9, 0.3]] as const) console.log(`fun box ${v} m/s pop ${pop} at the box (${(-railStart(fb[1])).toFixed(1)}–${(-railEnd(fb[1])).toFixed(1)} m): ${fmt(ride(world(fb, pitch), railStart(fb[1]) + 0.8, v, pop, -60))}`);
   // Berm: the bank angle halfway round, just past its foot.
-  const bm = designBerm(place, createRng(14), GEN);
+  const bm = designBerm(place, draw(14), GEN);
   const b = bm[0]!.cfg as { radius: number; sweep: number; side: number; bank: number; height: number };
   const bw = world(bm, pitch);
   const mid = b.sweep / 2;
@@ -208,7 +210,7 @@ for (const deg of [12, 20]) {
   console.log(`berm r ${b.radius.toFixed(0)} m, ${(b.sweep / DEG).toFixed(0)}°, bank ${(b.bank / DEG).toFixed(0)}°: steepest ${(steepest / DEG).toFixed(0)}° from level across it halfway round (ground 14°)`);
   // Wall ride turned 30° off the fall line: ridden in its own frame, drifting into the wall.
   const wplace = { x: 0, z: 0, yaw: 30 * DEG };
-  const wr = designWallRide(wplace, createRng(15), GEN);
+  const wr = designWallRide(wplace, draw(15), GEN);
   const wc = wr[0]!.cfg as { side: number; angle: number; length: number };
   const wview = groundFrame(world(wr, pitch), wplace);
   for (const v of [10, 13]) for (const across of [3, 7]) console.log(`wall ride ${(wc.angle / DEG).toFixed(0)}°, ${wc.length.toFixed(0)} m, turned 30°, ${v} m/s, ${across} m/s into it: ${fmt(ride(wview, -3, v, 0, -wc.length - 10, wc.side * across))}`);
@@ -229,10 +231,10 @@ for (const deg of [12, 20]) {
   };
   for (const size of ['S', 'M', 'L', 'XL'] as const) {
     const t0 = Date.now();
-    const hp = designHip(place, size, createRng(16), GEN, params, pitch);
+    const hp = designHip(place, size, draw(16), GEN, params, pitch);
     hipRuns(hp, `${hp.meta?.type} ${size} (${Date.now() - t0} ms)`);
   }
-  const sdh = designStepDownHip(place, 'M', createRng(16), GEN, params, pitch);
+  const sdh = designStepDownHip(place, 'M', draw(16), GEN, params, pitch);
   hipRuns(sdh[0]!, `${sdh[0]!.meta?.type} M`);
 }
 
@@ -242,7 +244,7 @@ for (const deg of [12, 20]) {
   console.log('\n== hip quarter (10° plane) ==');
   const pitch = 10 * DEG;
   for (const seed of [20, 21, 22, 23]) {
-    const hq = designHipQuarter(place, createRng(seed), GEN);
+    const hq = designHipQuarter(place, draw(seed), GEN);
     const [a, b] = hq.map((f) => f.cfg as { x: number; z: number; yaw?: number; width: number });
     const t = world(hq, pitch);
     const onA = world([hq[0]!], pitch);

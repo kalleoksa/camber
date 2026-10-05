@@ -3,12 +3,12 @@ import type { FieldConfig } from '../sim/heightfield.ts';
 import type { Params } from '../sim/params.ts';
 import { next, type Rng } from '../sim/rng.ts';
 import { createContact, createSlope, type Terrain } from '../sim/terrain.ts';
-import { toSlopeConfig, type FeatureSpec, type LineSpec } from '../park/layout.ts';
+import { toSlopeConfig, type Design, type FeatureSpec, type LineSpec } from '../park/layout.ts';
 import type { GenConfig } from './config.ts';
 import { fly, launch, popRange } from './flight.ts';
 import { footprint, overlaps, type Footprint } from './footprint.ts';
 import { RAD, range } from './ground.ts';
-import { designHipQuarter, designBerm, designBooter, designCorner, designFunBox, designStepDownHip, designWallRide, designWedge, dropAhead, designDrop, designEuroGap, designGapToRail, designHip, designJibTable, designKicker, designKnoll, designLog, designMini, designMiniPipe, designQuarter, designRail, designShape, designStepDown, designStepUp, type Place, type Size } from './kit.ts';
+import { chance, pick as input, type Draw, designHipQuarter, designBerm, designBooter, designCorner, designFunBox, designStepDownHip, designWallRide, designWedge, dropAhead, designDrop, designEuroGap, designGapToRail, designHip, designJibTable, designKicker, designKnoll, designLog, designMini, designMiniPipe, designQuarter, designRail, designShape, designStepDown, designStepUp, type Place, type Size } from './kit.ts';
 
 /**
  * Spine lines: a few lines traced from the top down the fall line, drifting off it, with
@@ -20,7 +20,7 @@ import { designHipQuarter, designBerm, designBooter, designCorner, designFunBox,
  */
 export type LinesResult = { features: FeatureSpec[]; lines: LineSpec[]; prints: Footprint[] };
 
-export type Kind = 'kicker' | 'stepUp' | 'hip' | 'rail' | 'roller' | 'spine' | 'mini' | 'euroGap' | 'gapToRail' | 'jibTable' | 'knoll' | 'log' | 'miniPipe' | 'stepDown' | 'booter' | 'drop' | 'corner' | 'wedge' | 'funBox' | 'berm' | 'wallRide' | 'stepDownHip' | 'hipQuarter';
+export type Kind = 'quarter' | 'sideHit' | 'kicker' | 'stepUp' | 'hip' | 'rail' | 'roller' | 'spine' | 'mini' | 'euroGap' | 'gapToRail' | 'jibTable' | 'knoll' | 'log' | 'miniPipe' | 'stepDown' | 'booter' | 'drop' | 'corner' | 'wedge' | 'funBox' | 'berm' | 'wallRide' | 'stepDownHip' | 'hipQuarter';
 const SIZES: Size[] = ['S', 'M', 'L', 'XL'];
 const HIP_DECK = 3; // m a hip's deck typically stands above the ground once solved: for the speed it takes to climb onto
 
@@ -170,7 +170,8 @@ export function placeLines(rng: Rng, field: FieldConfig, cfg: GenConfig, params:
     }
     // Finish the line in a quarter pipe, or a hip quarter, if there is room below.
     if (z > -cfg.zone.length + 25) {
-      const end = next(rng) < cfg.hipQuarter.end ? designHipQuarter({ x, z: z - 6, yaw: 0 }, rng, cfg) : [designQuarter({ x, z: z - 6, yaw: 0 }, rng, cfg)];
+      const quarterWant: Want = { size: 'S', speed: [0, 1e9], lipHeight: 0, runIn: 0 };
+      const end = build(next(rng) < cfg.hipQuarter.end ? 'hipQuarter' : 'quarter', quarterWant, { x, z: z - 6, yaw: 0 }, rng, ground, cfg, params);
       const ends = end.map((q) => footprint(q, cfg.clear.runIn, cfg.clear.margin));
       if (!ends.some((print) => prints.some((p) => p.line !== li && overlaps(p.print, print)))) {
         for (const print of ends) prints.push({ line: li, print });
@@ -249,56 +250,79 @@ export function wantedSpeed(kind: Kind, hero: boolean, v: number, rng: Rng, cfg:
   return { size: 'S', speed: [0, 1e9], lipHeight: 0, runIn: 0 };
 }
 
-/** The parts of one obstacle, the first the one a line rides over; none when it can't go here. */
+/**
+ * The parts of one obstacle, the first the one a line rides over; none when it can't go here.
+ * The first part carries what it was designed from (`meta.design`), so `redesign` can build it
+ * again.
+ */
 export function build(kind: Kind, want: Want, place: Place, rng: Rng, ground: Terrain, cfg: GenConfig, params: Params): FeatureSpec[] {
+  const d: Draw = { rng, inputs: {} };
+  const parts = designed(kind, want, place, d, ground, cfg, params);
+  const first = parts[0];
+  if (first) first.meta = { ...(first.meta ?? { type: first.kind }), design: { kind, place: { ...place }, size: want.size, speed: [want.speed[0], want.speed[1]], inputs: d.inputs } };
+  return parts;
+}
+
+/** A designed feature built again from its design: `ground` is the ground alone, as the generator had it. */
+export function redesign(design: Design, ground: Terrain, cfg: GenConfig, params: Params): FeatureSpec[] {
+  const want: Want = { size: design.size as Size, speed: design.speed, lipHeight: 0, runIn: 0 };
+  const d: Draw = { inputs: { ...design.inputs } };
+  const parts = designed(design.kind as Kind, want, design.place, d, ground, cfg, params);
+  const first = parts[0];
+  if (first) first.meta = { ...(first.meta ?? { type: first.kind }), design: { ...design, inputs: d.inputs } };
+  return parts;
+}
+
+function designed(kind: Kind, want: Want, place: Place, d: Draw, ground: Terrain, cfg: GenConfig, params: Params): FeatureSpec[] {
   const c = createContact();
   // Grade under the landing: a little way down from the takeoff.
-  const d = 18;
+  const span = 18;
   const h0 = ground.sample(place.x + dm.sin(place.yaw) * 8, place.z - dm.cos(place.yaw) * 8, c).height;
-  const h1 = ground.sample(place.x + dm.sin(place.yaw) * (8 + d), place.z - dm.cos(place.yaw) * (8 + d), c).height;
-  const landingPitch = dm.atan(Math.max(0, (h0 - h1) / d));
+  const h1 = ground.sample(place.x + dm.sin(place.yaw) * (8 + span), place.z - dm.cos(place.yaw) * (8 + span), c).height;
+  const landingPitch = dm.atan(Math.max(0, (h0 - h1) / span));
+  if (kind === 'quarter') return [designQuarter(place, d, cfg)];
   if (kind === 'kicker') {
     const f = designKicker(place, want.size, landingPitch, cfg, params, ground);
     // Solved over the ground as it is, so where that falls away below it, it is a step-down.
     if (f.meta) f.meta.type = dropAhead(ground, place, cfg.stepDown.probe) >= (cfg.stepDown.drop[0] ?? 0.5) ? 'stepDown' : 'kicker';
     return [f];
   }
-  if (kind === 'stepUp') return [designStepUp(place, rng, landingPitch, cfg, params)];
+  if (kind === 'stepUp') return [designStepUp(place, d, landingPitch, cfg, params)];
   if (kind === 'hip') {
-    return [designHip(place, want.size, rng, cfg, params, landingPitch, ground)];
+    return [designHip(place, want.size, d, cfg, params, landingPitch, ground)];
   }
-  if (kind === 'rail') return [designRail(place, rng, cfg)];
-  if (kind === 'mini') return designMini(place, rng, cfg);
-  if (kind === 'knoll') return designKnoll(place, rng, cfg);
-  if (kind === 'log') return designLog(place, rng, cfg);
-  if (kind === 'jibTable') return designJibTable(place, rng, cfg);
-  if (kind === 'euroGap') return designEuroGap(place, want.size, landingPitch, rng, cfg, params);
-  if (kind === 'gapToRail') return designGapToRail(place, landingPitch, rng, cfg, params);
-  if (kind === 'hipQuarter') return designHipQuarter(place, rng, cfg);
-  if (kind === 'wedge') return designWedge(place, rng, cfg);
-  if (kind === 'funBox') return designFunBox(place, rng, cfg);
-  if (kind === 'berm') return designBerm(place, rng, cfg);
-  if (kind === 'wallRide') return designWallRide(place, rng, cfg);
+  if (kind === 'rail') return [designRail(place, d, cfg)];
+  if (kind === 'mini') return designMini(place, d, cfg);
+  if (kind === 'knoll') return designKnoll(place, d, cfg);
+  if (kind === 'log') return designLog(place, d, cfg);
+  if (kind === 'jibTable') return designJibTable(place, d, cfg);
+  if (kind === 'euroGap') return designEuroGap(place, want.size, landingPitch, d, cfg, params);
+  if (kind === 'gapToRail') return designGapToRail(place, landingPitch, d, cfg, params);
+  if (kind === 'hipQuarter') return designHipQuarter(place, d, cfg);
+  if (kind === 'wedge') return designWedge(place, d, cfg);
+  if (kind === 'funBox') return designFunBox(place, d, cfg);
+  if (kind === 'berm') return designBerm(place, d, cfg);
+  if (kind === 'wallRide') return designWallRide(place, d, cfg);
   if (kind === 'stepDownHip') {
-    return designStepDownHip(place, want.size, rng, cfg, params, landingPitch, ground);
+    return designStepDownHip(place, want.size, d, cfg, params, landingPitch, ground);
   }
   if (kind === 'stepDown') return designStepDown(place, want.size, landingPitch, ground, cfg, params);
-  if (kind === 'booter') return designBooter(place, ground, rng, cfg, params);
-  if (kind === 'drop') return designDrop(place, ground, rng, cfg, params);
+  if (kind === 'booter') return designBooter(place, ground, d, cfg, params);
+  if (kind === 'drop') return designDrop(place, ground, d, cfg, params);
   if (kind === 'corner') {
     // Turned across the slope, either way.
     const n = ground.sample(place.x, place.z, c).normal;
-    const off = (cfg.corner.yaw[0] ?? 45) + next(rng) * ((cfg.corner.yaw[1] ?? 90) - (cfg.corner.yaw[0] ?? 45));
-    const yaw = dm.atan2(n.x, -n.z) + (next(rng) < 0.5 ? -1 : 1) * off * RAD;
+    const off = input(d, 'turn', cfg.corner.yaw);
+    const yaw = dm.atan2(n.x, -n.z) + (chance(d, 'left', 0.5) ? -1 : 1) * off * RAD;
     return designCorner({ ...place, yaw }, want.size, ground, cfg, params);
   }
   if (kind === 'miniPipe') {
     // Down the fall line, give or take a little: a pipe across the hill would be a traverse.
     const n = ground.sample(place.x, place.z, c).normal;
     const yaw = dm.atan2(n.x, -n.z) + Math.max(-cfg.miniPipe.yaw, Math.min(cfg.miniPipe.yaw, ((place.yaw - dm.atan2(n.x, -n.z)) / RAD))) * RAD;
-    return designMiniPipe({ ...place, yaw }, dm.atan(Math.sqrt(n.x * n.x + n.z * n.z) / n.y), rng, cfg);
+    return designMiniPipe({ ...place, yaw }, dm.atan(Math.sqrt(n.x * n.x + n.z * n.z) / n.y), d, cfg);
   }
-  return [designShape(kind, place, rng, cfg)];
+  return [designShape(kind, place, d, cfg)];
 }
 
 /**

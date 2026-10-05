@@ -20,6 +20,32 @@ import { RAD, range } from './ground.ts';
 export type Size = 'S' | 'M' | 'L' | 'XL';
 export type Place = { x: number; z: number; yaw: number };
 
+/**
+ * A design's random inputs, by name. Each is drawn from the rng the first time the design asks
+ * for it, in the order it asks — so a seed gives what it always gave — or taken as given, which
+ * is how the editor re-solves a feature with one of them changed. With no rng, a missing input
+ * takes the middle of its range (a chance, the likelier side).
+ */
+export type Inputs = Record<string, number>;
+export type Draw = { rng?: Rng; inputs: Inputs };
+
+export function pick(d: Draw, key: string, r: readonly number[]): number {
+  const have = d.inputs[key];
+  if (have !== undefined) return have;
+  const v = d.rng ? range(d.rng, r) : ((r[0] ?? 0) + (r[1] ?? 0)) / 2;
+  d.inputs[key] = v;
+  return v;
+}
+
+/** 1 with odds `odds`, else 0, as an input. */
+export function chance(d: Draw, key: string, odds: number): number {
+  const have = d.inputs[key];
+  if (have !== undefined) return have;
+  const v = (d.rng ? next(d.rng) < odds : odds >= 0.5) ? 1 : 0;
+  d.inputs[key] = v;
+  return v;
+}
+
 /** One designed air, for overlays and checks. */
 export type ArcCheck = { speed: number; pop: number; grade: Grade; impact: number; past: number }; // past: m beyond the knuckle
 
@@ -193,7 +219,7 @@ export function designKicker(place: Place, size: Size, groundPitch: number, cfg:
  * fastest air with a full pop, then drops away as a landing. Too much rise for the speed and
  * the air never reaches the top: the rise comes down until it does.
  */
-export function designStepUp(place: Place, rng: Rng, groundPitch: number, cfg: GenConfig, params: Params): FeatureSpec {
+export function designStepUp(place: Place, d: Draw, groundPitch: number, cfg: GenConfig, params: Params): FeatureSpec {
   const k = cfg.kicker;
   const st = cfg.stepUp;
   const size = st.size as Size;
@@ -224,7 +250,7 @@ export function designStepUp(place: Place, rng: Rng, groundPitch: number, cfg: G
     }
     return -1;
   };
-  let rise = range(rng, st.rise);
+  let rise = pick(d, 'rise', st.rise);
   let near = downTo(vMin, popMid, H + rise);
   while (near < 0 && rise > 0.3) {
     rise -= 0.3;
@@ -275,10 +301,10 @@ function fitRadii(height: number, angle: number, knuckle: number, runout: number
  * table ends short of where the middle air at the lowest aim comes down, so the hip side or the
  * second landing takes it.
  */
-export function designHip(place: Place, size: Size, rng: Rng, cfg: GenConfig, params: Params, pitch = 0, ground?: Terrain, stepDown?: number): FeatureSpec {
+export function designHip(place: Place, size: Size, d: Draw, cfg: GenConfig, params: Params, pitch = 0, ground?: Terrain, stepDown?: number): FeatureSpec {
   const C = cfg.hip;
   const P = C.sizes[size];
-  const side: -1 | 0 | 1 = next(rng) < C.single ? (next(rng) < 0.5 ? -1 : 1) : 0;
+  const side: -1 | 0 | 1 = chance(d, 'single', C.single) ? (chance(d, 'left', 0.5) ? -1 : 1) : 0;
   const lipAboveDeck = stepDown ?? P.lip;
   const [vMin = 8, vMax = 11] = P.speed;
   const vMid = (vMin + vMax) / 2;
@@ -318,7 +344,7 @@ export function designHip(place: Place, size: Size, rng: Rng, cfg: GenConfig, pa
   const runIn = probe.hip ? hipTakeoff(probe, probe.hip).runIn : 0;
   const caught = flight(terrain(probe), probe, aims[0] ?? 0, vMid, popMid);
   const reach = -caught.z - runIn;
-  const deckLength = Math.max(0, Math.min(range(rng, P.table), reach - C.knuckleClear));
+  const deckLength = Math.max(0, Math.min(pick(d, 'table', P.table), reach - C.knuckleClear));
 
   const under = createContact();
   let best: { c: HipConfig; ok: boolean; score: number } | undefined;
@@ -353,16 +379,16 @@ export function designHip(place: Place, size: Size, rng: Rng, cfg: GenConfig, pa
   return { kind: 'corner', cfg: c, meta: { type, size, speed: [vMin, vMax], lip: c.hip ? hipTakeoff(c, c.hip).runIn : 0 } };
 }
 
-export function designQuarter(place: Place, rng: Rng, cfg: GenConfig): FeatureSpec {
+export function designQuarter(place: Place, d: Draw, cfg: GenConfig): FeatureSpec {
   const q = cfg.quarter;
   const c: QuarterConfig = {
     x: place.x,
     z: place.z,
     yaw: place.yaw,
-    width: range(rng, q.width),
-    height: range(rng, q.height),
+    width: pick(d, 'width', q.width),
+    height: pick(d, 'height', q.height),
     angle: q.angle * RAD,
-    radius: range(rng, q.radius),
+    radius: pick(d, 'radius', q.radius),
     deck: q.deck,
     sideTaper: q.sideTaper,
   };
@@ -375,13 +401,13 @@ export function designQuarter(place: Place, rng: Rng, cfg: GenConfig): FeatureSp
  * air along the first one's coping comes down on the second's face. Each section turns about
  * its own origin, so the origins go at the turned offsets and the pair turns as one.
  */
-export function designHipQuarter(place: Place, rng: Rng, cfg: GenConfig): FeatureSpec[] {
+export function designHipQuarter(place: Place, d: Draw, cfg: GenConfig): FeatureSpec[] {
   const H = cfg.hipQuarter;
   const q = cfg.quarter;
-  const m = next(rng) < 0.5 ? -1 : 1; // which side the first section runs off to
-  const W = range(rng, H.width);
-  const b = range(rng, H.angle) * RAD;
-  const shape = { width: W, height: range(rng, q.height), angle: q.angle * RAD, radius: range(rng, q.radius), deck: q.deck, sideTaper: q.sideTaper };
+  const m = chance(d, 'left', 0.5) ? -1 : 1; // which side the first section runs off to
+  const W = pick(d, 'width', H.width);
+  const b = pick(d, 'angle', H.angle) * RAD;
+  const shape = { width: W, height: pick(d, 'height', q.height), angle: q.angle * RAD, radius: pick(d, 'radius', q.radius), deck: q.deck, sideTaper: q.sideTaper };
   const cs = dm.cos(place.yaw);
   const sn = dm.sin(place.yaw);
   // Offsets in the pair's own frame (x across, z back up the axis), turned with it.
@@ -392,19 +418,19 @@ export function designHipQuarter(place: Place, rng: Rng, cfg: GenConfig): Featur
   ];
 }
 
-export function designShape(kind: 'roller' | 'spine' | 'sideHit', place: Place, rng: Rng, cfg: GenConfig): FeatureSpec {
+export function designShape(kind: 'roller' | 'spine' | 'sideHit', place: Place, d: Draw, cfg: GenConfig): FeatureSpec {
   let shape: ShapeConfig;
   if (kind === 'spine') {
     const p = cfg.spine;
-    const height = range(rng, p.height);
+    const height = pick(d, 'height', p.height);
     const [knuckleRadius, footRadius] = fitRadii(height, p.angle * RAD, p.knuckleRadius, p.footRadius);
-    shape = { kind, ...place, height, angle: p.angle * RAD, knuckleRadius, footRadius, width: range(rng, p.width), taper: p.taper };
+    shape = { kind, ...place, height, angle: p.angle * RAD, knuckleRadius, footRadius, width: pick(d, 'width', p.width), taper: p.taper };
   } else if (kind === 'roller') {
     const p = cfg.roller;
-    shape = { kind, ...place, height: range(rng, p.height), length: range(rng, p.length), width: range(rng, p.width), taper: p.taper };
+    shape = { kind, ...place, height: pick(d, 'height', p.height), length: pick(d, 'length', p.length), width: pick(d, 'width', p.width), taper: p.taper };
   } else {
     const p = cfg.sideHit;
-    shape = { kind, ...place, height: range(rng, p.height), angle: p.angle * RAD, back: p.back, width: range(rng, p.width), taper: p.taper };
+    shape = { kind, ...place, height: pick(d, 'height', p.height), angle: p.angle * RAD, back: p.back, width: pick(d, 'width', p.width), taper: p.taper };
   }
   return { kind: 'shape', cfg: shape, meta: { type: kind } };
 }
@@ -414,12 +440,12 @@ export function designShape(kind: 'roller' | 'spine' | 'sideHit', place: Place, 
  * down with the slope). Heights are above the snow, as the sim's rails take them. Ridden
  * from either end: nothing here makes it one-way.
  */
-export function designRail(place: Place, rng: Rng, cfg: GenConfig): FeatureSpec {
+export function designRail(place: Place, d: Draw, cfg: GenConfig): FeatureSpec {
   const r = cfg.rail;
-  const len = range(rng, r.length);
-  const h = range(rng, r.height);
-  const box = next(rng) < 0.4;
-  const flatDown = next(rng) < 0.4;
+  const len = pick(d, 'length', r.length);
+  const h = pick(d, 'height', r.height);
+  const box = chance(d, 'box', 0.4) === 1;
+  const flatDown = chance(d, 'flatDown', 0.4) === 1;
   const dx = dm.sin(place.yaw);
   const dz = -dm.cos(place.yaw);
   const at = (along: number, height: number): [number, number, number] => [place.x + dx * along, height, place.z + dz * along];
@@ -433,23 +459,23 @@ export function designRail(place: Place, rng: Rng, cfg: GenConfig): FeatureSpec 
 // obstacle a shared `meta.group`.
 
 /** A park side hit: the small painted kicker that fills between bigger features. */
-export function designMini(place: Place, rng: Rng, cfg: GenConfig): FeatureSpec[] {
+export function designMini(place: Place, d: Draw, cfg: GenConfig): FeatureSpec[] {
   const m = cfg.mini;
-  const shape: SideHitConfig = { kind: 'sideHit', ...place, height: range(rng, m.height), angle: range(rng, m.angle) * RAD, back: m.back, width: range(rng, m.width), taper: m.taper, paint: true };
+  const shape: SideHitConfig = { kind: 'sideHit', ...place, height: pick(d, 'height', m.height), angle: pick(d, 'angle', m.angle) * RAD, back: m.back, width: pick(d, 'width', m.width), taper: m.taper, paint: true };
   return [{ kind: 'shape', cfg: shape, meta: { type: 'mini', speed: m.speed as [number, number], lip: shapeLip(shape) } }];
 }
 
-export function designKnoll(place: Place, rng: Rng, cfg: GenConfig): FeatureSpec[] {
+export function designKnoll(place: Place, d: Draw, cfg: GenConfig): FeatureSpec[] {
   const k = cfg.knoll;
-  const radius = range(rng, k.radius);
-  return [{ kind: 'shape', cfg: { kind: 'knoll', ...place, height: range(rng, k.height), radius, back: radius * range(rng, k.back) }, meta: { type: 'knoll', lip: 0 } }];
+  const radius = pick(d, 'radius', k.radius);
+  return [{ kind: 'shape', cfg: { kind: 'knoll', ...place, height: pick(d, 'height', k.height), radius, back: radius * pick(d, 'back', k.back) }, meta: { type: 'knoll', lip: 0 } }];
 }
 
 /** A round rail lying along `yaw` on a low mound — ollie it or bonk it. */
-export function designLog(place: Place, rng: Rng, cfg: GenConfig): FeatureSpec[] {
+export function designLog(place: Place, d: Draw, cfg: GenConfig): FeatureSpec[] {
   const L = cfg.log;
-  const len = range(rng, L.length);
-  const h = range(rng, L.height);
+  const len = pick(d, 'length', L.length);
+  const h = pick(d, 'height', L.height);
   const ax = dm.sin(place.yaw);
   const az = -dm.cos(place.yaw);
   const rail: RailConfig = { points: [[place.x, h, place.z], [place.x + ax * len, h, place.z + az * len]] };
@@ -478,14 +504,14 @@ export function designLog(place: Place, rng: Rng, cfg: GenConfig): FeatureSpec[]
  * `yaw`: ridden wall to wall at park speed. Each wall turns about its own origin, so placing
  * the origins at the turned offsets turns the pipe as one. Only on the grade it was made for.
  */
-export function designMiniPipe(place: Place, groundPitch: number, rng: Rng, cfg: GenConfig): FeatureSpec[] {
+export function designMiniPipe(place: Place, groundPitch: number, d: Draw, cfg: GenConfig): FeatureSpec[] {
   const P = cfg.miniPipe;
   if (groundPitch < (P.grade[0] ?? 0) * RAD || groundPitch > (P.grade[1] ?? 90) * RAD) return [];
-  const length = range(rng, P.length);
-  const flat = range(rng, P.flat);
-  const height = range(rng, P.height);
-  const angle = range(rng, P.angle) * RAD;
-  const radius = range(rng, P.radius);
+  const length = pick(d, 'length', P.length);
+  const flat = pick(d, 'flat', P.flat);
+  const height = pick(d, 'height', P.height);
+  const angle = pick(d, 'angle', P.angle) * RAD;
+  const radius = pick(d, 'radius', P.radius);
   const ax = dm.sin(place.yaw);
   const az = -dm.cos(place.yaw);
   const cx = place.x + (ax * length) / 2;
@@ -550,7 +576,7 @@ function lowestOver(a: [number, number][], from: number, to: number): number {
  * the slowest air with a medium pop clears its top by `clear` — a rider short of that lands on
  * it, which is a real jib.
  */
-export function designEuroGap(place: Place, size: Size, groundPitch: number, rng: Rng, cfg: GenConfig, params: Params): FeatureSpec[] {
+export function designEuroGap(place: Place, size: Size, groundPitch: number, d: Draw, cfg: GenConfig, params: Params): FeatureSpec[] {
   const E = cfg.euroGap;
   const base = designKicker({ x: 0, z: 0, yaw: 0 }, size, groundPitch, cfg, params);
   const k = base.cfg as KickerConfig;
@@ -584,7 +610,7 @@ export function designEuroGap(place: Place, size: Size, groundPitch: number, rng
   const from = R.start;
   const to = deck - R.setBack;
   if (to - from < (R.length[0] ?? 4)) return [];
-  const len = Math.min(range(rng, R.length), to - from);
+  const len = Math.min(pick(d, 'railLength', R.length), to - from);
   const r0 = from + (to - from - len) / 2;
   const over = lowestOver(arc(probe, runIn, vMin, popMid, groundPitch, params), r0, r0 + len) - H - R.clear;
   const railH = Math.min(R.height[1] ?? 1, over);
@@ -607,13 +633,13 @@ export function designEuroGap(place: Place, size: Size, groundPitch: number, rng
  * speed is the one in range whose gap from the takeoff's back comes nearest the middle of
  * `gap`; none in range → nothing here.
  */
-export function designGapToRail(place: Place, groundPitch: number, rng: Rng, cfg: GenConfig, params: Params): FeatureSpec[] {
+export function designGapToRail(place: Place, groundPitch: number, d: Draw, cfg: GenConfig, params: Params): FeatureSpec[] {
   const G = cfg.gapToRail;
   const R = G.rail;
-  const hit: SideHitConfig = { kind: 'sideHit', x: 0, z: 0, yaw: 0, height: range(rng, G.height), angle: G.angle * RAD, back: G.back, width: G.width, taper: G.taper, paint: true };
+  const hit: SideHitConfig = { kind: 'sideHit', x: 0, z: 0, yaw: 0, height: pick(d, 'height', G.height), angle: G.angle * RAD, back: G.back, width: G.width, taper: G.taper, paint: true };
   const runIn = shapeLip(hit);
   const t = createSlope({ length: 600, width: 600, pitch: groundPitch, shapes: [hit] });
-  const len = range(rng, R.length);
+  const len = pick(d, 'railLength', R.length);
   const want = ((G.gap[0] ?? 1) + (G.gap[1] ?? 4)) / 2;
   let best: { v: number; start: number; height: number } | undefined;
   for (let v = G.speed[0] ?? 3; v <= (G.speed[1] ?? 8) + 1e-9; v += 0.5) {
@@ -645,11 +671,11 @@ export function designGapToRail(place: Place, groundPitch: number, rng: Rng, cfg
 }
 
 /** A jib table — low lip, long flat deck, gentle landing — with a rail or box along the deck. */
-export function designJibTable(place: Place, rng: Rng, cfg: GenConfig): FeatureSpec[] {
+export function designJibTable(place: Place, d: Draw, cfg: GenConfig): FeatureSpec[] {
   const J = cfg.jibTable;
   const theta = J.lipAngle * RAD;
   const runIn = (J.lip / (1 - dm.cos(theta))) * dm.sin(theta);
-  const deck = range(rng, J.deck);
+  const deck = pick(d, 'deck', J.deck);
   const landingAngle = J.landingAngle * RAD;
   const [knuckleRadius, runoutRadius] = fitRadii(J.lip, landingAngle, J.knuckleRadius, J.runoutRadius);
   const table: KickerConfig = {
@@ -667,9 +693,9 @@ export function designJibTable(place: Place, rng: Rng, cfg: GenConfig): FeatureS
     runoutRadius,
   };
   const R = J.rail;
-  const len = Math.min(range(rng, R.length), deck - R.start - R.end);
-  const h = range(rng, R.height);
-  const box = next(rng) < 0.5;
+  const len = Math.min(pick(d, 'railLength', R.length), deck - R.start - R.end);
+  const h = pick(d, 'railHeight', R.height);
+  const box = chance(d, 'box', 0.5) === 1;
   const ax = dm.sin(place.yaw);
   const az = -dm.cos(place.yaw);
   const at = (along: number): [number, number, number] => [place.x + ax * along, h, place.z + az * along];
@@ -706,9 +732,9 @@ export function designStepDown(place: Place, size: Size, groundPitch: number, gr
  * Only where, over a run of speeds `span` m/s wide, a medium air comes down clean on ground
  * that is `landing`° steep; then the real rider rides it once at the middle speed.
  */
-export function designBooter(place: Place, ground: Terrain, rng: Rng, cfg: GenConfig, params: Params): FeatureSpec[] {
+export function designBooter(place: Place, ground: Terrain, d: Draw, cfg: GenConfig, params: Params): FeatureSpec[] {
   const B = cfg.booter;
-  const hit: SideHitConfig = { kind: 'sideHit', x: 0, z: 0, yaw: 0, height: range(rng, B.height), angle: range(rng, B.angle) * RAD, back: B.back, width: range(rng, B.width), taper: B.taper };
+  const hit: SideHitConfig = { kind: 'sideHit', x: 0, z: 0, yaw: 0, height: pick(d, 'height', B.height), angle: pick(d, 'angle', B.angle) * RAD, back: B.back, width: pick(d, 'width', B.width), taper: B.taper };
   const runIn = shapeLip(hit);
   const base = groundFrame(ground, place);
   const t = stack(base, createSlope({ length: 600, width: 600, pitch: 0, shapes: [hit] }));
@@ -736,14 +762,14 @@ export function designBooter(place: Place, ground: Terrain, rng: Rng, cfg: GenCo
  * height in range whose edge, ridden off without a pop or with a medium one at the slowest,
  * middle and top speed, lands clean on the ground below; then the real rider rides it once.
  */
-export function designDrop(place: Place, ground: Terrain, rng: Rng, cfg: GenConfig, params: Params): FeatureSpec[] {
+export function designDrop(place: Place, ground: Terrain, d: Draw, cfg: GenConfig, params: Params): FeatureSpec[] {
   const D = cfg.drop;
   const base = groundFrame(ground, place);
   const [vMin = 6, vMax = 14] = D.speed;
   const [popMin, popMax] = popRange(params);
-  const rise = range(rng, D.rise);
-  const top = range(rng, D.top);
-  const width = range(rng, D.width);
+  const rise = pick(d, 'rise', D.rise);
+  const top = pick(d, 'top', D.top);
+  const width = pick(d, 'width', D.width);
   const edge = rise + top;
   for (let height = D.height[1] ?? 6; height >= (D.height[0] ?? 2) - 1e-9; height -= 0.5) {
     const shelf: ShelfConfig = { kind: 'shelf', x: 0, z: 0, yaw: 0, height, rise, top, face: D.face * RAD, width, taper: D.taper };
@@ -783,23 +809,23 @@ export function designCorner(place: Place, size: Size, ground: Terrain, cfg: Gen
 
 // Build step 4: new shapes.
 
-function wedgeShape(place: Place, faces: 2 | 4, top: number, rng: Rng, cfg: GenConfig): WedgeConfig {
+function wedgeShape(place: Place, faces: 2 | 4, top: number, d: Draw, cfg: GenConfig): WedgeConfig {
   const W = cfg.wedge;
-  return { kind: 'wedge', ...place, faces, height: range(rng, W.height), faceAngle: range(rng, W.faceAngle) * RAD, baseRadius: W.baseRadius, top, width: range(rng, W.width), taper: W.taper };
+  return { kind: 'wedge', ...place, faces, height: pick(d, 'height', W.height), faceAngle: pick(d, 'faceAngle', W.faceAngle) * RAD, baseRadius: W.baseRadius, top, width: pick(d, 'width', W.width), taper: W.taper };
 }
 
 /** Wedge / pyramid: 4 faces with a deck, or 2 with a crest — a kicker, a hip or a spine by approach. */
-export function designWedge(place: Place, rng: Rng, cfg: GenConfig): FeatureSpec[] {
+export function designWedge(place: Place, d: Draw, cfg: GenConfig): FeatureSpec[] {
   const W = cfg.wedge;
-  const four = next(rng) < W.four;
-  const shape = wedgeShape(place, four ? 4 : 2, range(rng, four ? W.top4 : W.top2), rng, cfg);
+  const four = chance(d, 'four', W.four) === 1;
+  const shape = wedgeShape(place, four ? 4 : 2, pick(d, 'top', four ? W.top4 : W.top2), d, cfg);
   return [{ kind: 'shape', cfg: shape, meta: { type: four ? 'pyramid' : 'wedge', lip: shapeLip(shape) } }];
 }
 
 /** Fun box: a pyramid with a box along its deck and a rail down its downhill face. */
-export function designFunBox(place: Place, rng: Rng, cfg: GenConfig): FeatureSpec[] {
+export function designFunBox(place: Place, d: Draw, cfg: GenConfig): FeatureSpec[] {
   const F = cfg.funBox;
-  const shape = wedgeShape(place, 4, range(rng, F.top), rng, cfg);
+  const shape = wedgeShape(place, 4, pick(d, 'top', F.top), d, cfg);
   const lip = shapeLip(shape); // the uphill face's top edge: the deck starts here
   const deckEnd = lip + shape.top;
   const base = deckEnd + lip; // the downhill face's foot
@@ -814,29 +840,29 @@ export function designFunBox(place: Place, rng: Rng, cfg: GenConfig): FeatureSpe
 }
 
 /** Berm: a banked turn either way, starting at `place` along its axis. */
-export function designBerm(place: Place, rng: Rng, cfg: GenConfig): FeatureSpec[] {
+export function designBerm(place: Place, d: Draw, cfg: GenConfig): FeatureSpec[] {
   const B = cfg.berm;
-  const side: 1 | -1 = next(rng) < 0.5 ? -1 : 1;
-  return [{ kind: 'shape', cfg: { kind: 'berm', ...place, radius: range(rng, B.radius), sweep: range(rng, B.sweep) * RAD, side, bank: range(rng, B.bank) * RAD, height: range(rng, B.height), taper: B.taper }, meta: { type: 'berm' } }];
+  const side: 1 | -1 = chance(d, 'left', 0.5) ? -1 : 1;
+  return [{ kind: 'shape', cfg: { kind: 'berm', ...place, radius: pick(d, 'radius', B.radius), sweep: pick(d, 'sweep', B.sweep) * RAD, side, bank: pick(d, 'bank', B.bank) * RAD, height: pick(d, 'height', B.height), taper: B.taper }, meta: { type: 'berm' } }];
 }
 
 /**
  * Wall ride: a steep wall beside the approach, turned with it, rising away from it on one side.
  * The wall turns about its own origin, so that goes at the turned offset from the approach.
  */
-export function designWallRide(place: Place, rng: Rng, cfg: GenConfig): FeatureSpec[] {
+export function designWallRide(place: Place, d: Draw, cfg: GenConfig): FeatureSpec[] {
   const R = cfg.wallRide;
-  const side: 1 | -1 = next(rng) < 0.5 ? -1 : 1;
+  const side: 1 | -1 = chance(d, 'left', 0.5) ? -1 : 1;
   const off = side * R.offset;
   const wall: WallConfig = {
     x: place.x + off * dm.cos(place.yaw),
     z: place.z + off * dm.sin(place.yaw),
     yaw: place.yaw,
     side,
-    length: range(rng, R.length),
-    height: range(rng, R.height),
-    angle: range(rng, R.angle) * RAD,
-    radius: range(rng, R.radius),
+    length: pick(d, 'length', R.length),
+    height: pick(d, 'height', R.height),
+    angle: pick(d, 'angle', R.angle) * RAD,
+    radius: pick(d, 'radius', R.radius),
     top: R.top,
     taper: R.taper,
   };
@@ -844,8 +870,8 @@ export function designWallRide(place: Place, rng: Rng, cfg: GenConfig): FeatureS
 }
 
 /** Step-down hip: a hip whose table and side landings sit below its lip. */
-export function designStepDownHip(place: Place, size: Size, rng: Rng, cfg: GenConfig, params: Params, pitch = 0, ground?: Terrain): FeatureSpec[] {
-  const f = designHip(place, size, rng, cfg, params, pitch, ground, range(rng, cfg.stepDownHip.drop));
+export function designStepDownHip(place: Place, size: Size, d: Draw, cfg: GenConfig, params: Params, pitch = 0, ground?: Terrain): FeatureSpec[] {
+  const f = designHip(place, size, d, cfg, params, pitch, ground, pick(d, 'stepDown', cfg.stepDownHip.drop));
   f.meta = { ...(f.meta ?? { type: 'stepDownHip' }), type: `step-down ${f.meta?.type ?? 'hip'}` };
   return [f];
 }
