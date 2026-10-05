@@ -145,7 +145,388 @@
   "z": -5,
   "heading": 3.141592653589793
  },
- "features": [],
- "lines": [],
+ "features": [
+  {
+   "kind": "kicker",
+   "cfg": {
+    "x": 3,
+    "z": -99.13626037729303,
+    "width": 5,
+    "lipHeight": 1.5,
+    "lipAngle": 0.5235987755982988,
+    "deckLength": 3.8452826795558543,
+    "knuckleHeight": 1.5,
+    "sideTaper": 1,
+    "deckWidth": 11,
+    "deckTaper": 4,
+    "landingAngle": 0.45378560551852565,
+    "knuckleRadius": 3.9523366499011403,
+    "runoutRadius": 7.904673299802281,
+    "yaw": 0
+   },
+   "meta": {
+    "type": "kicker",
+    "size": "split-big",
+    "speed": [
+     7.46,
+     10.96
+    ],
+    "lip": 5.598076211353318,
+    "checks": [
+     {
+      "speed": 7.46,
+      "pop": 1.566,
+      "grade": "clean",
+      "impact": 5.519644749400465,
+      "past": 4.189852357684691
+     },
+     {
+      "speed": 9.21,
+      "pop": 3.5235,
+      "grade": "clean",
+      "impact": 9.315302000279312,
+      "past": 8.91011191451958
+     },
+     {
+      "speed": 10.96,
+      "pop": 3.5235,
+      "grade": "clean",
+      "impact": 10.119974341901248,
+      "past": 13.327241938730655
+     },
+     {
+      "speed": 10.96,
+      "pop": 5.481,
+      "grade": "clean",
+      "impact": 11.584147996395073,
+      "past": 14.589675903440774
+     },
+     {
+      "speed": 7.46,
+      "pop": 5.481,
+      "grade": "clean",
+      "impact": 9.732265785059028,
+      "past": 5.519560206602595
+     }
+    ]
+   }
+  },
+  {
+   "kind": "kicker",
+   "cfg": {
+    "x": 7.25,
+    "z": -103.7207735413902,
+    "width": 3.5,
+    "lipHeight": 0.9,
+    "lipAngle": 0.5235987755982988,
+    "deckLength": 1.5,
+    "knuckleHeight": 1.5,
+    "sideTaper": 1,
+    "deckWidth": 5.5,
+    "deckTaper": 4,
+    "landingAngle": 0.45378560551852565,
+    "knuckleRadius": 3.9523366499011403,
+    "runoutRadius": 7.904673299802281
+   },
+   "meta": {
+    "type": "kicker",
+    "size": "split-small",
+    "speed": [
+     5,
+     7.96
+    ],
+    "lip": 3.3588457268119907,
+    "checks": [
+     {
+      "speed": 5,
+      "pop": 1.566,
+      "grade": "clean",
+      "impact": 1.1105342274216683,
+      "past": 1.1543134328946252
+     },
+     {
+      "speed": 6.48,
+      "pop": 3.5235,
+      "grade": "clean",
+      "impact": 7.0352024885632884,
+      "past": 5.280081902527215
+     },
+     {
+      "speed": 7.96,
+      "pop": 3.5235,
+      "grade": "clean",
+      "impact": 8.079669761148555,
+      "past": 8.115172922128679
+     },
+     {
+      "speed": 7.96,
+      "pop": 5.481,
+      "grade": "clean",
+      "impact": 9.611871943178427,
+      "past": 8.85728091680599
+     }
+    ]
+   }
+  },
+  {
+   "kind": "kicker",
+   "cfg": {
+    "x": 3,
+    "z": -162.7509817236687,
+    "width": 5,
+    "lipHeight": 1.8,
+    "lipAngle": 0.5235987755982988,
+    "deckLength": 9.75551542360824,
+    "knuckleHeight": 1.8,
+    "sideTaper": 1,
+    "deckWidth": 11,
+    "deckTaper": 4,
+    "landingAngle": 0.45378560551852565,
+    "knuckleRadius": 4.742803979881368,
+    "runoutRadius": 9.485607959762737,
+    "yaw": 0
+   },
+   "meta": {
+    "type": "kicker",
+    "size": "split-big",
+    "speed": [
+     10.32,
+     13.82
+    ],
+    "lip": 6.717691453623981,
+    "checks": [
+     {
+      "speed": 10.32,
+      "pop": 1.566,
+      "grade": "clean",
+      "impact": 5.011687007411274,
+      "past": 4.101422806535087
+     },
+     {
+      "speed": 12.07,
+      "pop": 3.5235,
+      "grade": "clean",
+      "impact": 10.899604308857645,
+      "past": 10.766049931195258
+     },
+     {
+      "speed": 13.82,
+      "pop": 3.5235,
+      "grade": "clean",
+      "impact": 11.618640195174883,
+      "past": 16.058580377435298
+     },
+     {
+      "speed": 13.82,
+      "pop": 5.481,
+      "grade": "sketchy",
+      "impact": 13.08606323670838,
+      "past": 17.938945470503413
+     },
+     {
+      "speed": 10.32,
+      "pop": 5.481,
+      "grade": "clean",
+      "impact": 11.567022822420842,
+      "past": 7.018636920543461
+     }
+    ]
+   }
+  },
+  {
+   "kind": "kicker",
+   "cfg": {
+    "x": 7.25,
+    "z": -169.99572763181828,
+    "width": 3.5,
+    "lipHeight": 1.2,
+    "lipAngle": 0.5235987755982988,
+    "deckLength": 4.75,
+    "knuckleHeight": 1.8,
+    "sideTaper": 1,
+    "deckWidth": 5.5,
+    "deckTaper": 4,
+    "landingAngle": 0.45378560551852565,
+    "knuckleRadius": 4.742803979881368,
+    "runoutRadius": 9.485607959762737
+   },
+   "meta": {
+    "type": "kicker",
+    "size": "split-small",
+    "speed": [
+     7.32,
+     10.82
+    ],
+    "lip": 4.478460969082653,
+    "checks": [
+     {
+      "speed": 7.32,
+      "pop": 1.566,
+      "grade": "clean",
+      "impact": 2.433905047084247,
+      "past": 1.010548666714044
+     },
+     {
+      "speed": 9.07,
+      "pop": 3.5235,
+      "grade": "clean",
+      "impact": 8.931410825133025,
+      "past": 7.474497485050932
+     },
+     {
+      "speed": 10.82,
+      "pop": 3.5235,
+      "grade": "clean",
+      "impact": 9.743409580080943,
+      "past": 11.798962264155222
+     },
+     {
+      "speed": 10.82,
+      "pop": 5.481,
+      "grade": "clean",
+      "impact": 11.202762608413575,
+      "past": 13.08609671395888
+     }
+    ]
+   }
+  },
+  {
+   "kind": "kicker",
+   "cfg": {
+    "x": 3,
+    "z": -225.9924979892875,
+    "width": 5,
+    "lipHeight": 2.2,
+    "lipAngle": 0.5235987755982988,
+    "deckLength": 13.597025933093974,
+    "knuckleHeight": 2.2,
+    "sideTaper": 1,
+    "deckWidth": 11,
+    "deckTaper": 4,
+    "landingAngle": 0.45378560551852565,
+    "knuckleRadius": 5.796760419855006,
+    "runoutRadius": 11.593520839710012,
+    "yaw": 0
+   },
+   "meta": {
+    "type": "kicker",
+    "size": "split-big",
+    "speed": [
+     11.93,
+     15.43
+    ],
+    "lip": 8.210511776651533,
+    "checks": [
+     {
+      "speed": 11.93,
+      "pop": 1.566,
+      "grade": "clean",
+      "impact": 4.261422561737114,
+      "past": 4.196803677643654
+     },
+     {
+      "speed": 13.68,
+      "pop": 3.5235,
+      "grade": "clean",
+      "impact": 11.903080365512901,
+      "past": 12.154282517230026
+     },
+     {
+      "speed": 15.43,
+      "pop": 3.5235,
+      "grade": "clean",
+      "impact": 12.698405534138034,
+      "past": 18.1068541020127
+     },
+     {
+      "speed": 15.43,
+      "pop": 5.481,
+      "grade": "sketchy",
+      "impact": 14.168807613190154,
+      "past": 20.304151407575645
+     },
+     {
+      "speed": 11.93,
+      "pop": 5.481,
+      "grade": "clean",
+      "impact": 12.23988669259705,
+      "past": 8.168319199977685
+     }
+    ]
+   }
+  },
+  {
+   "kind": "kicker",
+   "cfg": {
+    "x": 7.25,
+    "z": -234.3287544069228,
+    "width": 3.5,
+    "lipHeight": 1.6,
+    "lipAngle": 0.5235987755982988,
+    "deckLength": 7.5,
+    "knuckleHeight": 2.2,
+    "sideTaper": 1,
+    "deckWidth": 5.5,
+    "deckTaper": 4,
+    "landingAngle": 0.45378560551852565,
+    "knuckleRadius": 5.796760419855006,
+    "runoutRadius": 11.593520839710012
+   },
+   "meta": {
+    "type": "kicker",
+    "size": "split-small",
+    "speed": [
+     8.93,
+     12.43
+    ],
+    "lip": 5.971281292110206,
+    "checks": [
+     {
+      "speed": 8.93,
+      "pop": 1.566,
+      "grade": "clean",
+      "impact": 3.266478223428008,
+      "past": 1.1652942037160017
+     },
+     {
+      "speed": 10.68,
+      "pop": 3.5235,
+      "grade": "clean",
+      "impact": 10.092032412796737,
+      "past": 9.008507712952166
+     },
+     {
+      "speed": 12.43,
+      "pop": 3.5235,
+      "grade": "clean",
+      "impact": 10.814127202149505,
+      "past": 13.8338355525226
+     },
+     {
+      "speed": 12.43,
+      "pop": 5.481,
+      "grade": "clean",
+      "impact": 12.279516013049554,
+      "past": 15.423895366204704
+     }
+    ]
+   }
+  }
+ ],
+ "lines": [
+  {
+   "name": "jump line",
+   "features": [
+    0,
+    2,
+    4
+   ],
+   "speed": [
+    10.46,
+    13.32,
+    14.93
+   ]
+  }
+ ],
  "links": []
 }
