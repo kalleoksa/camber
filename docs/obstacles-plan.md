@@ -403,9 +403,12 @@ zone, else a cliff drop whose shelf ends near it, else a kicker solved over the 
 
 | Seed | 1 | 2 | 3 | 4 | 5 | 6 |
 |---|---|---|---|---|---|---|
-| Booters | 2 | 0 | 1 | 0 | 3 | 2 |
-| Drops | 0 | 0 | 0 | 0 | 0 | 1 |
-| Step-downs | 2 | 8 | 4 | 6 | 7 | 4 |
+| Booters | 2 | 1 | 1 | 0 | 2 | 2 |
+| Drops | 0 | 0 | 0 | 0 | 0 | 0 |
+| Step-downs | 3 | 6 | 4 | 3 | 7 | 4 |
+
+Drops lose out: the booter is tried first at each spot, and a drop's long shelf rarely clears
+the footprints around it.
 
 gen-check seeds 1–4: steepest spot 30–36°, no walls, restart stuck 3–6%. A zone takes room:
 10–14 band patches remain per park (was 16–21), so the rest of the hill is a little more even.
