@@ -387,3 +387,25 @@ Results:
 Generated parks, seeds 1–4, every hip ridden at its middle speed, half pop, aims 10/20/30°:
 clean 37 of 48 (was 6 of 15 with the scaled home corner), no bails. Bigger hips take more room:
 seed 1 has 55 features (was ~66).
+
+## Natural zones (2026-10-05)
+
+Generated ground was too gentle for booters and drops (2 of 120 spots fit a booter). Now each
+park gets a natural zone (`GEN.natural`, `ground.ts`): a 30–36° pitch for up to ~40 m, sinking
+the ground up to 16 m, then a 6–9° run-out that gives the height back. Its sides fade over at
+least 1.5 × depth / tan 20°, so they stay slopes. Band patches whose cores overlap it are
+removed (each gives back its own height, so removing one leaves no step); a second zone is
+skipped if it would land near the first.
+
+The fill tries each zone's top edge first, at three spots across it: a booter 18–30 m above the
+zone, else a cliff drop whose shelf ends near it, else a kicker solved over the falling ground
+(a step-down). Booter speeds widened to 8–16 m/s: their airs carry 30–50 m.
+
+| Seed | 1 | 2 | 3 | 4 | 5 | 6 |
+|---|---|---|---|---|---|---|
+| Booters | 2 | 0 | 1 | 0 | 3 | 2 |
+| Drops | 0 | 0 | 0 | 0 | 0 | 1 |
+| Step-downs | 2 | 8 | 4 | 6 | 7 | 4 |
+
+gen-check seeds 1–4: steepest spot 30–36°, no walls, restart stuck 3–6%. A zone takes room:
+10–14 band patches remain per park (was 16–21), so the rest of the hill is a little more even.

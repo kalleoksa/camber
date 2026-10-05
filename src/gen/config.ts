@@ -31,6 +31,26 @@ export const GEN = {
     maxPitch: 35, // no recovery segment steeper than this; it runs longer instead
   },
 
+  // Natural zones: a long steep pitch and a flatter run-out that gives the height back, laid on
+  // top of the bands — somewhere for booters and cliff drops to land. The fill tries those first,
+  // at each zone's top edge.
+  natural: {
+    count: [1, 2], // zones per park
+    steep: [30, 36], // ° of the steep pitch
+    length: [30, 45], // m of it
+    maxOffset: 16, // m it may sink the ground below the base plane; shorter if it would sink more
+    side: 20, // ° at most across its sides: they fade over 1.5 × depth / tan(side) at least (smoothstep's steepest is 1.5× its mean)
+    recover: [6, 9], // ° of the run-out after it: flatter than the base, so the height comes back
+    at: [150, 550], // m down the zone where one may start
+    halfWidth: [18, 30],
+    edge: [15, 25],
+    blend: 26, // m, as the bands: a crest at speed must bend over more than v²/g or it launches you
+    yaw: 15, // ° off the fall line
+    tries: 3, // spots across each zone's top edge the fill tries
+    lead: [18, 30], // m uphill of the zone's start a booter's takeoff goes: its airs carry 30–50 m
+    shelf: 40, // m further uphill a cliff drop's shelf starts, so its edge comes near the zone's start
+  },
+
   // Spine lines (lines.ts): traced down the fall line with some wander, features placed along
   // each so the speed it arrives with is the speed the next feature is sized for.
   lines: {
@@ -149,7 +169,7 @@ export const GEN = {
   },
   // Build step 3: solved over the real ground (kit.ts groundFrame).
   stepDown: { drop: [0.5, 6], probe: 30 }, // drop: m the ground below falls away from the run-in's grade, `probe` m past the takeoff — generated ground is gentle, so a kicker that has it is called a step-down
-  booter: { height: [2.5, 4], angle: [28, 32], back: 2.5, width: [5, 6], taper: 1.5, speed: [10, 18], landing: [22, 38], span: 2 }, // a natural kicker, no landing built: lands on ground at `landing`° (from horizontal); span: m/s of speeds that must work
+  booter: { height: [2.5, 4], angle: [28, 32], back: 2.5, width: [5, 6], taper: 1.5, speed: [8, 16], landing: [22, 38], span: 2 }, // a natural kicker, no landing built: lands on ground at `landing`° (from horizontal); span: m/s of speeds that must work
   drop: { height: [2, 6], rise: [30, 50], top: [6, 10], face: 70, width: [8, 14], taper: 3, speed: [6, 14] }, // a cliff built as a shelf: rise, top in m; face in °
   corner: { yaw: [45, 70], sizes: ['S', 'M'] }, // ° off the fall line the takeoff faces: past ~70° its axis is nearly a traverse and fast airs overshoot onto flat ground
   // Build step 4: new shapes.

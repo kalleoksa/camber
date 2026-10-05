@@ -39,6 +39,40 @@ export function placeFill(
   const added: FeatureSpec[] = [];
   const half = field.width / 2 - cfg.bank.width - 8;
 
+  // Natural zones first: a booter, else a cliff drop, else a kicker solved over the falling
+  // ground (a step-down), at a few spots across each zone's top edge, facing down its axis.
+  const N = cfg.natural;
+  for (const p of field.patches) {
+    if (!p.natural) continue;
+    const ax = dm.sin(p.yaw);
+    const az = -dm.cos(p.yaw);
+    for (let k = 0; k < N.tries; k++) {
+      const across = (k - (N.tries - 1) / 2) * p.halfWidth * 0.6;
+      for (const kind of ['booter', 'drop', 'kicker'] as const) {
+        const back = range(rng, N.lead) + (kind === 'drop' ? N.shelf : 0);
+        const x = p.x + across * dm.cos(p.yaw) - ax * back;
+        const z = p.z + across * dm.sin(p.yaw) - az * back;
+        if (Math.abs(x) > half) continue;
+        const v = speedAt(map, x, z) / cfg.lines.speedMargin;
+        const want = wantedSpeed(kind, false, v, rng, cfg, params);
+        const atLip = Math.sqrt(Math.max(0, v * v - 2 * g * want.lipHeight - 2 * params.ground.friction * g * want.runIn));
+        if (atLip < want.speed[0]) continue;
+        const parts = build(kind, want, { x, z, yaw: p.yaw }, rng, ground, cfg, params);
+        const spec = parts[0];
+        if (!spec) continue;
+        const partPrints = parts.map((q) => footprint(q, cfg.clear.runIn, cfg.clear.margin));
+        if (partPrints.some((print) => prints.some((q) => overlaps(q, print)))) continue;
+        if (partPrints.some((print) => path.some(([px, pz]) => covers(print, px, pz, cfg.clear.path)))) continue;
+        for (const q of parts) q.meta = { ...(q.meta ?? { type: q.kind }), fill: true };
+        group(parts, features.length + added.length);
+        added.push(...parts);
+        prints.push(...partPrints);
+        origins.push(origin(spec));
+        break;
+      }
+    }
+  }
+
   for (let attempt = 0; attempt < F.attempts && added.length < F.count; attempt++) {
     const x = range(rng, [-half, half]);
     const z = range(rng, [-40, -(field.length - 60)]);
