@@ -4,14 +4,10 @@
 `claude/project-analysis-plan-shg4g6` (PR #23). This keeps the source's core loop (shape →
 check → ride → adjust) and changes what the code makes simpler or what CLAUDE.md rules out.
 
-## Decision needed before any code
+## UI chrome
 
-The editor is UI chrome, which CLAUDE.md forbids. It needs a **third agreed exception**,
-worded as:
-
-> The park editor (`src/editor/`), opened with `?edit=1`, loaded by dynamic import. Edit mode
-> only: nothing of it shows while riding. Tweakpane panels, one 2D canvas, a gizmo. No menus,
-> no framework.
+The editor is CLAUDE.md's third agreed exception to "no UI chrome" (added 2026-10-05):
+`?edit=1`, dynamic import, edit mode only, Tweakpane panels, one 2D canvas, a gizmo.
 
 ## What already exists
 
@@ -38,7 +34,6 @@ worded as:
    tiles under the changed feature's footprint (old and new). Target: < 50 ms per edit.
    Render-only.
 3. **`meta.group`** (shared with the obstacles spec): composites move as one.
-4. **The CLAUDE.md exception** above.
 
 ## Two kinds of feature in the editor
 
@@ -134,7 +129,7 @@ A 2D canvas docked at the bottom, a side section along the selected feature's ax
 
 ## Build order
 
-**Phase 0:** kit split + `meta.design`, tiled terrain mesh, `meta.group`, CLAUDE.md exception.
+**Phase 0:** kit split + `meta.design`, tiled terrain mesh, `meta.group`.
 
 **Phase 1, core:**
 1. Edit/ride toggle, free-fly camera.
