@@ -5,20 +5,24 @@ import { LEGEND, type OverlayName, type Overlays } from '../render/debugOverlays
  * The park folder: which park, the generator's seed, and the debug overlays. A new seed
  * reloads the page on it (?park=gen&seed=N), so the whole world is rebuilt from the layout
  * and the URL can be shared; ?overlay=slope|speed|arcs|lines|graph starts with that overlay showing,
- * &view=top with the overview camera, &at=x,z at that spot.
+ * &view=top with the overview camera, &preview=1 with the trajectory preview, &at=x,z[,deg] at
+ * that spot.
  */
-export function addParkFolder(pane: Pane, park: string, seed: number, overlays: Overlays, onOverview: (on: boolean) => void): void {
+export type ParkHandlers = { onOverview(on: boolean): void; onTrajectory(on: boolean): void };
+
+export function addParkFolder(pane: Pane, park: string, seed: number, overlays: Overlays, handlers: ParkHandlers): void {
   const query = new URLSearchParams(location.search);
   const start = query.get('overlay');
   const overlay: OverlayName = start === 'slope' || start === 'speed' || start === 'arcs' || start === 'lines' || start === 'graph' ? start : 'none';
-  const state = { park, seed, overlay, legend: LEGEND[overlay], overview: query.get('view') === 'top' };
+  const state = { park, seed, overlay, legend: LEGEND[overlay], overview: query.get('view') === 'top', trajectory: query.get('preview') === '1' };
   overlays.show(overlay);
-  onOverview(state.overview);
+  handlers.onOverview(state.overview);
+  handlers.onTrajectory(state.trajectory);
   const folder = pane.addFolder({ title: 'park', expanded: false });
   folder.addBinding(state, 'park', { readonly: true });
   folder.addBinding(state, 'seed', { step: 1, min: 1, format: (v: number) => v.toFixed(0) });
   const go = (s: number): void => {
-    location.search = `?park=gen&seed=${s}${state.overlay !== 'none' ? `&overlay=${state.overlay}` : ''}${state.overview ? '&view=top' : ''}`;
+    location.search = `?park=gen&seed=${s}${state.overlay !== 'none' ? `&overlay=${state.overlay}` : ''}${state.overview ? '&view=top' : ''}${state.trajectory ? '&preview=1' : ''}`;
   };
   folder.addButton({ title: 'load seed' }).on('click', () => go(Math.round(state.seed)));
   folder.addButton({ title: 'regenerate (new seed)' }).on('click', () => go(1 + Math.floor(Math.random() * 99999)));
@@ -34,5 +38,7 @@ export function addParkFolder(pane: Pane, park: string, seed: number, overlays: 
       legend.refresh();
     });
   // A camera high above the rider looking down the hill, for reading the overlays (&view=top).
-  folder.addBinding(state, 'overview', { label: 'overview camera' }).on('change', (ev) => onOverview(ev.value));
+  folder.addBinding(state, 'overview', { label: 'overview camera' }).on('change', (ev) => handlers.onOverview(ev.value));
+  // The air you'd get off the next lip at the speed you carry, coloured by how it lands (&preview=1).
+  folder.addBinding(state, 'trajectory', { label: 'trajectory preview' }).on('change', (ev) => handlers.onTrajectory(ev.value));
 }

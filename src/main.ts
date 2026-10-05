@@ -61,6 +61,7 @@ import { PARK_GRAVITY, REAL_GRAVITY } from './park/scale.ts';
 import { length } from './sim/vec3.ts';
 import { addParkFolder } from './tuning/parkPanel.ts';
 import { createOverlays } from './render/debugOverlays.ts';
+import { createTrajectoryPreview } from './render/trajectory.ts';
 import { createPanel, download, type FeedbackState, type Readout } from './tuning/panel.ts';
 
 const SEED = 1;
@@ -161,6 +162,7 @@ const chase = createChaseCamera(params);
 const view = createScene(slopeConfig, terrain, chase.camera, 0.75 * (PARK_GRAVITY / REAL_GRAVITY));
 const sceneFog = view.scene.fog;
 const overview = { on: false };
+const trajectory = createTrajectoryPreview(view.scene, slopeConfig, terrain, params);
 addEventListener('resize', view.resize);
 // The canvas follows the visible screen by CSS; whenever its size changes — including iPad
 // Safari's toolbars sliding, which doesn't always fire a resize — the buffer follows.
@@ -568,6 +570,7 @@ function render(alpha: number): void {
   if (poseMode) updatePreview(dt);
   sampleSecondary(secondaryView, secondaryPrevious, secondary, alpha);
   view.updateRider(rider, params, poseMode, secondaryView, dt);
+  trajectory.update(state);
   if (poseMode) {
     orbit.update(rider);
   } else {
@@ -800,9 +803,12 @@ const panel = createPanel(params, readout, view.drivers, preview, feedback, {
 // The speed map only means something on generated ground (a zone with a field).
 const field = slopeConfig.field;
 const speedMap = field ? computeSpeedMap(terrain, params, { width: field.width, length: field.length, ...GEN.speedMap }) : undefined;
-addParkFolder(panel.pane, layout.name, layout.seed ?? seed, createOverlays(view.scene, view.ground, terrain, speedMap, layout, params), (on) => {
-  overview.on = on;
-  view.scene.fog = on ? null : sceneFog;
+addParkFolder(panel.pane, layout.name, layout.seed ?? seed, createOverlays(view.scene, view.ground, terrain, speedMap, layout, params), {
+  onOverview: (on) => {
+    overview.on = on;
+    view.scene.fog = on ? null : sceneFog;
+  },
+  onTrajectory: (on) => trajectory.setEnabled(on),
 });
 
 function restart(): void {

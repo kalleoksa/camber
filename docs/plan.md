@@ -353,3 +353,11 @@ roll 0 each, 50–68 features, 68–123 links, 0–1 transfers (hips are rare), 
 longest 8–15 links — chains cross between the planned lines and the fill. Generation now
 5–10 s: runs in a Web Worker (`src/gen/worker.ts`, `load.ts`) behind a "generating park"
 note, cached in localStorage per build and seed. Overlay `graph`.
+
+Step 8 done: trajectory preview (`src/render/trajectory.ts`, park folder toggle, `&preview=1`,
+any park). Riding toward a lip (nearest within 70 m and ±26° of travel): the air off it at the
+speed carried less the climb and the snow, with the pop charged so far (none if RT isn't held),
+touchdown coloured clean / sketchy / bail; in the air, the rest of the flight. Checked against
+the real rider on the home park's middle lane: at takeoff, landings within 0.2 m of the
+prediction, with and without a full pop (it was 2–13 m short until it used the full speed
+along the lip's face rather than the horizontal part).
