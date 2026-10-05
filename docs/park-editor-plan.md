@@ -210,6 +210,8 @@ shared ride bot. (`meta.group` is done.)
   profile shows its long section with its segments as designed, a handle at each segment's end
   (length) and middle (pitch), and the step it leaves at its end. Delete, duplicate, mirror
   work on a patch; "add terrain patch" in the place folder drops one that gives its height back.
+  "Keep step at zero" (ground folder, on by default): after a segment edit the other segments
+  are re-pitched, nearest first and each within −10…60°, so the patch gives its height back.
 
 ## Done when
 

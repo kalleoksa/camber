@@ -217,6 +217,7 @@ export function createEditor(host: EditorHost): Editor {
     }, 300);
   };
   const profile = createProfile({
+    keepStep: () => groundPanel.keepStep(),
     editPatch: (change, final) => {
       const p = patchOf();
       if (!p) return;

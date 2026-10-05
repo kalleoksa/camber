@@ -284,3 +284,23 @@ export function newPatch(x: number, z: number, yaw: number, basePitch: number): 
   const roll = (bench * (Math.tan(basePitch) - flat)) / Math.max(1e-3, steep - Math.tan(basePitch));
   return { x, z, yaw, halfWidth: 8, edge: 4, blend: 4, segs: [[bench, Math.atan(flat)], [Math.max(2, roll), Math.atan(steep)]] };
 }
+
+const PITCH_MIN = -10 / (180 / Math.PI);
+const PITCH_MAX = 60 / (180 / Math.PI);
+
+/**
+ * Re-pitch the other segments so the patch leaves no step after segment `changed` was edited:
+ * the nearest first (the one after, then before, then further out), each within −10…60°, the
+ * rest passed on to the next. Only an edit no other segment can make up for leaves a step.
+ */
+export function zeroStep(p: PatchConfig, changed: number, basePitch: number): void {
+  const order: number[] = [];
+  for (let d = 1; d < p.segs.length; d++) for (const j of [changed + d, changed - d]) if (j >= 0 && j < p.segs.length) order.push(j);
+  for (const j of order) {
+    const seg = p.segs[j];
+    const step = patchStep(p, basePitch);
+    if (!seg || seg[0] <= 0 || Math.abs(step) < 1e-9) continue;
+    // This segment's grade that would take the whole step: (base − t)·len changes by −step.
+    seg[1] = Math.max(PITCH_MIN, Math.min(PITCH_MAX, Math.atan(Math.tan(seg[1]) + step / seg[0])));
+  }
+}

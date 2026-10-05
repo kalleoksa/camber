@@ -3,7 +3,7 @@ import type { FolderApi, Pane } from 'tweakpane';
 import type { Layout } from '../park/layout.ts';
 import type { PatchConfig } from '../sim/heightfield.ts';
 import { createContact, type Terrain } from '../sim/terrain.ts';
-import { patchStep } from './edits.ts';
+import { patchStep, zeroStep } from './edits.ts';
 
 /**
  * The ground folder: base pitch, banks and the heightfield's band patches as data — not
@@ -17,6 +17,8 @@ export type GroundPanel = {
   selected(): number;
   /** Redraw the selected patch's outline: while it is dragged, before the snow is re-baked. */
   outline(): void;
+  /** Segment edits keep the patch's step at zero (the neighbour's pitch follows). */
+  keepStep(): boolean;
   show(on: boolean): void;
   dispose(): void;
 };
@@ -36,7 +38,7 @@ export function addGroundFolder(
   const folder = pane.addFolder({ title: 'ground', expanded: false });
   const outline = new THREE.Group();
   scene.add(outline);
-  const state = { patch: -1, heatmap: false, step: '—' };
+  const state = { patch: -1, heatmap: false, step: '—', keepStep: true };
   let body: FolderApi | undefined;
   const c = createContact();
 
@@ -80,6 +82,12 @@ export function addGroundFolder(
     }
   };
 
+  /** After segment `i` changed: its neighbour's pitch follows if the step is kept at zero. */
+  const level = (p: PatchConfig, i: number): void => {
+    if (state.keepStep) zeroStep(p, i, get().ground.field?.pitch ?? get().ground.pitch);
+    apply();
+    later(); // the neighbour's numbers changed
+  };
   const apply = (): void => {
     changed();
     drawOutline();
@@ -141,18 +149,19 @@ export function addGroundFolder(
     body.addBinding(p, 'edge', { label: 'edge fade m', min: 0.5, max: 30, step: 0.5 }).on('change', (ev) => ev.last && apply());
     body.addBinding(p, 'blend', { label: 'blend m', min: 0.5, max: 30, step: 0.5 }).on('change', (ev) => ev.last && apply());
     body.addBinding(state, 'step', { readonly: true, label: 'step at end' });
+    body.addBinding(state, 'keepStep', { label: 'keep step at zero' });
     p.segs.forEach((seg, i) => {
       const s = { length: seg[0], pitch: seg[1] * DEG };
       const row = body?.addFolder({ title: `segment ${i + 1}`, expanded: true });
       row?.addBinding(s, 'length', { label: 'length m', min: 0.5, max: 120, step: 0.5 }).on('change', (ev) => {
         if (!ev.last) return;
         seg[0] = s.length;
-        apply();
+        level(p, i);
       });
       row?.addBinding(s, 'pitch', { label: 'pitch °', min: -10, max: 60, step: 0.5 }).on('change', (ev) => {
         if (!ev.last) return;
         seg[1] = s.pitch / DEG;
-        apply();
+        level(p, i);
       });
     });
     body.addButton({ title: 'add segment' }).on('click', () => {
@@ -181,6 +190,7 @@ export function addGroundFolder(
       drawOutline();
     },
     selected: () => state.patch,
+    keepStep: () => state.keepStep,
     outline: drawOutline,
     show(on) {
       outline.visible = on;

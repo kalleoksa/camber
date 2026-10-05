@@ -3,7 +3,7 @@ import type { PatchConfig } from '../sim/heightfield.ts';
 import type { Params } from '../sim/params.ts';
 import { createContact, type Terrain } from '../sim/terrain.ts';
 import { designedAirs, lipOf, sweep, takeoffOf, type Air } from './airs.ts';
-import { originOf, patchStep } from './edits.ts';
+import { originOf, patchStep, zeroStep } from './edits.ts';
 
 /**
  * The profile editor: a side section, true to scale, drawn by sampling the terrain.
@@ -29,6 +29,8 @@ export type ProfileHost = {
   turn(): number;
   /** Change the selected hand feature: live while dragging, `final` on release. */
   edit(change: (f: FeatureSpec) => void, final: boolean): void;
+  /** When a segment changes, set its neighbour's pitch so the patch leaves no step. */
+  keepStep(): boolean;
   /** Change the selected patch: its data only while dragging (no re-bake), `final` on release. */
   editPatch(change: (p: PatchConfig) => void, final: boolean): void;
 };
@@ -332,7 +334,9 @@ export function createProfile(host: ProfileHost): Profile {
         const edit = (change: (sg: [number, number]) => void, final: boolean): void =>
           host.editPatch((q) => {
             const sg = q.segs[k];
-            if (sg) change(sg);
+            if (!sg) return;
+            change(sg);
+            if (host.keepStep()) zeroStep(q, k, base);
           }, final);
         grips.push(
           {
