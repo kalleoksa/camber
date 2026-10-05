@@ -33,7 +33,7 @@ const TALMA = {
   x: { groomed: -30, lifts: -8, jump: 3, rail1: 22.5, rail2: 37.5 }, // m, line centres
   // Rail lines: terraces — near-flat decks, steep drops. Each drop is as long as it takes to
   // give back what its deck saves against the base grade, so the terraces end level with it.
-  terrace: { start: -40, count: 10, deck: 25, deckPitch: 2, dropPitch: 30, blend: 4, halfWidth: 13, edge: 8 },
+  terrace: { start: -40, count: 10, deck: 25, deckPitch: 2, dropPitch: 30, blend: 2, edge: 6 },
   // Jump line: split kickers, the big takeoff on the lifts' side and the small one touching it
   // on the rails' side, landing on one shared landing. Lips (m) from the doc; tables are solved.
   jumps: [
@@ -50,20 +50,85 @@ const TALMA = {
   bigRange: [-3, 0.5],
   smallRange: [-6, -2.5],
   smallClear: 1, // m the slowest small air (no pop) clears the knuckle by
-};
+  // Rail lines, one rail per terrace (index), segments in m along the rail: 'down' follows a
+  // drop (its angle searched so the rail stays near `rail.height` above the snow), 'flat'
+  // follows a deck. The rainbow sits mid-deck between two snow ramps.
+  rail: { height: 0.5, band: [0.4, 0.6], downAngle: [24, 40], dropAngle: 30 }, // dropAngle: ° a drop shaped to a rail is built at
+  rail1: [
+    { terrace: 1, segs: [['down', 7]] }, // straight down rail
+    { terrace: 3, segs: [['flat', 3], ['down', 5]] }, // flat-down, kinked at the deck edge
+    { terrace: 5, rainbow: { length: 6, rise: 0.65, ramp: 0.5, end: 0.3 } },
+  ],
+  rail2: [
+    { terrace: 2, segs: [['down', 6], ['flat', 1.75]] }, // down rail with a flat end
+    { terrace: 4, segs: [['down', 4], ['flat', 2], ['down', 5]] }, // down-flat-down
+    { terrace: 6, segs: [['flat', 3], ['down', 5], ['flat', 3]] }, // flat-down-flat
+  ],
+} as const;
+
+type RailPlan = { terrace: number; segs?: readonly (readonly ['down' | 'flat', number])[]; rainbow?: { length: number; rise: number; ramp: number; end: number } };
+
+/**
+ * One rail line's terraces. Every terrace is `period` m long and drops what the base grade
+ * does over it, so decks line up across lines. A plain terrace is a deck at `deckPitch` then a
+ * drop at `dropPitch`; one carrying a rail has its drop shaped to the rail instead — its
+ * 'down' segments at `rail.dropAngle`, a bench for a 'flat' between them — and its deck takes
+ * whatever height is left.
+ */
+function lineTerraces(plans: readonly RailPlan[]): { segs: [number, number][]; deckLength: number[]; dropLength: number[] } {
+  const t = TALMA.terrace;
+  const base = dm.tan(TALMA.pitch * RAD);
+  const plainDrop = (t.deck * (base - dm.tan(t.deckPitch * RAD))) / (dm.tan(t.dropPitch * RAD) - base);
+  const period = t.deck + plainDrop;
+  const segs: [number, number][] = [];
+  const deckLength: number[] = [];
+  const dropLength: number[] = [];
+  for (let i = 0; i < t.count; i++) {
+    const plan = plans.find((p) => p.terrace === i);
+    const shaped = plan?.segs?.some(([k]) => k === 'down');
+    if (!plan || !shaped) {
+      segs.push([t.deck, t.deckPitch * RAD], [plainDrop, t.dropPitch * RAD]);
+      deckLength.push(t.deck);
+      dropLength.push(plainDrop);
+      continue;
+    }
+    // The drop: from the first 'down' to the last, flats between them as benches.
+    const parts = plan.segs ?? [];
+    const first = parts.findIndex(([k]) => k === 'down');
+    let last = first;
+    parts.forEach(([k], j) => (k === 'down' ? (last = j) : 0));
+    const drop: [number, number][] = [];
+    for (let j = first; j <= last; j++) {
+      const [k, len] = parts[j] ?? ['flat', 0];
+      const ang = (k === 'down' ? TALMA.rail.dropAngle : t.deckPitch) * RAD;
+      drop.push([len * dm.cos(ang), ang]);
+    }
+    let dropRun = 0;
+    let dropFall = 0;
+    for (const [len, ang] of drop) {
+      dropRun += len;
+      dropFall += len * dm.tan(ang);
+    }
+    const deck = period - dropRun;
+    const deckPitch = dm.atan2(period * base - dropFall, deck);
+    segs.push([deck, deckPitch], ...drop);
+    deckLength.push(deck);
+    dropLength.push(dropRun);
+  }
+  return { segs, deckLength, dropLength };
+}
+
+const LINE1 = lineTerraces(TALMA.rail1);
+const LINE2 = lineTerraces(TALMA.rail2);
 
 function field(): FieldConfig {
   const T = TALMA;
-  const base = dm.tan(T.pitch * RAD);
   const t = T.terrace;
-  const deckGrade = dm.tan(t.deckPitch * RAD);
-  const dropGrade = dm.tan(t.dropPitch * RAD);
-  const drop = (t.deck * (base - deckGrade)) / (dropGrade - base);
-  const segs: [number, number][] = [];
-  for (let i = 0; i < t.count; i++) segs.push([t.deck, t.deckPitch * RAD], [drop, t.dropPitch * RAD]);
+  const half = (T.x.rail2 - T.x.rail1) / 2 - t.edge / 2;
   const patches: PatchConfig[] = [
     { x: 0, z: 0, yaw: 0, halfWidth: T.width, edge: 1, blend: 10, segs: [[T.top.length, T.top.pitch * RAD]] },
-    { x: (T.x.rail1 + T.x.rail2) / 2, z: t.start, yaw: 0, halfWidth: t.halfWidth, edge: t.edge, blend: t.blend, segs },
+    { x: T.x.rail1, z: t.start, yaw: 0, halfWidth: half, edge: t.edge, blend: t.blend, segs: LINE1.segs },
+    { x: T.x.rail2, z: t.start, yaw: 0, halfWidth: half, edge: t.edge, blend: t.blend, segs: LINE2.segs },
     { x: 0, z: -(T.length - T.bottom.length), yaw: 0, halfWidth: T.width, edge: 1, blend: 10, segs: [[T.bottom.length + 40, T.bottom.pitch * RAD]] },
   ];
   return {
@@ -78,13 +143,12 @@ function field(): FieldConfig {
   };
 }
 
-/** Where the deck of terrace `i` starts, and the drop after it (z, downhill negative). */
-export function terraceAt(i: number): { deck: number; drop: number; dropLength: number } {
+/** Where the deck of terrace `i` starts (z, downhill negative); the same on every line. */
+export function terraceAt(i: number): { deck: number } {
   const t = TALMA.terrace;
   const base = dm.tan(TALMA.pitch * RAD);
-  const dropLength = (t.deck * (base - dm.tan(t.deckPitch * RAD))) / (dm.tan(t.dropPitch * RAD) - base);
-  const deck = t.start - i * (t.deck + dropLength);
-  return { deck, drop: deck - t.deck, dropLength };
+  const plainDrop = (t.deck * (base - dm.tan(t.deckPitch * RAD))) / (dm.tan(t.dropPitch * RAD) - base);
+  return { deck: t.start - i * (t.deck + plainDrop) };
 }
 
 const f = field();
@@ -112,18 +176,17 @@ function ride(features: FeatureSpec[], x: number, lips: number[], at: number): {
   let flying = -1;
   for (let i = 0; i < 120 * 90 && s.position.z > -TALMA.length; i++) {
     const inp = neutralInput();
-    const v = Math.max(1, -s.velocity.z);
     const lz = lips[next];
-    if (lz !== undefined && s.mode === 'grounded' && (s.position.z - lz) / v < params.pop.chargeTime + 0.05 && s.position.z > lz) inp.rt = 1;
+    // Charge and release just before the lip, as scripts/talma-check.ts does.
+    const time = lz === undefined ? 99 : (s.position.z - lz) / Math.max(1, -s.velocity.z);
+    if (s.mode === 'grounded' && time < params.pop.chargeTime + 0.05 && time > 0.02) inp.rt = 1;
     const was = s.mode;
     const z0 = s.position.z;
-    const before = Math.hypot(s.velocity.x, s.velocity.y, s.velocity.z); // the pop is not run-in speed
+    const speed = Math.hypot(s.velocity.x, s.velocity.y, s.velocity.z);
+    if (lz !== undefined && z0 > lz && s.mode === 'grounded') out.lip[next] = speed; // the last run-in speed short of the lip, not the pop
     tick(s, inp, params, t, TICK_DT);
     if (z0 > at && s.position.z <= at) out.at = Math.hypot(s.velocity.x, s.velocity.y, s.velocity.z);
-    if (lz !== undefined && was === 'grounded' && s.mode === 'airborne' && Math.abs(s.position.z - lz) < 3) {
-      out.lip[next] = before;
-      flying = next++;
-    }
+    if (lz !== undefined && was === 'grounded' && s.mode === 'airborne' && s.position.z < lz + 3) flying = next++;
     if (flying >= 0 && was === 'airborne' && s.mode !== 'airborne') {
       out.landing[flying] = s.landing;
       flying = -1;
@@ -237,7 +300,115 @@ for (const j of TALMA.jumps) {
   while ((decks[deckIndex] ?? -Infinity) > end - TALMA.spacing) deckIndex++;
 }
 
-const layout: Layout = { version: 1, name: 'talma', ground, spawn, features, lines: [jumpLine], links: [] };
+
+/**
+ * A rail from segments over its terrace: every start (from the deck's middle to the drop's foot)
+ * and every down angle is tried; kept is the one whose height above the snow, sampled every
+ * 0.25 m, strays least from `rail.height`. Points carry their height above the snow there.
+ */
+function placeRail(features: FeatureSpec[], x: number, plan: RailPlan, terr: ReturnType<typeof lineTerraces>): { spec: FeatureSpec; low: number; high: number } {
+  const t = terrainOf(features);
+  const c = createContact();
+  const h = (z: number): number => t.sample(x, z, c).height;
+  const dropZ = terraceAt(plan.terrace).deck - (terr.deckLength[plan.terrace] ?? 0);
+  const dropRun = terr.dropLength[plan.terrace] ?? 0;
+  const R = TALMA.rail;
+  let best: { pts: [number, number, number][]; err: number; low: number; high: number } | undefined;
+  for (let z0 = dropZ + 12; z0 >= dropZ - dropRun; z0 -= 0.25) {
+    for (let a = R.downAngle[0]; a <= R.downAngle[1]; a += 1) {
+      const pts: [number, number, number][] = [[x, 0, z0]];
+      let y = h(z0) + R.height;
+      let z = z0;
+      let low = Infinity;
+      let high = -Infinity;
+      for (const [kind, len] of plan.segs ?? []) {
+        const ang = kind === 'down' ? a * RAD : dm.atan2(h(z) - h(z - len), len); // a flat follows the snow under it
+        const dz = len * dm.cos(ang);
+        const dy = len * dm.sin(ang);
+        for (let u = 0.25; u <= dz; u += 0.25) {
+          const above = y - dy * (u / dz) - h(z - u);
+          low = Math.min(low, above);
+          high = Math.max(high, above);
+        }
+        z -= dz;
+        y -= dy;
+        pts.push([x, 0, z]);
+      }
+      const err = Math.max(R.height - low, high - R.height);
+      if (!best || err < best.err) {
+        // Heights above the snow at each point, as RailConfig wants them.
+        let wy = h(z0) + R.height;
+        let wz = z0;
+        const out: [number, number, number][] = [[x, R.height, z0]];
+        for (const [kind, len] of plan.segs ?? []) {
+          const ang = kind === 'down' ? a * RAD : dm.atan2(h(z) - h(z - len), len); // a flat follows the snow under it
+          wz -= len * dm.cos(ang);
+          wy -= len * dm.sin(ang);
+          out.push([x, r2(wy - h(wz)), r2(wz)]);
+        }
+        out[0] = [x, R.height, r2(z0)];
+        best = { pts: out, err, low, high };
+      }
+    }
+  }
+  if (!best) throw new Error('no rail');
+  return { spec: { kind: 'rail', cfg: { points: best.pts }, meta: { type: 'rail', speed: [...GEN.lines.railSpeed] as [number, number] } }, low: best.low, high: best.high };
+}
+
+/** A rainbow mid-deck: an arc from ramp to ramp, the ramps (rollers) built first so its ends sit on them. */
+function placeRainbow(x: number, plan: RailPlan, terr: ReturnType<typeof lineTerraces>): FeatureSpec[] {
+  const rb = plan.rainbow;
+  if (!rb) return [];
+  const deck = terraceAt(plan.terrace).deck;
+  const mid = deck - (terr.deckLength[plan.terrace] ?? 0) / 2;
+  const top = mid + rb.length / 2;
+  const bottom = mid - rb.length / 2;
+  const ramp = (zc: number): FeatureSpec => ({ kind: 'shape', cfg: { kind: 'roller', x, z: zc + 2, yaw: 0, height: rb.ramp, length: 4, width: 2.5, taper: 1 } });
+  const ramps = [ramp(top), ramp(bottom)];
+  const t = terrainOf([...features, ...ramps]);
+  const c = createContact();
+  const h = (z: number): number => t.sample(x, z, c).height;
+  // The arc in the world: from end to end at ramp height plus `end`, rising `rise` in the middle.
+  const y0 = h(top) + rb.end;
+  const y1 = h(bottom) + rb.end;
+  const pts: [number, number, number][] = [];
+  const n = 8;
+  for (let i = 0; i <= n; i++) {
+    const u = i / n;
+    const z = top - rb.length * u;
+    const y = y0 + (y1 - y0) * u + rb.rise * dm.sin(Math.PI * u);
+    pts.push([x, r2(y - h(z)), r2(z)]);
+  }
+  return [...ramps, { kind: 'rail', cfg: { points: pts }, meta: { type: 'rainbow', speed: [...GEN.lines.railSpeed] as [number, number] } }];
+}
+
+// Rail lines: built after the jumps (nothing overlaps), each rail measured on the terrain as built.
+const railLines: LineSpec[] = [];
+const railReport: string[] = [];
+for (const [name, x, plans, terr] of [
+  ['rail line 1', TALMA.x.rail1, TALMA.rail1, LINE1],
+  ['rail line 2', TALMA.x.rail2, TALMA.rail2, LINE2],
+] as [string, number, readonly RailPlan[], ReturnType<typeof lineTerraces>][]) {
+  const line: LineSpec = { name, features: [], speed: [] };
+  for (const plan of plans) {
+    if (plan.rainbow) {
+      const parts = placeRainbow(x, plan, terr);
+      features.push(...parts);
+      line.features.push(features.length - 1);
+      railReport.push(`${name} terrace ${plan.terrace}: rainbow ${plan.rainbow.length} m, rise ${plan.rainbow.rise} m on ${plan.rainbow.ramp} m ramps`);
+    } else {
+      const r = placeRail(features, x, plan, terr);
+      features.push(r.spec);
+      line.features.push(features.length - 1);
+      const segs = (plan.segs ?? []).map(([k, l]) => `${k} ${l}`).join(' / ');
+      railReport.push(`${name} terrace ${plan.terrace}: ${segs} — ${r.low.toFixed(2)}–${r.high.toFixed(2)} m above the snow`);
+    }
+    line.speed.push(0);
+  }
+  railLines.push(line);
+}
+
+const layout: Layout = { version: 1, name: 'talma', ground, spawn, features, lines: [jumpLine, ...railLines], links: [] };
 
 writeFileSync(new URL('../parks/talma-reference.json', import.meta.url), JSON.stringify(layout, null, 1) + '\n');
 
@@ -258,3 +429,4 @@ bigLips.forEach((z, i) => {
   const v = check.lip[i] ?? 0;
   console.log(`jump ${i + 1} lip z ${z.toFixed(1)}: no-brake ${v.toFixed(1)} m/s (design ${sp.join('–')}) ${v >= sp[0] && v <= sp[1] ? 'ok' : 'OUT'}, landed ${check.landing[i] || '-'}`);
 });
+for (const r of railReport) console.log(r);

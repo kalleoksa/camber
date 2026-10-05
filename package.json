@@ -18,7 +18,8 @@
     "lanes": "node scripts/lanes.ts",
     "gen-check": "node scripts/gen-check.ts",
     "kit-check": "node scripts/kit-check.ts",
-    "line-check": "node scripts/line-check.ts"
+    "line-check": "node scripts/line-check.ts",
+    "talma": "node scripts/build-talma.ts && node scripts/talma-check.ts"
   },
   "dependencies": {
     "three": "^0.180.0",

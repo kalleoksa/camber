@@ -375,3 +375,21 @@ on the toes, whichever edge you're on as it starts (heels if flat). Spray off th
 tail comes back in line on release (`render/skid.ts`, `rig.skidYaw/skidRate/skidEdge/
 skidSpray`). Render only: the sim's brake is unchanged; `state.brake` mirrors L2 for the
 render (not hashed — a copy of input). Old takes pin `rig.skidYaw` 0.
+
+## 14. Talma-style reference park (2026-10-05)
+
+Spec: `docs/talma-reference-park.md`. Built by `node scripts/build-talma.ts` into
+`parks/talma-reference.json`, now the default park (`?park=gen` or `?seed=N` for the generator).
+Checked by `node scripts/talma-check.ts`: the sim's rider rides each line from the top, never
+braking into kickers, scrubbing into rails at their design speed.
+
+- Terrain: 400 m, 57 m vertical, 9° base, flatter top and run-out. Rail lines are terraced:
+  every terrace is the same length and drop on both lines, so decks line up; each drop is
+  shaped to the rail on it (30° down sections, a bench for a flat between them).
+- Jump line: three split kickers. Big takeoff by `designKicker` at the doc's lips; design
+  speeds centred on the no-brake lip speed. Small takeoff touching it, sharing its knuckle
+  line and landing; gap and lip searched so the slowest air clears the knuckle.
+- Differs from the doc: tables 5.1 / 7.1 / 7.7 m (doc 8 / 10 / 12) — the solve, at the 10.5–12.2
+  m/s a 9° line delivers; small lips 0.9 / 1.2 / 1.6 m (doc 0.8 / 1.0 / 1.0) to clear the
+  knuckle. Jump line ends at z −234; the lower hill is open.
+- Later: big air, halfpipe, cross-overs/side hits, atmosphere.
