@@ -367,9 +367,11 @@ top of its middle line. `?park=home` is the old park; `?park=gen&seed=N` still w
 folder shows the seed (and re-roll), exports the layout as JSON and loads one (`?park=file`,
 kept in this browser) — the way in for hand-built parks, same format.
 
-Speed check drawn (feedback: it should look like one — the board turned sideways). L2 already
-braked (9 m/s²); now the drawn board swings up to ~70° across the travel toward the edge you're
-on (heelside by default), the edge digs in and spray comes off it, and it swings back on
-release (`render/skid.ts`, `rig.skidYaw/skidRate/skidEdge/skidSpray`). Render only: the sim's
-brake is unchanged; `state.brake` mirrors L2 for the render (not hashed — a copy of input).
-The camera keeps following the real heading. Old takes pin `rig.skidYaw` 0.
+Speed check drawn (feedback: it should look like one — a shift, braking on the upper edge).
+L2 already braked (9 m/s²); now the back foot pushes the tail round under the body — the board
+pivots on the front binding (`rig.shiftPivot`), up to ~70°, the upper body stays facing down
+the line — and it brakes on the uphill edge: a frontside shift on the heels, a backside shift
+on the toes, whichever edge you're on as it starts (heels if flat). Spray off that edge; the
+tail comes back in line on release (`render/skid.ts`, `rig.skidYaw/skidRate/skidEdge/
+skidSpray`). Render only: the sim's brake is unchanged; `state.brake` mirrors L2 for the
+render (not hashed — a copy of input). Old takes pin `rig.skidYaw` 0.

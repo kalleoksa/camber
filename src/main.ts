@@ -578,15 +578,12 @@ function render(alpha: number): void {
   lastRender = now;
 
   const rider = interpolateRider(previous, state, alpha);
-  // The speed-check skid turns the drawn board only; the camera keeps following the real one.
-  const heading = rider.heading;
   if (!poseMode) skid.apply(rider, params, dt);
   // The preview is authoring state, not sim state, so it keeps the real render dt. The hip
   // spring no longer does — it is stepped on the sim tick and sampled here.
   if (poseMode) updatePreview(dt);
   sampleSecondary(secondaryView, secondaryPrevious, secondary, alpha);
   view.updateRider(rider, params, poseMode, secondaryView, dt);
-  rider.heading = heading;
   trajectory.update(state);
   if (poseMode) {
     orbit.update(rider);
