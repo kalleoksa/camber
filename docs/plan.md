@@ -321,3 +321,16 @@ constant-impact landing), then a bottom transition. Single (left/right) or doubl
 park's middle corner is a double hip; the generator makes singles 60% of the time.
 Not done (spec physics): levelling toward the predicted landing rather than the ground below;
 the constant-EFH solve itself (the 15→33° ramp stands in for it).
+
+Hip landing steepened to 30° → 45° (home park and generator): the 49° lip brings airs down at
+~63°, so the spec's 15° → 33° was far gentler than what lands on it. Side-landing impacts at
+14 m/s, 30° aim: 12 → 9 m/s. Most airs aimed 15° still come down on the 11.4 m table (flat,
+sketchy at speed) — a narrower table would put more of them on the hip; that's a size call.
+
+Step 6 done: clearance and fill. `src/gen/footprint.ts`: each feature's footprint is its own
+raised ground (measured from its height function) plus 20 m of clear run-in before its
+takeoff, 3 m margin. Line features may not overlap another line's; `src/gen/fill.ts` throws
+darts for 30 more features: ≥ 30 m from any other, off the lines' paths (5 m), turned up to
+60° off the fall line, sized to the straight-line speed there; side hits near the edges.
+Seeds 1–3: 67–72 features, 0 overlapping footprints, about a third of the fill turned > 30°.
+The lines overlay draws footprints (fill grey).

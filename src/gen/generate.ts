@@ -6,16 +6,18 @@ import type { Layout } from '../park/layout.ts';
 import { GEN, type GenConfig } from './config.ts';
 import { generateGround } from './ground.ts';
 import type { Place } from './kit.ts';
+import { placeFill } from './fill.ts';
 import { placeLines } from './lines.ts';
 
 /**
- * Seed in, layout out: the ground, then spine lines with their features. The same seed, config and params give the same layout, byte for
+ * Seed in, layout out: the ground, spine lines with their features, then the fill between them. The same seed, config and params give the same layout, byte for
  * byte. Params matter because features are sized from the sim's physics.
  */
 export function generateLayout(seed: number, cfg: GenConfig = GEN, params: Params = defaultParams): Layout {
   const rng = createRng(seed);
   const ground = generateGround(rng, cfg);
-  const { features, lines } = placeLines(rng, ground, cfg, params);
+  const { features, lines, prints } = placeLines(rng, ground, cfg, params);
+  features.push(...placeFill(rng, ground, cfg, params, features, lines, prints));
   const field = ground;
   return {
     version: 1,

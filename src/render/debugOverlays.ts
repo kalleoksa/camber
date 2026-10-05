@@ -1,5 +1,7 @@
 import * as THREE from 'three';
 import { fly, launch, popRange } from '../gen/flight.ts';
+import { footprint } from '../gen/footprint.ts';
+import { GEN } from '../gen/config.ts';
 import type { SpeedMap } from '../gen/speedmap.ts';
 import { speedAt } from '../gen/speedmap.ts';
 import type { Layout } from '../park/layout.ts';
@@ -41,7 +43,7 @@ export const LEGEND: Record<OverlayName, string> = {
   none: '',
   slope: 'blue 0–5° · cyan 5–10 · green 10–20 · yellow 20–25 · orange 25–30 · red 30–35 · magenta >35',
   speed: 'straight down the fall line, km/h: purple <5 (stalls) · blue <25 · green 25–45 · yellow <65 · orange <80 · red faster. Ticks: fall line',
-  lines: 'spine lines as traced, one colour each; a tall post marks each line\'s hero feature, a short one every other feature on the line',
+  lines: 'spine lines as traced, one colour each; a tall post marks each line\'s hero, a short one its other features. Grey: fill. Outlines: each feature\'s footprint — its ground and clear run-in',
   arcs: 'per kicker, the designed airs: blue slowest (no pop) · green middle · red fastest (medium pop). Ball at touchdown: white clean, orange sketchy, red bail. Post: the knuckle',
 };
 
@@ -181,6 +183,27 @@ function linePaths(layout: Layout, terrain: Terrain): THREE.Group {
   const group = new THREE.Group();
   const contact = createContact();
   const post = new THREE.CylinderGeometry(0.25, 0.25, 1, 6);
+  // Footprints, line features in their line's colour, fill grey.
+  const owner = new Map<number, number>();
+  layout.lines.forEach((line, i) => line.features.forEach((fi) => owner.set(fi, i)));
+  layout.features.forEach((f, fi) => {
+    const p = footprint(f, GEN.clear.runIn, GEN.clear.margin);
+    const ax = Math.sin(p.yaw);
+    const az = -Math.cos(p.yaw);
+    const cx = Math.cos(p.yaw);
+    const cz = Math.sin(p.yaw);
+    const pts: number[] = [];
+    const ring: [number, number][] = [[p.s0, p.w0], [p.s1, p.w0], [p.s1, p.w1], [p.s0, p.w1], [p.s0, p.w0]];
+    for (const [s, w] of ring) {
+      const x = p.x + ax * s + cx * w;
+      const z = p.z + az * s + cz * w;
+      pts.push(x, terrain.sample(x, z, contact).height + 0.6, z);
+    }
+    const geometry = new THREE.BufferGeometry();
+    geometry.setAttribute('position', new THREE.Float32BufferAttribute(pts, 3));
+    const i = owner.get(fi);
+    group.add(new THREE.Line(geometry, new THREE.LineBasicMaterial({ color: i === undefined ? 0x8a96a3 : (LINE_COLOURS[i % LINE_COLOURS.length] ?? 0xffffff) })));
+  });
   layout.lines.forEach((line, i) => {
     const colour = LINE_COLOURS[i % LINE_COLOURS.length] ?? 0xffffff;
     const points: number[] = [];

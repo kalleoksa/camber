@@ -6,6 +6,7 @@ import { createContact, createSlope, type Terrain } from '../sim/terrain.ts';
 import { toSlopeConfig, type FeatureSpec, type LineSpec } from '../park/layout.ts';
 import type { GenConfig } from './config.ts';
 import { fly, launch, popRange } from './flight.ts';
+import { footprint, overlaps, type Footprint } from './footprint.ts';
 import { RAD, range } from './ground.ts';
 import { designHip, designKicker, designQuarter, designRail, designShape, designStepUp, type Place, type Size } from './kit.ts';
 
@@ -17,9 +18,9 @@ import { designHip, designKicker, designQuarter, designRail, designShape, design
  * surface (features included) and over each jump with the designed flight at the speed the
  * rider takes it, so one feature's run-out feeds the next one's run-in.
  */
-export type LinesResult = { features: FeatureSpec[]; lines: LineSpec[] };
+export type LinesResult = { features: FeatureSpec[]; lines: LineSpec[]; prints: Footprint[] };
 
-type Kind = 'kicker' | 'stepUp' | 'hip' | 'rail' | 'roller' | 'spine';
+export type Kind = 'kicker' | 'stepUp' | 'hip' | 'rail' | 'roller' | 'spine';
 const SIZES: Size[] = ['S', 'M', 'L', 'XL'];
 const HIP_SPEED = { S: 13.5, M: 15.5, L: 18.5 }; // m/s at the lip each hip was built for (the home corner: ~18–20)
 
@@ -27,6 +28,7 @@ export function placeLines(rng: Rng, field: FieldConfig, cfg: GenConfig, params:
   const L = cfg.lines;
   const g = params.world.gravity;
   const features: FeatureSpec[] = [];
+  const prints: { line: number; print: Footprint }[] = [];
   const lines: LineSpec[] = [];
   const c = createContact();
 
@@ -138,6 +140,13 @@ export function placeLines(rng: Rng, field: FieldConfig, cfg: GenConfig, params:
         nextAt = s + range(rng, L.spacing);
         continue;
       }
+      // Clear of the other lines' features (its own follow on by construction).
+      const print = footprint(spec, cfg.clear.runIn, cfg.clear.margin);
+      if (prints.some((p) => p.line !== li && overlaps(p.print, print))) {
+        nextAt = s + L.step * 5;
+        continue;
+      }
+      prints.push({ line: li, print });
       if (heroNow) {
         spec.meta = { ...(spec.meta ?? { type: kind }), hero: true };
         hero = true;
@@ -160,16 +169,20 @@ export function placeLines(rng: Rng, field: FieldConfig, cfg: GenConfig, params:
     // Finish the line in a quarter pipe if there is room below.
     if (z > -cfg.zone.length + 25) {
       const q = designQuarter({ x, z: z - 6, yaw: 0 }, rng, cfg);
-      features.push(q);
-      line.features.push(features.length - 1);
-      line.speed.push(Number(v.toFixed(2)));
+      const print = footprint(q, cfg.clear.runIn, cfg.clear.margin);
+      if (!prints.some((p) => p.line !== li && overlaps(p.print, print))) {
+        prints.push({ line: li, print });
+        features.push(q);
+        line.features.push(features.length - 1);
+        line.speed.push(Number(v.toFixed(2)));
+      }
     }
     lines.push(line);
   }
-  return { features, lines };
+  return { features, lines, prints: prints.map((p) => p.print) };
 }
 
-function pick(rng: Rng, odds: Record<Kind, number>): Kind {
+export function pick(rng: Rng, odds: Record<Kind, number>): Kind {
   let total = 0;
   for (const k of Object.keys(odds) as Kind[]) total += odds[k];
   let r = next(rng) * total;
@@ -180,10 +193,10 @@ function pick(rng: Rng, odds: Record<Kind, number>): Kind {
   return 'kicker';
 }
 
-type Want = { size: Size; hipSize: 'S' | 'M' | 'L'; speed: [number, number]; lipHeight: number; runIn: number };
+export type Want = { size: Size; hipSize: 'S' | 'M' | 'L'; speed: [number, number]; lipHeight: number; runIn: number };
 
 /** Size and design speed for a feature, from the speed the line carries — the biggest that fits. */
-function wantedSpeed(kind: Kind, hero: boolean, v: number, rng: Rng, cfg: GenConfig, params: Params): Want {
+export function wantedSpeed(kind: Kind, hero: boolean, v: number, rng: Rng, cfg: GenConfig, params: Params): Want {
   const g = params.world.gravity;
   const k = cfg.kicker;
   const theta = k.lipAngle * RAD;
@@ -210,7 +223,7 @@ function wantedSpeed(kind: Kind, hero: boolean, v: number, rng: Rng, cfg: GenCon
   return { size: 'S', hipSize: 'S', speed: [0, 1e9], lipHeight: 0, runIn: 0 };
 }
 
-function build(kind: Kind, want: Want, place: Place, rng: Rng, ground: Terrain, cfg: GenConfig, params: Params): FeatureSpec | undefined {
+export function build(kind: Kind, want: Want, place: Place, rng: Rng, ground: Terrain, cfg: GenConfig, params: Params): FeatureSpec | undefined {
   const c = createContact();
   // Grade under the landing: a little way down from the takeoff.
   const d = 18;

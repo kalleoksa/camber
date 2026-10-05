@@ -112,8 +112,8 @@ const cornerZ = b3.end - GAP_CORNER;
 // a little lower: side landings meet between them, so one corner's air can land on the next.
 const CORNERS: CornerConfig[] = [
   // The hip spec's shape at this corner's size: straight lip, landings hanging off the lip corner
-  // and the table, steepening 15° → 33° and wrapping its end corners.
-  { z: cornerZ, ...CORNER, hip: { side: 0, straightLip: 1.2, landingStart: 15 * (Math.PI / 180), landingEnd: 33 * (Math.PI / 180), knuckleRadius: 2.5, bottomRadius: 8 } },
+  // and the table, steepening 30° → 45° (its airs come down at ~63°) and wrapping its end corners.
+  { z: cornerZ, ...CORNER, hip: { side: 0, straightLip: 1.2, landingStart: 30 * (Math.PI / 180), landingEnd: 45 * (Math.PI / 180), knuckleRadius: 2.5, bottomRadius: 8 } },
   { z: cornerZ + 4, ...CORNER, x: LANE_L, lipHeight: 4, deckLength: 12 },
   { z: cornerZ - 3, ...CORNER, x: LANE_R },
 ];

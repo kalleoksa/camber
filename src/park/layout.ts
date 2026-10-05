@@ -29,6 +29,7 @@ export type FeatureMeta = {
   size?: string;
   speed?: [number, number]; // m/s at the lip it was designed for
   hero?: boolean;
+  fill?: boolean; // placed by the fill, not on a line
   lip?: number; // m along its axis from (x, z) to where it takes off
   checks?: { speed: number; pop: number; grade: string; impact: number; past: number }[]; // designed airs
 };

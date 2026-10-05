@@ -52,6 +52,21 @@ export const GEN = {
     speedMargin: 1.15, // straight-line speed must beat a feature's slowest design speed by this — riding a line carves some off
     brakeMargin: 8, // m of run-in on top of what checking speed down to a feature's top speed takes
   },
+  // Clearance (footprint.ts): every feature keeps its own ground plus clear run-in before its
+  // takeoff; features from different lines, and fill, may not overlap those.
+  clear: { runIn: 20, margin: 3, path: 5 }, // m; path: how far fill keeps from a line's path
+
+  // Fill (fill.ts): extra features scattered between and around the lines, spaced apart,
+  // turned off the fall line, sized to the straight-line speed where they stand.
+  fill: {
+    count: 30,
+    attempts: 1500,
+    spacing: 30, // m at least between a fill feature and any other feature's origin
+    yaw: 60, // ° off the fall line, at most
+    mix: { kicker: 0.35, stepUp: 0.05, hip: 0.15, rail: 0.25, roller: 0.1, spine: 0.1 },
+    sideHit: 0.15, // odds a fill feature is a side hit near the zone's edge instead
+  },
+
   // Feature kit (kit.ts). Kicker landings are solved from the flight, never set by hand: these
   // are the inputs and the rules the solve follows (terrain spec, jump generator).
   kicker: {
@@ -86,8 +101,8 @@ export const GEN = {
     deckWidth: 11.4,
     single: 0.6, // odds of a single hip (one landing side) rather than a double
     straightLip: 2,
-    landingStart: 15, // ° just past the knuckle
-    landingEnd: 33, // ° before the bottom transition
+    landingStart: 30, // ° just past the knuckle — a 49° lip brings airs down at ~63°, so steeper than the spec
+    landingEnd: 45, // ° before the bottom transition
     knuckleRadius: 4,
     bottomRadius: 13,
   },
