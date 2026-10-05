@@ -15,7 +15,11 @@ import { createContact, type Terrain } from '../sim/terrain.ts';
  * back into the sim.
  */
 export type OverlayName = 'none' | 'slope' | 'speed' | 'arcs' | 'lines' | 'graph';
-export type Overlays = { show(name: OverlayName): void };
+export type Overlays = {
+  show(name: OverlayName): void;
+  /** The park changed: drop what was built from the old one and rebuild what is showing. */
+  setPark(terrain: Terrain, layout: Layout, speedMap: (() => SpeedMap | undefined) | undefined): void;
+};
 
 const DEG = 180 / Math.PI;
 
@@ -49,8 +53,10 @@ export const LEGEND: Record<OverlayName, string> = {
   arcs: 'per kicker, the designed airs: blue slowest (no pop) · green middle · red fastest (medium pop). Ball at touchdown: white clean, orange sketchy, red bail. Post: the knuckle',
 };
 
-export function createOverlays(scene: THREE.Scene, terrain: Terrain, speedMap: SpeedMap | undefined, layout: Layout, params: Params): Overlays {
+/** `speedMap` is computed on first use: it rides the whole zone, which takes a moment. */
+export function createOverlays(scene: THREE.Scene, terrain: Terrain, speedMap: (() => SpeedMap | undefined) | undefined, layout: Layout, params: Params): Overlays {
   const contact = createContact();
+  let showing: OverlayName = 'none';
   let grid: THREE.BufferGeometry | undefined;
   const colour = new THREE.Color();
 
@@ -82,10 +88,11 @@ export function createOverlays(scene: THREE.Scene, terrain: Terrain, speedMap: S
   const built: Partial<Record<OverlayName, THREE.Object3D>> = {};
   const build = (name: OverlayName): THREE.Object3D | undefined => {
     if (name === 'slope') return layer((x, z) => Math.acos(terrain.sample(x, z, contact).normal.y) * DEG, SLOPE);
-    if (name === 'speed' && speedMap) {
+    const map = name === 'speed' ? speedMap?.() : undefined;
+    if (map) {
       const group = new THREE.Group();
-      group.add(layer((x, z) => speedAt(speedMap, x, z) * 3.6, SPEED));
-      group.add(fallLineTicks(speedMap, terrain));
+      group.add(layer((x, z) => speedAt(map, x, z) * 3.6, SPEED));
+      group.add(fallLineTicks(map, terrain));
       scene.add(group);
       return group;
     }
@@ -109,12 +116,31 @@ export function createOverlays(scene: THREE.Scene, terrain: Terrain, speedMap: S
 
   return {
     show(name) {
+      showing = name;
       for (const o of Object.values(built)) if (o) o.visible = false;
       if (name === 'none') return;
       const o = (built[name] ??= build(name));
       if (!o) return;
       o.visible = true;
       o.traverse((c) => (c.visible = true));
+    },
+    setPark(nextTerrain, nextLayout, nextSpeedMap) {
+      for (const o of Object.values(built)) {
+        if (!o) continue;
+        scene.remove(o);
+        o.traverse((c) => {
+          if (!(c instanceof THREE.Mesh || c instanceof THREE.Line)) return;
+          c.geometry.dispose();
+          for (const m of Array.isArray(c.material) ? c.material : [c.material]) (m as THREE.Material).dispose();
+        });
+      }
+      for (const k of Object.keys(built) as OverlayName[]) delete built[k];
+      grid?.dispose();
+      grid = undefined;
+      terrain = nextTerrain;
+      layout = nextLayout;
+      speedMap = nextSpeedMap;
+      this.show(showing);
     },
   };
 }

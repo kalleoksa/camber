@@ -51,10 +51,11 @@ import {
   resetRiderState,
   type RiderState,
 } from './sim/state.ts';
-import { createContact, createSlope, type SlopeConfig } from './sim/terrain.ts';
+import { createContact, createSlope, type SlopeConfig, type Terrain } from './sim/terrain.ts';
 import { GEN } from './gen/config.ts';
 import { loadGenerated } from './gen/load.ts';
-import { computeSpeedMap } from './gen/speedmap.ts';
+import { computeSpeedMap, type SpeedMap } from './gen/speedmap.ts';
+import type { Rect } from './render/terrainMesh.ts';
 import { toSlopeConfig, type Layout } from './park/layout.ts';
 import { HOME, PARKS } from './park/parks.ts';
 import { length } from './sim/vec3.ts';
@@ -75,8 +76,8 @@ const SEED = 1;
 const query = new URLSearchParams(location.search);
 const parkName = query.get('park') ?? (query.has('seed') ? 'gen' : 'talma');
 const seed = Math.max(1, Math.round(Number(query.get('seed') ?? 1)) || 1);
-const layout = parkName === 'gen' ? await generating(seed) : parkName === 'file' ? (loadedLayout() ?? HOME) : (PARKS[parkName] ?? HOME);
-const slopeConfig: SlopeConfig = toSlopeConfig(layout);
+let layout = parkName === 'gen' ? await generating(seed) : parkName === 'file' ? (loadedLayout() ?? HOME) : (PARKS[parkName] ?? HOME);
+let slopeConfig: SlopeConfig = toSlopeConfig(layout);
 // ?spin=0 starts on the older spin model (air.spinModel in the panel switches live).
 if (query.get('spin') === '0') params.air.spinModel = 0;
 
@@ -103,7 +104,7 @@ async function generating(s: number): Promise<Layout> {
   }
 }
 
-const terrain = createSlope(slopeConfig);
+let terrain = createSlope(slopeConfig);
 // &at=x,z[,deg] starts the run there instead, facing down the hill or `deg` off it (+ toward
 // +X) — for looking at one spot.
 const at = (query.get('at') ?? '').split(',').map(Number);
@@ -819,9 +820,31 @@ const panel = createPanel(params, readout, view.drivers, preview, feedback, {
   },
 });
 // The speed map only means something on generated ground (a zone with a field).
-const field = slopeConfig.field;
-const speedMap = field ? computeSpeedMap(terrain, params, { width: field.width, length: field.length, ...GEN.speedMap }) : undefined;
-addParkFolder(panel.pane, layout, seed, createOverlays(view.scene, terrain, speedMap, layout, params), {
+const speedMapOf = (t: Terrain, cfg: SlopeConfig): (() => SpeedMap | undefined) | undefined => {
+  const field = cfg.field;
+  if (!field) return undefined;
+  let map: SpeedMap | undefined;
+  return () => (map ??= computeSpeedMap(t, params, { width: field.width, length: field.length, ...GEN.speedMap }));
+};
+const overlays = createOverlays(view.scene, terrain, speedMapOf(terrain, slopeConfig), layout, params);
+
+/**
+ * Rebuild the park in place from an edited layout (the park editor's entry to the world).
+ * `changed`: where the ground moved — a feature's old and new footprints — so only the
+ * terrain mesh there is rebuilt. The heightfield is baked again only when the ground changed.
+ */
+export function setPark(next: Layout, changed?: readonly Rect[]): void {
+  const cfg = toSlopeConfig(next);
+  const sameGround = JSON.stringify(next.ground) === JSON.stringify(layout.ground);
+  layout = next;
+  slopeConfig = cfg;
+  terrain = createSlope(cfg, sameGround ? terrain.field : undefined);
+  view.setPark(cfg, terrain, sameGround ? changed : undefined);
+  trajectory.setPark(cfg, terrain);
+  overlays.setPark(terrain, layout, speedMapOf(terrain, cfg));
+}
+
+addParkFolder(panel.pane, layout, seed, overlays, {
   onExport: () => download(`camber-park-${layout.name}${layout.seed !== undefined ? `-${layout.seed}` : ''}.json`, JSON.stringify(layout)),
   onLoadLayout: (json) => {
     try {

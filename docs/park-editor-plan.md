@@ -21,26 +21,33 @@ The editor is CLAUDE.md's third agreed exception to "no UI chrome" (added 2026-1
 | Overview camera, `&at=x,z` spawn | Done |
 | Connection graph | Done: `src/gen/graph.ts`, `Layout.links` |
 | Trajectory preview | Done: `createTrajectoryPreview` (`main.ts`) |
-| Terrain mesh in chunks | Done (`028e197`): `render/terrainMesh.ts`, 64 m chunks at three detail levels. Rebuilding only part of it is still missing (phase 0, item 2) |
-| Ride bot for speed checks | Done, in a script: `scripts/talma-check.ts` (moves to `src/park/check.ts`, phase 0, item 4) |
+| Terrain mesh in chunks | Done (`028e197`): `render/terrainMesh.ts`, 64 m chunks at three detail levels. Partial rebuild: phase 0, item 2 (done) |
+| Ride bot for speed checks | Done: `src/park/check.ts`, used by `scripts/talma-check.ts` |
 | Shared building blocks | **Dropped.** Per-feature configs plus kit functions already give "features are data". |
 | Impact-height (EFH) per landing point | **Dropped.** Use the game's impact test (m/s), as everywhere. |
 
 ## Prerequisites (phase 0)
 
-1. **Kit functions split into inputs and solve.** Each `design*` takes an rng today, and draws
-   values inside. Split each into `draw*(rng) → inputs` and `solve*(inputs) → FeatureSpec`, and
-   store the inputs in `meta.design`. The editor edits `meta.design` and re-solves. One file,
-   `kit.ts`.
+1. **Kit inputs by name.** *Done.* Each `design*` takes a `Draw` (`{ rng?, inputs }`) and
+   reads every drawn value through `pick(d, name, range)` / `chance(d, name, odds)`: a value
+   already in `inputs` is used as given, otherwise it is drawn (in the original order, so seeds
+   build the same parks) and recorded. `lines.build` stores kind, place, size, speed and the
+   inputs in the first feature's `meta.design`; `lines.redesign(design, ground, …)` re-solves
+   from it. The editor edits `meta.design.inputs` and calls `redesign`.
+   `npm run redesign-check`: every generated design rebuilds identically.
 2. **Partial mesh rebuild.** The mesh is already chunked (`render/terrainMesh.ts`). Add
    `invalidate(rect)`, which rebuilds the chunks under a feature's old and new footprints, and
    `dispose()`. Rebuilding the park in place also needs `terrain` / `slopeConfig` as `let` in
    `main.ts` and `scene.setPark(cfg, terrain)`. Target: < 50 ms per edit. Render-only.
+   *Done.* `main.ts` exports `setPark(layout, changed?)`: rebuilds terrain (reusing the baked
+   field when `ground` is unchanged), scene, trajectory preview and overlays. A chunk on
+   screen keeps its old mesh until the new detail is built. Measured on Talma: moving a kicker
+   27 ms, whole park 20 ms, with a re-bake 47 ms.
 3. **`meta.group`** (shared with the obstacles spec): composites move as one. *Done.*
 4. **Reuse the baked field:** `createSlope(cfg, bakedField?)`, so moving a feature doesn't
-   re-bake the heightfield. Heights are identical, so the sim doesn't change.
+   re-bake the heightfield. Heights are identical, so the sim doesn't change. *Done.*
 5. **Shared ride bot:** move the bot in `scripts/talma-check.ts` to `src/park/check.ts`; the
-   script and the editor's speed check both use it.
+   script and the editor's speed check both use it. *Done.*
 
 ## Two kinds of feature in the editor
 

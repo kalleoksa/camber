@@ -8,7 +8,7 @@ import { createContact } from '../sim/terrain.ts';
 import { length, vec3, type Vec3 } from '../sim/vec3.ts';
 import { boardAttitude, GRABS, grabAttitude } from '../sim/grabs.ts';
 import { ANCHORS, BODY_KEYS, grabBody, namedGrabBody } from './poses.ts';
-import { createTerrainMesh, type TerrainMesh } from './terrainMesh.ts';
+import { createTerrainMesh, type Rect, type TerrainMesh } from './terrainMesh.ts';
 import { butterAmount } from '../sim/states/grounded.ts';
 import { BOARD_HALF, copyDrivers, createRig, edgePoint, gripWeight, mirrorDrivers, neutralDrivers, smoothstep, type RigDrivers } from './rig.ts';
 import type { Secondary } from './secondary.ts';
@@ -174,6 +174,11 @@ export type SceneView = {
    */
   setStage(clean: boolean): void;
   setDressed(on: boolean): void;
+  /**
+   * Show another park, or this one edited. `changed`: where the ground moved (a feature's old
+   * and new footprints) — only the terrain there is rebuilt. Omitted, all of it is.
+   */
+  setPark(cfg: SlopeConfig, terrain: Terrain, changed?: readonly Rect[]): void;
   resize(): void;
 };
 
@@ -380,6 +385,16 @@ function edgeLines(cfg: SlopeConfig, terrain: Terrain): THREE.Group {
   return group;
 }
 
+/** Take a group out of the scene and free what it built. Each builder above makes its own materials. */
+function disposeGroup(scene: THREE.Scene, group: THREE.Group): void {
+  scene.remove(group);
+  group.traverse((o) => {
+    if (!(o instanceof THREE.Mesh || o instanceof THREE.Line)) return;
+    o.geometry.dispose();
+    for (const m of Array.isArray(o.material) ? o.material : [o.material]) (m as THREE.Material).dispose();
+  });
+}
+
 /** A flat arrow on the snow along board +Z, the way of travel: shaft and head, 1.3 m long. */
 function downhillArrow(): THREE.Mesh {
   const shape = new THREE.Shape();
@@ -459,13 +474,13 @@ export function createScene(cfg: SlopeConfig, terrain: Terrain, camera: THREE.Pe
   // The camera looks along the snow at a grazing angle; without anisotropic filtering the
   // texture smears to flat white a few metres out and the ground stops showing speed.
   snowMap.anisotropy = renderer.capabilities.getMaxAnisotropy();
-  const slope = createTerrainMesh(cfg, terrain, new THREE.MeshStandardMaterial({ map: snowMap, roughness: 0.95, metalness: 0 }));
-  const markers = slopeMarkers(cfg, terrain);
-  scene.add(slope.group);
-  scene.add(markers);
-  const rails = railMeshes(terrain);
-  scene.add(rails);
-  scene.add(edgeLines(cfg, terrain));
+  const snow = new THREE.MeshStandardMaterial({ map: snowMap, roughness: 0.95, metalness: 0 });
+  let slope = createTerrainMesh(cfg, terrain, snow);
+  let markers = slopeMarkers(cfg, terrain);
+  let rails = railMeshes(terrain);
+  let edges = edgeLines(cfg, terrain);
+  scene.add(slope.group, markers, rails, edges);
+  let size = { width: cfg.width, length: cfg.length };
   // Pose mode: an arrow under the rider along the direction of travel, down the hill, to set
   // a grab's turn against.
   const downhill = downhillArrow();
@@ -690,7 +705,9 @@ export function createScene(cfg: SlopeConfig, terrain: Terrain, camera: THREE.Pe
   };
 
   return {
-    ground: slope,
+    get ground() {
+      return slope;
+    },
     renderer,
     scene,
     rider: rig.root,
@@ -808,6 +825,28 @@ export function createScene(cfg: SlopeConfig, terrain: Terrain, camera: THREE.Pe
 
     setDressed(on) {
       rig.setDressed(on);
+    },
+
+    setPark(next, nextTerrain, changed) {
+      if (next.width === size.width && next.length === size.length) {
+        slope.invalidate(nextTerrain, changed);
+      } else {
+        const visible = slope.group.visible;
+        scene.remove(slope.group);
+        slope.dispose();
+        slope = createTerrainMesh(next, nextTerrain, snow);
+        slope.group.visible = visible;
+        scene.add(slope.group);
+        size = { width: next.width, length: next.length };
+      }
+      // Markers, rails and paint are cheap: rebuilt whole.
+      const visible = markers.visible;
+      for (const g of [markers, rails, edges]) disposeGroup(scene, g);
+      markers = slopeMarkers(next, nextTerrain);
+      markers.visible = visible;
+      rails = railMeshes(nextTerrain);
+      edges = edgeLines(next, nextTerrain);
+      scene.add(markers, rails, edges);
     },
 
     resize() {
