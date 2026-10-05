@@ -124,6 +124,7 @@ export type WallConfig = {
   radius: number; // m, transition radius
   top: number; // m of flat top
   taper: number; // m over which each end fades in
+  yaw?: number; // rad, turned about (x, z) off the fall line, toward +X as it grows
 };
 
 /**
@@ -200,7 +201,7 @@ export function createSlope(cfg: SlopeConfig): Terrain {
   };
 
   const kickers = (cfg.kickers ?? (cfg.kicker ? [cfg.kicker] : [])).map((k) => turned(k.x, k.z, k.yaw, kickerProfile(k)));
-  const walls = (cfg.walls ?? []).map(wallProfile);
+  const walls = (cfg.walls ?? []).map((w) => turned(w.x, w.z, w.yaw, wallProfile(w)));
   const corners = (cfg.corners ?? []).map((c) => turned(c.x, c.z, c.yaw, cornerProfile(c)));
   const quarters = (cfg.quarters ?? []).map((q) => turned(q.x, q.z, q.yaw, quarterProfile(q)));
   const shapes = (cfg.shapes ?? []).map(shapeProfile);

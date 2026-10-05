@@ -125,11 +125,13 @@ turns back downhill after the landing.
 
 A hip whose side landing sits lower than the lip.
 
-- **Build:** `HipShape.stepDown` (m, 1–4). The knuckle line and table sit `stepDown` below the
-  lip, with a short drop face behind the lip. The landing's `drop()` starts from the knuckle
-  height, not `H`.
-- **Kit:** `designHip(…, stepDown)`. Hip sizes are still the home corner's scaled S/M/L, not
-  physics-sized; keep that until hips are solved from flight.
+- **Build:** `HipShape.stepDown` (m, 1–4): the takeoff is built that much taller over the same
+  table and landings, its back dropping to the table steeply. (Lowering the table instead, as
+  first written here, shortens the landing — the ground under it can't be cut — and bails.)
+- **Kit:** `designStepDownHip` (`designHip(…, stepDown)`). Hip sizes are still the home
+  corner's scaled S/M/L, not physics-sized, and on those 6–8 m, 49° takeoffs the extra height
+  bails (see step 4 results). Built, but left out of the generator's odds until hips are
+  solved from flight.
 - **Done when:** side airs at 30° aim land clean at mid speed, as `designHip` does now.
 
 ### 6. Wedge / pyramid
@@ -299,7 +301,8 @@ steep back, on a ridge in natural zones. Lowest priority.
 3. **Real-terrain solve in the kit**, then step-down, booter, cliff, corner. *Done* —
    `groundFrame` / `stack` in `kit.ts`; every generated kicker is now solved over the real
    ground (slowest air short of the knuckle: 21 of 60 → 5 of 61 on seeds 1–3).
-4. **New shapes:** wedge (then fun box), berm and wall `yaw`, step-down hip.
+4. **New shapes:** wedge (then fun box), berm and wall `yaw`, step-down hip. *Done* (step-down
+   hip out of the generator, see §5).
 5. **Physics first:** the hip quarter measurement, then tombstone taps (ask before the sim
    change).
 6. **Last:** channel gap, cornice. Deferred: pillows, bonk solids, superpipe.
@@ -342,3 +345,15 @@ traverse, drifts 1–3 m down the cross-slope and lands off the levelled part. N
 In generated parks (seeds 1–4) step-downs appear 4–8 times a park; booters and drops once in a
 few parks, because the generated ground has almost no slope over 25°. A natural zone with steep
 ground would make room for them.
+
+## Step 4 results (`npm run obstacle-check`, 14° plane)
+
+| Obstacle | Result |
+|---|---|
+| Pyramid (4 faces) and wedge (2), head-on at 8 and 11 m/s, no / half pop | clean every time |
+| Fun box, 7 m/s, small pop at the box | locks on the box, then the rail down the face, clean |
+| Berm (r 14 m, 91°, bank 37°) | 31° from level at its steepest halfway round; no ride check — the bot can't steer a turn |
+| Wall ride turned 30°, 10 and 13 m/s with 7 m/s into it | wallrides, comes off clean; 3 m/s into it never climbs to the steep part |
+| Double hip M (unchanged) / step-down hip M (+2.9 m), 15 m/s straight and 6 m/s across | hip: sketchy; step-down: bails across. Out of the odds |
+
+The bot points its board along its velocity (a crab across a hip bailed even the plain hip).

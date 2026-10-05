@@ -63,7 +63,7 @@ export const GEN = {
     attempts: 1500,
     spacing: 30, // m at least between a fill feature and any other feature's origin
     yaw: 60, // ° off the fall line, at most
-    mix: { kicker: 0.28, stepUp: 0.05, hip: 0.13, rail: 0.15, roller: 0.08, spine: 0.08, mini: 0.08, euroGap: 0.03, gapToRail: 0.03, jibTable: 0.05, knoll: 0.07, log: 0.04, miniPipe: 0.04, booter: 0.04, drop: 0.04, corner: 0.05 },
+    mix: { kicker: 0.28, stepUp: 0.05, hip: 0.13, rail: 0.15, roller: 0.08, spine: 0.08, mini: 0.08, euroGap: 0.03, gapToRail: 0.03, jibTable: 0.05, knoll: 0.07, log: 0.04, miniPipe: 0.04, booter: 0.04, drop: 0.04, corner: 0.05, wedge: 0.06, funBox: 0.02, berm: 0.04, wallRide: 0.03 },
     sideHit: 0.15, // odds a fill feature is a side hit near the zone's edge instead
   },
 
@@ -147,6 +147,12 @@ export const GEN = {
   booter: { height: [2.5, 4], angle: [28, 32], back: 2.5, width: [5, 6], taper: 1.5, speed: [10, 18], landing: [22, 38], span: 2 }, // a natural kicker, no landing built: lands on ground at `landing`° (from horizontal); span: m/s of speeds that must work
   drop: { height: [2, 6], rise: [30, 50], top: [6, 10], face: 70, width: [8, 14], taper: 3, speed: [6, 14] }, // a cliff built as a shelf: rise, top in m; face in °
   corner: { yaw: [45, 70], sizes: ['S', 'M'] }, // ° off the fall line the takeoff faces: past ~70° its axis is nearly a traverse and fast airs overshoot onto flat ground
+  // Build step 4: new shapes.
+  wedge: { height: [1.5, 3], faceAngle: [20, 25], baseRadius: 4, top4: [3, 6], top2: [1, 2], width: [8, 14], taper: 2, four: 0.6 }, // four: odds of a 4-faced pyramid over a 2-faced ridge
+  funBox: { top: [5, 8], box: { height: 0.3, width: 0.5, inset: 0.5 }, rail: 0.4 }, // a pyramid with a box along its deck and a rail down its downhill face; m
+  berm: { radius: [10, 20], sweep: [60, 120], bank: [30, 50], height: [1.5, 3], taper: 4 }, // radius m, sweep and bank °
+  wallRide: { angle: [60, 80], height: [1.5, 4], length: [8, 30], radius: [2, 3], top: 1, taper: 3, offset: 1.5 }, // offset: m from the approach to the foot of its transition
+  stepDownHip: { drop: [1, 4] }, // m the lip is built above the table and knuckle line. Not in the odds: on hips not yet sized from flight, the extra height bails
   jibTable: { lip: 1.5, lipAngle: 23, width: 8, deck: [12, 20], sideTaper: 3, landingAngle: 20, knuckleRadius: 10, runoutRadius: 10, rail: { start: 1, end: 2, length: [6, 12], height: [0.3, 0.5] }, box: 0.5 },
 };
 

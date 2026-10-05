@@ -8,7 +8,7 @@ import type { GenConfig } from './config.ts';
 import { fly, launch, popRange } from './flight.ts';
 import { footprint, overlaps, type Footprint } from './footprint.ts';
 import { RAD, range } from './ground.ts';
-import { designBooter, designCorner, dropAhead, designDrop, designEuroGap, designGapToRail, designHip, designJibTable, designKicker, designKnoll, designLog, designMini, designMiniPipe, designQuarter, designRail, designShape, designStepDown, designStepUp, type Place, type Size } from './kit.ts';
+import { designBerm, designBooter, designCorner, designFunBox, designStepDownHip, designWallRide, designWedge, dropAhead, designDrop, designEuroGap, designGapToRail, designHip, designJibTable, designKicker, designKnoll, designLog, designMini, designMiniPipe, designQuarter, designRail, designShape, designStepDown, designStepUp, type Place, type Size } from './kit.ts';
 
 /**
  * Spine lines: a few lines traced from the top down the fall line, drifting off it, with
@@ -20,7 +20,7 @@ import { designBooter, designCorner, dropAhead, designDrop, designEuroGap, desig
  */
 export type LinesResult = { features: FeatureSpec[]; lines: LineSpec[]; prints: Footprint[] };
 
-export type Kind = 'kicker' | 'stepUp' | 'hip' | 'rail' | 'roller' | 'spine' | 'mini' | 'euroGap' | 'gapToRail' | 'jibTable' | 'knoll' | 'log' | 'miniPipe' | 'stepDown' | 'booter' | 'drop' | 'corner';
+export type Kind = 'kicker' | 'stepUp' | 'hip' | 'rail' | 'roller' | 'spine' | 'mini' | 'euroGap' | 'gapToRail' | 'jibTable' | 'knoll' | 'log' | 'miniPipe' | 'stepDown' | 'booter' | 'drop' | 'corner' | 'wedge' | 'funBox' | 'berm' | 'wallRide' | 'stepDownHip';
 const SIZES: Size[] = ['S', 'M', 'L', 'XL'];
 const HIP_SPEED = { S: 13.5, M: 15.5, L: 18.5 }; // m/s at the lip each hip was built for (the home corner: ~18–20)
 
@@ -220,7 +220,7 @@ export function wantedSpeed(kind: Kind, hero: boolean, v: number, rng: Rng, cfg:
     const preset = k.sizes[size];
     return { size, hipSize: 'M', speed: [preset.speed[0] ?? 0, preset.speed[1] ?? 0], lipHeight: preset.lip, runIn: runIn(preset.lip) };
   }
-  if (kind === 'hip') {
+  if (kind === 'hip' || kind === 'stepDownHip') {
     const hipSize = hero ? 'L' : v > HIP_SPEED.M ? 'M' : 'S';
     const centre = HIP_SPEED[hipSize];
     const lip = cfg.hip.lip * cfg.hip.scale[hipSize];
@@ -233,6 +233,8 @@ export function wantedSpeed(kind: Kind, hero: boolean, v: number, rng: Rng, cfg:
     return { size: 'S', hipSize: 'S', speed: cfg.lines.railSpeed as [number, number], lipHeight: cfg.jibTable.lip, runIn: (cfg.jibTable.lip / (1 - dm.cos(a))) * dm.sin(a) };
   }
   if (kind === 'gapToRail') return { size: 'S', hipSize: 'S', speed: cfg.gapToRail.speed as [number, number], lipHeight: cfg.gapToRail.height[1] ?? 1, runIn: 3 };
+  if (kind === 'wedge' || kind === 'funBox') return { size: 'S', hipSize: 'S', speed: [6, 12], lipHeight: cfg.wedge.height[1] ?? 3, runIn: 6 };
+  if (kind === 'berm' || kind === 'wallRide') return { size: 'S', hipSize: 'S', speed: [8, 16], lipHeight: 0, runIn: 0 };
   if (kind === 'booter') return { size: 'L', hipSize: 'S', speed: cfg.booter.speed as [number, number], lipHeight: cfg.booter.height[1] ?? 4, runIn: 8 };
   if (kind === 'drop') return { size: 'S', hipSize: 'S', speed: cfg.drop.speed as [number, number], lipHeight: cfg.drop.height[1] ?? 6, runIn: 0 };
   if (kind === 'mini') return { size: 'S', hipSize: 'S', speed: cfg.mini.speed as [number, number], lipHeight: cfg.mini.height[1] ?? 0.7, runIn: 2 };
@@ -266,6 +268,15 @@ export function build(kind: Kind, want: Want, place: Place, rng: Rng, ground: Te
   if (kind === 'jibTable') return designJibTable(place, rng, cfg);
   if (kind === 'euroGap') return designEuroGap(place, want.size, landingPitch, rng, cfg, params);
   if (kind === 'gapToRail') return designGapToRail(place, landingPitch, rng, cfg, params);
+  if (kind === 'wedge') return designWedge(place, rng, cfg);
+  if (kind === 'funBox') return designFunBox(place, rng, cfg);
+  if (kind === 'berm') return designBerm(place, rng, cfg);
+  if (kind === 'wallRide') return designWallRide(place, rng, cfg);
+  if (kind === 'stepDownHip') {
+    const f = designStepDownHip(place, want.hipSize, rng, cfg);
+    if (f[0]?.meta) f[0].meta.speed = want.speed;
+    return f;
+  }
   if (kind === 'stepDown') return designStepDown(place, want.size, landingPitch, ground, cfg, params);
   if (kind === 'booter') return designBooter(place, ground, rng, cfg, params);
   if (kind === 'drop') return designDrop(place, ground, rng, cfg, params);

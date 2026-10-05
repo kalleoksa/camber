@@ -6,7 +6,7 @@
  */
 import { TICK_DT } from '../src/core/loop.ts';
 import { GEN } from '../src/gen/config.ts';
-import { designBooter, designCorner, designDrop, designEuroGap, designGapToRail, designJibTable, designKnoll, designLog, designMini, designMiniPipe, designStepDown, groundFrame } from '../src/gen/kit.ts';
+import { designBerm, designBooter, designCorner, designDrop, designEuroGap, designFunBox, designGapToRail, designHip, designJibTable, designKnoll, designLog, designMini, designMiniPipe, designStepDown, designStepDownHip, designWallRide, designWedge, groundFrame } from '../src/gen/kit.ts';
 import { neutralInput } from '../src/input/snapshot.ts';
 import { toSlopeConfig, type FeatureSpec, type Ground } from '../src/park/layout.ts';
 import { params } from '../src/sim/params.ts';
@@ -37,7 +37,8 @@ function ride(t: Terrain, popZ: number, target: number, pop: number, endZ: numbe
   let v0 = target;
   let out: Run = { at: 0, modes: '', landings: [], touch: [], railTime: 0, end: 0, airs: 0, shortest: 0 };
   for (let attempt = 0; attempt < 5; attempt++) {
-    const s = createRiderState({ position: { x: 0, y: t.sample(0, start, c).height + 0.05, z: start }, heading: Math.PI });
+    // Board pointed the way it travels: heading π faces −Z, and less turns the nose toward +X.
+    const s = createRiderState({ position: { x: 0, y: t.sample(0, start, c).height + 0.05, z: start }, heading: Math.PI - Math.atan2(vx, v0) });
     s.mode = 'grounded';
     s.velocity.z = -v0;
     s.velocity.x = vx;
@@ -181,4 +182,41 @@ for (const deg of [12, 20]) {
   // Cross-fall of the landing just past the knuckle, levelled vs the bare ground.
   const n = view.sample(0, lipZ(co[0]!) - (k?.deckLength ?? 0) - 2, c).normal;
   console.log(`corner landing cross-fall 2 m past the knuckle: ${(Math.atan(n.x / n.y) / DEG).toFixed(1)}° (ground ${((k?.tilt ?? 0) / DEG).toFixed(1)}°)`);
+}
+
+// Build step 4, on a 14° plane.
+{
+  console.log('\n== step 4 (14°) ==');
+  const pitch = 14 * DEG;
+  for (const seed of [10, 11, 12, 17]) {
+    const wg = designWedge(place, createRng(seed), GEN);
+    const g = wg[0]!.cfg as { faces: number; height: number; top: number };
+    for (const [v, pop] of [[8, 0], [8, 0.5], [11, 0.5]] as const) console.log(`${wg[0]!.meta?.type} ${g.height.toFixed(1)} m, top ${g.top.toFixed(1)} m, ${v} m/s pop ${pop}: ${fmt(ride(world(wg, pitch), lipZ(wg[0]!), v, pop, -60))}`);
+  }
+  const fb = designFunBox(place, createRng(13), GEN);
+  for (const [v, pop] of [[7, 0.3], [9, 0.3]] as const) console.log(`fun box ${v} m/s pop ${pop} at the box (${(-railStart(fb[1])).toFixed(1)}–${(-railEnd(fb[1])).toFixed(1)} m): ${fmt(ride(world(fb, pitch), railStart(fb[1]) + 0.8, v, pop, -60))}`);
+  // Berm: the bank angle halfway round, just past its foot.
+  const bm = designBerm(place, createRng(14), GEN);
+  const b = bm[0]!.cfg as { radius: number; sweep: number; side: number; bank: number; height: number };
+  const bw = world(bm, pitch);
+  const mid = b.sweep / 2;
+  let steepest = 0;
+  for (let u = 0; u < 2 + b.height / Math.tan(b.bank) + 1; u += 0.1) {
+    const r = b.radius + u;
+    steepest = Math.max(steepest, Math.acos(bw.sample(b.side * (b.radius - r * Math.cos(mid)), -r * Math.sin(mid), c).normal.y));
+  }
+  console.log(`berm r ${b.radius.toFixed(0)} m, ${(b.sweep / DEG).toFixed(0)}°, bank ${(b.bank / DEG).toFixed(0)}°: steepest ${(steepest / DEG).toFixed(0)}° from level across it halfway round (ground 14°)`);
+  // Wall ride turned 30° off the fall line: ridden in its own frame, drifting into the wall.
+  const wplace = { x: 0, z: 0, yaw: 30 * DEG };
+  const wr = designWallRide(wplace, createRng(15), GEN);
+  const wc = wr[0]!.cfg as { side: number; angle: number; length: number };
+  const wview = groundFrame(world(wr, pitch), wplace);
+  for (const v of [10, 13]) for (const across of [3, 7]) console.log(`wall ride ${(wc.angle / DEG).toFixed(0)}°, ${wc.length.toFixed(0)} m, turned 30°, ${v} m/s, ${across} m/s into it: ${fmt(ride(wview, -3, v, 0, -wc.length - 10, wc.side * across))}`);
+  // Step-down hip vs the same hip without: straight on, and drifting toward its side landing.
+  for (const sd of [false, true]) {
+    const hp = sd ? designStepDownHip(place, 'M', createRng(16), GEN) : [designHip(place, 'M', createRng(16), GEN)];
+    const h = hp[0]!.cfg as { hip?: { side: number; stepDown?: number } };
+    const side = h.hip?.side || 1;
+    for (const [v, vx] of [[15, 0], [15, side * 6], [17, side * 8]] as const) console.log(`${hp[0]!.meta?.type}${sd ? ` (${(h.hip?.stepDown ?? 0).toFixed(1)} m)` : ''} ${v} m/s, ${vx} m/s across: ${fmt(ride(world(hp, pitch), lipZ(hp[0]!), v, 0.5, -90, vx))}`);
+  }
 }

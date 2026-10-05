@@ -1,9 +1,9 @@
 import * as dm from '../sim/dmath.ts';
-import { shapeLip, type ShapeConfig, type ShelfConfig, type SideHitConfig } from '../sim/features.ts';
+import { shapeLip, type ShapeConfig, type ShelfConfig, type SideHitConfig, type WedgeConfig } from '../sim/features.ts';
 import type { Params } from '../sim/params.ts';
 import type { RailConfig } from '../sim/rails.ts';
 import { hipTakeoff } from '../sim/hip.ts';
-import { createContact, createSlope, type HipConfig, type KickerConfig, type QuarterConfig, type Terrain } from '../sim/terrain.ts';
+import { createContact, createSlope, type HipConfig, type KickerConfig, type QuarterConfig, type Terrain, type WallConfig } from '../sim/terrain.ts';
 import { normalize } from '../sim/vec3.ts';
 import { next, type Rng } from '../sim/rng.ts';
 import type { FeatureSpec } from '../park/layout.ts';
@@ -262,7 +262,7 @@ function fitRadii(height: number, angle: number, knuckle: number, runout: number
   return [knuckle * f, runout * f];
 }
 
-export function designHip(place: Place, size: 'S' | 'M' | 'L', rng: Rng, cfg: GenConfig): FeatureSpec {
+export function designHip(place: Place, size: 'S' | 'M' | 'L', rng: Rng, cfg: GenConfig, stepDown = 0): FeatureSpec {
   const h = cfg.hip;
   const s = h.scale[size];
   const side: -1 | 0 | 1 = next(rng) < h.single ? (next(rng) < 0.5 ? -1 : 1) : 0;
@@ -287,6 +287,7 @@ export function designHip(place: Place, size: 'S' | 'M' | 'L', rng: Rng, cfg: Ge
       landingEnd: h.landingEnd * RAD,
       knuckleRadius: h.knuckleRadius * s,
       bottomRadius: h.bottomRadius * s,
+      ...(stepDown > 0 ? { stepDown } : {}),
     },
   };
   const hip = c.hip;
@@ -697,5 +698,74 @@ export function designCorner(place: Place, size: Size, ground: Terrain, cfg: Gen
   const along = dm.atan(Math.max(0, (h0 - base.sample(0, -26, c).height) / 18));
   const f = designKicker(place, size, along, cfg, params, ground, tilt);
   f.meta = { ...(f.meta ?? { type: 'corner' }), type: 'corner' };
+  return [f];
+}
+
+// Build step 4: new shapes.
+
+function wedgeShape(place: Place, faces: 2 | 4, top: number, rng: Rng, cfg: GenConfig): WedgeConfig {
+  const W = cfg.wedge;
+  return { kind: 'wedge', ...place, faces, height: range(rng, W.height), faceAngle: range(rng, W.faceAngle) * RAD, baseRadius: W.baseRadius, top, width: range(rng, W.width), taper: W.taper };
+}
+
+/** Wedge / pyramid: 4 faces with a deck, or 2 with a crest — a kicker, a hip or a spine by approach. */
+export function designWedge(place: Place, rng: Rng, cfg: GenConfig): FeatureSpec[] {
+  const W = cfg.wedge;
+  const four = next(rng) < W.four;
+  const shape = wedgeShape(place, four ? 4 : 2, range(rng, four ? W.top4 : W.top2), rng, cfg);
+  return [{ kind: 'shape', cfg: shape, meta: { type: four ? 'pyramid' : 'wedge', lip: shapeLip(shape) } }];
+}
+
+/** Fun box: a pyramid with a box along its deck and a rail down its downhill face. */
+export function designFunBox(place: Place, rng: Rng, cfg: GenConfig): FeatureSpec[] {
+  const F = cfg.funBox;
+  const shape = wedgeShape(place, 4, range(rng, F.top), rng, cfg);
+  const lip = shapeLip(shape); // the uphill face's top edge: the deck starts here
+  const deckEnd = lip + shape.top;
+  const base = deckEnd + lip; // the downhill face's foot
+  const ax = dm.sin(place.yaw);
+  const az = -dm.cos(place.yaw);
+  const at = (along: number, h: number): [number, number, number] => [place.x + ax * along, h, place.z + az * along];
+  return [
+    { kind: 'shape', cfg: shape, meta: { type: 'funBox', lip } },
+    { kind: 'rail', cfg: { points: [at(lip + F.box.inset, F.box.height), at(deckEnd - F.box.inset, F.box.height)], width: F.box.width }, meta: { type: 'box' } },
+    { kind: 'rail', cfg: { points: [at(deckEnd + 0.3, F.rail), at(base - 0.5, F.rail)] }, meta: { type: 'rail' } },
+  ];
+}
+
+/** Berm: a banked turn either way, starting at `place` along its axis. */
+export function designBerm(place: Place, rng: Rng, cfg: GenConfig): FeatureSpec[] {
+  const B = cfg.berm;
+  const side: 1 | -1 = next(rng) < 0.5 ? -1 : 1;
+  return [{ kind: 'shape', cfg: { kind: 'berm', ...place, radius: range(rng, B.radius), sweep: range(rng, B.sweep) * RAD, side, bank: range(rng, B.bank) * RAD, height: range(rng, B.height), taper: B.taper }, meta: { type: 'berm' } }];
+}
+
+/**
+ * Wall ride: a steep wall beside the approach, turned with it, rising away from it on one side.
+ * The wall turns about its own origin, so that goes at the turned offset from the approach.
+ */
+export function designWallRide(place: Place, rng: Rng, cfg: GenConfig): FeatureSpec[] {
+  const R = cfg.wallRide;
+  const side: 1 | -1 = next(rng) < 0.5 ? -1 : 1;
+  const off = side * R.offset;
+  const wall: WallConfig = {
+    x: place.x + off * dm.cos(place.yaw),
+    z: place.z + off * dm.sin(place.yaw),
+    yaw: place.yaw,
+    side,
+    length: range(rng, R.length),
+    height: range(rng, R.height),
+    angle: range(rng, R.angle) * RAD,
+    radius: range(rng, R.radius),
+    top: R.top,
+    taper: R.taper,
+  };
+  return [{ kind: 'wall', cfg: wall, meta: { type: 'wallRide' } }];
+}
+
+/** Step-down hip: a hip whose table and side landings sit below its lip. */
+export function designStepDownHip(place: Place, size: 'S' | 'M' | 'L', rng: Rng, cfg: GenConfig): FeatureSpec[] {
+  const f = designHip(place, size, rng, cfg, range(rng, cfg.stepDownHip.drop));
+  f.meta = { ...(f.meta ?? { type: 'stepDownHip' }), type: `step-down ${f.meta?.type ?? 'hip'}` };
   return [f];
 }

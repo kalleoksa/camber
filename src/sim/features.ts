@@ -6,7 +6,7 @@ import * as dm from './dmath.ts';
  * axis from (x, z) — the axis points down the fall line at yaw 0 and turns toward +X as yaw
  * grows — and `w` metres across it.
  */
-export type ShapeConfig = RollerConfig | SpineConfig | SideHitConfig | KnollConfig | ShelfConfig;
+export type ShapeConfig = RollerConfig | SpineConfig | SideHitConfig | KnollConfig | ShelfConfig | WedgeConfig | BermConfig;
 
 /** A smooth bump across the run: pump it for speed or pop a small air off it. */
 export type RollerConfig = { kind: 'roller'; x: number; z: number; yaw: number; height: number; length: number; width: number; taper: number };
@@ -47,6 +47,23 @@ export type KnollConfig = { kind: 'knoll'; x: number; z: number; yaw: number; he
  * below is the landing, so it goes where the ground is already steep.
  */
 export type ShelfConfig = { kind: 'shelf'; x: number; z: number; yaw: number; height: number; rise: number; top: number; face: number; width: number; taper: number };
+
+/**
+ * A raised block whose faces work as takeoff or landing depending on the approach: head-on a
+ * kicker, from the side a hip, straight over a spine. Each face is a transition (`baseRadius`)
+ * into a straight at `faceAngle`, up to `height`. Four faces: a pyramid with a `top` m square
+ * deck; two: a ridge across the axis, `top` m of flat crest, `width` m wide. Its base starts at
+ * (x, z) and its middle is one face's run plus half the top on along the axis.
+ */
+export type WedgeConfig = { kind: 'wedge'; x: number; z: number; yaw: number; faces: 2 | 4; height: number; faceAngle: number; baseRadius: number; top: number; width: number; taper: number };
+
+/**
+ * A banked turn: from (x, z), heading along the axis, an arc of `radius` m turning `sweep` rad
+ * toward `side` (+1: toward +X at yaw 0). Outside the arc the ground banks up at `bank` rad to
+ * `height`, holds a 1 m top and falls away behind; the ends fade in over `taper` m. Under
+ * `wall.minAngle` it is ridden as a carve, not a wallride: speed kept through a turn.
+ */
+export type BermConfig = { kind: 'berm'; x: number; z: number; yaw: number; radius: number; sweep: number; side: 1 | -1; bank: number; height: number; taper: number };
 
 type Profile = (x: number, z: number) => number;
 
@@ -112,6 +129,52 @@ export function shapeProfile(cfg: ShapeConfig): Profile {
       return k.height * 0.5 * (1 + dm.cos(Math.PI * Math.sqrt(r2)));
     });
   }
+  if (cfg.kind === 'wedge') {
+    const g = cfg;
+    const r = g.baseRadius;
+    const a = g.faceAngle;
+    const arcLen = r * dm.sin(a);
+    const arcRise = Math.min(g.height, r * (1 - dm.cos(a)));
+    const steep = dm.tan(a);
+    const run = arcLen + Math.max(0, g.height - arcRise) / steep; // base to top, along a face
+    const half = run + g.top / 2;
+    // A face's height at `d` m in from its base.
+    const face = (d: number): number => {
+      if (d <= 0) return 0;
+      if (d < arcLen) return Math.min(g.height, r - Math.sqrt(r * r - d * d));
+      return Math.min(g.height, arcRise + (d - arcLen) * steep);
+    };
+    return inFrame(g.x, g.z, g.yaw, (s, w) => {
+      const along = face(half - Math.abs(s - half));
+      if (g.faces === 2) return along * smooth(1 - (Math.abs(w) - g.width / 2) / g.taper);
+      const across = face(half - Math.abs(w));
+      return along < across ? along : across;
+    });
+  }
+  if (cfg.kind === 'berm') {
+    const b = cfg;
+    const steep = dm.tan(b.bank);
+    const foot = 2; // m of concave foot easing the bank in from the path
+    const up = b.height / steep;
+    const back = b.height / dm.tan(0.5); // the outside falls away at ~29°
+    // Bank height at `u` m outside the turn's path.
+    const bank = (u: number): number => {
+      if (u <= 0) return 0;
+      if (u < foot) return (steep * u * u) / (2 * foot);
+      if (u < foot + up) return Math.min(b.height, (steep * foot) / 2 + (u - foot) * steep);
+      if (u < foot + up + 1) return b.height;
+      return Math.max(0, b.height * (1 - (u - foot - up - 1) / back));
+    };
+    return inFrame(b.x, b.z, b.yaw, (s, w) => {
+      // The turn's centre is `radius` m off to `side`; φ runs along the arc from the start.
+      const dw = w - b.side * b.radius;
+      const phi = dm.atan2(s, -b.side * dw);
+      if (phi <= 0 || phi >= b.sweep) return 0;
+      const u = Math.sqrt(s * s + dw * dw) - b.radius;
+      const ends = smooth((phi * b.radius) / b.taper) * smooth(((b.sweep - phi) * b.radius) / b.taper);
+      return bank(u) * ends;
+    });
+  }
   if (cfg.kind === 'shelf') {
     const f = cfg;
     const edge = f.rise + f.top;
@@ -140,5 +203,11 @@ export function shapeLip(cfg: ShapeConfig): number {
   if (cfg.kind === 'roller') return cfg.length / 2;
   if (cfg.kind === 'knoll') return 0;
   if (cfg.kind === 'shelf') return cfg.rise + cfg.top;
+  if (cfg.kind === 'wedge') {
+    // The uphill face's top edge.
+    const a = cfg.faceAngle;
+    const arcRise = Math.min(cfg.height, cfg.baseRadius * (1 - dm.cos(a)));
+    return cfg.baseRadius * dm.sin(a) + Math.max(0, cfg.height - arcRise) / dm.tan(a);
+  }
   return -1;
 }
