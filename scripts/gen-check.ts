@@ -47,6 +47,23 @@ for (let seed = from; seed <= to; seed++) {
   console.log(`seed ${seed}: ${hash} ${hash === again ? 'same twice' : `DIFFERS (${again})`} · gen ${genMs.toFixed(0)} ms, bake ${bakeMs.toFixed(0)} ms · ${patches} band patches · base ${(layout.ground.pitch * DEG).toFixed(1)}°`);
   console.log(`  ${BANDS.map(([name], i) => `${name}: ${((100 * count[i]!) / n).toFixed(0)}%`).join(' · ')}`);
   console.log(`  steepest ${steepest.toFixed(1)}° · sharpest bend radius ${(1 / bend).toFixed(0)} m`);
+  // Walls: anywhere the finished park rises more than 0.5 m in 0.5 m going down the hill
+  // (not a quarter pipe's face) — a hidden step that stops a rider dead. Drops (a gap jump's
+  // lip back) are by design and not counted.
+  const world = createSlope(toSlopeConfig(layout));
+  let walls = 0;
+  const wallAt: string[] = [];
+  for (let z = -2; z > -layout.ground.length; z -= 0.5) {
+    for (let x = -w; x <= w; x += 2) {
+      const a = world.sample(x, z, c);
+      if (a.surface === 'quarter') continue;
+      if (world.sample(x, z - 0.5, c).height - a.height > 0.5) {
+        walls++;
+        if (wallAt.length < 4) wallAt.push(`${x.toFixed(0)},${z.toFixed(0)}`);
+      }
+    }
+  }
+  console.log(`  features ${layout.features.length} · lines ${layout.lines.map((l) => l.features.length).join('/')} · walls ${walls}${wallAt.length ? ` (at ${wallAt.join(' ')})` : ''}`);
   const field = layout.ground.field;
   if (field) {
     const map = computeSpeedMap(terrain, params, { width: field.width, length: field.length, ...GEN.speedMap });

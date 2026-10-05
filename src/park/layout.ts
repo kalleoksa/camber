@@ -41,8 +41,12 @@ export type FeatureSpec =
   | { kind: 'rail'; cfg: RailConfig; meta?: FeatureMeta }
   | { kind: 'shape'; cfg: ShapeConfig; meta?: FeatureMeta };
 
-/** A line: feature indices in riding order, with the speed each is designed to be hit at. */
-export type LineSpec = { name: string; features: number[]; speed: number[] };
+/**
+ * A line: feature indices in riding order, the speed each is taken at (m/s, at the lip or onto
+ * the rail), and the path it was traced along ([x, z, speed] every few metres) with the speed
+ * the generator expects a rider to carry there.
+ */
+export type LineSpec = { name: string; features: number[]; speed: number[]; path?: [number, number, number][] }; // path: x, z, predicted m/s
 
 /** A takeoff on one feature reaches a clean landing on another. */
 export type LinkSpec = { from: number; to: number; speed: [number, number] };

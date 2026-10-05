@@ -34,7 +34,9 @@ export function designKicker(place: Place, size: Size, groundPitch: number, cfg:
 
   // The kicker on a plane at the local grade, at the origin, facing straight down it: the sim's
   // own height function, so the solve and the ride agree.
-  const build = (deckLength: number, knuckleHeight: number, landingAngle: number): KickerConfig => ({
+  const build = (deckLength: number, knuckleHeight: number, landingAngle: number): KickerConfig => {
+    const [knuckleRadius, runoutRadius] = fitRadii(knuckleHeight, landingAngle, k.knuckleRadius, k.runoutRadius);
+    return {
     x: 0,
     z: 0,
     width: k.width,
@@ -46,9 +48,10 @@ export function designKicker(place: Place, size: Size, groundPitch: number, cfg:
     deckWidth: k.width + k.landingExtra,
     deckTaper: k.deckTaper,
     landingAngle,
-    knuckleRadius: k.knuckleRadius,
-    runoutRadius: k.runoutRadius,
-  });
+    knuckleRadius,
+    runoutRadius,
+    };
+  };
   const radius = H / (1 - dm.cos(theta));
   const runIn = radius * dm.sin(theta);
   const air = (kc: KickerConfig, speed: number, pop: number): ReturnType<typeof fly> => {
@@ -90,9 +93,9 @@ export function designKicker(place: Place, size: Size, groundPitch: number, cfg:
     const fall = mid.descent;
     alphaAbs = Math.min((k.landing[1] ?? 35) * RAD, Math.max((k.landing[0] ?? 28) * RAD, fall - k.sweetOffset * RAD));
     const far = air(kc, vMax, popMid);
-    const knuckleDrop = k.knuckleRadius * (1 - dm.cos(alphaRel));
-    const runoutRise = k.runoutRadius * (1 - dm.cos(alphaRel));
-    const straightEnd = deck + k.knuckleRadius * dm.sin(alphaRel) + Math.max(0, hk - knuckleDrop - runoutRise) / dm.tan(alphaRel);
+    const knuckleDrop = (kc.knuckleRadius ?? 0) * (1 - dm.cos(alphaRel));
+    const runoutRise = (kc.runoutRadius ?? 0) * (1 - dm.cos(alphaRel));
+    const straightEnd = deck + (kc.knuckleRadius ?? 0) * dm.sin(alphaRel) + Math.max(0, hk - knuckleDrop - runoutRise) / dm.tan(alphaRel);
     const reach = -far.z - runIn; // m past the lip
     if (straightEnd < deck + (1 + k.landingMargin) * (reach - deck) && hk < H * k.knuckleMax) hk = Math.min(H * k.knuckleMax, hk + H * 0.1);
   }
@@ -178,10 +181,23 @@ export function designStepUp(place: Place, rng: Rng, groundPitch: number, cfg: G
     deckWidth: k.width + k.landingExtra,
     deckTaper: k.deckTaper,
     landingAngle: Math.max(0.05, ((k.landing[0] ?? 28) + (k.landing[1] ?? 35)) * 0.5 * RAD - groundPitch),
-    knuckleRadius: k.knuckleRadius,
-    runoutRadius: k.runoutRadius,
   };
+  [c.knuckleRadius, c.runoutRadius] = fitRadii(H + rise, c.landingAngle ?? 0.5, k.knuckleRadius, k.runoutRadius);
   return { kind: 'kicker', cfg: c, meta: { type: 'stepUp', size, speed: [vMin, vMax], lip: runIn } };
+}
+
+/**
+ * A landing turns through its angle twice — over the knuckle and into the run-out — and each
+ * arc costs height. When the two radii need more height than the landing has, the profile
+ * has no straight left and steps up where the run-out begins; shrink both so they fit with
+ * a fifth of the height left for the straight.
+ */
+function fitRadii(height: number, angle: number, knuckle: number, runout: number): [number, number] {
+  const need = (knuckle + runout) * (1 - dm.cos(angle));
+  const room = height * 0.8;
+  if (need <= room) return [knuckle, runout];
+  const f = room / need;
+  return [knuckle * f, runout * f];
 }
 
 export function designHip(place: Place, size: 'S' | 'M' | 'L', cfg: GenConfig): FeatureSpec {
@@ -228,7 +244,9 @@ export function designShape(kind: ShapeConfig['kind'], place: Place, rng: Rng, c
   let shape: ShapeConfig;
   if (kind === 'spine') {
     const p = cfg.spine;
-    shape = { kind, ...place, height: range(rng, p.height), angle: p.angle * RAD, knuckleRadius: p.knuckleRadius, footRadius: p.footRadius, width: range(rng, p.width), taper: p.taper };
+    const height = range(rng, p.height);
+    const [knuckleRadius, footRadius] = fitRadii(height, p.angle * RAD, p.knuckleRadius, p.footRadius);
+    shape = { kind, ...place, height, angle: p.angle * RAD, knuckleRadius, footRadius, width: range(rng, p.width), taper: p.taper };
   } else if (kind === 'roller') {
     const p = cfg.roller;
     shape = { kind, ...place, height: range(rng, p.height), length: range(rng, p.length), width: range(rng, p.width), taper: p.taper };

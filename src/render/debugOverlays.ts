@@ -11,7 +11,7 @@ import { createContact, type Terrain } from '../sim/terrain.ts';
  * over the terrain mesh, sharing its vertices, and only read the terrain: nothing here feeds
  * back into the sim.
  */
-export type OverlayName = 'none' | 'slope' | 'speed' | 'arcs';
+export type OverlayName = 'none' | 'slope' | 'speed' | 'arcs' | 'lines';
 export type Overlays = { show(name: OverlayName): void };
 
 const DEG = 180 / Math.PI;
@@ -41,6 +41,7 @@ export const LEGEND: Record<OverlayName, string> = {
   none: '',
   slope: 'blue 0–5° · cyan 5–10 · green 10–20 · yellow 20–25 · orange 25–30 · red 30–35 · magenta >35',
   speed: 'straight down the fall line, km/h: purple <5 (stalls) · blue <25 · green 25–45 · yellow <65 · orange <80 · red faster. Ticks: fall line',
+  lines: 'spine lines as traced, one colour each; a tall post marks each line\'s hero feature, a short one every other feature on the line',
   arcs: 'per kicker, the designed airs: blue slowest (no pop) · green middle · red fastest (medium pop). Ball at touchdown: white clean, orange sketchy, red bail. Post: the knuckle',
 };
 
@@ -79,6 +80,11 @@ export function createOverlays(scene: THREE.Scene, ground: THREE.Mesh, terrain: 
       const group = new THREE.Group();
       group.add(layer((x, z) => speedAt(speedMap, x, z) * 3.6, SPEED));
       group.add(fallLineTicks(speedMap, terrain));
+      scene.add(group);
+      return group;
+    }
+    if (name === 'lines') {
+      const group = linePaths(layout, terrain);
       scene.add(group);
       return group;
     }
@@ -165,5 +171,35 @@ function designArcs(layout: Layout, terrain: Terrain, params: Params): THREE.Gro
     marker.position.set(kx, terrain.sample(kx, kz, contact).height + 1.5, kz);
     group.add(marker);
   }
+  return group;
+}
+
+const LINE_COLOURS = [0xd9452b, 0x3d7bd9, 0x4fbf5a, 0xc534c9, 0xe0d23c];
+
+/** Each line's traced path a metre above the snow, and a post at each of its features. */
+function linePaths(layout: Layout, terrain: Terrain): THREE.Group {
+  const group = new THREE.Group();
+  const contact = createContact();
+  const post = new THREE.CylinderGeometry(0.25, 0.25, 1, 6);
+  layout.lines.forEach((line, i) => {
+    const colour = LINE_COLOURS[i % LINE_COLOURS.length] ?? 0xffffff;
+    const points: number[] = [];
+    for (const [x, z] of line.path ?? []) points.push(x, terrain.sample(x, z, contact).height + 1, z);
+    const geometry = new THREE.BufferGeometry();
+    geometry.setAttribute('position', new THREE.Float32BufferAttribute(points, 3));
+    group.add(new THREE.Line(geometry, new THREE.LineBasicMaterial({ color: colour })));
+    for (const fi of line.features) {
+      const f = layout.features[fi];
+      if (!f) continue;
+      const at = f.kind === 'rail' ? f.cfg.points[0] : undefined;
+      const x = at ? at[0] : (f.cfg as { x: number }).x;
+      const z = at ? at[2] : (f.cfg as { z: number }).z;
+      const tall = f.meta?.hero ? 12 : 4;
+      const m = new THREE.Mesh(post, new THREE.MeshBasicMaterial({ color: colour }));
+      m.scale.set(1, tall, 1);
+      m.position.set(x, terrain.sample(x, z, contact).height + tall / 2, z);
+      group.add(m);
+    }
+  });
   return group;
 }

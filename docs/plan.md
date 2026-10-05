@@ -289,3 +289,20 @@ flat-down, either end). The generated park shows one of each (showcase, until st
 Overlays: `arcs` (designed airs flown over the real terrain, touchdown by grade, knuckle post),
 overview camera (`&view=top`), `&at=x,z` spawn. Turned features get no red paint and no fine
 mesh columns yet.
+
+Step 5 done: spine lines (`src/gen/lines.ts`). Three lines from the top, down the fall line
+with a seeded drift (≤22°, never more than 60° off straight down), kept 40 m from lines
+already traced. Features every 15–40 m of run-in by odds (kicker, step-up, hip, rail/box,
+roller, spine), one hero (L/XL kicker or L hip) past 55% of the way down, a quarter pipe to
+finish. Each is sized to the speed the line reaches going straight (the biggest whose slowest
+design speed it beats by 15%); arriving faster is the rider's to check (L2), so the run-in must
+be long enough to brake to its top speed. Speed is followed over the real surface and over each
+air (designed flight, speed kept along the landing). Benches were tried and dropped: on
+μ 0.06 snow an 80 m flat barely bleeds speed. Base grade now 8–10°, band blends 26 m (a crest
+must bend over more than v²/g or it launches you at speed). Landing radii shrink to fit small
+jumps and spines (a 1.5 m kicker's arcs used to leave a hidden 2 m step — found by the bot).
+`npm run line-check -- seed [line]`: a bot rides each line, checking speed and popping. Seeds
+1–3: 4 of 9 lines ridden to the end; most jumps clean, sketchy when taken fast with a full pop;
+the rest are mostly the bot (loses the path after a big air, rails at an angle). `gen-check`
+counts walls (rises > 0.5 m in 0.5 m going downhill): 0 on seeds 1–5. Overlay `lines`.
+Known: lines can still cross across a feature; clearance is step 6. Generation ~2–3 s.

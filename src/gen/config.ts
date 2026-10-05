@@ -6,7 +6,7 @@
 export const GEN = {
   zone: { width: 300, length: 800 },
   cell: 2, // m between heightfield nodes
-  basePitch: [10, 13], // the zone's overall grade
+  basePitch: [8, 10], // the zone's overall grade — fast enough to get going, slow enough for benches to check speed
   bank: { width: 25, height: 5 }, // the zone's edges roll up over this
   noise: { amp: 1.2, wavelength: 70, octaves: 2 }, // smooth undulation on top of the bands
   speedMap: { cell: 2, startSpeed: 5 }, // m between cells; m/s a run starts at the top
@@ -16,7 +16,7 @@ export const GEN = {
   bands: {
     columns: 3,
     gap: [8, 40], // m between one patch's end and the next in a column
-    blend: 8, // m over which the grade changes between segments (spec: at least 4–6)
+    blend: 26, // m over which the grade changes between segments: a crest at 25 m/s must bend over more than v²/g ≈ 64 m or it launches you
     edge: [25, 45], // m over which a patch fades out across the slope
     yaw: 25, // ° a patch's axis may turn off the fall line
     maxOffset: { bench: 6, runIn: 8, steep: 10 }, // m a patch may lift or sink the ground off the base plane
@@ -31,6 +31,27 @@ export const GEN = {
     maxPitch: 35, // no recovery segment steeper than this; it runs longer instead
   },
 
+  // Spine lines (lines.ts): traced down the fall line with some wander, features placed along
+  // each so the speed it arrives with is the speed the next feature is sized for.
+  lines: {
+    starts: [-90, 0, 90], // m across the top where each line begins (jittered)
+    jitter: 15,
+    step: 2, // m per step along a line
+    wander: 22, // ° a line drifts off the fall line, at most
+    wanderLength: 70, // m over which the drift changes
+    maxTurn: 60, // ° off straight down the hill a line may ever head
+    minGap: 40, // m a line keeps from the lines traced before it
+    repel: 25, // ° it turns away when closer
+    spacing: [15, 40], // m between one feature's run-out and the next one's run-in
+    lead: 30, // m of riding before the first feature
+    endMargin: 60, // m before the zone's bottom to stop placing
+    mix: { kicker: 0.45, stepUp: 0.08, hip: 0.1, rail: 0.2, roller: 0.1, spine: 0.07 }, // relative odds per feature
+    hero: 0.55, // fraction of the way down a line where its hero (an L/XL kicker or a big hip) goes
+    railSpeed: [4, 10], // m/s a rail or box is ridden at
+    spineSpeed: 9, // m/s to get up and over a spine
+    speedMargin: 1.15, // straight-line speed must beat a feature's slowest design speed by this — riding a line carves some off
+    brakeMargin: 8, // m of run-in on top of what checking speed down to a feature's top speed takes
+  },
   // Feature kit (kit.ts). Kicker landings are solved from the flight, never set by hand: these
   // are the inputs and the rules the solve follows (terrain spec, jump generator).
   kicker: {
