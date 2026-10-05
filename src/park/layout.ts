@@ -33,6 +33,7 @@ export type FeatureMeta = {
   fill?: boolean; // placed by the fill, not on a line
   lip?: number; // m along its axis from (x, z) to where it takes off
   checks?: { speed: number; pop: number; grade: string; impact: number; past: number }[]; // designed airs
+  group?: number; // parts of one obstacle (a table and its rail) share this id and move as one
 };
 
 export type FeatureSpec =

@@ -8,7 +8,7 @@ import type { GenConfig } from './config.ts';
 import { fly, launch, popRange } from './flight.ts';
 import { footprint, overlaps, type Footprint } from './footprint.ts';
 import { RAD, range } from './ground.ts';
-import { designHip, designKicker, designQuarter, designRail, designShape, designStepUp, type Place, type Size } from './kit.ts';
+import { designEuroGap, designGapToRail, designHip, designJibTable, designKicker, designKnoll, designLog, designMini, designMiniPipe, designQuarter, designRail, designShape, designStepUp, type Place, type Size } from './kit.ts';
 
 /**
  * Spine lines: a few lines traced from the top down the fall line, drifting off it, with
@@ -20,7 +20,7 @@ import { designHip, designKicker, designQuarter, designRail, designShape, design
  */
 export type LinesResult = { features: FeatureSpec[]; lines: LineSpec[]; prints: Footprint[] };
 
-export type Kind = 'kicker' | 'stepUp' | 'hip' | 'rail' | 'roller' | 'spine';
+export type Kind = 'kicker' | 'stepUp' | 'hip' | 'rail' | 'roller' | 'spine' | 'mini' | 'euroGap' | 'gapToRail' | 'jibTable' | 'knoll' | 'log' | 'miniPipe';
 const SIZES: Size[] = ['S', 'M', 'L', 'XL'];
 const HIP_SPEED = { S: 13.5, M: 15.5, L: 18.5 }; // m/s at the lip each hip was built for (the home corner: ~18–20)
 
@@ -135,25 +135,27 @@ export function placeLines(rng: Rng, field: FieldConfig, cfg: GenConfig, params:
         continue;
       }
       const place: Place = { x, z, yaw };
-      const spec = build(kind, want, place, rng, ground, cfg, params);
+      const parts = build(kind, want, place, rng, ground, cfg, params);
+      const spec = parts[0];
       if (!spec) {
         nextAt = s + range(rng, L.spacing);
         continue;
       }
       // Clear of the other lines' features (its own follow on by construction).
-      const print = footprint(spec, cfg.clear.runIn, cfg.clear.margin);
-      if (prints.some((p) => p.line !== li && overlaps(p.print, print))) {
+      const partPrints = parts.map((p) => footprint(p, cfg.clear.runIn, cfg.clear.margin));
+      if (partPrints.some((print) => prints.some((p) => p.line !== li && overlaps(p.print, print)))) {
         nextAt = s + L.step * 5;
         continue;
       }
-      prints.push({ line: li, print });
+      for (const print of partPrints) prints.push({ line: li, print });
       if (heroNow) {
         spec.meta = { ...(spec.meta ?? { type: kind }), hero: true };
         hero = true;
       }
-      features.push(spec);
+      group(parts, features.length);
+      features.push(...parts);
       rebuild();
-      line.features.push(features.length - 1);
+      line.features.push(features.length - parts.length);
 
       // Over it: to the lip on the surface, then the air, then on from where it lands.
       const out = across(spec, place, v, want.speed[1], world, ground, params, rideAlong);
@@ -182,15 +184,21 @@ export function placeLines(rng: Rng, field: FieldConfig, cfg: GenConfig, params:
   return { features, lines, prints: prints.map((p) => p.print) };
 }
 
-export function pick(rng: Rng, odds: Record<Kind, number>): Kind {
+export function pick(rng: Rng, odds: Partial<Record<Kind, number>>): Kind {
   let total = 0;
-  for (const k of Object.keys(odds) as Kind[]) total += odds[k];
+  for (const k of Object.keys(odds) as Kind[]) total += odds[k] ?? 0;
   let r = next(rng) * total;
   for (const k of Object.keys(odds) as Kind[]) {
-    r -= odds[k];
+    r -= odds[k] ?? 0;
     if (r <= 0) return k;
   }
   return 'kicker';
+}
+
+/** Parts of one obstacle share an id: the index the first of them gets in the layout. */
+export function group(parts: FeatureSpec[], id: number): void {
+  if (parts.length < 2) return;
+  for (const p of parts) p.meta = { ...(p.meta ?? { type: p.kind }), group: id };
 }
 
 export type Want = { size: Size; hipSize: 'S' | 'M' | 'L'; speed: [number, number]; lipHeight: number; runIn: number };
@@ -202,8 +210,8 @@ export function wantedSpeed(kind: Kind, hero: boolean, v: number, rng: Rng, cfg:
   const theta = k.lipAngle * RAD;
   const runIn = (h: number): number => (h / (1 - dm.cos(theta))) * dm.sin(theta);
   const lipSpeed = (h: number): number => Math.sqrt(Math.max(0, v * v - 2 * g * h - 2 * params.ground.friction * g * runIn(h)));
-  if (kind === 'kicker' || kind === 'stepUp') {
-    const sizes = hero ? (['L', 'XL'] as Size[]) : kind === 'stepUp' ? (['M'] as Size[]) : SIZES;
+  if (kind === 'kicker' || kind === 'stepUp' || kind === 'euroGap') {
+    const sizes = hero ? (['L', 'XL'] as Size[]) : kind === 'stepUp' ? (['M'] as Size[]) : kind === 'euroGap' ? (cfg.euroGap.sizes as Size[]) : SIZES;
     // The largest size the speed reaches; a bench takes care of too much. Some randomness so
     // not every jump is the biggest that fits.
     let size = sizes[0] ?? 'M';
@@ -220,10 +228,17 @@ export function wantedSpeed(kind: Kind, hero: boolean, v: number, rng: Rng, cfg:
     return { size: 'M', hipSize, speed: [centre * 0.92, centre * 1.08], lipHeight: lip, runIn: (lip / (1 - dm.cos(a))) * dm.sin(a) };
   }
   if (kind === 'rail') return { size: 'S', hipSize: 'S', speed: cfg.lines.railSpeed as [number, number], lipHeight: 0, runIn: 0 };
+  if (kind === 'jibTable') {
+    const a = cfg.jibTable.lipAngle * RAD;
+    return { size: 'S', hipSize: 'S', speed: cfg.lines.railSpeed as [number, number], lipHeight: cfg.jibTable.lip, runIn: (cfg.jibTable.lip / (1 - dm.cos(a))) * dm.sin(a) };
+  }
+  if (kind === 'gapToRail') return { size: 'S', hipSize: 'S', speed: cfg.gapToRail.speed as [number, number], lipHeight: cfg.gapToRail.height[1] ?? 1, runIn: 3 };
+  if (kind === 'mini') return { size: 'S', hipSize: 'S', speed: cfg.mini.speed as [number, number], lipHeight: cfg.mini.height[1] ?? 0.7, runIn: 2 };
   return { size: 'S', hipSize: 'S', speed: [0, 1e9], lipHeight: 0, runIn: 0 };
 }
 
-export function build(kind: Kind, want: Want, place: Place, rng: Rng, ground: Terrain, cfg: GenConfig, params: Params): FeatureSpec | undefined {
+/** The parts of one obstacle, the first the one a line rides over; none when it can't go here. */
+export function build(kind: Kind, want: Want, place: Place, rng: Rng, ground: Terrain, cfg: GenConfig, params: Params): FeatureSpec[] {
   const c = createContact();
   // Grade under the landing: a little way down from the takeoff.
   const d = 18;
@@ -233,16 +248,28 @@ export function build(kind: Kind, want: Want, place: Place, rng: Rng, ground: Te
   if (kind === 'kicker') {
     const f = designKicker(place, want.size, landingPitch, cfg, params);
     if (f.meta) f.meta.type = 'kicker';
-    return f;
+    return [f];
   }
-  if (kind === 'stepUp') return designStepUp(place, rng, landingPitch, cfg, params);
+  if (kind === 'stepUp') return [designStepUp(place, rng, landingPitch, cfg, params)];
   if (kind === 'hip') {
     const f = designHip(place, want.hipSize, rng, cfg);
     if (f.meta) f.meta.speed = want.speed;
-    return f;
+    return [f];
   }
-  if (kind === 'rail') return designRail(place, rng, cfg);
-  return designShape(kind, place, rng, cfg);
+  if (kind === 'rail') return [designRail(place, rng, cfg)];
+  if (kind === 'mini') return designMini(place, rng, cfg);
+  if (kind === 'knoll') return designKnoll(place, rng, cfg);
+  if (kind === 'log') return designLog(place, rng, cfg);
+  if (kind === 'jibTable') return designJibTable(place, rng, cfg);
+  if (kind === 'euroGap') return designEuroGap(place, want.size, landingPitch, rng, cfg, params);
+  if (kind === 'gapToRail') return designGapToRail(place, landingPitch, rng, cfg, params);
+  if (kind === 'miniPipe') {
+    // Down the fall line, give or take a little: a pipe across the hill would be a traverse.
+    const n = ground.sample(place.x, place.z, c).normal;
+    const yaw = dm.atan2(n.x, -n.z) + Math.max(-cfg.miniPipe.yaw, Math.min(cfg.miniPipe.yaw, ((place.yaw - dm.atan2(n.x, -n.z)) / RAD))) * RAD;
+    return designMiniPipe({ ...place, yaw }, dm.atan(Math.sqrt(n.x * n.x + n.z * n.z) / n.y), rng, cfg);
+  }
+  return [designShape(kind, place, rng, cfg)];
 }
 
 /**
@@ -270,6 +297,12 @@ function across(
     const on = Math.min(top, v);
     const vOut = Math.sqrt(Math.max(1, on * on - 2 * params.rail.friction * len));
     return { x: end[0] + sx * 3, z: end[2] + sz * 3, v: vOut, dist: len + 3, lipSpeed: on };
+  }
+  if (spec.kind === 'quarter' && spec.meta?.type === 'miniPipe') {
+    // Down the flat bottom, from its top end to its bottom end.
+    const len = spec.cfg.width;
+    const vOut = rideAlong(world, place.x, place.z, place.yaw, len, v);
+    return { x: place.x + sx * len, z: place.z + sz * len, v: vOut, dist: len, lipSpeed: v };
   }
   const lip = spec.meta?.lip;
   if ((spec.kind === 'kicker' || spec.kind === 'corner') && lip !== undefined) {

@@ -45,7 +45,7 @@ export const GEN = {
     spacing: [15, 40], // m between one feature's run-out and the next one's run-in
     lead: 30, // m of riding before the first feature
     endMargin: 60, // m before the zone's bottom to stop placing
-    mix: { kicker: 0.45, stepUp: 0.08, hip: 0.1, rail: 0.2, roller: 0.1, spine: 0.07 }, // relative odds per feature
+    mix: { kicker: 0.4, stepUp: 0.08, hip: 0.1, rail: 0.15, roller: 0.08, spine: 0.07, mini: 0.06, euroGap: 0.04, gapToRail: 0.04, jibTable: 0.06 }, // relative odds per feature
     hero: 0.55, // fraction of the way down a line where its hero (an L/XL kicker or a big hip) goes
     railSpeed: [4, 10], // m/s a rail or box is ridden at
     spineSpeed: 9, // m/s to get up and over a spine
@@ -63,7 +63,7 @@ export const GEN = {
     attempts: 1500,
     spacing: 30, // m at least between a fill feature and any other feature's origin
     yaw: 60, // ° off the fall line, at most
-    mix: { kicker: 0.35, stepUp: 0.05, hip: 0.15, rail: 0.25, roller: 0.1, spine: 0.1 },
+    mix: { kicker: 0.28, stepUp: 0.05, hip: 0.13, rail: 0.15, roller: 0.08, spine: 0.08, mini: 0.08, euroGap: 0.03, gapToRail: 0.03, jibTable: 0.05, knoll: 0.07, log: 0.04, miniPipe: 0.04 },
     sideHit: 0.15, // odds a fill feature is a side hit near the zone's edge instead
   },
 
@@ -126,6 +126,23 @@ export const GEN = {
   roller: { height: [0.8, 1.6], length: [10, 16], width: [10, 18], taper: 4 },
   sideHit: { height: [0.8, 1.5], angle: 25, back: 2, width: [3, 5], taper: 1.5 },
   rail: { length: [8, 16], height: [0.4, 0.7], boxWidth: 0.5, kink: 0.35 }, // kink: rise of a flat-down's flat part, m
+
+  // Obstacles from docs/obstacles-plan.md, build step 2.
+  mini: { height: [0.3, 0.7], angle: [10, 18], back: 1.5, width: [3, 5], taper: 1, speed: [5, 12] }, // a painted side hit; speed: m/s it's made for
+  knoll: { height: [1, 3], radius: [4, 10], back: [0.6, 1] }, // back: downhill radius as a fraction of `radius`
+  log: { length: [3, 6], height: [0.3, 0.5], mound: 0.3, moundLength: 4 }, // a round rail on a low mound
+  miniPipe: { height: [1, 2], angle: [60, 70], radius: [2, 3], flat: [3, 6], length: [30, 60], deck: 1.5, backAngle: 20, sideTaper: 4, grade: [10, 15], yaw: 10 }, // grade: ° of ground it goes on; yaw: ° off the fall line at most
+  euroGap: {
+    sizes: ['M', 'L'],
+    table: [8, 18], // m
+    rail: { start: 1.5, setBack: 2, length: [4, 8], height: [0.3, 1], clear: 0.5 }, // m: past the lip, short of the knuckle, along, above the table, slowest air over its top
+  },
+  gapToRail: {
+    height: [0.6, 1], angle: 22, back: 1.5, width: 3, taper: 1, speed: [3, 8], // the takeoff, a painted side hit; m/s: a gap to rail is hit slow, or the air sails past the rail
+    gap: [1, 4], // m from the takeoff's back to the rail
+    rail: { length: [4, 8], height: [0.5, 2.5], end: 0.5, over: 0.15, steep: 0.75 }, // a down rail. height: m above the snow at its start; end: at its end; over: m above its top the air is where it starts; steep: fraction of rail.captureAngle the air may meet it at
+  },
+  jibTable: { lip: 1.5, lipAngle: 23, width: 8, deck: [12, 20], sideTaper: 3, landingAngle: 20, knuckleRadius: 10, runoutRadius: 10, rail: { start: 1, end: 2, length: [6, 12], height: [0.3, 0.5] }, box: 0.5 },
 };
 
 export type GenConfig = typeof GEN;

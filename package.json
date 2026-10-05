@@ -18,7 +18,8 @@
     "lanes": "node scripts/lanes.ts",
     "gen-check": "node scripts/gen-check.ts",
     "kit-check": "node scripts/kit-check.ts",
-    "line-check": "node scripts/line-check.ts"
+    "line-check": "node scripts/line-check.ts",
+    "obstacle-check": "node scripts/obstacle-check.ts"
   },
   "dependencies": {
     "three": "^0.180.0",

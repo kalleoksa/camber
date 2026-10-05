@@ -70,6 +70,11 @@ function attempt(seed: number, roll: number, cfg: GenConfig, params: Params): La
   const firsts = new Set(lines.map((l) => l.features[0]));
   const entered = new Set(links.map((l) => l.to));
   const keep = features.map((f, i) => entered.has(i) || firsts.has(i) || originZ(f) > -cfg.graph.top);
+  // An obstacle's parts go together: kept if any part is.
+  const keptGroups = new Set(features.filter((f, i) => keep[i] && f.meta?.group !== undefined).map((f) => f.meta?.group));
+  features.forEach((f, i) => {
+    if (f.meta?.group !== undefined && keptGroups.has(f.meta.group)) keep[i] = true;
+  });
   if (keep.some((k) => !k)) {
     const remap = new Map<number, number>();
     features.forEach((_, i) => {

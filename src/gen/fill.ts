@@ -8,7 +8,7 @@ import type { GenConfig } from './config.ts';
 import { covers, footprint, overlaps, type Footprint } from './footprint.ts';
 import { RAD, range } from './ground.ts';
 import { designShape, type Place } from './kit.ts';
-import { build, pick, wantedSpeed } from './lines.ts';
+import { build, group, pick, wantedSpeed } from './lines.ts';
 import { computeSpeedMap, speedAt } from './speedmap.ts';
 
 /**
@@ -48,12 +48,12 @@ export function placeFill(
 
     const n = ground.sample(x, z, c).normal;
     const fall = dm.atan2(n.x, -n.z);
-    let spec: FeatureSpec | undefined;
+    let parts: FeatureSpec[] = [];
     const nearEdge = Math.abs(x) > half - 30;
     if (nearEdge && next(rng) < F.sideHit) {
       // A side hit along the run's edge, kicking back in toward the middle.
       const yaw = fall - Math.sign(x) * range(rng, [0.3, 0.8]);
-      spec = designShape('sideHit', { x, z, yaw }, rng, cfg);
+      parts = [designShape('sideHit', { x, z, yaw }, rng, cfg)];
     } else {
       const yaw = fall + (next(rng) * 2 - 1) * F.yaw * RAD;
       const place: Place = { x, z, yaw };
@@ -64,15 +64,17 @@ export function placeFill(
       const want = wantedSpeed(kind, false, v, rng, cfg, params);
       const atLip = Math.sqrt(Math.max(0, v * v - 2 * g * want.lipHeight - 2 * params.ground.friction * g * want.runIn));
       if (atLip < want.speed[0]) continue;
-      spec = build(kind, want, place, rng, ground, cfg, params);
+      parts = build(kind, want, place, rng, ground, cfg, params);
     }
+    const spec = parts[0];
     if (!spec) continue;
-    const print = footprint(spec, cfg.clear.runIn, cfg.clear.margin);
-    if (prints.some((p) => overlaps(p, print))) continue;
-    if (path.some(([px, pz]) => covers(print, px, pz, cfg.clear.path))) continue;
-    spec.meta = { ...(spec.meta ?? { type: spec.kind }), fill: true };
-    added.push(spec);
-    prints.push(print);
+    const partPrints = parts.map((p) => footprint(p, cfg.clear.runIn, cfg.clear.margin));
+    if (partPrints.some((print) => prints.some((p) => overlaps(p, print)))) continue;
+    if (partPrints.some((print) => path.some(([px, pz]) => covers(print, px, pz, cfg.clear.path)))) continue;
+    for (const p of parts) p.meta = { ...(p.meta ?? { type: p.kind }), fill: true };
+    group(parts, features.length + added.length);
+    added.push(...parts);
+    prints.push(...partPrints);
     origins.push(origin(spec));
   }
   return added;

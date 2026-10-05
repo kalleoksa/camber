@@ -366,14 +366,30 @@ function edgeLines(cfg: SlopeConfig, terrain: Terrain): THREE.Group {
   const group = new THREE.Group();
   const material = new THREE.MeshBasicMaterial({ color: 0xd8325a });
   const contact = createContact();
+  // Paint is laid out as if the feature faced straight down the hill (yaw 0) about its origin
+  // (cx, cz), then turned with it — the same turn `turned()` gives its height function.
+  let cx = 0;
+  let cz = 0;
+  let sinYaw = 0;
+  let cosYaw = 1;
+  const frame = (f: { x: number; z: number; yaw?: number }): void => {
+    cx = f.x;
+    cz = f.z;
+    sinYaw = Math.sin(f.yaw ?? 0);
+    cosYaw = Math.cos(f.yaw ?? 0);
+  };
+  const worldX = (x: number, z: number): number => cx + (cz - z) * sinYaw + (x - cx) * cosYaw;
+  const worldZ = (x: number, z: number): number => cz - (cz - z) * cosYaw + (x - cx) * sinYaw;
+  const heightAt = (x: number, z: number): number => terrain.sample(worldX(x, z), worldZ(x, z), contact).height;
   const at = (x: number, z: number, insetX: number, insetZ: number): THREE.Vector3 =>
-    new THREE.Vector3(x, terrain.sample(x - insetX, z - insetZ, contact).height + 0.03, z);
+    new THREE.Vector3(worldX(x, z), heightAt(x - insetX, z - insetZ) + 0.03, worldZ(x, z));
   const tube = (points: THREE.Vector3[]): void => {
     const curve = new THREE.CatmullRomCurve3(points);
     group.add(new THREE.Mesh(new THREE.TubeGeometry(curve, points.length * 2, 0.045, 6, false), material));
   };
   for (const k of takeoffs(cfg)) {
-    if (k.sideTaper > 1 || k.yaw) continue; // paint runs along the axes; turned features go without for now
+    if (k.sideTaper > 1) continue;
+    frame(k);
     const runIn = runInOf(k);
     const lip = k.z - runIn;
     const half = k.width * 0.5;
@@ -397,7 +413,8 @@ function edgeLines(cfg: SlopeConfig, terrain: Terrain): THREE.Group {
   }
   // A corner's deck edges too — the knuckle on all three sides, where its landings start.
   for (const c of cfg.corners ?? []) {
-    if (c.sideTaper > 1 || c.yaw) continue;
+    if (c.sideTaper > 1) continue;
+    frame(c);
     const lip = c.z - runInOf(c);
     const end = lip - c.deckLength + 0.05;
     const half = c.deckWidth * 0.5 - 0.05;
@@ -418,7 +435,7 @@ function edgeLines(cfg: SlopeConfig, terrain: Terrain): THREE.Group {
         const pts: THREE.Vector3[] = [];
         for (let i = 0; i <= 30; i++) {
           const p = at(c.x + side * (half + (reach * i) / 30), lip - 0.05, 0, 0.05);
-          if (p.y - terrain.sample(c.x + side * (half + (reach * i) / 30), lip + 2, contact).height < 0.1) break;
+          if (p.y - heightAt(c.x + side * (half + (reach * i) / 30), lip + 2) < 0.1) break;
           pts.push(p);
         }
         if (pts.length > 1) tube(pts);
@@ -427,6 +444,7 @@ function edgeLines(cfg: SlopeConfig, terrain: Terrain): THREE.Group {
   }
   // Coping: just onto the deck past the face, along the full-height length of the pipe.
   for (const q of cfg.quarters ?? []) {
+    frame(q);
     const r = q.radius;
     const faceEnd = r * Math.sin(q.angle) + Math.max(0, q.height - r * (1 - Math.cos(q.angle))) / Math.tan(q.angle);
     const pts: THREE.Vector3[] = [];
@@ -437,6 +455,21 @@ function edgeLines(cfg: SlopeConfig, terrain: Terrain): THREE.Group {
       else pts.push(at(q.x + along, q.z - faceEnd - 0.08, 0, 0.04));
     }
     tube(pts);
+  }
+  // Painted small kickers (side hits built as park features): the lip and both sides of the ramp.
+  for (const h of cfg.shapes ?? []) {
+    if (h.kind !== 'sideHit' || !h.paint) continue;
+    frame(h);
+    const runIn = (h.height / (1 - Math.cos(h.angle))) * Math.sin(h.angle);
+    const half = h.width * 0.5;
+    for (const side of [-1, 1]) {
+      const pts: THREE.Vector3[] = [];
+      for (let i = 0; i <= 12; i++) pts.push(at(h.x + side * (half - 0.05), h.z - (runIn * i) / 12, side * 0.05, 0));
+      tube(pts);
+    }
+    const lipPts: THREE.Vector3[] = [];
+    for (let i = 0; i <= 8; i++) lipPts.push(at(h.x - half + 0.05 + ((2 * half - 0.1) * i) / 8, h.z - runIn + 0.02, 0, 0));
+    tube(lipPts);
   }
   return group;
 }

@@ -85,7 +85,8 @@ Small filler between bigger features, for pop practice and small spins.
   You land on the slope.
 - **Kit:** `designShape('sideHit', …)` with a `mini` range in `GEN.mini`.
 - **Generator:** in lines between features, where spacing leaves ≥ 25 m. Fill odds 0.1.
-- **Done when:** popped at 6–10 m/s, it lands clean 3–8 m past the lip.
+- **Done when:** popped at 6–10 m/s, it lands clean. (With a full pop it carries 9–18 m, not
+  the 3–8 m first written here; distance is the pop's.)
 
 ### 3. Booter
 
@@ -162,12 +163,17 @@ A tabletop with a rail or box on the table that the rider airs over.
 
 ### 8. Gap to rail
 
-A small takeoff, a gap, then a rail.
+A small takeoff, a gap, then a **down rail**.
 
-- **Build:** group of an S kicker (`landingLength: 0`, no landing) and a `RailConfig`.
-- **Kit:** `designGapToRail`. Gap 1–4 m. The rail start is solved from the flight: where the
-  mid-speed, mid-pop air comes down through `railHeight + 0.3 m`. Rail 4–8 m.
-- **Done when:** the bot at mid speed locks on within the rail's first metre.
+- **Build:** group of a painted side hit and a `RailConfig` running from 0.5–2.5 m above the
+  snow down to 0.5 m, steeper than the slope. A flat rail doesn't work on a 12–20° slope: the
+  air rides 2–3 m above the falling snow, and by the time it's down to a flat rail it comes in
+  steeper than `rail.captureAngle` allows, so it goes through to the snow.
+- **Kit:** `designGapToRail`, placed from real rides (`rideArc` in `ride.ts`), not the flight
+  model, because small lips launch lower than the model says. With a half charge, the rail
+  starts where the air is 0.15 m above its top and must meet it within 75% of the capture angle.
+  The design speed is the one in 3–8 m/s whose gap (takeoff back to rail) is nearest 2.5 m.
+- **Done when:** popped (half or full) at its design speed, it locks on and slides to the end.
 
 ### 9. Rail on table (generated)
 
@@ -283,9 +289,9 @@ steep back, on a ridge in natural zones. Lowest priority.
 
 ## Build order
 
-1. **Turned-feature paint** and `meta.group` in the layout.
+1. **Turned-feature paint** and `meta.group` in the layout. *Done.*
 2. **Cheap, on existing machinery:** mini kicker, knoll, log, mini pipe, euro gap, gap to rail,
-   jib tables in the generator.
+   jib tables in the generator. *Done* — `npm run obstacle-check` rides each one; results below.
 3. **Real-terrain solve in the kit**, then step-down, booter, cliff, corner.
 4. **New shapes:** wedge (then fun box), berm and wall `yaw`, step-down hip.
 5. **Physics first:** the hip quarter measurement, then tombstone taps (ask before the sim
@@ -295,3 +301,19 @@ steep back, on a ridge in natural zones. Lowest priority.
 Each step adds its kit function, `GEN` values, a generator odds entry, a footprint check, and
 a scripted ride check. Every number goes in `GEN` (generator) or the config type (terrain),
 never inline.
+
+## Step 2 results (`npm run obstacle-check`, 2026-10-05)
+
+| Obstacle | 12° | 20° |
+|---|---|---|
+| Mini kicker, 6/8/10 m/s, full pop | clean, 9–16 m | clean, 10–18 m |
+| Knoll, 8/11/14 m/s, pop at crest | clean | clean |
+| Log, 6 m/s | small pop: short slide (0.2–0.3 s); full pop: clears it | same |
+| Euro gap M/L, slowest speed | no pop: lands on the rail; half/full pop: clears it, clean | same |
+| Euro gap M/L, top speed | half pop clean (M); full pop sketchy, overshooting as kickers do | L sketchy at 15 m/s |
+| Gap to rail, design speed | half/full pop: locks on, slides to the end, clean | same |
+| Jib table, 5/7 m/s, small pop at the rail | locks on, rides to the end | same |
+| Mini pipe (12° only), down the middle / 3–7 m/s into a wall | doesn't stop; airs out of the walls and back in, 0 bails | — |
+
+Known: the generated terrain mesh is 2 m cells, so a mini pipe's 1–2 m walls render as soft
+rolls; the sim surface is exact. A finer mesh is the editor's tiled-mesh prerequisite.

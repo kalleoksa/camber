@@ -6,7 +6,7 @@ import * as dm from './dmath.ts';
  * axis from (x, z) — the axis points down the fall line at yaw 0 and turns toward +X as yaw
  * grows — and `w` metres across it.
  */
-export type ShapeConfig = RollerConfig | SpineConfig | SideHitConfig;
+export type ShapeConfig = RollerConfig | SpineConfig | SideHitConfig | KnollConfig;
 
 /** A smooth bump across the run: pump it for speed or pop a small air off it. */
 export type RollerConfig = { kind: 'roller'; x: number; z: number; yaw: number; height: number; length: number; width: number; taper: number };
@@ -29,8 +29,17 @@ export type SpineConfig = {
   taper: number;
 };
 
-/** A natural kicker along a run's edge: a transition up to a lip, then a quick roll back down; you land on the slope. */
-export type SideHitConfig = { kind: 'sideHit'; x: number; z: number; yaw: number; height: number; angle: number; back: number; width: number; taper: number };
+/**
+ * A natural kicker along a run's edge: a transition up to a lip, then a quick roll back down;
+ * you land on the slope. With `paint` it is a park feature (a mini kicker), lip and sides dyed.
+ */
+export type SideHitConfig = { kind: 'sideHit'; x: number; z: number; yaw: number; height: number; angle: number; back: number; width: number; taper: number; paint?: boolean };
+
+/**
+ * A round natural mound centred on (x, z): a cosine dome `radius` m across its axis and uphill,
+ * `back` m downhill — shorter is a steeper back to drop. Pop off the top or roll over it.
+ */
+export type KnollConfig = { kind: 'knoll'; x: number; z: number; yaw: number; height: number; radius: number; back: number };
 
 type Profile = (x: number, z: number) => number;
 
@@ -86,6 +95,16 @@ export function shapeProfile(cfg: ShapeConfig): Profile {
       return across * face(Math.abs(s - run));
     });
   }
+  if (cfg.kind === 'knoll') {
+    const k = cfg;
+    return inFrame(k.x, k.z, k.yaw, (s, w) => {
+      const along = s / (s > 0 ? k.back : k.radius);
+      const across = w / k.radius;
+      const r2 = along * along + across * across;
+      if (r2 >= 1) return 0;
+      return k.height * 0.5 * (1 + dm.cos(Math.PI * Math.sqrt(r2)));
+    });
+  }
   const h = cfg;
   const radius = h.height / (1 - dm.cos(h.angle));
   const runIn = radius * dm.sin(h.angle);
@@ -101,5 +120,6 @@ export function shapeProfile(cfg: ShapeConfig): Profile {
 export function shapeLip(cfg: ShapeConfig): number {
   if (cfg.kind === 'sideHit') return (cfg.height / (1 - dm.cos(cfg.angle))) * dm.sin(cfg.angle);
   if (cfg.kind === 'roller') return cfg.length / 2;
+  if (cfg.kind === 'knoll') return 0;
   return -1;
 }
