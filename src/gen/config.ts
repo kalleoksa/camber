@@ -45,7 +45,7 @@ export const GEN = {
     spacing: [15, 40], // m between one feature's run-out and the next one's run-in
     lead: 30, // m of riding before the first feature
     endMargin: 60, // m before the zone's bottom to stop placing
-    mix: { kicker: 0.42, stepUp: 0.08, hip: 0.1, rail: 0.15, roller: 0.08, spine: 0.07, mini: 0.06, euroGap: 0.04, gapToRail: 0.04, jibTable: 0.06 }, // relative odds per feature
+    mix: { kicker: 0.42, stepUp: 0.08, hip: 0.1, rail: 0.15, roller: 0.08, spine: 0.07, mini: 0.06, euroGap: 0.04, gapToRail: 0.04, jibTable: 0.06, stepDownHip: 0.03 }, // relative odds per feature
     hero: 0.55, // fraction of the way down a line where its hero (an L/XL kicker or a big hip) goes
     railSpeed: [4, 10], // m/s a rail or box is ridden at
     spineSpeed: 9, // m/s to get up and over a spine
@@ -63,7 +63,7 @@ export const GEN = {
     attempts: 1500,
     spacing: 30, // m at least between a fill feature and any other feature's origin
     yaw: 60, // ° off the fall line, at most
-    mix: { kicker: 0.28, stepUp: 0.05, hip: 0.13, rail: 0.15, roller: 0.08, spine: 0.08, mini: 0.08, euroGap: 0.03, gapToRail: 0.03, jibTable: 0.05, knoll: 0.07, log: 0.04, miniPipe: 0.04, booter: 0.04, drop: 0.04, corner: 0.05, wedge: 0.06, funBox: 0.02, berm: 0.04, wallRide: 0.03 },
+    mix: { kicker: 0.28, stepUp: 0.05, hip: 0.13, rail: 0.15, roller: 0.08, spine: 0.08, mini: 0.08, euroGap: 0.03, gapToRail: 0.03, jibTable: 0.05, knoll: 0.07, log: 0.04, miniPipe: 0.04, booter: 0.04, drop: 0.04, corner: 0.05, wedge: 0.06, funBox: 0.02, berm: 0.04, wallRide: 0.03, stepDownHip: 0.03 },
     sideHit: 0.15, // odds a fill feature is a side hit near the zone's edge instead
   },
 
@@ -107,19 +107,24 @@ export const GEN = {
     iterations: 12,
   },
   stepUp: { size: 'M', rise: [1.5, 3], face: 2, landingOnTop: 2, topMargin: 3 }, // rise: m the top stands above the lip; land this far onto it at vMin
-  // Hips: sizes and speeds as the home corner (scaled S/M/L); shape from the hip jump spec.
+  // Hips, sized from flight (kit.ts designHip). Takeoff presets from the hip jump spec (Claude
+  // Docs "Camber — Hip Jump Spec"); the deck's height above the ground and the landing grades are
+  // solved: the lowest deck whose landings take a medium air at the middle speed clean at every
+  // aim. The lip stands `lip` m above the deck. Speeds are the kickers' sizes, which play has
+  // set; the spec's (S 8–11 … XL 17–21 m/s) land sketchy at L and XL on any deck searched.
   hip: {
-    scale: { S: 0.55, M: 0.75, L: 1 },
-    lip: 8.2,
-    lipAngle: 49,
-    deckLength: 22.8,
-    deckWidth: 11.4,
     single: 0.6, // odds of a single hip (one landing side) rather than a double
-    straightLip: 2,
-    landingStart: 30, // ° just past the knuckle — a 49° lip brings airs down at ~63°, so steeper than the spec
-    landingEnd: 45, // ° before the bottom transition
-    knuckleRadius: 4,
-    bottomRadius: 13,
+    sizes: {
+      S: { speed: [7, 10], lipAngle: 20, straightLip: 1, lip: 1.0, width: 5, table: [0, 6], aim: [10, 25], knuckleRadius: 3 },
+      M: { speed: [9, 13], lipAngle: 23, straightLip: 1.5, lip: 1.5, width: 7, table: [0, 10], aim: [10, 30], knuckleRadius: 3.5 },
+      L: { speed: [12, 15], lipAngle: 26, straightLip: 2, lip: 2.2, width: 9, table: [0, 15], aim: [10, 30], knuckleRadius: 4 },
+      XL: { speed: [15, 18], lipAngle: 26 /* the spec's 30° lands sketchy on any deck searched */, straightLip: 2, lip: 3.0, width: 11, table: [0, 25], aim: [15, 30], knuckleRadius: 5 },
+    },
+    deck: [1.5, 14, 1], // m the deck may stand above the ground: lowest, highest, step searched
+    grades: [10, 40, 5], // ° landing grades searched (just past the knuckle, and before the bottom): from, to, step
+    spread: 20, // ° the landing may steepen by, at most, from knuckle to bottom
+    bottomRadius: 10, // m, the transition into the outrun
+    knuckleClear: 1, // m the table ends short of where the middle air at the lowest aim comes down to deck height
   },
   quarter: { height: [3, 4.5], angle: 83, radius: [3.5, 5], width: [12, 20], deck: 3, sideTaper: 3 },
   spine: { height: [2, 3.5], angle: 30, knuckleRadius: 6, footRadius: 10, width: [8, 14], taper: 3 },
@@ -152,7 +157,7 @@ export const GEN = {
   funBox: { top: [5, 8], box: { height: 0.3, width: 0.5, inset: 0.5 }, rail: 0.4 }, // a pyramid with a box along its deck and a rail down its downhill face; m
   berm: { radius: [10, 20], sweep: [60, 120], bank: [30, 50], height: [1.5, 3], taper: 4 }, // radius m, sweep and bank °
   wallRide: { angle: [60, 80], height: [1.5, 4], length: [8, 30], radius: [2, 3], top: 1, taper: 3, offset: 1.5 }, // offset: m from the approach to the foot of its transition
-  stepDownHip: { drop: [1, 4] }, // m the lip is built above the table and knuckle line. Not in the odds: on hips not yet sized from flight, the extra height bails
+  stepDownHip: { drop: [1, 4] }, // m the lip is built above the deck and knuckle line, in place of the size's own
   jibTable: { lip: 1.5, lipAngle: 23, width: 8, deck: [12, 20], sideTaper: 3, landingAngle: 20, knuckleRadius: 10, runoutRadius: 10, rail: { start: 1, end: 2, length: [6, 12], height: [0.3, 0.5] }, box: 0.5 },
 };
 

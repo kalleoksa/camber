@@ -212,11 +212,26 @@ for (const deg of [12, 20]) {
   const wc = wr[0]!.cfg as { side: number; angle: number; length: number };
   const wview = groundFrame(world(wr, pitch), wplace);
   for (const v of [10, 13]) for (const across of [3, 7]) console.log(`wall ride ${(wc.angle / DEG).toFixed(0)}°, ${wc.length.toFixed(0)} m, turned 30°, ${v} m/s, ${across} m/s into it: ${fmt(ride(wview, -3, v, 0, -wc.length - 10, wc.side * across))}`);
-  // Step-down hip vs the same hip without: straight on, and drifting toward its side landing.
-  for (const sd of [false, true]) {
-    const hp = sd ? designStepDownHip(place, 'M', createRng(16), GEN) : [designHip(place, 'M', createRng(16), GEN)];
-    const h = hp[0]!.cfg as { hip?: { side: number; stepDown?: number } };
-    const side = h.hip?.side || 1;
-    for (const [v, vx] of [[15, 0], [15, side * 6], [17, side * 8]] as const) console.log(`${hp[0]!.meta?.type}${sd ? ` (${(h.hip?.stepDown ?? 0).toFixed(1)} m)` : ''} ${v} m/s, ${vx} m/s across: ${fmt(ride(world(hp, pitch), lipZ(hp[0]!), v, 0.5, -90, vx))}`);
+  // Hips sized from flight, each size: slowest, middle and top speed at the low, middle and high
+  // aim, popped halfway, board pointed along the aim. Then a step-down hip (M).
+  const hipRuns = (hp: FeatureSpec, label: string): void => {
+    const c = hp.cfg as { lipHeight: number; deckLength: number; hip?: { side: number; stepDown?: number; landingStart: number; landingEnd: number } };
+    const P = GEN.hip.sizes[(hp.meta?.size ?? 'M') as 'S' | 'M' | 'L' | 'XL'];
+    const toward = c.hip?.side || 1;
+    const rows: string[] = [];
+    for (const aim of [P.aim[0] ?? 10, ((P.aim[0] ?? 10) + (P.aim[1] ?? 30)) / 2, P.aim[1] ?? 30]) {
+      for (const v of [P.speed[0] ?? 8, ((P.speed[0] ?? 8) + (P.speed[1] ?? 11)) / 2, P.speed[1] ?? 11]) {
+        const r = ride(world([hp], pitch), lipZ(hp), v * Math.cos(aim * DEG), 0.5, -120, toward * v * Math.sin(aim * DEG));
+        rows.push(`${aim}°/${v.toFixed(1)}: ${r.landings[0] ?? 'none'}`);
+      }
+    }
+    console.log(`${label}: deck ${c.lipHeight.toFixed(1)} m, lip +${(c.hip?.stepDown ?? 0).toFixed(1)}, table ${c.deckLength.toFixed(1)} m, landing ${((c.hip?.landingStart ?? 0) / DEG).toFixed(0)}→${((c.hip?.landingEnd ?? 0) / DEG).toFixed(0)}° · ${rows.join(' · ')}`);
+  };
+  for (const size of ['S', 'M', 'L', 'XL'] as const) {
+    const t0 = Date.now();
+    const hp = designHip(place, size, createRng(16), GEN, params, pitch);
+    hipRuns(hp, `${hp.meta?.type} ${size} (${Date.now() - t0} ms)`);
   }
+  const sdh = designStepDownHip(place, 'M', createRng(16), GEN, params, pitch);
+  hipRuns(sdh[0]!, `${sdh[0]!.meta?.type} M`);
 }

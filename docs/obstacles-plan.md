@@ -128,10 +128,8 @@ A hip whose side landing sits lower than the lip.
 - **Build:** `HipShape.stepDown` (m, 1–4): the takeoff is built that much taller over the same
   table and landings, its back dropping to the table steeply. (Lowering the table instead, as
   first written here, shortens the landing — the ground under it can't be cut — and bails.)
-- **Kit:** `designStepDownHip` (`designHip(…, stepDown)`). Hip sizes are still the home
-  corner's scaled S/M/L, not physics-sized, and on those 6–8 m, 49° takeoffs the extra height
-  bails (see step 4 results). Built, but left out of the generator's odds until hips are
-  solved from flight.
+- **Kit:** `designStepDownHip` (`designHip(…, stepDown)`): a flight-sized hip (below) with
+  its lip 1–4 m above the deck instead of the size's own. In the generator's odds.
 - **Done when:** side airs at 30° aim land clean at mid speed, as `designHip` does now.
 
 ### 6. Wedge / pyramid
@@ -357,3 +355,35 @@ ground would make room for them.
 | Double hip M (unchanged) / step-down hip M (+2.9 m), 15 m/s straight and 6 m/s across | hip: sketchy; step-down: bails across. Out of the odds |
 
 The bot points its board along its velocity (a crab across a hip bailed even the plain hip).
+
+## Hips sized from flight (2026-10-05)
+
+`designHip` no longer scales the home corner. Takeoffs come from the hip jump spec's S–XL
+presets (lip angle, straight lip, lip height above the deck, width, table, aim range, knuckle
+radius). On this ground a side landing can only fall as far as the deck stands above it, so the
+deck's height and the landing's grades are solved:
+
+- flown at the slowest, middle and top speed, at the low, middle and high aim, over the real
+  ground;
+- the lowest deck whose medium airs at the middle speed all land clean, and whose middle and
+  top-speed airs at the middle and high aim come down on the landing, not on the ground past it;
+- the table ends short of where the middle air at the lowest aim comes down.
+
+Two changes from the spec's presets, both because they land sketchy on any deck searched:
+
+- speeds are the kickers' sizes (S 7–10, M 9–13, L 12–15, XL 15–18 m/s), not S 8–11 … XL 17–21;
+- XL's lip is 26°, not 30°.
+
+Results:
+
+| | Deck | Rides (middle speed, half pop, 3 aims × 3 speeds), 14° plane |
+|---|---|---|
+| S | 3.5 m | 8 clean, 1 sketchy (highest aim, slowest) |
+| M | 4.5 m | all clean |
+| L | 6.5 m | all clean |
+| XL | 13.5 m | all clean — a hero build |
+| Step-down M (+2.9 m lip) | 4.5 m | all clean |
+
+Generated parks, seeds 1–4, every hip ridden at its middle speed, half pop, aims 10/20/30°:
+clean 37 of 48 (was 6 of 15 with the scaled home corner), no bails. Bigger hips take more room:
+seed 1 has 55 features (was ~66).

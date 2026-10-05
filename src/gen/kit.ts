@@ -262,38 +262,91 @@ function fitRadii(height: number, angle: number, knuckle: number, runout: number
   return [knuckle * f, runout * f];
 }
 
-export function designHip(place: Place, size: 'S' | 'M' | 'L', rng: Rng, cfg: GenConfig, stepDown = 0): FeatureSpec {
-  const h = cfg.hip;
-  const s = h.scale[size];
-  const side: -1 | 0 | 1 = next(rng) < h.single ? (next(rng) < 0.5 ? -1 : 1) : 0;
-  const c: HipConfig = {
-    x: place.x,
-    z: place.z,
-    yaw: place.yaw,
-    width: h.deckWidth * s,
-    lipHeight: h.lip * s,
-    lipAngle: h.lipAngle * RAD,
-    deckLength: h.deckLength * s,
-    deckWidth: h.deckWidth * s,
+/**
+ * A hip sized from flight. The takeoff comes from its size's preset; the lip stands `lip` m (or
+ * `stepDown`) above the deck. On our ground a side landing can only fall as far as the deck
+ * stands above the ground, so that height is solved, with the landing's grades: flown across the
+ * aim range at the slowest, middle and top speeds over the real ground (or a plane at `pitch`),
+ * the lowest deck whose medium airs at the middle speed all land clean, scoring the rest. The
+ * table ends short of where the middle air at the lowest aim comes down, so the hip side or the
+ * second landing takes it.
+ */
+export function designHip(place: Place, size: Size, rng: Rng, cfg: GenConfig, params: Params, pitch = 0, ground?: Terrain, stepDown?: number): FeatureSpec {
+  const C = cfg.hip;
+  const P = C.sizes[size];
+  const side: -1 | 0 | 1 = next(rng) < C.single ? (next(rng) < 0.5 ? -1 : 1) : 0;
+  const lipAboveDeck = stepDown ?? P.lip;
+  const [vMin = 8, vMax = 11] = P.speed;
+  const vMid = (vMin + vMax) / 2;
+  const [popMin, popMax] = popRange(params);
+  const popMid = (popMin + popMax) / 2;
+  const aims = [P.aim[0] ?? 10, ((P.aim[0] ?? 10) + (P.aim[1] ?? 30)) / 2, P.aim[1] ?? 30].map((a) => a * RAD);
+  const toward = side === 0 ? 1 : side; // a double hip is symmetric: fly to one side
+  const base = baseFor(place, pitch, ground);
+  const build = (deck: number, deckLength: number, a0: number, a1: number): HipConfig => ({
+    x: 0,
+    z: 0,
+    width: P.width,
+    lipHeight: deck,
+    lipAngle: P.lipAngle * RAD,
+    deckLength,
+    deckWidth: P.width,
     sideTaper: 0.5,
     deckTaper: 0.5,
-    landingAngle: h.landingEnd * RAD, // unused by a hip; the hip shape below sets the landing
-    knuckleRadius: h.knuckleRadius * s,
-    runoutRadius: h.bottomRadius * s,
-    hip: {
-      side,
-      straightLip: h.straightLip * s,
-      landingStart: h.landingStart * RAD,
-      landingEnd: h.landingEnd * RAD,
-      knuckleRadius: h.knuckleRadius * s,
-      bottomRadius: h.bottomRadius * s,
-      ...(stepDown > 0 ? { stepDown } : {}),
-    },
+    landingAngle: a1, // unused by a hip; the hip shape below sets the landing
+    knuckleRadius: P.knuckleRadius,
+    runoutRadius: C.bottomRadius,
+    hip: { side, straightLip: P.straightLip, landingStart: a0, landingEnd: a1, knuckleRadius: P.knuckleRadius, bottomRadius: C.bottomRadius, stepDown: lipAboveDeck },
+  });
+  const terrain = (c: HipConfig): Terrain => stack(base, createSlope({ length: 600, width: 600, pitch: 0, corners: [c] }));
+  const flight = (t: Terrain, c: HipConfig, aim: number, v: number, pop: number): ReturnType<typeof fly> => {
+    const hip = c.hip;
+    const runIn = hip ? hipTakeoff(c, hip).runIn : 0;
+    const dx = toward * dm.sin(aim);
+    const dz = -dm.cos(aim);
+    const lipZ = -runIn + 0.02;
+    const l = launch(t, 0, lipZ, dx, dz, v, pop);
+    return fly(t, params, 0, l.y, lipZ, l.vx, l.vy, l.vz, 6, false);
   };
-  const hip = c.hip;
-  const lip = hip ? hipTakeoff(c, hip).runIn : 0;
+
+  // Table: a long one at any height catches the middle air at the lowest aim; end it short of that.
+  const probe = build(4, 80, 30 * RAD, 30 * RAD);
+  const runIn = probe.hip ? hipTakeoff(probe, probe.hip).runIn : 0;
+  const caught = flight(terrain(probe), probe, aims[0] ?? 0, vMid, popMid);
+  const reach = -caught.z - runIn;
+  const deckLength = Math.max(0, Math.min(range(rng, P.table), reach - C.knuckleClear));
+
+  const under = createContact();
+  let best: { c: HipConfig; ok: boolean; score: number } | undefined;
+  const [g0 = 15, g1 = 50, gStep = 5] = C.grades;
+  const [d0 = 1.5, d1 = 10, dStep = 1] = C.deck;
+  for (let deck = d0; deck <= d1 + 1e-9; deck += dStep) {
+    for (let a0 = g0; a0 <= g1 + 1e-9; a0 += gStep) {
+      for (let a1 = a0; a1 <= Math.min(g1, a0 + C.spread) + 1e-9; a1 += gStep) {
+        const c = build(deck, deckLength, a0 * RAD, a1 * RAD);
+        const t = terrain(c);
+        let ok = true;
+        let score = 0;
+        for (let i = 0; i < aims.length; i++) {
+          const aim = aims[i] ?? 0;
+          for (const [v, pop] of [[vMin, popMin], [vMid, popMid], [vMax, popMid], [vMax, popMax]] as const) {
+            const f = flight(t, c, aim, v, pop);
+            score += f.grade === 'clean' ? 2 : f.grade === 'sketchy' ? 0 : -4;
+            if (v === vMid && f.grade !== 'clean') ok = false;
+            // The landing has to be long enough to take them: a medium air at the middle and top
+            // speed, at the middle and high aim, comes down on it — not on the ground past it.
+            if (i > 0 && pop === popMid && t.sample(f.x, f.z, under).height - base.sample(f.x, f.z, under).height < 0.05) ok = false;
+          }
+        }
+        if (!best || (ok && !best.ok) || (ok === best.ok && score > best.score)) best = { c, ok, score };
+      }
+    }
+    if (best?.ok && best.score === aims.length * 8) break; // every air clean: the lowest deck that does it
+    if (best?.ok && deck >= d0 + 2 * dStep) break; // middle airs clean, and a taller deck isn't helping much
+  }
+  const c: HipConfig = { ...(best?.c ?? build(d0, deckLength, 30 * RAD, 45 * RAD)), x: place.x, z: place.z, yaw: place.yaw };
   const type = side === 0 ? 'double hip' : side < 0 ? 'hip left' : 'hip right';
-  return { kind: 'corner', cfg: c, meta: { type, size, lip } };
+  return { kind: 'corner', cfg: c, meta: { type, size, speed: [vMin, vMax], lip: c.hip ? hipTakeoff(c, c.hip).runIn : 0 } };
 }
 
 export function designQuarter(place: Place, rng: Rng, cfg: GenConfig): FeatureSpec {
@@ -764,8 +817,8 @@ export function designWallRide(place: Place, rng: Rng, cfg: GenConfig): FeatureS
 }
 
 /** Step-down hip: a hip whose table and side landings sit below its lip. */
-export function designStepDownHip(place: Place, size: 'S' | 'M' | 'L', rng: Rng, cfg: GenConfig): FeatureSpec[] {
-  const f = designHip(place, size, rng, cfg, range(rng, cfg.stepDownHip.drop));
+export function designStepDownHip(place: Place, size: Size, rng: Rng, cfg: GenConfig, params: Params, pitch = 0, ground?: Terrain): FeatureSpec[] {
+  const f = designHip(place, size, rng, cfg, params, pitch, ground, range(rng, cfg.stepDownHip.drop));
   f.meta = { ...(f.meta ?? { type: 'stepDownHip' }), type: `step-down ${f.meta?.type ?? 'hip'}` };
   return [f];
 }
