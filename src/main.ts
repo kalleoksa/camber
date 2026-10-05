@@ -62,6 +62,7 @@ import { length } from './sim/vec3.ts';
 import { addParkFolder } from './tuning/parkPanel.ts';
 import { createOverlays } from './render/debugOverlays.ts';
 import { createTrajectoryPreview } from './render/trajectory.ts';
+import { createSkid } from './render/skid.ts';
 import { createPanel, download, type FeedbackState, type Readout } from './tuning/panel.ts';
 
 const SEED = 1;
@@ -174,6 +175,7 @@ const view = createScene(slopeConfig, terrain, chase.camera, 0.75 * (PARK_GRAVIT
 const sceneFog = view.scene.fog;
 const overview = { on: false };
 const trajectory = createTrajectoryPreview(view.scene, slopeConfig, terrain, params);
+const skid = createSkid();
 addEventListener('resize', view.resize);
 // The canvas follows the visible screen by CSS; whenever its size changes — including iPad
 // Safari's toolbars sliding, which doesn't always fire a resize — the buffer follows.
@@ -576,6 +578,7 @@ function render(alpha: number): void {
   lastRender = now;
 
   const rider = interpolateRider(previous, state, alpha);
+  if (!poseMode) skid.apply(rider, params, dt);
   // The preview is authoring state, not sim state, so it keeps the real render dt. The hip
   // spring no longer does — it is stepped on the sim tick and sampled here.
   if (poseMode) updatePreview(dt);

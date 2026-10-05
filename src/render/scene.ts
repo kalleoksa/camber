@@ -32,6 +32,8 @@ export type RiderView = {
   stance: number;
   compress: number;
   scrub: number;
+  brake: number;
+  shiftPivot: number; // 0 an air shifty about the board's centre, 1 a speed check's tail pushed round the front binding
   speed: number;
   mode: RiderMode;
   landing: LandingRead;
@@ -70,6 +72,8 @@ const view: RiderView = {
   stance: 0,
   compress: 0,
   scrub: 0,
+  brake: 0,
+  shiftPivot: 0,
   speed: 0,
   mode: 'airborne',
   landing: 'none',
@@ -110,6 +114,8 @@ export function interpolateRider(prev: RiderState, cur: RiderState, alpha: numbe
   view.stance = prev.stance + (cur.stance - prev.stance) * alpha;
   view.compress = prev.compress + (cur.compress - prev.compress) * alpha;
   view.scrub = cur.scrub;
+  view.brake = cur.brake;
+  view.shiftPivot = 0;
   view.speed = length(cur.velocity);
   view.time = (prev.tick + (cur.tick - prev.tick) * alpha) * TICK_DT;
   view.mode = cur.mode;
@@ -839,6 +845,7 @@ export function createScene(cfg: SlopeConfig, terrain: Terrain, camera: THREE.Pe
         rig.root.position.sub(tip);
       }
 
+      rig.shiftPivot = view.shiftPivot;
       rig.apply(drivers, params);
 
       // Cloth (9c): springs from Secondary, flutter from sim time and speed. Still in pose

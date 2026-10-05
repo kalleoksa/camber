@@ -17,6 +17,7 @@ export function tick(
   dt: number,
 ): void {
   state.tick++;
+  state.brake = input.lt;
 
   if (input.y) {
     if (!state.resetLatch) {

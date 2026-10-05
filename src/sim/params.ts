@@ -280,6 +280,12 @@ export const params = {
     reachWarn: 0.9,
   },
   rig: {
+    // Speed check (L2), drawn: the board swings across the travel and the edge digs in, spray
+    // off it. Render only — the sim's brake is unchanged by it.
+    skidYaw: 1.2, // rad the board turns off the travel at full L2 (~70°)
+    skidRate: 8, // 1/s it swings round and back
+    skidEdge: 0.5, // edge it shows at full skid, of full
+    skidSpray: 0.6, // spray, as m/s² of scrub per m/s of speed at full skid
     thigh: 0.44, // m
     shin: 0.44, // m
     upperArm: 0.33, // m

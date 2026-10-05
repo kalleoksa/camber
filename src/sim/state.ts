@@ -98,6 +98,7 @@ export type RiderState = {
 
   groundNormal: Vec3; // smoothed, what the board is slaved to
   scrub: number; // m/s² the edge is removing from lateral velocity — drives spray and edge bite
+  brake: number; // 0..1, L2 as last ticked — read by render for the speed-check skid. A copy of input, so not hashed
   clearance: number; // m above the contact point
   airTime: number; // s since leaving the ground
   popWindow: number; // s left in which the stick still counts as takeoff
@@ -162,6 +163,7 @@ export function createRiderState(spawn: Spawn): RiderState {
     shifty: 0,
     groundNormal: vec3(0, 1, 0),
     scrub: 0,
+    brake: 0,
     clearance: 0,
     airTime: 0,
     popWindow: 0,
@@ -218,6 +220,7 @@ export function resetRiderState(state: RiderState): void {
   state.tweak = 0;
   state.shifty = 0;
   state.scrub = 0;
+  state.brake = 0;
   state.heading = spawn.heading;
   state.headingTarget = spawn.heading;
   state.edge = 0;
@@ -282,6 +285,7 @@ export function copyRiderState(dst: RiderState, src: RiderState): void {
   dst.compress = src.compress;
   dst.charge = src.charge;
   dst.scrub = src.scrub;
+  dst.brake = src.brake;
   dst.clearance = src.clearance;
   dst.airTime = src.airTime;
   dst.popWindow = src.popWindow;
