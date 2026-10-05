@@ -238,3 +238,20 @@ airtime, landing past the knuckle. Straight lanes: all rows clean in all three; 
 (middle and right sketchy on impact). Switching every row (bot steering, crude) makes it
 through, landing a few metres short on the rise after the hardest switches — a human plans
 them earlier. Terrain mesh 1.44M triangles (was 0.85M) — watch the frame rate on iPad.
+
+## 12. Procedural park generator (2026-10-05)
+
+Asked for: replace the home park with a seeded generator (~300 × 800 m, Shredders-like density,
+hips, rails, transfers, varied steepness), validated by physics, output as layout JSON that
+hand-built parks share. This runs ahead of the milestone order on request. The specs it reads
+are Claude Docs, not repo files: terrain (https://claude.ai/artifact/FwXRXvXLWbYxoRp47dnN1q),
+landing & feel (https://claude.ai/artifact/VU9NgwkzLEz1aPHWqDQrbr), trick input
+(https://claude.ai/artifact/3BQQ2QVtCdTfnMiV8cHB3T).
+
+Build steps: 1 layout format + old parks as layouts; 2 heightfield ground + slope heatmap +
+seed in the panel; 3 speed map; 4 feature kit with yaw + design arcs; 5 spine lines; 6 Poisson
+fill; 7 connection graph in a worker; 8 trajectory preview; 9 generated park as default.
+
+Step 1 done: `src/park/layout.ts` (Layout, `toSlopeConfig`, `layoutFromSlope`),
+`src/park/parks.ts` (home, slopestyle, sochi as layouts; `?park=home` is the fallback). Each
+layout rebuilds its park sample-for-sample (checked over 2.6M samples), so takes are unchanged.

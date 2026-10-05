@@ -52,29 +52,27 @@ import {
   type RiderState,
 } from './sim/state.ts';
 import { createContact, createSlope, type SlopeConfig } from './sim/terrain.ts';
-import { PARK } from './park/park.ts';
+import { toSlopeConfig } from './park/layout.ts';
+import { HOME, PARKS } from './park/parks.ts';
 import { PARK_GRAVITY, REAL_GRAVITY } from './park/scale.ts';
-import { SLOPESTYLE } from './park/slopestyle.ts';
-import { SOCHI } from './park/sochi.ts';
 import { length } from './sim/vec3.ts';
 import { createPanel, download, type FeedbackState, type Readout } from './tuning/panel.ts';
 
 const SEED = 1;
-// The home park (src/park/park.ts) by default; ?park=sochi for Sochi 2014, ?park=slopestyle
-// for the first park. All full size under real gravity. A take stores its terrain and
-// params, so takes from before (16 m/s², 0.61-scale parks) replay as they were.
+// Parks are layouts (src/park/layout.ts). The home park (src/park/park.ts) by default;
+// ?park=sochi for Sochi 2014, ?park=slopestyle for the first park. All full size under real
+// gravity. A take stores its terrain and params, so takes from before (16 m/s², 0.61-scale
+// parks) replay as they were.
 const query = new URLSearchParams(location.search);
-const parkName = query.get('park');
-const slopeConfig: SlopeConfig = parkName === 'slopestyle' ? SLOPESTYLE : parkName === 'sochi' ? SOCHI : PARK;
+const layout = PARKS[query.get('park') ?? 'home'] ?? HOME;
+const slopeConfig: SlopeConfig = toSlopeConfig(layout);
 // ?spin=0 starts on the older spin model (air.spinModel in the panel switches live).
 if (query.get('spin') === '0') params.air.spinModel = 0;
 
 const terrain = createSlope(slopeConfig);
-// On the home park a run starts lined up in the jump line, straight at the first kicker.
-const spawnX = slopeConfig === PARK ? (PARK.kickers?.[0]?.x ?? 0) : 0;
 const spawn = {
-  position: { x: spawnX, y: terrain.sample(spawnX, 0, createContact()).height + 1.5, z: 0 },
-  heading: Math.PI, // nose down the fall line (-Z)
+  position: { x: layout.spawn.x, y: terrain.sample(layout.spawn.x, layout.spawn.z, createContact()).height + 1.5, z: layout.spawn.z },
+  heading: layout.spawn.heading,
 };
 
 const state = createRiderState(spawn);
