@@ -9,6 +9,7 @@ export const GEN = {
   basePitch: [10, 13], // the zone's overall grade
   bank: { width: 25, height: 5 }, // the zone's edges roll up over this
   noise: { amp: 1.2, wavelength: 70, octaves: 2 }, // smooth undulation on top of the bands
+  speedMap: { cell: 2, startSpeed: 5 }, // m between cells; m/s a run starts at the top
 
   // Steepness bands: patches laid down the hill in a few columns across it, each a run of
   // segments that gives back the height it takes, so neighbouring columns meet again.

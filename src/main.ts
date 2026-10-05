@@ -52,7 +52,9 @@ import {
   type RiderState,
 } from './sim/state.ts';
 import { createContact, createSlope, type SlopeConfig } from './sim/terrain.ts';
+import { GEN } from './gen/config.ts';
 import { generateLayout } from './gen/generate.ts';
+import { computeSpeedMap } from './gen/speedmap.ts';
 import { toSlopeConfig } from './park/layout.ts';
 import { HOME, PARKS } from './park/parks.ts';
 import { PARK_GRAVITY, REAL_GRAVITY } from './park/scale.ts';
@@ -770,7 +772,10 @@ const panel = createPanel(params, readout, view.drivers, preview, feedback, {
     panel.refresh();
   },
 });
-addParkFolder(panel.pane, layout.name, layout.seed ?? seed, createOverlays(view.scene, view.ground, terrain));
+// The speed map only means something on generated ground (a zone with a field).
+const field = slopeConfig.field;
+const speedMap = field ? computeSpeedMap(terrain, params, { width: field.width, length: field.length, ...GEN.speedMap }) : undefined;
+addParkFolder(panel.pane, layout.name, layout.seed ?? seed, createOverlays(view.scene, view.ground, terrain, speedMap));
 
 function restart(): void {
   finishRun();

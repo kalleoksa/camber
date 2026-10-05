@@ -1,10 +1,13 @@
 /**
  * Park generator check: `npm run gen-check -- [seeds]`. Generates each seed twice (the layout
  * must be byte-identical), times it, and reports the ground: slope by band, steepest spot,
- * sharpest bend (what the absorb spring has to take).
+ * sharpest bend (what the absorb spring has to take), and straight-line speed from the speed map.
  */
 import { createHash } from 'node:crypto';
+import { GEN } from '../src/gen/config.ts';
 import { generateLayout } from '../src/gen/generate.ts';
+import { computeSpeedMap } from '../src/gen/speedmap.ts';
+import { params } from '../src/sim/params.ts';
 import { toSlopeConfig } from '../src/park/layout.ts';
 import { createContact, createSlope } from '../src/sim/terrain.ts';
 
@@ -43,4 +46,12 @@ for (let seed = from; seed <= to; seed++) {
   console.log(`seed ${seed}: ${hash} ${hash === again ? 'same twice' : `DIFFERS (${again})`} · gen ${genMs.toFixed(0)} ms, bake ${bakeMs.toFixed(0)} ms · ${patches} band patches · base ${(layout.ground.pitch * DEG).toFixed(1)}°`);
   console.log(`  ${BANDS.map(([name], i) => `${name}: ${((100 * count[i]!) / n).toFixed(0)}%`).join(' · ')}`);
   console.log(`  steepest ${steepest.toFixed(1)}° · sharpest bend radius ${(1 / bend).toFixed(0)} m`);
+  const field = layout.ground.field;
+  if (field) {
+    const map = computeSpeedMap(terrain, params, { width: field.width, length: field.length, ...GEN.speedMap });
+    const kmh = Array.from(map.speed, (v) => v * 3.6).sort((a, b) => a - b);
+    const share = (f: (v: number) => boolean): string => `${((100 * kmh.filter(f).length) / kmh.length).toFixed(0)}%`;
+    const terminal = params.world.terminalSpeed * 3.6 - 1;
+    console.log(`  straight-line speed: median ${kmh[kmh.length >> 1]?.toFixed(0)} km/h · stalled ${share((v) => v < 5)} · jump range 40–70 ${share((v) => v >= 40 && v < 70)} · at terminal ${share((v) => v >= terminal)}`);
+  }
 }

@@ -264,3 +264,12 @@ it. `src/gen/` (config, ground, generate) builds it from a seed; `?park=gen&seed
 the panel's park folder has seed / regenerate / fallback and the slope heatmap
 (`&overlay=heatmap`). `npm run gen-check -- 1-5`: same layout twice per seed, band shares,
 steepest spot, sharpest bend. Known: patch edges overlapping can reach ~38° in small spots.
+
+Step 3 done: speed map (`src/gen/speedmap.ts`): rows marched downhill, each cell fed from the
+row above along its fall line: v² += 2g·drop − 2(μg·cosβ + k·v²)·ds, capped at the sim's
+terminal speed. Checked against the headless sim riding straight down (seeds 1–2, three
+lanes): within a few km/h. Overlay `speed` (colours + fall-line ticks), `?overlay=speed`; the
+park folder's overlay picker replaces the heatmap toggle. Finding: straight-lining, the
+generated ground hits terminal (94 km/h) after ~350 m — about half the zone; jump speeds
+(40–70 km/h) are ~15% of it. Speed control is step 5's job (flats before features), with
+`basePitch` the blunt lever.
