@@ -57,7 +57,6 @@ import { loadGenerated } from './gen/load.ts';
 import { computeSpeedMap } from './gen/speedmap.ts';
 import { toSlopeConfig, type Layout } from './park/layout.ts';
 import { HOME, PARKS } from './park/parks.ts';
-import { PARK_GRAVITY, REAL_GRAVITY } from './park/scale.ts';
 import { length } from './sim/vec3.ts';
 import { addParkFolder } from './tuning/parkPanel.ts';
 import { createOverlays } from './render/debugOverlays.ts';
@@ -171,7 +170,8 @@ let runTricks: { tick: number; text: string }[] = [];
 
 const chase = createChaseCamera(params);
 // Parks are full size, their features 1.63× the old: so is the coarse grid cell.
-const view = createScene(slopeConfig, terrain, chase.camera, 0.75 * (PARK_GRAVITY / REAL_GRAVITY));
+const view = createScene(slopeConfig, terrain, chase.camera);
+let terrainSharp = false;
 const sceneFog = view.scene.fog;
 const overview = { on: false };
 const trajectory = createTrajectoryPreview(view.scene, slopeConfig, terrain, params);
@@ -606,6 +606,9 @@ function render(alpha: number): void {
   } else {
     lastLanding = state.landing;
   }
+  // Terrain detail round the camera: all of it on the first frame, then a few ms a frame.
+  view.ground.update(chase.camera.position, terrainSharp ? 3 : 2000);
+  terrainSharp = true;
   view.renderer.render(view.scene, chase.camera);
   inputOverlay.draw();
 
@@ -817,7 +820,7 @@ const panel = createPanel(params, readout, view.drivers, preview, feedback, {
 // The speed map only means something on generated ground (a zone with a field).
 const field = slopeConfig.field;
 const speedMap = field ? computeSpeedMap(terrain, params, { width: field.width, length: field.length, ...GEN.speedMap }) : undefined;
-addParkFolder(panel.pane, layout, seed, createOverlays(view.scene, view.ground, terrain, speedMap, layout, params), {
+addParkFolder(panel.pane, layout, seed, createOverlays(view.scene, terrain, speedMap, layout, params), {
   onExport: () => download(`camber-park-${layout.name}${layout.seed !== undefined ? `-${layout.seed}` : ''}.json`, JSON.stringify(layout)),
   onLoadLayout: (json) => {
     try {

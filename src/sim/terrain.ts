@@ -210,13 +210,21 @@ export function createSlope(cfg: SlopeConfig): Terrain {
   // Features merge by max, so twin kickers can share a table; each is ≥ 0, so where only
   // one is present this is exactly its height and old takes keep their hashes. Grade
   // changes reshape the slope under all of them, so they add.
+  // Max is order-free, so one list does; many features are bucketed so a point only asks the
+  // few whose ground it could be on (each exactly 0 outside its extent, so the answer is the same).
+  const all: Profile[] = [...kickers, ...walls, ...corners, ...quarters, ...shapes];
+  const buckets = all.length >= BUCKET_MIN ? bucketProfiles(all, cfg) : undefined;
   const featureHeight = (x: number, z: number): number => {
     let h = 0;
-    for (let i = 0; i < kickers.length; i++) h = Math.max(h, kickers[i]?.(x, z) ?? 0);
-    for (let i = 0; i < walls.length; i++) h = Math.max(h, walls[i]?.(x, z) ?? 0);
-    for (let i = 0; i < corners.length; i++) h = Math.max(h, corners[i]?.(x, z) ?? 0);
-    for (let i = 0; i < quarters.length; i++) h = Math.max(h, quarters[i]?.(x, z) ?? 0);
-    for (let i = 0; i < shapes.length; i++) h = Math.max(h, shapes[i]?.(x, z) ?? 0);
+    if (buckets) {
+      const i = buckets.cellAt(x, z);
+      if (i >= 0) {
+        const end = buckets.start[i + 1] ?? 0;
+        for (let k = buckets.start[i] ?? 0; k < end; k++) h = Math.max(h, all[buckets.items[k] ?? 0]?.(x, z) ?? 0);
+      }
+    } else {
+      for (let i = 0; i < all.length; i++) h = Math.max(h, all[i]?.(x, z) ?? 0);
+    }
     if (grades) h += grades(x, z);
     return h;
   };
@@ -285,6 +293,79 @@ export function createSlope(cfg: SlopeConfig): Terrain {
 }
 
 type Profile = (x: number, z: number) => number;
+
+const BUCKET_MIN = 8; // features before bucketing pays; fewer (the kit's test slopes) just loop
+const BUCKET_CELL = 16; // m
+const SCAN_STEP = 2; // m between samples when measuring a feature's extent
+const SCAN_MARGIN = 4; // m added round what the scan found
+const SCAN_REACH = 160; // m searched round the feature's origin
+
+/**
+ * Features per grid cell: each feature's extent is measured once by sampling it (every feature
+ * is one connected lump, so a 2 m scan plus a 4 m margin can't miss its edge), then listed in
+ * every cell its box touches. Flat arrays, so lookups on the tick path don't allocate.
+ */
+function bucketProfiles(all: Profile[], cfg: SlopeConfig): { cellAt(x: number, z: number): number; start: Int32Array; items: Int32Array } {
+  // The origin each profile is built round: scan from there.
+  const origins: [number, number][] = [];
+  for (const k of cfg.kickers ?? (cfg.kicker ? [cfg.kicker] : [])) origins.push([k.x, k.z]);
+  for (const w of cfg.walls ?? []) origins.push([w.x, w.z]);
+  for (const c of cfg.corners ?? []) origins.push([c.x, c.z]);
+  for (const q of cfg.quarters ?? []) origins.push([q.x, q.z]);
+  for (const s of cfg.shapes ?? []) origins.push([s.x, s.z]);
+  const boxes = all.map((p, i) => {
+    const [ox, oz] = origins[i] ?? [0, 0];
+    let x0 = Infinity;
+    let x1 = -Infinity;
+    let z0 = Infinity;
+    let z1 = -Infinity;
+    for (let x = ox - SCAN_REACH; x <= ox + SCAN_REACH; x += SCAN_STEP) {
+      for (let z = oz - SCAN_REACH; z <= oz + SCAN_REACH; z += SCAN_STEP) {
+        if (p(x, z) === 0) continue;
+        if (x < x0) x0 = x;
+        if (x > x1) x1 = x;
+        if (z < z0) z0 = z;
+        if (z > z1) z1 = z;
+      }
+    }
+    return [x0 - SCAN_MARGIN, x1 + SCAN_MARGIN, z0 - SCAN_MARGIN, z1 + SCAN_MARGIN] as const;
+  });
+  let gx0 = Infinity;
+  let gz0 = Infinity;
+  let gx1 = -Infinity;
+  let gz1 = -Infinity;
+  for (const [x0, x1, z0, z1] of boxes) {
+    if (!Number.isFinite(x0)) continue;
+    gx0 = Math.min(gx0, x0);
+    gx1 = Math.max(gx1, x1);
+    gz0 = Math.min(gz0, z0);
+    gz1 = Math.max(gz1, z1);
+  }
+  const cols = Math.max(1, Math.ceil((gx1 - gx0) / BUCKET_CELL));
+  const rows = Math.max(1, Math.ceil((gz1 - gz0) / BUCKET_CELL));
+  const lists: number[][] = Array.from({ length: cols * rows }, () => []);
+  boxes.forEach(([x0, x1, z0, z1], i) => {
+    if (!Number.isFinite(x0)) return;
+    for (let r = Math.floor((z0 - gz0) / BUCKET_CELL); r <= Math.floor((z1 - gz0) / BUCKET_CELL); r++) {
+      for (let c = Math.floor((x0 - gx0) / BUCKET_CELL); c <= Math.floor((x1 - gx0) / BUCKET_CELL); c++) {
+        if (r >= 0 && r < rows && c >= 0 && c < cols) lists[r * cols + c]?.push(i);
+      }
+    }
+  });
+  const start = new Int32Array(cols * rows + 1);
+  lists.forEach((l, i) => (start[i + 1] = (start[i] ?? 0) + l.length));
+  const items = new Int32Array(start[cols * rows] ?? 0);
+  lists.forEach((l, i) => l.forEach((f, k) => (items[(start[i] ?? 0) + k] = f)));
+  return {
+    start,
+    items,
+    cellAt(x, z) {
+      const c = Math.floor((x - gx0) / BUCKET_CELL);
+      const r = Math.floor((z - gz0) / BUCKET_CELL);
+      return c < 0 || r < 0 || c >= cols || r >= rows ? -1 : r * cols + c;
+    },
+  };
+}
 
 /**
  * Kicker height above the slope, along s = metres downhill past its start. The transition
