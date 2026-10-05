@@ -88,7 +88,9 @@ layout.lines.forEach((line, li) => {
       // Brake to the lip speed plus what climbing the takeoff will take off it.
       const lipH = 'lipHeight' in f.cfg ? f.cfg.lipHeight : 0;
       const top = Math.sqrt((line.speed[fi] ?? 99) ** 2 + 2 * params.world.gravity * lipH);
-      if (toGo > 0 && toGo < 60 && speed > top + 0.2) inp.lt = Math.min(1, (speed - top) * 0.6);
+      // Brake as early as the speed needs: L2 takes ~brakeDecel off, so start that far out plus some.
+      const need = (speed * speed - top * top) / (2 * params.ground.brakeDecel) + 15;
+      if (toGo > 0 && toGo < need && speed > top + 0.2) inp.lt = Math.min(1, (speed - top) * 0.8);
       if (time < 0.25) inp.lt = 0;
       if (tg.pop && time < params.pop.chargeTime + 0.05 && time > 0.02) inp.rt = 1;
       if (f.kind === 'rail' && time < 0.3 && time > 0.02) inp.rt = 1;

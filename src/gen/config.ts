@@ -6,7 +6,7 @@
 export const GEN = {
   zone: { width: 300, length: 800 },
   cell: 2, // m between heightfield nodes
-  basePitch: [8, 10], // the zone's overall grade — fast enough to get going, slow enough for benches to check speed
+  basePitch: [12, 15], // the zone's overall grade: steep enough to get going again from standing after a fall
   bank: { width: 25, height: 5 }, // the zone's edges roll up over this
   noise: { amp: 1.2, wavelength: 70, octaves: 2 }, // smooth undulation on top of the bands
   speedMap: { cell: 2, startSpeed: 5 }, // m between cells; m/s a run starts at the top
@@ -20,8 +20,8 @@ export const GEN = {
     edge: [25, 45], // m over which a patch fades out across the slope
     yaw: 25, // ° a patch's axis may turn off the fall line
     maxOffset: { bench: 6, runIn: 8, steep: 10 }, // m a patch may lift or sink the ground off the base plane
-    kinds: { bench: 0.35, runIn: 0.35, steep: 0.3 }, // relative odds
-    flat: [0, 5], // bench grade
+    kinds: { bench: 0.25, runIn: 0.4, steep: 0.35 }, // relative odds
+    flat: [5, 8], // bench grade: above snow friction's ~3.4°, so a rider stopped on it still rolls
     flatLength: [18, 40],
     runIn: [15, 25],
     runInLength: [25, 50],

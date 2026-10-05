@@ -64,6 +64,37 @@ for (let seed = from; seed <= to; seed++) {
     }
   }
   console.log(`  features ${layout.features.length} · lines ${layout.lines.map((l) => l.features.length).join('/')} · walls ${walls}${wallAt.length ? ` (at ${wallAt.join(' ')})` : ''}`);
+  // Restart: a rider back on their feet after a fall, from standing, straight down the fall
+  // line on the finished park — metres until 30 km/h, or stuck (never gets there in 150 m).
+  {
+    const g = params.world.gravity;
+    const reach: number[] = [];
+    let stuck = 0;
+    for (let z = -30; z > -layout.ground.length + 60; z -= 40) {
+      for (let x = -w + 10; x <= w - 10; x += 30) {
+        let px = x;
+        let pz = z;
+        let v = 0.5;
+        let d = 0;
+        let h = world.sample(px, pz, c).height;
+        while (v < 30 / 3.6 && d < 150 && v > 0) {
+          const n = world.sample(px, pz, c).normal;
+          const k = Math.hypot(n.x, n.z) || 1;
+          px += (n.x / k) * 1;
+          pz += (n.z / k) * 1;
+          d += 1;
+          const p = world.sample(px, pz, c);
+          v = Math.sqrt(Math.max(0, v * v + 2 * g * (h - p.height) - 2 * (params.ground.friction * g * p.normal.y + params.ground.drag * v * v)));
+          h = p.height;
+        }
+        if (v >= 30 / 3.6) reach.push(d);
+        else stuck++;
+      }
+    }
+    reach.sort((a, b) => a - b);
+    const n = reach.length + stuck;
+    console.log(`  restart from standing: 30 km/h after median ${reach[reach.length >> 1] ?? '-'} m (slowest quarter ${reach[Math.floor(reach.length * 0.75)] ?? '-'} m) · stuck ${((100 * stuck) / n).toFixed(0)}% of ${n} spots`);
+  }
   const field = layout.ground.field;
   if (field) {
     const map = computeSpeedMap(terrain, params, { width: field.width, length: field.length, ...GEN.speedMap });

@@ -334,3 +334,10 @@ darts for 30 more features: ≥ 30 m from any other, off the lines' paths (5 m),
 60° off the fall line, sized to the straight-line speed there; side hits near the edges.
 Seeds 1–3: 67–72 features, 0 overlapping footprints, about a third of the fill turned > 30°.
 The lines overlay draws footprints (fill grey).
+
+Ground steepened (feedback: after a fall a rider couldn't get going again). Base grade 8–10° →
+12–15°, benches 0–5° → 5–8° (snow friction alone holds a rider below ~3.4°), fewer of them.
+`gen-check` now does a restart test — from standing, straight down the fall line, metres to
+30 km/h: was median 30 m with 21–28% of spots stuck, now median 18–19 m (slowest quarter 28 m),
+1–6% stuck (spots inside features). Straight-lining now reaches top speed on ~70% of the zone:
+L2 does the speed control, as intended. The line bot rides seed 1's lines further than before.
