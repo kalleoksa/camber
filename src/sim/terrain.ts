@@ -37,7 +37,7 @@ export type SlopeConfig = {
   /** Legacy single kicker, kept so takes recorded with it replay. New terrain uses `kickers`. */
   kicker?: KickerConfig;
   kickers?: KickerConfig[];
-  corners?: CornerConfig[];
+  corners?: HipConfig[]; // hips; the key keeps its old name so recorded takes and layouts load
   quarters?: QuarterConfig[];
   rails?: RailConfig[];
   walls?: WallConfig[];
@@ -55,13 +55,13 @@ export type SlopeConfig = {
 };
 
 /**
- * A corner (hip) jump: a straight takeoff up the fall line to a lip, a flat deck, and
+ * A hip jump: a straight takeoff up the fall line to a lip, a flat deck, and
  * landings falling away on both sides and ahead. Come into the takeoff angled left or
  * right and the air carries you over the side landing — frontside one way, backside the
  * other. The landing profile is the kicker's (knuckle, straight, run-out), measured from
  * the deck's edge, so the corners of the deck round off instead of meeting in a crease.
  */
-export type CornerConfig = {
+export type HipConfig = {
   z: number; // m, where the transition starts
   x: number; // m, centre across the slope
   width: number; // m of takeoff
@@ -445,7 +445,7 @@ function gradeProfile(pitch: number, grades: GradeConfig[]): Profile | null {
 }
 
 /** Corner height above the slope: max of the takeoff and the three-sided landing. */
-function cornerProfile(c: CornerConfig): Profile {
+function cornerProfile(c: HipConfig): Profile {
   if (c.hip) return hipProfile(c, c.hip);
   const radius = c.lipHeight / (1 - dm.cos(c.lipAngle));
   const runIn = radius * dm.sin(c.lipAngle);

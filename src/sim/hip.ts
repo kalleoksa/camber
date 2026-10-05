@@ -1,5 +1,5 @@
 import * as dm from './dmath.ts';
-import type { CornerConfig } from './terrain.ts';
+import type { HipConfig } from './terrain.ts';
 
 /**
  * A hip, after the hip jump spec (Claude Docs "Camber — Hip Jump Spec"). The takeoff faces down
@@ -25,7 +25,7 @@ export type HipShape = {
 type Profile = (x: number, z: number) => number;
 
 /** Takeoff geometry: transition radius, where the arc ends and the lip is (m along the axis). */
-export function hipTakeoff(c: CornerConfig, hip: HipShape): { radius: number; arcEnd: number; runIn: number; straight: number } {
+export function hipTakeoff(c: HipConfig, hip: HipShape): { radius: number; arcEnd: number; runIn: number; straight: number } {
   const th = c.lipAngle;
   // Straight part first; whatever height it doesn't take, the arc does.
   const straight = Math.min(hip.straightLip, (c.lipHeight * 0.5) / dm.sin(th));
@@ -34,7 +34,7 @@ export function hipTakeoff(c: CornerConfig, hip: HipShape): { radius: number; ar
   return { radius, arcEnd, runIn: arcEnd + straight * dm.cos(th), straight };
 }
 
-export function hipProfile(c: CornerConfig, hip: HipShape): Profile {
+export function hipProfile(c: HipConfig, hip: HipShape): Profile {
   const H = c.lipHeight;
   const { radius, arcEnd, runIn } = hipTakeoff(c, hip);
   const tanTh = dm.tan(c.lipAngle);

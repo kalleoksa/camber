@@ -3,7 +3,7 @@ import { hipTakeoff } from '../sim/hip.ts';
 import { quat, slerp, type Quat } from '../sim/quat.ts';
 import type { Params } from '../sim/params.ts';
 import type { LandingRead, RiderMode, RiderState } from '../sim/state.ts';
-import type { CornerConfig, KickerConfig, SlopeConfig, Terrain } from '../sim/terrain.ts';
+import type { HipConfig, KickerConfig, SlopeConfig, Terrain } from '../sim/terrain.ts';
 import { createContact } from '../sim/terrain.ts';
 import { length, vec3, type Vec3 } from '../sim/vec3.ts';
 import { boardAttitude, GRABS, grabAttitude } from '../sim/grabs.ts';
@@ -227,13 +227,13 @@ function snowTexture(): THREE.Texture {
  * Walls run down the fall line, so only X needs the extra columns.
  */
 /** Metres from a takeoff's start to its lip: the arc, or a hip's arc and straight lip. */
-function runInOf(k: KickerConfig | CornerConfig): number {
+function runInOf(k: KickerConfig | HipConfig): number {
   if ('hip' in k && k.hip) return hipTakeoff(k, k.hip).runIn;
   return (k.lipHeight / (1 - Math.cos(k.lipAngle))) * Math.sin(k.lipAngle);
 }
 
 /** Kickers and corners: both start with the same arc up to a lip. */
-function takeoffs(cfg: SlopeConfig): Array<KickerConfig | CornerConfig> {
+function takeoffs(cfg: SlopeConfig): Array<KickerConfig | HipConfig> {
   return [...(cfg.kickers ?? []), ...(cfg.corners ?? [])];
 }
 

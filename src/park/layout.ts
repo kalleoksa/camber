@@ -1,7 +1,7 @@
 import type { RailConfig } from '../sim/rails.ts';
 import type { ShapeConfig } from '../sim/features.ts';
 import type { FieldConfig } from '../sim/heightfield.ts';
-import type { CornerConfig, GradeConfig, KickerConfig, QuarterConfig, SlopeConfig, WallConfig } from '../sim/terrain.ts';
+import type { HipConfig, GradeConfig, KickerConfig, QuarterConfig, SlopeConfig, WallConfig } from '../sim/terrain.ts';
 
 /**
  * A park as data: the ground it sits on, the features placed on it, and (for generated
@@ -37,7 +37,7 @@ export type FeatureMeta = {
 
 export type FeatureSpec =
   | { kind: 'kicker'; cfg: KickerConfig; meta?: FeatureMeta }
-  | { kind: 'corner'; cfg: CornerConfig; meta?: FeatureMeta }
+  | { kind: 'corner'; cfg: HipConfig; meta?: FeatureMeta }
   | { kind: 'quarter'; cfg: QuarterConfig; meta?: FeatureMeta }
   | { kind: 'wall'; cfg: WallConfig; meta?: FeatureMeta }
   | { kind: 'rail'; cfg: RailConfig; meta?: FeatureMeta }
@@ -62,7 +62,7 @@ export function toSlopeConfig(layout: Layout): SlopeConfig {
   if (g.grades) cfg.grades = g.grades;
   if (g.field) cfg.field = g.field;
   const kickers: KickerConfig[] = [];
-  const corners: CornerConfig[] = [];
+  const corners: HipConfig[] = [];
   const quarters: QuarterConfig[] = [];
   const walls: WallConfig[] = [];
   const rails: RailConfig[] = [];

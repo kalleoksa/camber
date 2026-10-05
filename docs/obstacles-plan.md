@@ -104,8 +104,9 @@ Big backcountry kicker, no table; the natural slope below is the landing.
 Takeoff faces 45–90° off the fall line; the landing lines up with the flight, and the outrun
 turns back downhill after the landing.
 
-- **Naming:** `CornerConfig` in the code is a hip. Use `meta.type: 'corner'` for this obstacle,
-  and rename `CornerConfig` → `HipConfig` when convenient (one-file rename plus imports).
+- **Naming:** the code's `HipConfig` (formerly `CornerConfig`) is a hip; its data keys
+  `corners` and `kind: 'corner'` keep the old name so takes and layouts load. Use
+  `meta.type: 'corner'` for this obstacle.
 - **Build:** `KickerConfig` with `yaw` 45–90°. New option `levelAcross?: boolean`: the
   landing hill's cross profile cancels the ground's cross-slope so the landing is level across
   its width. The spec allows < 10° of tilt; a 13° slope at 90° yaw would be 13° without it.

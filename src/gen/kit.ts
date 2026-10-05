@@ -3,7 +3,7 @@ import type { ShapeConfig } from '../sim/features.ts';
 import type { Params } from '../sim/params.ts';
 import type { RailConfig } from '../sim/rails.ts';
 import { hipTakeoff } from '../sim/hip.ts';
-import { createSlope, type CornerConfig, type KickerConfig, type QuarterConfig } from '../sim/terrain.ts';
+import { createSlope, type HipConfig, type KickerConfig, type QuarterConfig } from '../sim/terrain.ts';
 import { next, type Rng } from '../sim/rng.ts';
 import type { FeatureSpec } from '../park/layout.ts';
 import type { GenConfig } from './config.ts';
@@ -205,7 +205,7 @@ export function designHip(place: Place, size: 'S' | 'M' | 'L', rng: Rng, cfg: Ge
   const h = cfg.hip;
   const s = h.scale[size];
   const side: -1 | 0 | 1 = next(rng) < h.single ? (next(rng) < 0.5 ? -1 : 1) : 0;
-  const c: CornerConfig = {
+  const c: HipConfig = {
     x: place.x,
     z: place.z,
     yaw: place.yaw,
