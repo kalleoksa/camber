@@ -306,3 +306,18 @@ jumps and spines (a 1.5 m kicker's arcs used to leave a hidden 2 m step — foun
 the rest are mostly the bot (loses the path after a big air, rails at an angle). `gen-check`
 counts walls (rises > 0.5 m in 0.5 m going downhill): 0 on seeds 1–5. Overlay `lines`.
 Known: lines can still cross across a feature; clearance is step 6. Generation ~2–3 s.
+
+## 13. Hip jump spec (2026-10-05)
+
+Spec: "Camber — Hip Jump Spec" (Claude Docs, https://claude.ai/artifact/1RiJ2SwEMe7eAoxdt9gg7p).
+Taken: the shape. Kept: sizes and speeds (the home corner's, scaled S/M/L in the generator), the
+landing grades (no EFH thresholds — they'd grade nearly every landing in the game sketchy), no
+scoring tags. `src/sim/hip.ts`: constant-radius transition finishing in a straight lip, sides
+cut; a table in line (0 m: pointed); the landing hangs off the lip corner and the table, cut
+at the lip line, falling away from the nearest point of the table's outline — sideways, round
+its end corner like a cone's shoulder, straight on as the second landing — and down the hill
+with the ground. It starts over a small knuckle at 15°, steepens evenly to 33° (the shape of a
+constant-impact landing), then a bottom transition. Single (left/right) or double. The home
+park's middle corner is a double hip; the generator makes singles 60% of the time.
+Not done (spec physics): levelling toward the predicted landing rather than the ground below;
+the constant-EFH solve itself (the 15→33° ramp stands in for it).

@@ -224,7 +224,7 @@ function build(kind: Kind, want: Want, place: Place, rng: Rng, ground: Terrain, 
   }
   if (kind === 'stepUp') return designStepUp(place, rng, landingPitch, cfg, params);
   if (kind === 'hip') {
-    const f = designHip(place, want.hipSize, cfg);
+    const f = designHip(place, want.hipSize, rng, cfg);
     if (f.meta) f.meta.speed = want.speed;
     return f;
   }

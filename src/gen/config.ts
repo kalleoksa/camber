@@ -77,7 +77,20 @@ export const GEN = {
     iterations: 12,
   },
   stepUp: { size: 'M', rise: [1.5, 3], face: 2, landingOnTop: 2, topMargin: 3 }, // rise: m the top stands above the lip; land this far onto it at vMin
-  hip: { scale: { S: 0.55, M: 0.75, L: 1 }, lip: 8.2, lipAngle: 49, deckLength: 22.8, deckWidth: 11.4, landingAngle: 29, knuckleRadius: 8, runoutRadius: 29, flare: 4, edgeSlope: 1.7 },
+  // Hips: sizes and speeds as the home corner (scaled S/M/L); shape from the hip jump spec.
+  hip: {
+    scale: { S: 0.55, M: 0.75, L: 1 },
+    lip: 8.2,
+    lipAngle: 49,
+    deckLength: 22.8,
+    deckWidth: 11.4,
+    single: 0.6, // odds of a single hip (one landing side) rather than a double
+    straightLip: 2,
+    landingStart: 15, // ° just past the knuckle
+    landingEnd: 33, // ° before the bottom transition
+    knuckleRadius: 4,
+    bottomRadius: 13,
+  },
   quarter: { height: [3, 4.5], angle: 83, radius: [3.5, 5], width: [12, 20], deck: 3, sideTaper: 3 },
   spine: { height: [2, 3.5], angle: 30, knuckleRadius: 6, footRadius: 10, width: [8, 14], taper: 3 },
   roller: { height: [0.8, 1.6], length: [10, 16], width: [10, 18], taper: 4 },

@@ -78,12 +78,14 @@ const slopeConfig: SlopeConfig = toSlopeConfig(layout);
 if (query.get('spin') === '0') params.air.spinModel = 0;
 
 const terrain = createSlope(slopeConfig);
-// &at=x,z starts the run there instead, facing down the hill — for looking at one spot.
+// &at=x,z[,deg] starts the run there instead, facing down the hill or `deg` off it (+ toward
+// +X) — for looking at one spot.
 const at = (query.get('at') ?? '').split(',').map(Number);
-const [spawnX, spawnZ] = at.length === 2 && at.every(Number.isFinite) ? (at as [number, number]) : [layout.spawn.x, layout.spawn.z];
+const custom = (at.length === 2 || at.length === 3) && at.every(Number.isFinite);
+const [spawnX, spawnZ] = custom ? [at[0] ?? 0, at[1] ?? 0] : [layout.spawn.x, layout.spawn.z];
 const spawn = {
   position: { x: spawnX, y: terrain.sample(spawnX, spawnZ, createContact()).height + 1.5, z: spawnZ },
-  heading: layout.spawn.heading,
+  heading: custom && at.length === 3 ? Math.PI - ((at[2] ?? 0) * Math.PI) / 180 : layout.spawn.heading,
 };
 
 const state = createRiderState(spawn);

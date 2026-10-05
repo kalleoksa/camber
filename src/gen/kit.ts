@@ -2,6 +2,7 @@ import * as dm from '../sim/dmath.ts';
 import type { ShapeConfig } from '../sim/features.ts';
 import type { Params } from '../sim/params.ts';
 import type { RailConfig } from '../sim/rails.ts';
+import { hipTakeoff } from '../sim/hip.ts';
 import { createSlope, type CornerConfig, type KickerConfig, type QuarterConfig } from '../sim/terrain.ts';
 import { next, type Rng } from '../sim/rng.ts';
 import type { FeatureSpec } from '../park/layout.ts';
@@ -200,9 +201,10 @@ function fitRadii(height: number, angle: number, knuckle: number, runout: number
   return [knuckle * f, runout * f];
 }
 
-export function designHip(place: Place, size: 'S' | 'M' | 'L', cfg: GenConfig): FeatureSpec {
+export function designHip(place: Place, size: 'S' | 'M' | 'L', rng: Rng, cfg: GenConfig): FeatureSpec {
   const h = cfg.hip;
   const s = h.scale[size];
+  const side: -1 | 0 | 1 = next(rng) < h.single ? (next(rng) < 0.5 ? -1 : 1) : 0;
   const c: CornerConfig = {
     x: place.x,
     z: place.z,
@@ -214,14 +216,22 @@ export function designHip(place: Place, size: 'S' | 'M' | 'L', cfg: GenConfig): 
     deckWidth: h.deckWidth * s,
     sideTaper: 0.5,
     deckTaper: 0.5,
-    landingAngle: h.landingAngle * RAD,
+    landingAngle: h.landingEnd * RAD, // unused by a hip; the hip shape below sets the landing
     knuckleRadius: h.knuckleRadius * s,
-    runoutRadius: h.runoutRadius * s,
-    squareCorners: true,
-    hip: { flare: h.flare * s, edgeSlope: h.edgeSlope },
+    runoutRadius: h.bottomRadius * s,
+    hip: {
+      side,
+      straightLip: h.straightLip * s,
+      landingStart: h.landingStart * RAD,
+      landingEnd: h.landingEnd * RAD,
+      knuckleRadius: h.knuckleRadius * s,
+      bottomRadius: h.bottomRadius * s,
+    },
   };
-  const runIn = (c.lipHeight / (1 - dm.cos(c.lipAngle))) * dm.sin(c.lipAngle);
-  return { kind: 'corner', cfg: c, meta: { type: 'hip', size, lip: runIn } };
+  const hip = c.hip;
+  const lip = hip ? hipTakeoff(c, hip).runIn : 0;
+  const type = side === 0 ? 'double hip' : side < 0 ? 'hip left' : 'hip right';
+  return { kind: 'corner', cfg: c, meta: { type, size, lip } };
 }
 
 export function designQuarter(place: Place, rng: Rng, cfg: GenConfig): FeatureSpec {
