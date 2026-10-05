@@ -68,10 +68,10 @@ export type CornerConfig = {
   knuckleRadius: number; // m
   runoutRadius: number; // m
   /**
-   * Ridge hip: the side landings run the takeoff's full length, hinged on its edges from the
-   * base up to the deck, so you can leave sideways anywhere up the ramp. Knuckles are straight
-   * and the deck's corners stay square. The takeoff is `deckWidth` wide; `width`, `sideTaper`
-   * and `deckTaper` only feed the mesh and the paint.
+   * Ridge hip: the side landings run the takeoff's full length at lip height, falling straight
+   * off the sides, with the takeoff cut into the block between them. Knuckles are straight and
+   * the deck's corners square. The takeoff is `deckWidth` wide; the landings' uphill ends are
+   * cut over `sideTaper`; `width` and `deckTaper` only feed the mesh and the paint.
    */
   ridge?: boolean;
 };
@@ -455,15 +455,16 @@ function cornerProfile(c: CornerConfig): Profile {
       if (s <= 0 || s >= deckEnd + end) return 0;
       const dx = Math.abs(x - c.x);
       if (dx >= halfDeck + end) return 0;
-      // Spine height here: the takeoff arc, then the deck.
-      const top = s < runIn ? radius - Math.sqrt(radius * radius - s * s) : c.lipHeight;
-      // Chebyshev distance off the spine: straight knuckles, square corners.
-      const d = Math.max(dx - halfDeck, s - deckEnd);
-      if (d <= 0) return top;
-      if (top <= 0) return 0;
-      // A lower spine gets the same landing shrunk to its height: same angle, tighter radii.
-      const k = c.lipHeight / top;
-      return landing(d * k) / k;
+      const outX = dx - halfDeck;
+      const outS = s - deckEnd;
+      // Inside: the takeoff arc, cut into the block, then the deck.
+      if (outX <= 0 && outS <= 0) return s < runIn ? radius - Math.sqrt(radius * radius - s * s) : c.lipHeight;
+      // Outside: landings at full height the whole way, falling straight off the sides and the
+      // end (Chebyshev distance: straight knuckles, square corners). Their uphill ends are cut.
+      const h = landing(Math.max(outX, outS));
+      if (s >= c.sideTaper) return h;
+      const t = s / c.sideTaper;
+      return h * t * t * (3 - 2 * t);
     };
   }
 
