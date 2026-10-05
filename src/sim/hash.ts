@@ -65,6 +65,29 @@ export function hashState(state: RiderState, into: Hasher = shared): string {
   into.push(state.spinAxis.z);
   into.push(state.spinRate);
   into.push(state.airYaw);
+  into.push(state.airUp.x);
+  into.push(state.airUp.y);
+  into.push(state.airUp.z);
+  into.push(state.spinRef);
+  into.push(state.spinArmed ? 1 : 0);
+  into.push(state.windUp);
+  into.push(state.tuck);
+  into.push(state.faceX);
+  into.push(state.faceZ);
+  into.push(state.grabEdge);
+  into.push(state.grabT);
+  into.push(state.grabFront ? 1 : 0);
+  into.push(state.grabSwitch ? 1 : 0);
+  into.push(state.grabId);
+  into.push(state.grabHeld ? 1 : 0);
+  into.push(state.skid);
+  into.push(state.saveable ? 1 : 0);
+  into.push(state.reverted ? 1 : 0);
+  into.push(state.stickArmed ? 1 : 0);
+  into.push(state.switchRide ? 1 : 0);
+  into.push(state.grip);
+  into.push(state.tweak);
+  into.push(state.shifty);
   into.push(LANDINGS.indexOf(state.landing));
   into.push(state.impact);
   into.push(state.absorb);
@@ -75,5 +98,18 @@ export function hashState(state: RiderState, into: Hasher = shared): string {
   into.push(state.scrub);
   into.push(state.clearance);
   into.push(state.airTime);
+  into.push(state.popWindow);
+  into.push(state.railIndex);
+  into.push(state.railS);
+  into.push(state.railDir);
+  into.push(state.railSpeed);
+  into.push(state.slide);
+  into.push(state.balance);
+  into.push(state.balanceVel);
+  into.push(state.railContact);
+  into.push(state.railContactVel);
+  // Latches steer the next tick, so a mismatch here is a divergence even before it shows.
+  into.push(state.resetLatch ? 1 : 0);
+  into.push(state.popLatch ? 1 : 0);
   return into.digest();
 }

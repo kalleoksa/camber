@@ -7,7 +7,18 @@
     "build": "tsc --noEmit && vite build",
     "typecheck": "tsc --noEmit",
     "take": "node scripts/make-take.ts",
-    "determinism": "node scripts/determinism.ts"
+    "determinism": "node scripts/determinism.ts",
+    "probe": "node scripts/probe.ts",
+    "notes": "node scripts/notes.ts",
+    "check-math": "node scripts/check-math.ts",
+    "spin": "node scripts/spin-probe.ts",
+    "gate": "node scripts/pose-gate.ts",
+    "clip": "node scripts/clip-check.ts",
+    "airs": "node scripts/air-table.ts",
+    "lanes": "node scripts/lanes.ts",
+    "gen-check": "node scripts/gen-check.ts",
+    "kit-check": "node scripts/kit-check.ts",
+    "line-check": "node scripts/line-check.ts"
   },
   "dependencies": {
     "three": "^0.180.0",

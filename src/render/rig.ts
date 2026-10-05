@@ -1,5 +1,8 @@
 import * as THREE from 'three';
-import type { Params } from '../sim/params.ts';
+import { params as defaults, type Params } from '../sim/params.ts';
+import { aimShaft, BOARD, createBinding, createDeck, NOSE_END, rise, TAIL_END } from './board.ts';
+import { dress, SPINE_CURL_AT, type Outfit } from './outfit.ts';
+import { outlineAll } from './toon.ts';
 
 /**
  * The rider, inverted from a normal character rig (design §7.1): the feet are bolted to
@@ -11,33 +14,104 @@ import type { Params } from '../sim/params.ts';
 
 /** The whole rider, in about twenty numbers (§7.2). Everything else is a consequence. */
 export type RigDrivers = {
-  hipX: number; // m, board-local. + is toward the heel edge
-  hipY: number; // m, along the board normal. − is crouch
-  hipZ: number; // m, + is toward the nose
+  /**
+   * Pelvis position relative to the board, which is the fixed frame. This is how the rider
+   * gets placed: hips down is a crouch, hips toward the heel edge is a lean, hips toward the
+   * nose is a press. Knee flexion follows from where they end up.
+   */
+  hipX: number; // m, + toward the heel edge
+  hipY: number; // m, along the board normal. − is a crouch
+  hipZ: number; // m, + toward the nose
   hipYaw: number; // rad, about board up — counter-rotation
-  hipPitch: number; // rad, about the board's nose axis
-  hipRoll: number; // rad
+  /**
+   * rad of pelvis pitch in the rider's sagittal plane; positive leans the pelvis *back*
+   * toward the heel side. This is what tweak depth mostly moves. The board's world pitch is
+   * inherited from here — the pelvis-forward axis rotated back with the torso is what the
+   * board follows, so board attitude and torso lean are one rotation read twice, not two
+   * things to reconcile.
+   */
+  pelvisPitch: number;
+  hipRoll: number; // rad, pelvis side-tilt about the rider's facing axis
   spineBend: number; // rad, + folds the chest toward the toe edge
   spineSide: number; // rad, + leans toward the nose
   spineTwist: number; // rad, shoulders against hips
+  /**
+   * rad the upper back rounds forward on its own joint, mid-spine — the hunched, rounded back
+   * of a rider over the board, which a single hinge at the hips can only show as a plank
+   * tipped forward. + rounds toward the toe edge, like `spineBend`; the head and arms ride on it.
+   */
+  spineCurl: number;
   frontHandEdge: number; // −1 heel .. +1 toe, matching state.edge's sign
   frontHandT: number; // 0 tail .. 1 nose
   backHandEdge: number;
   backHandT: number;
   frontGrip: number; // 0 = arm at rest, 1 = hand locked to the board
   backGrip: number;
-  tweak: number; // 0..1, how hard the legs shove the board away from the grab
+  /**
+   * rad of board pitch about its lateral axis, nose up for positive, pivoting on the grabbed
+   * point so the hand stays put.
+   *
+   * This is the driver that makes one leg straighter than the other. The feet are bolted to a
+   * rigid board, so with the pelvis placed both knee angles are already determined — nothing
+   * about the body can extend the back leg alone. Tilting the board raises one binding and
+   * drops the other, which bends one knee and extends the other, and that is what a boned
+   * japan or method actually is. It is also the board's nose-up attitude, so the same number
+   * does both jobs.
+   */
+  boardPitch: number;
+  /**
+   * 0..1 of roll about the board's own long axis — the base turning to face away from the
+   * rider, which is part of the look but a *lesser* magnitude than the pitch. Kept separate
+   * because one scalar driving both means retuning either one moves the other.
+   */
+  tweakRoll: number;
   headYaw: number; // rad
-  headPitch: number; // rad
-  kneeSplay: number; // rad, pole vector out from forward — a stance splays, it doesn't squat
+  /**
+   * rad of neck extension — a nod. About board Z, the rider's left-right axis, because the
+   * rider faces −X: rotating about X would roll the head ear-to-shoulder, which is what
+   * this used to do and is not a thing anyone wants to author. Positive looks up and back.
+   */
+  headPitch: number;
+  /**
+   * rad, the knee pole swept from forward. 0 points the knees straight at the toe side —
+   * a stance splays, it doesn't squat — π/2 points them along the board, and past π/2 the
+   * pole's X goes positive and the knees break *backward*, toward the heel side. A method
+   * needs that back break, so the range has to run past π/2 or the pose is unreachable.
+   */
+  kneeSplay: number;
   stanceScale: number; // multiplier on binding separation
   /**
-   * m the board rises toward the rider along its own normal — the leg tuck. In the air
-   * the board comes up to the hands; the rider does not fold down to the board. Without
-   * this a grab is only reachable by bending the torso double, which is not what a grab
-   * looks like. Zero on snow, where the board is on the ground and the hips do the work.
+   * Arms, per side, joint by joint. Forward-kinematic from the shoulder, so a hand goes
+   * wherever the joints put it — there is no shared rest pose any more, and the two hands
+   * are independent.
+   *
+   * `Swing` is shoulder flexion in the rider's sagittal plane: 0 hangs at the side, π/2 is
+   * straight out toward the toes, π is overhead. `Out` swings the arm along the board:
+   * negative takes it out — toward the nose on the front arm, the tail on the back —
+   * positive draws it in across the body. `Elbow` is flexion. `Pole` sweeps
+   * which way the elbow breaks, and it is also what `armRouting` will need — outside,
+   * between the legs and crossed differ only in where the elbow goes.
+   *
+   * When the matching grip is above 0 the hand is pulled to the grab point and the elbow
+   * solves by IK instead, with `Pole` still choosing the break direction.
    */
-  boardLift: number;
+  frontShoulderSwing: number;
+  frontShoulderOut: number;
+  frontElbow: number;
+  frontElbowPole: number;
+  backShoulderSwing: number;
+  backShoulderOut: number;
+  backElbow: number;
+  backElbowPole: number;
+  /** rad, board yawed under the body about its own centre — LB/RB in the air. */
+  shifty: number;
+  /**
+   * rad, the whole rider and board turned about up against the direction of travel — how a
+   * grab sits to the slope (a method's back to the landing). Pose mode draws it with an arrow
+   * down the hill; "write to anchor" copies it to `grab.<name>Yaw`, which the sim turns the
+   * board by and the landing judges.
+   */
+  turn: number;
 };
 
 export function neutralDrivers(): RigDrivers {
@@ -46,45 +120,187 @@ export function neutralDrivers(): RigDrivers {
     hipY: 0,
     hipZ: 0,
     hipYaw: 0,
-    hipPitch: 0,
+    pelvisPitch: 0,
     hipRoll: 0,
     spineBend: 0.18,
     spineSide: 0,
     spineTwist: 0,
+    spineCurl: 0,
     frontHandEdge: 0,
     frontHandT: 0.62,
     backHandEdge: 0,
     backHandT: 0.34,
     frontGrip: 0,
     backGrip: 0,
-    tweak: 0,
+    boardPitch: 0,
+    tweakRoll: 0,
     headYaw: 0,
     headPitch: 0,
     kneeSplay: 0.5,
     stanceScale: 1,
-    boardLift: 0,
+    // Riding: relaxed, hands apart — front hand out toward the nose, back toward the tail.
+    frontShoulderSwing: 0.3,
+    frontShoulderOut: -0.45,
+    frontElbow: 0.45,
+    // ≈π: the elbow bend axis in solveArmFK flips with the side, so the front arm needs its
+    // pole swept half round to bend forward like the back one. Every authored anchor already
+    // does this; at 0 the front hand hung back between the legs.
+    frontElbowPole: -3.1,
+    backShoulderSwing: 0.2,
+    backShoulderOut: -0.35,
+    backElbow: 0.45,
+    backElbowPole: 0,
+    shifty: 0,
+    turn: 0,
   };
+}
+
+/**
+ * Mirror a pose nose-for-tail, in place — a grab done riding switch is the regular grab's
+ * mirror image. Board-local Z flips: translations along it and rotations about the other
+ * two axes change sign, rotations about Z (pelvis pitch, spine bend, nod, tweak roll)
+ * don't, and the two arms trade places with their board coordinate reflected.
+ */
+export function mirrorDrivers(d: RigDrivers): void {
+  d.hipZ = -d.hipZ;
+  d.hipYaw = -d.hipYaw;
+  d.hipRoll = -d.hipRoll;
+  d.spineSide = -d.spineSide;
+  d.spineTwist = -d.spineTwist;
+  d.headYaw = -d.headYaw;
+  d.boardPitch = -d.boardPitch;
+  let t = d.frontHandEdge;
+  d.frontHandEdge = d.backHandEdge;
+  d.backHandEdge = t;
+  t = d.frontHandT;
+  d.frontHandT = 1 - d.backHandT;
+  d.backHandT = 1 - t;
+  t = d.frontGrip;
+  d.frontGrip = d.backGrip;
+  d.backGrip = t;
+  t = d.frontShoulderSwing;
+  d.frontShoulderSwing = d.backShoulderSwing;
+  d.backShoulderSwing = t;
+  t = d.frontShoulderOut;
+  d.frontShoulderOut = d.backShoulderOut;
+  d.backShoulderOut = t;
+  t = d.frontElbow;
+  d.frontElbow = d.backElbow;
+  d.backElbow = t;
+  // Poles don't just trade places. The FK bend axis flips with the side (see the neutral
+  // front pole), so a free arm's mirror is π − pole; a gripping arm's pole turns the IK
+  // elbow about the shoulder→hand line, whose mirror is −pole. Blended by grip, so the
+  // elbow doesn't jump as the hand commits. Grips are already swapped above.
+  // Wrapped into ±π: a pole of 2π − 0.04 is the same arm as −0.04, but blending into it
+  // from the riding pose would sweep the elbow through a whole backward turn on the way.
+  t = d.frontElbowPole;
+  d.frontElbowPole = wrapPi(Math.PI * (1 - Math.min(d.frontGrip, 1)) - d.backElbowPole);
+  d.backElbowPole = wrapPi(Math.PI * (1 - Math.min(d.backGrip, 1)) - t);
+  d.shifty = -d.shifty; // board yaw about up flips with the nose
+  d.turn = -d.turn; // so does the turn to the slope
+}
+
+function wrapPi(a: number): number {
+  return Math.atan2(Math.sin(a), Math.cos(a));
 }
 
 export function copyDrivers(dst: RigDrivers, src: RigDrivers): void {
   for (const key of Object.keys(dst) as (keyof RigDrivers)[]) dst[key] = src[key];
 }
 
-/** Max board rotation about the grab point at full tweak. Anatomy clamps it below this. */
-const TWEAK_MAX = 1.15; // rad
-const BOARD_LENGTH = 1.55;
-const BOARD_HALF = BOARD_LENGTH / 2;
-const EDGE_X = 0.145; // m, just outside the deck so the hand wraps the edge
+/**
+ * Interpolate the whole driver vector between two anchors.
+ *
+ * This is what invariant 3 means by gameplay interpolating *toward* an anchor. The timeline
+ * belongs to the caller and is the same for every anchor — reach, hold, release — so no
+ * anchor carries motion data of its own. The moment a specific grab needs its own timing
+ * curve, it has stopped being an anchor and this is a clip.
+ *
+ * Every driver blends the same way. Angles are small enough here that lerping them rather
+ * than slerping a rotation reads fine, and it keeps the pose a plain weighted average of two
+ * poses, which is what makes it composable.
+ */
+export function blendDrivers(out: RigDrivers, from: RigDrivers, to: RigDrivers, t: number): void {
+  for (const key of Object.keys(out) as (keyof RigDrivers)[]) {
+    out[key] = from[key] + (to[key] - from[key]) * t;
+  }
+}
+
+/** Ease so the extremes settle instead of arriving at full speed. */
+export function smoothstep(t: number): number {
+  const x = Math.min(Math.max(t, 0), 1);
+  return x * x * (3 - 2 * x);
+}
+
+/**
+ * Blend toward a grab with the **body leading and the hand committing later**.
+ *
+ * Ramping everything together is wrong, and measurably so: `crouch` is a shallower crouch
+ * than any grab anchor, so halfway between them the rider is *higher* than at either end
+ * while the grip is already dragging the hand to the board. Every one of the eight grabs
+ * peaked at reach 1.05–1.11 mid-path — valid at both ends, impossible in between, which is a
+ * stretched or short arm at exactly the moment the arm is the thing you are looking at.
+ *
+ * Delaying the grip fixes it because it is also what actually happens: you get your body
+ * where it needs to be, and only then does the hand close on the board.
+ */
+export function blendToGrab(
+  out: RigDrivers,
+  from: RigDrivers,
+  to: RigDrivers,
+  body: number,
+  grip: number,
+): void {
+  blendDrivers(out, from, to, body);
+  out.frontGrip = from.frontGrip + (to.frontGrip - from.frontGrip) * grip;
+  out.backGrip = from.backGrip + (to.backGrip - from.backGrip) * grip;
+}
+
+/** Grip weight given body weight: nothing until `delay`, then eased to full. */
+export function gripWeight(body: number, delay: number): number {
+  const d = Math.min(Math.max(delay, 0), 0.95);
+  return smoothstep((body - d) / (1 - d));
+}
+
+/** Tip distance from the stance centre, for pinning a pressed tip. The drawn board (board.ts). */
+export const BOARD_HALF = BOARD.length / 2;
+// Grab geometry stays at the board the anchors were authored on (1.55 m, 0.29 m at the
+// edges), so resizing the drawn board doesn't move a single hand.
+const GRAB_HALF = 0.775;
+const EDGE_X = 0.145; // m, the edge the hand wraps
+
+/** Fraction of `t` at each end over which the two edge splines converge on the tip. */
+const TIP_TAPER = 0.15;
 
 /**
  * A grab is a coordinate on the board, not one of eight buttons (§7.3). `edge` picks
  * which rail continuously, `t` runs tail (0) to nose (1).
+ *
+ * The two splines **converge at the tips**, because a board's edges meet there. Without
+ * that, `edge` only ever interpolated between the two side rails at full width all the way
+ * to the end, so a nose or tail grab had no coordinate: those are grabbed at the tip on the
+ * centre line, not on either edge. Now any `edge` value collapses to the centre line as `t`
+ * approaches 0 or 1, which is what makes a tailgrab and a nosegrab expressible at all.
+ *
+ * The taper only bites over the outer 15%, so every grab between the bindings — indy, mute,
+ * melon, method, stalefish, japan — sits at exactly the width it did before.
  */
 export function edgePoint(out: THREE.Vector3, edge: number, t: number): THREE.Vector3 {
+  const fromTip = Math.min(t, 1 - t);
+  const taper = Math.min(Math.max(fromTip / TIP_TAPER, 0), 1);
+  // Over the same outer 15% the point runs on out to the drawn board's tip and up its kick,
+  // so a nose or tail grab holds the actual end of the board — the 1.55 m grab board stopped
+  // 9 cm short of the 1.62 m one drawn. Between the bindings nothing moves.
+  const z0 = (t * 2 - 1) * (GRAB_HALF - 0.06);
+  const tip = t >= 0.5 ? NOSE_END - TIP_HOLD : TAIL_END + TIP_HOLD;
+  const z = z0 + (1 - taper) * (tip - z0);
   // state.edge is + for toe, and the toe side is board-local −X.
-  out.set(-edge * EDGE_X, 0.035, (t * 2 - 1) * (BOARD_HALF - 0.06));
+  out.set(-edge * EDGE_X * taper, 0.035 + (1 - taper) * rise(z), z);
   return out;
 }
+
+/** m in from the very tip where a nose or tail grab holds — a hand's width. */
+const TIP_HOLD = 0.05;
 
 /** Which hand can reach: split at the midpoint between the bindings (§7.3). */
 export function handForT(t: number): 'front' | 'back' {
@@ -102,10 +318,25 @@ function bone(color: number, thickness: number): THREE.Mesh {
 
 const up = new THREE.Vector3(0, 1, 0);
 const dir = new THREE.Vector3();
+/** Of thigh + shin: the furthest a hip sits from its binding before the body follows the foot. */
+const LEG_MAX = 0.99;
 const quat = new THREE.Quaternion();
 
-/** Stretch and aim a bone mesh from one joint to another. */
-function placeBone(mesh: THREE.Mesh, from: THREE.Vector3, to: THREE.Vector3): void {
+/** Recolour a limb in place. Skips the write when it already matches, so it stays cheap. */
+function tint(mesh: THREE.Mesh, color: number): void {
+  const material = mesh.material as THREE.MeshStandardMaterial;
+  if (material.color.getHex() !== color) material.color.setHex(color);
+}
+
+/**
+ * Aim a bone mesh from one joint to another, drawn at no more than `maxLen`.
+ *
+ * The clamp matters. Without it the mesh scaled to whatever gap it was given, so a target
+ * the limb could not reach came out as a *stretched* bone rather than a short one — which
+ * is invisible, and meant `reach` above 1.0 looked fine on screen. An unreachable grab now
+ * leaves a gap between the hand and the board, which is what it physically is.
+ */
+function placeBone(mesh: THREE.Mesh, from: THREE.Vector3, to: THREE.Vector3, maxLen: number): void {
   dir.subVectors(to, from);
   const len = dir.length();
   mesh.position.copy(from);
@@ -114,11 +345,114 @@ function placeBone(mesh: THREE.Mesh, from: THREE.Vector3, to: THREE.Vector3): vo
     quat.setFromUnitVectors(up, dir);
     mesh.quaternion.copy(quat);
   }
-  mesh.scale.set(1, Math.max(len, 1e-4), 1);
+  mesh.scale.set(1, Math.max(Math.min(len, maxLen), 1e-4), 1);
 }
 
 const toTarget = new THREE.Vector3();
 const poleFlat = new THREE.Vector3();
+const upperDir = new THREE.Vector3();
+const foreDir = new THREE.Vector3();
+const bendAxis = new THREE.Vector3();
+const armRef = new THREE.Vector3();
+const armQuat = new THREE.Quaternion();
+const armZ = new THREE.Vector3(0, 0, 1);
+const armX = new THREE.Vector3(1, 0, 0);
+
+const fkHand = new THREE.Vector3();
+const chordNow = new THREE.Vector3();
+const chordFrom = new THREE.Vector3();
+const pole0 = new THREE.Vector3();
+const pole1 = new THREE.Vector3();
+const carry = new THREE.Quaternion();
+const turnQuat = new THREE.Quaternion();
+const idQuat = new THREE.Quaternion();
+
+/**
+ * Elbow pole for a hand on its way to the board, `g` of the way. Two directions, each kept
+ * relative to the shoulder→hand line as that line swings: the free arm's elbow (where the
+ * shoulder drivers aimed it) and the authored gripping elbow (that aim turned by the pole
+ * angle about the line to the grab point). They blend by `g`, so the reaching arm starts as
+ * the free arm exactly and ends as the authored grab exactly. Projected raw, one fixed aim
+ * could cross the line partway — the elbow flipped (up to 24 cm in a tick as a hand
+ * committed) — and the pole angle applied in full at the first touch of grip snapped it
+ * sideways.
+ */
+function gripPole(
+  out: THREE.Vector3,
+  aim: THREE.Vector3,
+  shoulder: THREE.Vector3,
+  fk: THREE.Vector3,
+  grabAt: THREE.Vector3,
+  hand: THREE.Vector3,
+  poleAngle: number,
+  g: number,
+): void {
+  chordNow.subVectors(hand, shoulder).normalize();
+  // Free arm's elbow, carried with the line from where the hand was to where it is.
+  chordFrom.subVectors(fk, shoulder).normalize();
+  carry.setFromUnitVectors(chordFrom, chordNow);
+  pole0.copy(aim).applyQuaternion(carry);
+  pole0.addScaledVector(chordNow, -pole0.dot(chordNow));
+  // Authored elbow: the aim turned about the line to the grab, carried to the line now.
+  chordFrom.subVectors(grabAt, shoulder).normalize();
+  turnQuat.setFromAxisAngle(chordFrom, poleAngle);
+  carry.setFromUnitVectors(chordFrom, chordNow);
+  pole1.copy(aim).applyQuaternion(turnQuat).applyQuaternion(carry);
+  pole1.addScaledVector(chordNow, -pole1.dot(chordNow));
+  if (pole0.lengthSq() < 1e-10 || pole1.lengthSq() < 1e-10) {
+    out.copy(pole1.lengthSq() >= 1e-10 ? pole1 : aim);
+    return;
+  }
+  pole0.normalize();
+  pole1.normalize();
+  // Swing from one to the other about the line, `g` of the way.
+  carry.setFromUnitVectors(pole0, pole1);
+  turnQuat.slerpQuaternions(idQuat, carry, g);
+  out.copy(pole0).applyQuaternion(turnQuat);
+}
+
+/**
+ * Forward kinematics down one arm, in torso space: shoulder swing and abduction aim the
+ * upper arm, then the elbow bends the forearm about an axis `pole` sweeps around it.
+ *
+ * The hand is wherever the joints put it. That is the point — a single shared rest pose
+ * could not place two hands independently, and every joint being a driver is what makes a
+ * hand poseable rather than only reachable.
+ */
+function solveArmFK(
+  outElbow: THREE.Vector3,
+  outHand: THREE.Vector3,
+  shoulderPos: THREE.Vector3,
+  torsoQuat: THREE.Quaternion,
+  swing: number,
+  out: number,
+  flex: number,
+  pole: number,
+  side: number,
+  r: { upperArm: number; forearm: number },
+): void {
+  // Hanging down, swung forward toward the toes, then abducted along the board.
+  upperDir.set(0, -1, 0);
+  armQuat.setFromAxisAngle(armZ, -swing);
+  upperDir.applyQuaternion(armQuat);
+  armQuat.setFromAxisAngle(armX, side * out);
+  upperDir.applyQuaternion(armQuat);
+  upperDir.applyQuaternion(torsoQuat).normalize();
+  outElbow.copy(shoulderPos).addScaledVector(upperDir, r.upperArm);
+
+  // A reference perpendicular to the upper arm, swept by `pole`, is the bend axis.
+  armRef.set(0, 0, side).applyQuaternion(torsoQuat);
+  armRef.addScaledVector(upperDir, -armRef.dot(upperDir));
+  if (armRef.lengthSq() < 1e-8) armRef.set(1, 0, 0).addScaledVector(upperDir, -upperDir.x);
+  armRef.normalize();
+  armQuat.setFromAxisAngle(upperDir, pole);
+  bendAxis.copy(armRef).applyQuaternion(armQuat).normalize();
+
+  armQuat.setFromAxisAngle(bendAxis, flex);
+  foreDir.copy(upperDir).applyQuaternion(armQuat).normalize();
+  outHand.copy(outElbow).addScaledVector(foreDir, r.forearm);
+}
+
 
 /**
  * Analytic two-bone IK, law of cosines (§7.5). Twenty lines, no CCD, no FABRIK. Writes
@@ -160,11 +494,41 @@ export type Rig = {
   board: THREE.Group;
   /** Shoulder-to-hand distance over arm reach. Above 1 means the arm is coming up short. */
   strain: { front: number; back: number };
+  /**
+   * How far short the hand actually is, in metres. A ratio tells you a pose is impossible;
+   * this tells you how much to move, which is what you need while dragging a slider.
+   */
+  shortfall: { front: number; back: number };
+  /**
+   * Draw the red gap bars and tint an over-reaching arm. On while authoring, off in play —
+   * a hand that misses during a trick should read as the trick going wrong, not as a debug
+   * overlay. `createScene` turns it on with pose mode.
+   */
+  showReach(on: boolean): void;
+  /** Hip-to-foot distance per leg, m. The knee angle it implies is what reads as a tuck. */
+  legSpan: { front: number; back: number };
+  /** Solved elbow positions. A diagnostic: where the arm routes is only checkable from these. */
+  elbowAt: { front: THREE.Vector3; back: THREE.Vector3 };
+  /** Spine direction, hips to shoulders. The frame board attitude should be measured in. */
+  torsoAxis: THREE.Vector3;
+  /** Foot separation the leg solve produced. A diagnostic — the board is derived from it. */
+  readonly stance: number;
   apply(drivers: RigDrivers, params: Params): void;
+  /** Dressed rider (outfit.ts) or the bare segments the poses were authored on. */
+  setDressed(on: boolean): void;
+  /** Pivots the cloth springs turn (9c): the jacket skirt at the waist, the hood at the neck. */
+  cloth: { skirt: THREE.Object3D; hood: THREE.Object3D };
+  /** Outfit pieces the clip check measures (scripts/clip-check.ts). */
+  fit: Outfit['fit'];
 };
 
 const SKIN = 0x2f6ee2;
 const DARK = 0x1b1f24;
+const MITT = 0x1b3f8f;
+/** The one colour that means "this pose is not physically possible". */
+const SHORT = 0xff2d2d;
+/** Valid, but at full extension — no elbow room left, so no arm routing. */
+const SNUG = 0xffa524;
 
 export function createRig(): Rig {
   const root = new THREE.Group();
@@ -174,32 +538,37 @@ export function createRig(): Rig {
   const board = new THREE.Group();
   root.add(board);
 
-  const deck = new THREE.Mesh(
-    new THREE.BoxGeometry(0.26, 0.02, BOARD_LENGTH),
-    new THREE.MeshStandardMaterial({ color: DARK, roughness: 0.4 }),
-  );
-  deck.position.y = 0.02;
-  board.add(deck);
-  const nose = new THREE.Mesh(
-    new THREE.BoxGeometry(0.2, 0.022, 0.14),
-    new THREE.MeshStandardMaterial({ color: 0xe2582f, roughness: 0.4 }),
-  );
-  nose.position.set(0, 0.02, BOARD_HALF - 0.09);
-  board.add(nose);
+  board.add(createDeck());
 
   const pelvis = new THREE.Mesh(
     new THREE.BoxGeometry(0.26, 0.14, 0.22),
     new THREE.MeshStandardMaterial({ color: SKIN, roughness: 0.6 }),
   );
+  // The spine in two, hips to mid-back and mid-back to shoulders, so the upper back can curl.
   const torso = new THREE.Mesh(
-    new THREE.BoxGeometry(0.3, 0.44, 0.24),
+    new THREE.BoxGeometry(0.3, 0.44 * SPINE_CURL_AT, 0.24),
     new THREE.MeshStandardMaterial({ color: SKIN, roughness: 0.6 }),
   );
-  torso.geometry.translate(0, 0.22, 0);
+  torso.geometry.translate(0, 0.22 * SPINE_CURL_AT, 0);
+  const chest = new THREE.Mesh(
+    new THREE.BoxGeometry(0.3, 0.44 * (1 - SPINE_CURL_AT), 0.24),
+    new THREE.MeshStandardMaterial({ color: SKIN, roughness: 0.6 }),
+  );
+  chest.geometry.translate(0, 0.22 * (1 - SPINE_CURL_AT), 0);
   const head = new THREE.Mesh(
     new THREE.BoxGeometry(0.19, 0.22, 0.19),
     new THREE.MeshStandardMaterial({ color: 0xf0d9b5, roughness: 0.7 }),
   );
+  // A visor on the toe side, which is the way the rider faces. Without it the head is a
+  // symmetric box and headYaw/headPitch are invisible however correctly they rotate it —
+  // they measured 0.000 movement not because they were broken but because nothing about a
+  // rotating cube reads.
+  const visor = new THREE.Mesh(
+    new THREE.BoxGeometry(0.04, 0.07, 0.16),
+    new THREE.MeshStandardMaterial({ color: DARK, roughness: 0.35 }),
+  );
+  visor.position.set(-0.1, 0.02, 0);
+  head.add(visor);
 
   const thighL = bone(SKIN, 0.11);
   const shinL = bone(SKIN, 0.1);
@@ -209,75 +578,166 @@ export function createRig(): Rig {
   const armLL = bone(SKIN, 0.08);
   const armRU = bone(SKIN, 0.085);
   const armRL = bone(SKIN, 0.08);
-  const bootF = new THREE.Mesh(
-    new THREE.BoxGeometry(0.15, 0.12, 0.28),
-    new THREE.MeshStandardMaterial({ color: DARK, roughness: 0.7 }),
+  // Hands. There were none — the arm chain just ended, so the thing being placed was
+  // invisible and any driver that only moved the hand looked like it did nothing.
+  const mittF = new THREE.Mesh(
+    new THREE.BoxGeometry(0.085, 0.09, 0.075),
+    new THREE.MeshStandardMaterial({ color: MITT, roughness: 0.6 }),
   );
-  const bootB = bootF.clone();
+  // Its own material, not the clone's shared one — otherwise tinting one mitt tints both and
+  // the overlay cannot say *which* hand is short.
+  const mittB = mittF.clone();
+  mittB.material = new THREE.MeshStandardMaterial({ color: MITT, roughness: 0.6 });
 
-  for (const part of [pelvis, torso, head, thighL, shinL, thighR, shinR, armLU, armLL, armRU, armRL]) {
+  // The gap between where the hand got to and where the grab point is. This is the whole
+  // point of the overlay: the number in the panel is easy to miss while you are dragging a
+  // slider and watching the viewport, and an unreachable pose otherwise just looks posed.
+  const gapF = bone(SHORT, 0.045);
+  const gapB = bone(SHORT, 0.045);
+  gapF.visible = false;
+  gapB.visible = false;
+  let reachOverlay = false;
+
+  const bindF = createBinding(BOARD.stanceFront, 1);
+  const bindB = createBinding(BOARD.stanceBack, -1);
+  const bootF = bindF.group;
+  const bootB = bindB.group;
+
+  for (const part of [pelvis, torso, chest, head, thighL, shinL, thighR, shinR, armLU, armLL, armRU, armRL, mittF, mittB]) {
     part.castShadow = true;
     root.add(part);
   }
+  root.add(gapF, gapB);
   board.add(bootF, bootB);
+
+  const outfit = dress(
+    { pelvis, torso, chest, head, thighs: [thighL, thighR], shins: [shinL, shinR], upperArms: [armLU, armRU], forearms: [armLL, armRL], mitts: [mittF, mittB], bootShafts: [bindF.shaft, bindB.shaft] },
+    defaults.rig,
+  );
+  // Toon outlines on everything dressed and on the board and bindings; the bare segments
+  // keep their plain look, since they are the authoring view.
+  outlineAll(board);
+  for (const piece of outfit.pieces) outlineAll(piece);
+  // Hiding a segment's material, not the mesh, keeps its outfit children drawn.
+  const bare = [pelvis, torso, chest, head, visor, thighL, shinL, thighR, shinR, armLU, armLL, armRU, armRL, mittF, mittB];
 
   // Scratch, all reused — this runs every frame.
   const hipCentre = new THREE.Vector3();
   const hipL = new THREE.Vector3();
   const hipR = new THREE.Vector3();
+  const legPull = new THREE.Vector3();
   const footF = new THREE.Vector3();
   const footB = new THREE.Vector3();
-  const knee = new THREE.Vector3();
   const shoulder = new THREE.Vector3();
   const hand = new THREE.Vector3();
   const elbow = new THREE.Vector3();
+  const elbowAim = new THREE.Vector3();
   const pole = new THREE.Vector3();
   const chestPos = new THREE.Vector3();
   const grab = new THREE.Vector3();
+  const palm = new THREE.Vector3();
+  const palmGrip = new THREE.Vector3();
+  const palmSide = new THREE.Vector3();
+  const mittBasis = new THREE.Matrix4();
   const neckOffset = new THREE.Vector3();
   const hipQuat = new THREE.Quaternion();
   const spineQuat = new THREE.Quaternion();
+  const chestQuat = new THREE.Quaternion();
+  const midBack = new THREE.Vector3();
   const tmpQuat = new THREE.Quaternion();
-  const tweakAxis = new THREE.Vector3();
   const xAxis = new THREE.Vector3(1, 0, 0);
   const yAxis = new THREE.Vector3(0, 1, 0);
   const zAxis = new THREE.Vector3(0, 0, 1);
 
-  /** Rest position for a hand that isn't grabbing: hanging down, slightly toe-ward. */
-  const restHand = (out: THREE.Vector3, shoulderPos: THREE.Vector3, reach: number): void => {
-    out.set(shoulderPos.x - reach * 0.35, shoulderPos.y - reach * 0.9, shoulderPos.z);
-  };
+  /**
+   * Where a hand sits when it isn't gripping. `raise` sweeps the shoulder from hanging at
+   * the side through to roughly 155° of flexion, up and toe-ward. Kept at 0.95 of reach so
+   * the arm reads as extended rather than locked.
+   */
 
   const strain = { front: 0, back: 0 };
+  const shortfall = { front: 0, back: 0 };
+  const legSpan = { front: 0, back: 0 };
+  const elbowAt = { front: new THREE.Vector3(), back: new THREE.Vector3() };
+  const torsoAxis = new THREE.Vector3(0, 1, 0);
+  const kneeF = new THREE.Vector3();
+  const kneeB = new THREE.Vector3();
+  const boardLong = new THREE.Vector3();
+  let effectiveStance = 0;
 
   return {
     root,
     board,
     strain,
+    shortfall,
+    legSpan,
+    elbowAt,
+    torsoAxis,
+    showReach(on: boolean): void {
+      reachOverlay = on;
+      if (!on) {
+        gapF.visible = false;
+        gapB.visible = false;
+      }
+    },
+    get stance() {
+      return effectiveStance;
+    },
+    cloth: { skirt: outfit.skirt, hood: outfit.hood },
+    fit: outfit.fit,
+    setDressed(on: boolean): void {
+      for (const m of bare) (m.material as THREE.Material).visible = !on;
+      for (const piece of outfit.pieces) piece.visible = on;
+    },
 
     apply(d, params) {
       const r = params.rig;
       const halfStance = (r.stanceWidth * d.stanceScale) / 2;
 
-      // 1. Board, with the tweak applied about the active grab point.
-      const grip = Math.max(d.frontGrip, d.backGrip);
-      const useFront = d.frontGrip >= d.backGrip;
-      edgePoint(grab, useFront ? d.frontHandEdge : d.backHandEdge, useFront ? d.frontHandT : d.backHandT);
-      const lift = Math.max(0, d.boardLift);
-      const tweakAngle = d.tweak * grip * TWEAK_MAX;
-      if (tweakAngle > 1e-4) {
-        // Shove is about the axis through the grab point, perpendicular to the board's
-        // length and to the direction the legs push.
-        tweakAxis.set(grab.z, 0, -grab.x).normalize();
-        board.quaternion.setFromAxisAngle(tweakAxis, tweakAngle);
+      /**
+       * **The board is the fixed frame here.** It sits at the root, unrotated, and the feet
+       * are bolted to its bindings. The body is then positioned *relative to it*.
+       *
+       * This walks back the derived-board inversion for the pose path, on purpose. Deriving
+       * the board from the feet is right about the physics — it is bolted to two feet and its
+       * attitude is an output — but it makes the rig unposeable: with rigid legs and the board
+       * hanging off them, every pelvis driver moves the whole assembly and nothing moves
+       * relative to anything. Measured: hip translation gave exactly 0.000 joint movement once
+       * the board was anchored, and pelvis *rotation* tipped the rider and board over together
+       * because the anchor cancelled position but not orientation.
+       *
+       * The cost, stated plainly: knee flexion is an output again, not a driver, so the
+       * ≤10° divergence the patch note guaranteed by construction now has to be *watched* in
+       * the readout instead. That is the trade for being able to place the rider at all.
+       */
+      board.quaternion.identity();
+      board.position.set(0, 0, 0);
+      const pitch = d.boardPitch;
+      const roll = d.tweakRoll * params.grab.tweakRollMax;
+      if (Math.abs(pitch) > 1e-5 || Math.abs(roll) > 1e-5) {
+        // Pitch about the lateral axis first — nose up for positive — then the lesser roll
+        // about the board's own length, which is what shows the base.
+        boardLong.set(-1, 0, 0);
+        board.quaternion.setFromAxisAngle(boardLong, pitch);
+        if (Math.abs(roll) > 1e-5) {
+          boardLong.set(0, 0, 1);
+          tmpQuat.setFromAxisAngle(boardLong, roll);
+          board.quaternion.multiply(tmpQuat);
+        }
+        // Pivot on the grabbed point so the hand stays where it was put (§7.4).
+        const useFront = d.frontGrip >= d.backGrip;
+        edgePoint(grab, useFront ? d.frontHandEdge : d.backHandEdge, useFront ? d.frontHandT : d.backHandT);
         board.position.copy(grab).applyQuaternion(board.quaternion).negate().add(grab);
-      } else {
-        board.quaternion.identity();
-        board.position.set(0, 0, 0);
       }
-      board.position.y += lift;
+      // Shifty yaws the whole pitched and rolled board about its centre, under the hips —
+      // spinFrame ∘ shifty ∘ pitch ∘ roll, the order the sim's landing test composes.
+      if (d.shifty !== 0) {
+        tmpQuat.setFromAxisAngle(yAxis, d.shifty);
+        board.quaternion.premultiply(tmpQuat);
+        board.position.applyQuaternion(tmpQuat);
+      }
 
-      // 2. Feet, which follow the tweaked board.
+      // 1. Feet, bolted to the bindings, following the board.
       footF.set(0, 0.09, halfStance);
       footB.set(0, 0.09, -halfStance);
       bootF.position.copy(footF);
@@ -285,20 +745,37 @@ export function createRig(): Rig {
       footF.applyQuaternion(board.quaternion).add(board.position);
       footB.applyQuaternion(board.quaternion).add(board.position);
 
-      // 3. Hips — in the clean frame, never parented to the drawn board.
+      // 2. Pelvis, placed and oriented relative to the board. Sagittal pitch is about Z
+      // because the rider faces −X, so Z is their left-right axis; negated so positive
+      // `pelvisPitch` leans back toward the heel side.
       hipCentre.set(d.hipX, r.hipHeight + d.hipY, d.hipZ);
       hipQuat.setFromAxisAngle(yAxis, d.hipYaw);
-      tmpQuat.setFromAxisAngle(xAxis, d.hipPitch);
+      tmpQuat.setFromAxisAngle(zAxis, -d.pelvisPitch);
       hipQuat.multiply(tmpQuat);
-      tmpQuat.setFromAxisAngle(zAxis, d.hipRoll);
+      tmpQuat.setFromAxisAngle(xAxis, d.hipRoll);
       hipQuat.multiply(tmpQuat);
       pelvis.position.copy(hipCentre);
       pelvis.quaternion.copy(hipQuat);
-
       hipL.set(0, 0, halfStance * 0.42).applyQuaternion(hipQuat).add(hipCentre);
       hipR.set(0, 0, -halfStance * 0.42).applyQuaternion(hipQuat).add(hipCentre);
+      // A leg can't stretch: if a binding is out of reach — a board tweaked hard about the
+      // hand swings one end away — the body comes down to it, rather than the shin stopping
+      // short of the boot. Twice, so pulling toward one foot can't leave the other out.
+      for (let pass = 0; pass < 2; pass++) {
+        for (let side = 0; side < 2; side++) {
+          const hip = side === 0 ? hipL : hipR;
+          legPull.subVectors(side === 0 ? footF : footB, hip);
+          const over = legPull.length() - (r.thigh + r.shin) * LEG_MAX;
+          if (over <= 0) continue;
+          legPull.setLength(over);
+          hipCentre.add(legPull);
+          hipL.add(legPull);
+          hipR.add(legPull);
+        }
+      }
+      pelvis.position.copy(hipCentre);
 
-      // 4. Spine, then head.
+      // 3. Spine chain.
       spineQuat.copy(hipQuat);
       tmpQuat.setFromAxisAngle(zAxis, d.spineBend);
       spineQuat.multiply(tmpQuat);
@@ -308,52 +785,133 @@ export function createRig(): Rig {
       spineQuat.multiply(tmpQuat);
       torso.position.copy(hipCentre);
       torso.quaternion.copy(spineQuat);
+      // The upper back on its own joint, mid-spine: the curl, about the shoulders' own
+      // left-right axis so it rounds whichever way they are twisted.
+      midBack.set(0, r.spine * SPINE_CURL_AT, 0).applyQuaternion(spineQuat).add(hipCentre);
+      tmpQuat.setFromAxisAngle(zAxis, d.spineCurl);
+      chestQuat.copy(spineQuat).multiply(tmpQuat);
+      chest.position.copy(midBack);
+      chest.quaternion.copy(chestQuat);
+      const upperSpine = r.spine * (1 - SPINE_CURL_AT);
 
-      chestPos.set(0, r.spine, 0).applyQuaternion(spineQuat).add(hipCentre);
-      neckOffset.set(0, r.neck, 0).applyQuaternion(spineQuat);
+      // 4. Head, in chest space.
+      chestPos.set(0, upperSpine, 0).applyQuaternion(chestQuat).add(midBack);
+      // Hips to shoulders: with no curl, exactly the old single-segment axis.
+      torsoAxis.subVectors(chestPos, hipCentre).normalize();
+      neckOffset.set(0, r.neck, 0).applyQuaternion(chestQuat);
       head.position.copy(chestPos).add(neckOffset);
-      head.quaternion.copy(spineQuat);
+      head.quaternion.copy(chestQuat);
+      // The neck takes back part of the curl, so a hunched rider still looks down the line.
+      tmpQuat.setFromAxisAngle(zAxis, -d.spineCurl * r.curlHeadLift);
+      head.quaternion.multiply(tmpQuat);
       tmpQuat.setFromAxisAngle(yAxis, d.headYaw);
       head.quaternion.multiply(tmpQuat);
-      tmpQuat.setFromAxisAngle(xAxis, d.headPitch);
+      tmpQuat.setFromAxisAngle(zAxis, d.headPitch);
       head.quaternion.multiply(tmpQuat);
 
-      // 5. Arms. Hand target lerps from rest toward the point on the board it grips.
+      // 5. Arms. `reach` stays an output and a validity test: above 1.0 the hand cannot touch
+      // the grab point, and the IK clamps rather than stretching, so it shows as a gap.
       const armReach = r.upperArm + r.forearm;
       for (const side of [1, -1]) {
         const front = side === 1;
         shoulder
-          .set(0, r.spine, (front ? 1 : -1) * (r.shoulderWidth / 2))
-          .applyQuaternion(spineQuat)
-          .add(hipCentre);
-        restHand(hand, shoulder, armReach);
+          .set(0, upperSpine, (front ? 1 : -1) * (r.shoulderWidth / 2))
+          .applyQuaternion(chestQuat)
+          .add(midBack);
+        const swing = front ? d.frontShoulderSwing : d.backShoulderSwing;
+        const outward = front ? d.frontShoulderOut : d.backShoulderOut;
+        const flex = front ? d.frontElbow : d.backElbow;
+        const poleAngle = front ? d.frontElbowPole : d.backElbowPole;
+
+        // Free arm: pure FK, so both hands are placeable joint by joint and independently.
+        solveArmFK(elbow, hand, shoulder, chestQuat, swing, outward, flex, poleAngle, side, r);
+        // Where the shoulder drivers aimed the elbow. Keep it — the grip solve needs it.
+        elbowAim.subVectors(elbow, shoulder);
+
         const g = front ? d.frontGrip : d.backGrip;
         if (g > 0) {
+          // Gripping: the hand is pulled to the grab point and the elbow solves to suit.
           edgePoint(grab, front ? d.frontHandEdge : d.backHandEdge, front ? d.frontHandT : d.backHandT);
           grab.applyQuaternion(board.quaternion).add(board.position);
+          fkHand.copy(hand);
           hand.lerp(grab, Math.min(g, 1));
-        }
-        const need = shoulder.distanceTo(hand) / armReach;
-        if (front) strain.front = g > 0 ? need : 0;
-        else strain.back = g > 0 ? need : 0;
 
-        pole.set(-1, -0.2, 0);
-        solveTwoBone(elbow, shoulder, hand, r.upperArm, r.forearm, pole);
-        placeBone(front ? armLU : armRU, shoulder, elbow);
-        placeBone(front ? armLL : armRL, elbow, hand);
+          // The pole is the elbow direction the shoulder drivers asked for, not a ring at a
+          // fixed elevation. That ring was one degree of freedom, and it left Swing, Out and
+          // Elbow doing nothing whenever a hand gripped — so the arm's route to the board was
+          // unauthorable, and a japan's front arm could only pass straight through the front
+          // leg. Steering the elbow with Swing and Out is what routes the arm over the leg or
+          // down between them.
+          //
+          // `flex` stays genuinely inert here, and correctly so: once both ends are fixed the
+          // elbow angle follows from the distance and is not free to choose.
+          gripPole(pole, elbowAim, shoulder, fkHand, grab, hand, poleAngle, Math.min(g, 1));
+          solveTwoBone(elbow, shoulder, hand, r.upperArm, r.forearm, pole);
+        }
+        const span = shoulder.distanceTo(hand);
+        const need = span / armReach;
+        const missing = g > 0 ? Math.max(span - armReach, 0) : 0;
+        if (front) {
+          strain.front = g > 0 ? need : 0;
+          shortfall.front = missing;
+        } else {
+          strain.back = g > 0 ? need : 0;
+          shortfall.back = missing;
+        }
+
+        (front ? elbowAt.front : elbowAt.back).copy(elbow);
+        placeBone(front ? armLU : armRU, shoulder, elbow, r.upperArm);
+        placeBone(front ? armLL : armRL, elbow, hand, r.forearm);
+        // The mitt rides the end of the forearm, not the target, so a hand that cannot
+        // reach visibly falls short instead of the arm quietly stretching to it.
+        const mitt = front ? mittF : mittB;
+        mitt.position
+          .copy(elbow)
+          .addScaledVector(dir.subVectors(hand, elbow).normalize(), Math.min(hand.distanceTo(elbow), r.forearm));
+        // Along the forearm, palm rolled toward what it holds: the board when gripping, the
+        // hips when free. Basis columns are the hand frame outfit.ts builds the mitt in.
+        palm.subVectors(hipCentre, mitt.position).normalize();
+        palmGrip.subVectors(board.position, mitt.position).normalize();
+        palm.lerp(palmGrip, Math.min(g, 1)).addScaledVector(dir, -palm.dot(dir));
+        if (palm.lengthSq() > 1e-8) {
+          palm.normalize().negate(); // +z is the back of the hand
+          palmSide.crossVectors(dir, palm);
+          mittBasis.makeBasis(palmSide, dir, palm);
+          mitt.quaternion.setFromRotationMatrix(mittBasis);
+        }
+
+        // Overlay: bar the mitt to the grab point it could not make, and colour the arm.
+        // Two bands, not one. Red alone made 1.0 a target rather than a limit.
+        const short = reachOverlay && missing > 1e-4;
+        const snug = reachOverlay && !short && g > 0 && need > params.grab.reachWarn;
+        const gapBar = front ? gapF : gapB;
+        gapBar.visible = short;
+        if (short) placeBone(gapBar, mitt.position, grab, span);
+        const armColour = short ? SHORT : snug ? SNUG : SKIN;
+        tint(front ? armLU : armRU, armColour);
+        tint(front ? armLL : armRL, armColour);
+        tint(mitt, short ? SHORT : snug ? SNUG : MITT);
       }
 
-      // 6. Legs last, because the feet moved with the board and the hips did not (§7.8).
-      // Knee bend is never authored — it falls out of where the hips ended up.
+      // 6. Legs last, hips to the bolted feet. Knee bend emerges from where the pelvis ended
+      // up (§7.8); `kneeSplay` only picks which way it breaks — past π/2 the pole's X goes
+      // positive and the knees break backward toward the heel side, which a method needs.
+      legSpan.front = hipL.distanceTo(footF);
+      legSpan.back = hipR.distanceTo(footB);
       pole.set(-Math.cos(d.kneeSplay), 0, Math.sin(d.kneeSplay));
-      solveTwoBone(knee, hipL, footF, r.thigh, r.shin, pole);
-      placeBone(thighL, hipL, knee);
-      placeBone(shinL, knee, footF);
-
+      solveTwoBone(kneeF, hipL, footF, r.thigh, r.shin, pole);
+      placeBone(thighL, hipL, kneeF, r.thigh);
+      placeBone(shinL, kneeF, footF, r.shin);
       pole.set(-Math.cos(d.kneeSplay), 0, -Math.sin(d.kneeSplay));
-      solveTwoBone(knee, hipR, footB, r.thigh, r.shin, pole);
-      placeBone(thighR, hipR, knee);
-      placeBone(shinR, knee, footB);
+      solveTwoBone(kneeB, hipR, footB, r.thigh, r.shin, pole);
+      placeBone(thighR, hipR, kneeB, r.thigh);
+      placeBone(shinR, kneeB, footB, r.shin);
+      outfit.poseLegs();
+      // Boot shafts follow the shins, in the board's frame.
+      tmpQuat.copy(board.quaternion).invert();
+      aimShaft(bindF, dir.subVectors(kneeF, footF).applyQuaternion(tmpQuat));
+      aimShaft(bindB, dir.subVectors(kneeB, footB).applyQuaternion(tmpQuat));
+      effectiveStance = halfStance * 2;
     },
   };
 }

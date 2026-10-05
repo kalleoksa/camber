@@ -1,3 +1,4 @@
+import * as dm from './dmath.ts';
 export type Vec3 = { x: number; y: number; z: number };
 
 export function vec3(x = 0, y = 0, z = 0): Vec3 {
@@ -76,17 +77,9 @@ export function clampLength(out: Vec3, max: number): Vec3 {
   return l > max && l > 0 ? scale(out, max / l) : out;
 }
 
-export function lerp(a: Vec3, b: Vec3, t: number): Vec3 {
-  return {
-    x: a.x + (b.x - a.x) * t,
-    y: a.y + (b.y - a.y) * t,
-    z: a.z + (b.z - a.z) * t,
-  };
-}
-
 /** Frame-rate independent exponential approach: moves `out` toward `target` at `rate` 1/s. */
 export function damp(out: Vec3, target: Vec3, rate: number, dt: number): Vec3 {
-  const t = 1 - Math.exp(-rate * dt);
+  const t = 1 - dm.exp(-rate * dt);
   out.x += (target.x - out.x) * t;
   out.y += (target.y - out.y) * t;
   out.z += (target.z - out.z) * t;
@@ -94,5 +87,15 @@ export function damp(out: Vec3, target: Vec3, rate: number, dt: number): Vec3 {
 }
 
 export function dampScalar(current: number, target: number, rate: number, dt: number): number {
-  return current + (target - current) * (1 - Math.exp(-rate * dt));
+  return current + (target - current) * (1 - dm.exp(-rate * dt));
+}
+
+/**
+ * Inverse of how grounded builds `forward`: the heading whose horizontal (sin, 0, cos),
+ * projected onto the plane of `n`, points along in-plane vector `b`. Lift `b` back to
+ * horizontal along `n`, then read its yaw. A plain atan2 of `b` is off on a tilted plane.
+ */
+export function planeHeading(b: Vec3, n: Vec3): number {
+  const s = b.y / n.y;
+  return dm.atan2(b.x - n.x * s, b.z - n.z * s);
 }

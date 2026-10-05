@@ -2,49 +2,71 @@ import { Pane } from 'tweakpane';
 import { ANCHOR_NAMES } from '../render/poses.ts';
 import type { RigDrivers } from '../render/rig.ts';
 import type { Params, ParamGroup } from '../sim/params.ts';
+import { NOTE_TAGS, type Note } from '../input/recorder.ts';
 
 /** Slider ranges for the driver vector, so posing by hand is actually workable. */
 const DRIVER_RANGE: Record<keyof RigDrivers, { min: number; max: number }> = {
-  hipX: { min: -0.35, max: 0.35 },
-  hipY: { min: -0.8, max: 0.2 },
-  hipZ: { min: -0.45, max: 0.45 },
+  hipX: { min: -0.4, max: 0.4 },
+  hipY: { min: -0.75, max: 0.25 },
+  hipZ: { min: -0.5, max: 0.5 },
   hipYaw: { min: -1.2, max: 1.2 },
-  hipPitch: { min: -0.8, max: 0.8 },
+  pelvisPitch: { min: -0.6, max: 1.2 }, // positive leans the pelvis back; drives board pitch
   hipRoll: { min: -0.8, max: 0.8 },
   spineBend: { min: -1.6, max: 1.6 },
   spineSide: { min: -0.9, max: 0.9 },
   spineTwist: { min: -1.2, max: 1.2 },
+  spineCurl: { min: -0.4, max: 1.2 }, // upper back rounding forward on the mid-back joint
   frontHandEdge: { min: -1, max: 1 },
   frontHandT: { min: 0, max: 1 },
   backHandEdge: { min: -1, max: 1 },
   backHandT: { min: 0, max: 1 },
   frontGrip: { min: 0, max: 1 },
   backGrip: { min: 0, max: 1 },
-  tweak: { min: 0, max: 1 },
+  boardPitch: { min: -1.2, max: 1.2 }, // nose up; also what makes one leg straighter than the other
+  tweakRoll: { min: -1, max: 1 },
+  shifty: { min: -1.2, max: 1.2 },
+  turn: { min: -1.6, max: 1.6 },
   headYaw: { min: -1.4, max: 1.4 },
   headPitch: { min: -0.8, max: 0.8 },
-  kneeSplay: { min: -1.2, max: 1.4 },
+  kneeSplay: { min: -1.2, max: 3.1 }, // past pi/2 the knees break back — a method needs it
   stanceScale: { min: 0.7, max: 1.4 },
-  boardLift: { min: 0, max: 0.7 },
+  frontShoulderSwing: { min: -0.6, max: 3.1 }, // 0 at the side, pi/2 out toward the toes, pi overhead
+  frontShoulderOut: { min: -1.0, max: 1.4 },
+  frontElbow: { min: 0, max: 2.6 },
+  frontElbowPole: { min: -3.1, max: 3.1 },
+  backShoulderSwing: { min: -0.6, max: 3.1 },
+  backShoulderOut: { min: -1.0, max: 1.4 },
+  backElbow: { min: 0, max: 2.6 },
+  backElbowPole: { min: -3.1, max: 3.1 },
 };
 
 export type Readout = {
   mode: string;
+  rail: string;
   session: string;
+  pad: string;
+  padRaw: string;
   speed: number;
   tick: number;
   clearance: number;
   air: number;
   reach: string;
+  knees: string;
   spin: number;
   rotated: number;
   landing: string;
+  trick: string;
   determinism: string;
 };
 
 export type PanelHandlers = {
   onPoseMode(on: boolean): void;
+  onDressed(on: boolean): void;
   onAnchor(name: string): void;
+  onStepAnchor(delta: number): void;
+  onWriteAnchor(): void;
+  onSaveAnchors(): void;
+  onLoadAnchors(json: string): void;
   onSavePose(): void;
   onLoadPose(json: string): void;
   onReset(): void;
@@ -56,6 +78,20 @@ export type PanelHandlers = {
   onLoadTake(json: string): void;
   onSavePreset(): void;
   onLoadPreset(json: string): void;
+  onDownloadFeedback(): void;
+  onTrickText(on: boolean): void;
+  onInputOverlay(on: boolean): void;
+};
+
+/** The tester's side of feedback: who they are, and a one-line status. */
+export type FeedbackState = { tester: string; status: string };
+
+export type Panel = {
+  /** The pane itself, for folders built elsewhere (tuning/parkPanel.ts). */
+  pane: Pane;
+  refresh(): void;
+  /** List a note in the feedback folder, with a button that replays the run up to it. */
+  addNote(note: Note, label: string, jump: () => void): void;
 };
 
 export function download(filename: string, json: string): void {
@@ -85,28 +121,65 @@ function stepFor(value: number): number {
   return Math.max(10 ** (Math.floor(Math.log10(Math.abs(value))) - 2), 1e-5);
 }
 
+/** Grab transition preview state, owned by the bootstrap and bound here. */
+export type PreviewState = { play: boolean; loop: boolean; phase: number };
+
 export function createPanel(
   params: Params,
   readout: Readout,
   drivers: RigDrivers,
+  preview: PreviewState,
+  feedback: FeedbackState,
   handlers: PanelHandlers,
-): { refresh(): void } {
+): Panel {
   const pane = new Pane({ title: 'camber' });
+  // Tweakpane's default box is fixed top-right with no height limit, so a long folder (pose
+  // mode's sliders) ran off the bottom of the screen. Cap it to the window and let it scroll;
+  // `contain` keeps a scroll at its end from moving the page behind.
+  const box = pane.element.parentElement;
+  if (box) {
+    // dvh: the visible height on iPad Safari, where 100vh runs under the toolbar.
+    box.style.maxHeight = CSS.supports('height', '100dvh') ? 'calc(100dvh - 16px)' : 'calc(100vh - 16px)';
+    box.style.overflowY = 'auto';
+    box.style.overscrollBehavior = 'contain';
+  }
 
-  const status = pane.addFolder({ title: 'status' });
+  const status = pane.addFolder({ title: 'status', expanded: false });
   status.addBinding(readout, 'session', { readonly: true });
+  status.addBinding(readout, 'pad', { readonly: true });
+  status.addBinding(readout, 'padRaw', { readonly: true, label: 'pad raw' });
   status.addBinding(readout, 'mode', { readonly: true });
-  status.addBinding(readout, 'speed', { readonly: true, format: (v: number) => v.toFixed(2) });
+  status.addBinding(readout, 'rail', { readonly: true });
+  status.addBinding(readout, 'speed', { readonly: true, format: (v: number) => `${v.toFixed(1)} m/s · ${(v * 3.6).toFixed(0)} km/h` });
   status.addBinding(readout, 'tick', { readonly: true, format: (v: number) => v.toFixed(0) });
   status.addBinding(readout, 'clearance', { readonly: true, format: (v: number) => v.toFixed(2) });
   status.addBinding(readout, 'air', { readonly: true, format: (v: number) => v.toFixed(2) });
   status.addBinding(readout, 'reach', { readonly: true });
+  status.addBinding(readout, 'knees', { readonly: true });
   status.addBinding(readout, 'spin', { readonly: true, format: (v: number) => v.toFixed(2) });
   status.addBinding(readout, 'rotated', { readonly: true, format: (v: number) => `${v.toFixed(0)}°` });
   status.addBinding(readout, 'landing', { readonly: true });
+  status.addBinding(readout, 'trick', { readonly: true });
+  const trickText = { onScreen: true };
+  status.addBinding(trickText, 'onScreen', { label: 'tricks on screen' }).on('change', (ev) => handlers.onTrickText(ev.value));
+  const overlay = { inputs: false };
+  status.addBinding(overlay, 'inputs', { label: 'input overlay' }).on('change', (ev) => handlers.onInputOverlay(ev.value));
   status.addBinding(readout, 'determinism', { readonly: true });
 
-  const take = pane.addFolder({ title: 'take' });
+  // Dressed rider or the bare segments; ?look=bare starts bare.
+  const look = { dressed: new URLSearchParams(location.search).get('look') !== 'bare' };
+  status.addBinding(look, 'dressed').on('change', (ev) => handlers.onDressed(ev.value));
+  handlers.onDressed(look.dressed);
+
+  // Feedback (docs/feedback.md): mark while riding (View/Back, D-pad tags, or M), write the
+  // words here afterwards, download one file to send back.
+  const notes = pane.addFolder({ title: 'feedback', expanded: false });
+  notes.addBinding(feedback, 'tester', { label: 'your name' });
+  notes.addBinding(feedback, 'status', { readonly: true, label: 'marks' });
+  notes.addButton({ title: 'download feedback' }).on('click', handlers.onDownloadFeedback);
+  const tagOptions = Object.fromEntries(NOTE_TAGS.map((t) => [t, t]));
+
+  const take = pane.addFolder({ title: 'take', expanded: false });
   take.addButton({ title: 'reset (Y)' }).on('click', handlers.onReset);
   take.addButton({ title: 'record' }).on('click', handlers.onRecord);
   take.addButton({ title: 'stop' }).on('click', handlers.onStopRecord);
@@ -127,8 +200,25 @@ export function createPanel(
       options: Object.fromEntries(ANCHOR_NAMES.map((n) => [n, n])),
     })
     .on('change', (ev) => handlers.onAnchor(String(ev.value)));
+  // Stepping is the real workflow, and the dropdown only fires on *change* — re-picking the
+  // anchor you are already on will not reload it. Also bound to [ and ] below.
+  pose.addButton({ title: 'prev anchor  [' }).on('click', () => handlers.onStepAnchor(-1));
+  pose.addButton({ title: 'next anchor  ]' }).on('click', () => handlers.onStepAnchor(1));
+  // Overwrites the current anchor with the sliders, live — play blends toward it at once —
+  // and keeps it in this browser. "save anchors" exports the whole set for poses.ts.
+  pose.addButton({ title: 'write to anchor' }).on('click', handlers.onWriteAnchor);
+  pose.addButton({ title: 'save anchors' }).on('click', handlers.onSaveAnchors);
+  pose.addButton({ title: 'load anchors' }).on('click', () => pickFile(handlers.onLoadAnchors));
   pose.addButton({ title: 'save pose' }).on('click', handlers.onSavePose);
   pose.addButton({ title: 'load pose' }).on('click', () => pickFile(handlers.onLoadPose));
+
+  // Transition preview. A pose arrived at reads differently from one held still, so the
+  // pose being edited can be played crouch -> grab -> crouch on the `grab` timing params.
+  // `phase` doubles as a scrub: with play off, drag it to hold any point of the transition.
+  const play = pose.addFolder({ title: 'transition', expanded: true });
+  play.addBinding(preview, 'play', { label: 'play' });
+  play.addBinding(preview, 'loop');
+  play.addBinding(preview, 'phase', { min: 0, max: 1, step: 0.005, label: 'phase / scrub' });
 
   const driverFolder = pose.addFolder({ title: 'drivers', expanded: true });
   for (const key of Object.keys(drivers) as (keyof RigDrivers)[]) {
@@ -136,17 +226,26 @@ export function createPanel(
     driverFolder.addBinding(drivers, key, { min: range.min, max: range.max, step: 0.01 });
   }
 
-  const preset = pane.addFolder({ title: 'preset' });
+  const preset = pane.addFolder({ title: 'preset', expanded: false });
   preset.addButton({ title: 'save preset' }).on('click', handlers.onSavePreset);
   preset.addButton({ title: 'load preset' }).on('click', () => pickFile(handlers.onLoadPreset));
 
   for (const name of Object.keys(params) as ParamGroup[]) {
     const group = params[name] as Record<string, number>;
-    const folder = pane.addFolder({ title: name, expanded: name === 'ground' });
+    const folder = pane.addFolder({ title: name, expanded: false });
     for (const key of Object.keys(group)) {
       folder.addBinding(group, key, { step: stepFor(group[key] ?? 0) });
     }
   }
 
-  return { refresh: () => pane.refresh() };
+  return {
+    pane,
+    refresh: () => pane.refresh(),
+    addNote(note, label, jump) {
+      const folder = notes.addFolder({ title: label, expanded: true });
+      folder.addBinding(note, 'tag', { options: tagOptions });
+      folder.addBinding(note, 'text', { label: 'what happened' });
+      folder.addButton({ title: 'watch it again' }).on('click', jump);
+    },
+  };
 }

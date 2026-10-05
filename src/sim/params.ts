@@ -4,7 +4,7 @@
  */
 export const params = {
   world: {
-    gravity: 16.0, // m/s² — above real 9.81 for snappier airtime
+    gravity: 9.81, // m/s², real. Parks are full size and speeds real (src/park/scale.ts); takes before this carry 16
     terminalSpeed: 26.0, // m/s
   },
   ground: {
@@ -16,7 +16,11 @@ export const params = {
     speedFactorKnee: 6.0, // m/s where yaw authority reaches ~80%
     pivotSpeed: 2.5, // m/s below which skid-pivot is allowed
     pivotYaw: 1.1, // rad/s, low-authority skid pivot at a standstill
-    drag: 0.0016, // quadratic, 1/m
+    drag: 0.00098, // quadratic, 1/m — scaled with the parks (÷1.63) so a full-size run holds the speeds the jumps are sized for
+    switchEdges: 1, // 1: riding switch, the sticks follow the direction of travel — right turns right on the edge that's on the right, up presses the leading end
+    switchSpeed: 0.5, // m/s of travel along the board before riding switch (or back) latches
+    switchCarry: 1, // 1: when the switch latch flips, the smoothed edge and press flip with it, so a held stick keeps meaning the same
+    friction: 0.06, // Coulomb μ of a waxed base on groomed snow — decel μ·g on the normal load. Per surface later (powder)
     edgeDrag: 0.35, // fraction of scrubbed speed lost outright at full edge
     stanceYawGain: 0.55, // extra yaw authority at full nose/tail press
     stanceGripLoss: 0.35, // grip lost at full press
@@ -24,71 +28,349 @@ export const params = {
     brakeGripLoss: 0.7, // grip lost at full LT — the scrub half of brake/scrub
     normalSmoothing: 12.0, // 1/s, board-to-terrain alignment rate
     edgeResponse: 9.0, // 1/s, stick-to-edge-angle rate
+    stanceResponse: 9.0, // 1/s, stick-to-stance rate — weight shifts, it isn't an edge
   },
   pop: {
-    chargeTime: 0.35, // s to full compress
+    chargeTime: 0.25, // s to full compress
     decay: 0.4, // 1/s bleed after full
-    base: 2.0, // m/s uncharged
-    charged: 5.0, // m/s added at full charge
+    base: 1.566, // m/s uncharged — sized so an ollie is as high in metres as at the old 16 m/s²
+    charged: 3.915, // m/s added at full charge
     stanceBias: 0.3, // ollie/nollie pop multiplier range
     trigger: 0.15, // RT above this counts as held; dropping below it releases
+    compressResponse: 9.0, // 1/s, knees following RT in the air and unloading after a pop
   },
   air: {
     detachClearance: 0.12, // m
+    detachSpeed: 1.5, // m/s of velocity into the air off the new surface normal — a lip launches you
+    levelRate: 3.0, // 1/s, board pitch/roll brought round to the ground below in flight. 0 = off
+    levelWhole: 1, // 1: level the whole rotation (corks land too). 0: older board-up rule, fades on corks
+    levelTiltMax: 0.3, // rad of cork tilt at which the older rule (levelWhole 0) has faded out
     authority: 1.2, // 1/s, how fast in-air stick pulls spin toward its target
     tuckMultiplier: 1.25, // spin rate while grabbed
     extendMultiplier: 0.85, // spin rate while stretched
     spinMax: 9.0, // rad/s cap
     axisTiltMax: 1.1, // rad, max cork axis lerp
-    spinTakeoff: 7.0, // rad/s at full stick on takeoff
+    corkRightMax: 1.0, // rad (was 1.2, lowered by play), board within this of the ground below is righted when you open up; further, it isn't
+    flipRate: 6.0, // rad/s about the board's long axis at full stick Y — back is a backflip. 0 = older rule, no flips
+    switchFlips: 1, // 1: riding switch, stick Y flips by the direction of travel, as it presses — back is still a backflip
+    corkDeadzone: 0.5, // |stick Y| below this at takeoff is a flat spin — Y is also the tail press
+    corkRecover: 6.0, // 1/s (was 4, raised by play), coming out of a cork once stick Y is centred: axis back to flat, board righted
+    spinTakeoff: 9.0, // rad/s at full whip on takeoff — overspins a full pop on purpose; centre to check
+    takeoffWindow: 0.1, // s after a pop the stick still sets spin at full authority — 0 = trigger tick only
+    checkRate: 6.0, // 1/s, spin decay with the stick centred; leftover rotation ≈ rate/checkRate. 0 = coast
+    shiftyMax: 0.9, // rad of board yaw against the body on LB/RB
+    shiftyRate: 8.0, // 1/s, board swinging out and back — held at contact, it's judged
+    /**
+     * 0..1, how much of a held carve is discounted from the takeoff stick read. At 0 the
+     * stick position sets spin, which means a hard carve *is* a request for a 360 whether
+     * or not you wanted one. At 1 only a whip beyond the carve counts.
+     */
+    // Off by default: holding the stick through the charge is the wind-up (§7.7), and at 1
+    // a real ride's 360s came out at 240–250° — the held stick was discounted as carve.
+    spinCarveReject: 0,
+    spinRefRate: 5.0, // 1/s the carve baseline follows the stick — lower widens the whip window
+    spinArmBand: 0.25, // |stick| below this arms in-air spin control after takeoff
+    // Spin model (trick spec): 0 — the stick at the pop sets the spin and steers it in the
+    // air. 1 — counter-rotation: while charging RT, push the stick away from the spin to
+    // wind the upper body up (the board holds its line); how long sets how much. At the pop,
+    // point the stick the way of the spin to send it — how far you point, how much. In the
+    // air the rotation is fixed: keep pointing to tuck and speed it up, push against it to
+    // open up and slow it.
+    spinModel: 1,
+    windTime: 0.5, // s of stick held while charging to a full wind-up: a short hold is a 360, a full one a 1080
+    windRelease: 8.0, // 1/s the wind-up unloads once RT is let go on the snow without popping
+    windLandReset: 1, // 1: touching down clears the wind-up, so the next spin can load either way. 0: older rule — it only unloads with RT off, never to zero, and the sign it had blocks loading the other way
+    windSteer: 0.2, // fraction of stick X that still edges the board while winding up — the rest loads the upper body, so the board holds its line
+    flickGain: 0.5, // fraction of spinTakeoff a flick gives with no wind-up — stick travel across the last ~0.2 s
+    windAdds: 1, // 1: wind-up adds to the flick's spin (continuous); 0: replaces it past flickMin (a short wind-up spun less than none)
+    flickMin: 0.15, // wind-up (0..1) below which there is none, and a flick alone sets the spin
+    flickWindow: 0.2, // s after the pop a flick still counts (model 1)
+    fullStick: 0.7, // model 1: stick deflection that counts as full, on each axis — a diagonal (a cork) reaches ~0.7 on both
+    corkDeadzone1: 0.25, // model 1: |stick Y| at the pop below which it isn't a cork — lower than corkDeadzone, since pointing at the spin is already the intent
+    tuckGain: 0.35, // spin × (1 + this) fully tucked
+    openGain: 0.75, // spin × (1 − this) fully opened — the check: arms out, upper body counter-rotating against the board
+    tuckRate: 7.0, // 1/s the body tucks or opens toward what the stick asks
   },
   land: {
-    clean: 0.44, // rad ≈ 25°
+    clean: 0.5, // rad ≈ 29° (was 0.44, raised by play)
     sketchy: 0.87, // rad ≈ 50°
     rollClean: 0.35, // rad, board-up vs contact normal
+    rollSketchy: 0.87, // rad ≈ 50°, past this even a straight board catches — no landing upside down
     sketchySpeedLoss: 0.25, // fraction
     absorbTime: 0.22, // s
     headingSnap: 18.0, // 1/s, heading correction onto velocity — fast, but not a teleport
+    // Impact (§6): m/s of velocity into the landing surface. Past impactSketchy the knees
+    // buckle — sketchy at best; past impactBail it's a bail however well the board lines up.
+    impactSketchy: 13.0, // m/s
+    impactBail: 17.0, // m/s
+    absorbGain: 0.25, // both limits × (1 + this·compress): RT held coming down is a legs-bent landing
+    // Skid and revert (Landing & Feel spec). The spin left at touchdown keeps turning the
+    // board on the snow, slowed by the edge, instead of stopping dead.
+    skidCarry: 0.35, // fraction of the touchdown yaw rate carried into the skid (0: rotation stops dead)
+    skidDecel: 18.0, // rad/s² the snow takes out of the skid
+    skidGrip: 0.3, // grip multiplier while skidding — the board slides round rather than carving the rider off line
+    revertAngle: 3.14, // rad a revert turns when there's no line of travel to aim at (else: to line up on the other stance). 0: no reverts
+    revertStick: 0.6, // right-stick X past which the flick counts
+    save: 1, // 1: a landing sketchy only for its rotation is saved to clean by a right-stick counter-push in the landing window
+    saveStick: 0.5, // right-stick X past which the counter-push counts
   },
   bail: {
     drag: 16.0, // m/s² while tumbling
     recoverSpeed: 2.5, // m/s below which the rider gets back up
     minTime: 0.9, // s before recovery is allowed at all
-    tumbleRate: 8.0, // rad/s, visual tumble while down
+    tumbleRate: 8.0, // rad/s, visual tumble while down, at full slide speed
+    tumbleSpeedRef: 8.0, // m/s of slide at which the tumble reaches full rate
+    faceDownhill: 3.0, // 1/s, while down the board swings to the fall line — nose or tail, whichever is nearer — so you get up pointing downhill. 0: older rule, heading frozen
   },
   rail: {
-    captureRadius: 0.35, // m
-    captureAngle: 0.6, // rad
-    friction: 0.4, // m/s² along spline
-    driftBase: 0.9, // balance drift rate
-    balanceMax: 1.0,
-    correctionGain: 2.2,
+    captureRadius: 0.35, // m, board to rail top for it to catch
+    captureAngle: 0.6, // rad, travel against the rail's line past which it won't catch
+    rideHeight: 0.03, // m, board bottom above the rail line
+    friction: 1.0, // m/s² along the rail at a 50-50
+    slideFriction: 2.0, // extra friction × |sin slide| — a boardslide scrapes, a 50-50 runs
+    slideRate: 2.0, // rad/s (was 4), LB/RB turning the board against the rail — a fine adjustment; the way into a boardslide is an ollie turned 90° onto it
+    stallSpeed: 1.0, // m/s below which you drop off the side
+    // Balance: an unstable lean, like standing on an edge — deterministic, seeded only by
+    // the entry (open question 4). b'' = λ·b − c·b' + correctionGain·lx.
+    instability: 4.0, // λ, 1/s² at a centred 50-50 — hands off, a lean runs away in ~1 s
+    slideDrift: 1.0, // λ × (1 + this·|sin slide|): a boardslide is less stable
+    pressDrift: 1.0, // λ × (1 + this·|stance|): so is a nose or tail press
+    balanceDamping: 0.3, // ζ against the lean's own rate
+    correctionGain: 8.0, // 1/s² per unit of stick X — gain/λ is the furthest lean you can still save
+    balanceMax: 1.0, // lean past which you fall off
+    entryOffsetGain: 0.3, // lean at capture per captureRadius of sideways miss
+    entryVelGain: 0.8, // lean rate at capture per unit of sideways/along speed ratio
+    minImbalance: 0.05, // a perfect entry still starts this far off — balance is never free
+    captureRise: 0.3, // fraction of speed rising away from the rail past which it won't catch
+    fallSpeed: 1.5, // m/s off the side when the lean is lost
+    stallPush: 1.0, // m/s off the side on a stall
+    rideOn: 0.1, // m: from the snow you only catch a rail or box whose top is this close above you — taller takes a pop
+    boxStability: 0.4, // instability multiplier on a box — a wide flat top is far easier to hold
+    // Trick model (1; 0 is the old slide-angle-only model). The stick is a weight shift in
+    // screen space, split onto the board: across it leans you over the edges (balance, + heel),
+    // along it moves the contact point toward nose or tail — a press is a shift, not a spin.
+    trickModel: 1,
+    boardHalf: 0.775, // m, centre to tip — contact ±1 is the rail at a tip
+    pressMax: 0.6, // contact the stick asks for at full deflection along the board
+    pressStiffness: 20.0, // 1/s², contact pulled toward the stick's ask
+    pressDamping: 0.8, // ζ on the contact
+    pressTip: 0.7, // contact past which the end outweighs you and runs away
+    tipInstability: 60.0, // 1/s² runaway past pressTip — above pressStiffness, a deep entry must be fought back
+    slidePull: 2.0, // 1/s² lean toward travel × sin slide: the rail grabs the board, the body keeps going — push back
   },
   wall: {
-    minAngle: 1.13, // rad ≈ 65° from up
-    minSpeed: 8.0, // m/s
-    gravityScale: 0.35,
+    minAngle: 1.13, // rad ≈ 65° from up — surface steeper than this, fast enough, is a wallride
+    minSpeed: 8.0, // m/s, below which the wall lets go and full gravity takes you back down
+    gravityScale: 0.35, // fraction of gravity while walled
     drag: 3.0, // m/s² while walled
+    popScale: 0.5, // fraction of the pop that goes up the face when popping onto a wall — the rest is absorbed by the stick
+    lipTakeoff: 1, // 1: leaving a quarter pipe's top is a takeoff — the stick sets the spin, as a pop would. 0: older rule, a roll-off
+    vertReturn: 0.6, // m/s back into the pipe on leaving a quarter-pipe top, so the air lands on the face, not the coping
+    vertFace: 0.7, // surface-normal y below which a pipe's face counts as climbed for vertExit — the upper half of the transition; the vertical strip at the top is only cm wide and a tick can step over it
+    vertExit: 1, // 1: any exit going up off a pipe that was just ridden steep comes back in, using the face it climbed — the board leaves a few cm past the coping, where the surface is already the deck's. 0: older rule, only off the steep face itself
+    popAngle: 0.35, // rad from up: on a wall's transition steeper than this, a pop drives you up the face instead of off it
   },
   butter: {
-    threshold: 0.65, // |stance|
-    maxSpeed: 12.0, // m/s
-    grip: 0.3, // multiplier on gripEdge
-    yawAuthority: 3.2, // rad/s
+    press: 0.65, // |stance| where a press starts to become a butter
+    maxSpeed: 12.0, // m/s, above which there is no butter — you carve on a press instead
+    speedFade: 3.0, // m/s below maxSpeed over which the butter fades in
+    gripScale: 0.3, // grip multiplier at full butter — the board lets go sideways
+    yawRate: 3.2, // rad/s of pivot at full butter and full edge stick, independent of speed
+    edgeGrip: 0, // 0..1 of the edge's grip (and its carve drag) kept at full butter — the edge stick steers the pivot instead of biting
+    pitch: 0.2, // rad the board tips onto the pressed end at full butter — render only
+  },
+  /**
+   * Grab timing. `reach` and `release` are the real feel numbers — the rate the rider blends
+   * toward an anchor and back, and the rate the sim's grip ramps in play. `hold` only exists
+   * for the pose-mode preview, where nothing is holding a button.
+   */
+  grab: {
+    commit: 0.35, // right-stick magnitude past which the hand goes for the board
+    switchMirror: 2, // 2: a grab after a switch takeoff is the switch version — same stick, same named grab, mirrored. 1: judged by travel as the hand goes (mirrors mid-spin)
+    stickModel: 2, // 2: LB (left/front hand) or RB (right/back hand) held + stick direction picks a named grab, never mirrored riding switch. 1: stick alone, sideways is indy/melon. 0: stick alone, linear
+    stickBand: 0.2, // rad either side of sideways that is still the edge's main grab (stick model 1)
+    edgeSharpness: 2.0, // stick X gain onto the edge coordinate — >30° off vertical is a full rail
+    tweakEnter: 0.55, // stick magnitude past which the tweak starts
+    tweakRate: 10.0, // 1/s, board shoved out toward the stick's depth
+    tweakRecover: 14.0, // 1/s, board springs back to spinFrame on release — sets how forgiving §6 is
+    tweakGain: 1.0, // extra board attitude at full push, × the grab's own, where no tweaked anchor exists
+    /**
+     * rad, cap on board pitch against the clean frame. A method wants 70–100°; at the old
+     * 1.15 (66°) the board could not reach the angle that makes one. Sim-side, because the
+     * landing test judges the drawn board.
+     */
+    tweakPitchMax: 1.75,
+    /**
+     * rad of roll about the board's own long axis at full `tweakRoll` — the base turning to
+     * face away from the rider. Much smaller than the pitch cap: the roll is part of the look
+     * but a method is predominantly a pitch. Sim-side for the same reason.
+     */
+    tweakRollMax: 0.6,
+    // Board attitude per grab — rad of pitch (nose up) and 0..1 of tweakRollMax of roll —
+    // as authored in each anchor. Sim-side because the landing test judges the drawn board;
+    // pose mode's "write to anchor" copies an anchor's boardPitch/tweakRoll into these.
+    indyPitch: -0.16,
+    indyRoll: 0,
+    indyYaw: 0,
+    mutePitch: 0.34,
+    muteRoll: -0.61,
+    muteYaw: 0.37,
+    japanPitch: 0.91, // japan is mute shoved out: mute's spot at full tweak
+    japanRoll: 1,
+    japanYaw: 0,
+    melonPitch: 0.31,
+    melonRoll: 0.35,
+    melonYaw: 0,
+    methodPitch: 0.55,
+    methodRoll: 0.72,
+    methodYaw: -1.01, // rad the whole rider and board turn about up while the grab is held (every grab has one; pose mode's `turn` writes it). Judged at touchdown like a held shifty
+    stalefishPitch: -0.18,
+    stalefishRoll: 1,
+    stalefishYaw: 0.7,
+    nosegrabPitch: 0.36,
+    nosegrabRoll: -0.28,
+    nosegrabYaw: 0,
+    tailgrabPitch: -0.55,
+    tailgrabRoll: -0.2,
+    tailgrabYaw: 0,
+    // Stick model 2's own grabs. First guesses until posed in pose mode and written back.
+    seatbeltPitch: -0.52,
+    seatbeltRoll: -0.37,
+    seatbeltYaw: 0.82,
+    crailPitch: 0.82,
+    crailRoll: -0.2,
+    crailYaw: 0.66,
+    crailTweakedPitch: 1.05, // full push: its own, not tweakGain's double — 1.64 rad folded the arm into the head
+    crailTweakedRoll: -0.4,
+    chickenSaladPitch: 0.44,
+    chickenSaladRoll: 1,
+    chickenSaladYaw: 0.49,
+    roastBeefPitch: 0.31,
+    roastBeefRoll: 1,
+    roastBeefYaw: 0.8,
+    reachTime: 0.18, // s, crouch to full grab
+    holdTime: 0.4, // s at full grab — preview envelope only, gameplay holds while held
+    releaseTime: 0.14, // s, grab back to crouch. Quicker than the reach: you snap back to land
+    /**
+     * 0..1 of the body blend completed before the hand starts closing on the board. Without
+     * it every grab passes through an unreachable pose mid-transition, because crouch is a
+     * shallower crouch than any grab and the halfway body is further from the board than
+     * either end. Raise it if an arm still snaps on the way in.
+     *
+     * 0.75 is measured, not guessed: it is the lowest value at which all eight grabs stay
+     * under reach 1.0 across the whole path. At 0.65 melon still peaks at 1.01, and at 0 every
+     * single grab is invalid somewhere in the middle.
+     */
+    gripDelay: 0.75,
+    /**
+     * Reach above this tints the arm amber in pose mode; above 1.0 it goes red.
+     *
+     * The red-only overlay was a cliff, and it turned out to *teach* posing at the limit: you
+     * push a slider until the red just disappears and stop, which lands you on the boundary.
+     * Six of the eight authored grabs came back between 0.97 and 1.00, one at 0.9994. That is
+     * the worst place to be — at full extension the elbow is confined to a few centimetres and
+     * the arm cannot route around anything. Amber marks "valid but no margin left".
+     *
+     * 0.90 lights every current anchor amber, and that is the honest answer rather than a
+     * broken threshold: the eight run 0.934 to 0.999, so the whole set really is at full
+     * extension. Do not raise this to make the indicator look discriminating — that is fitting
+     * the instrument to the data. Real elbow freedom wants 0.85 or below (17 cm of pole radius
+     * against 12 cm at 0.93), so if the amber ever goes away it means the poses improved.
+     */
+    reachWarn: 0.9,
   },
   rig: {
     thigh: 0.44, // m
     shin: 0.44, // m
     upperArm: 0.33, // m
-    forearm: 0.33, // m, to the grip rather than the wrist
+    forearm: 0.33, // m, to the grip rather than the wrist — 0.66 total, adult shoulder-to-grip
     hipWidth: 0.18, // m between leg roots
     shoulderWidth: 0.36, // m between arm roots, along the board
     stanceWidth: 0.52, // m between bindings
     hipHeight: 0.86, // m above the deck, uncompressed
     spine: 0.52, // m hips to shoulders
     neck: 0.16, // m shoulders to head
-    hipStiffness: 90.0, // ω for the hip spring
+    curlHeadLift: 0.6, // fraction of the upper-back curl the neck takes back, keeping the eyes up
+    crouchDepth: 0.28, // m the hips drop at full compress
+    hipStiffness: 250.0, // ω² for the hip spring — ω = sqrt of this, so 250 is ~15.8 rad/s
     hipDamping: 1.0, // ζ — 1.0 is critically damped
+    landBlendClean: 0.12, // s the drawn board takes from its air attitude onto the slope after a clean landing (render)
+    landBlendSketchy: 0.2, // s after a sketchy one
+    terrainAbsorb: 0.012, // m the hips drop per m/s² the board is pushed up (transitions, a landing ramp's bottom); rise over knuckles and rollers
+    terrainAbsorbMax: 0.16, // m either way
+    edgeRoll: 0.55, // rad of board tip at full edge, drawn only
+    absorbPerImpact: 0.022, // m of extra hip drop per m/s of landing impact
+    edgeHipShift: 0.1, // m of hip lean toward the edge at full edge
+    stanceHipShift: 0.14, // m of hip travel toward nose/tail at full press
+    stanceSpineSide: 0.3, // rad of spine lean into a press
+    spineBendBase: 0.18, // rad of forward fold standing
+    compressSpineBend: 0.25, // rad of extra fold at full compress
+    spineCurlBase: 0.45, // rad the upper back rounds riding — the hunch over the board
+    compressSpineCurl: 0.3, // rad of extra rounding at full compress
+    railLean: 0.25, // m of hip shift at full rail balance — the lean you're fighting, drawn
+    railTilt: 0.35, // rad the rider tips about the rail at full balance, toward the side they're falling to
+    pressPitch: 0.25, // rad the board tips onto the rail at full contact — a nose press is nose down
+    pressHipShift: 0.12, // m of hip travel toward the contact at full contact
+    spineStiffness: 55.0, // ω² for the spine twist and head springs, like hipStiffness — ω ≈ 7.4 rad/s
+    spineDamping: 1.0, // ζ
+    counterRotation: 1.0, // rad (~57°) the shoulders wind against the coming spin at full charge
+    shoulderLead: 0.45, // rad, shoulders ahead of the board at full takeoff spin
+    // Body sequencing (trick spec): rotation travels up the chain — arms, shoulders, hips,
+    // board last. Each is a spring on its own yaw offset from the board; the arms are
+    // stiffest, so at the pop they snap round first and the hips follow late.
+    armWind: 0.9, // rad of arm swing against the coming spin at full charge
+    hipWind: 0.35, // rad (~20°) the hips wind
+    armLead: 0.8, // rad the arms lead the board in the air at full spin
+    hipLead: 0.2, // rad the hips lead
+    armSpread: 0.9, // rad the arms open out along the board — at the lip, and to stop the spin for landing
+    rideHeadYaw: 0.9, // rad the head turns from straight across the board toward the way of travel — riders look down the hill. Mirrored riding switch
+    spinLook: 1, // 1: spins land with the head over the nose shoulder (backside) or the tail's (frontside) — blind landings look uphill
+    spinLookMin: 1.5, // rad/s of yaw below which an air keeps the riding look
+    landLookHold: 0.3, // s the spin's look holds past touchdown before the head comes round
+    shiftyGrabTurn: 0.7, // fraction of a shifty the whole rider turns through while a hand holds the board — the rest twists the board under the body. 0 leaves the hand short of the board (up to 16 cm on a nose or tail grab)
+    armTuck: 0.4, // rad the arms pull in when tucking to spin faster (spin model 1)
+    openTime: 0.3, // s before touchdown the rider opens up and squares to the board
+    lipSpreadTime: 0.12, // s of arm spread just after leaving the snow
+    armChainStiffness: 500.0, // ω² of the arm springs — fastest, they lead
+    shoulderChainStiffness: 260.0, // ω² of the shoulder twist — follows the arms
+    hipChainStiffness: 150.0, // ω² of the hip spring — slowest, they follow
+    chainDamping: 0.75, // ζ of both
+    // No-grab airs: knees up and a slouch — style, and what a rider does to stay compact.
+    airCrouch: 0.22, // m the hips come down toward the board in an air without a grab
+    airSlouch: 0.35, // rad of extra upper-back curl
+    airFold: 0.15, // rad of extra fold at the hips
+    airCrouchRate: 6.0, // 1/s it comes on after takeoff and goes as a grab takes over
+    headLead: 0.18, // s, head looks where the board will be this far ahead
+    headTurnMax: 1.2, // rad, neck limit on that look
+    // Loose body (secondary.ts): the rider trails the board's acceleration instead of being
+    // bolted to it. Acceleration is smoothed first, so a landing is a shove, not a spike.
+    accelSmoothing: 12.0, // 1/s on the acceleration the body reacts to
+    armLag: 0.03, // rad of arm swing per m/s² — arms trail, back and out
+    armMax: 0.6, // rad
+    armStiffness: 40.0, // ω² of the arm swing — low, so they swing and settle
+    armDamping: 0.35, // ζ
+    hipSway: 0.012, // m of hip travel per m/s², against the acceleration
+    hipSwayMax: 0.08, // m
+    hipSwayStiffness: 90.0, // ω²
+    hipSwayDamping: 0.6, // ζ
+    carveLead: 0.35, // rad of shoulder turn into a carve per rad/s of heading change
+    carveLeadMax: 0.5, // rad — a landing's heading snap would otherwise wrench the shoulders
+  },
+  // Cloth (9c): springs on the fixed tick in render/secondary.ts, so replay reproduces
+  // them; they change the spring hash, not the sim. Angles in rad, rates in rad/s.
+  cloth: {
+    skirtStiffness: 90.0, // ω² of the jacket skirt about the waist
+    skirtDamping: 0.35, // ζ — under-damped, so it swings past and settles
+    skirtWind: 0.03, // rad of swing per m/s of travel, blown back
+    skirtMax: 0.55, // rad, the most the wind holds it out
+    skirtImpact: 0.35, // rad/s kick per m/s of landing impact
+    hoodStiffness: 60.0, // ω² of the hood about the back of the neck
+    hoodDamping: 0.3, // ζ
+    hoodLag: 0.06, // rad the hood trails per rad/s of spin
+    hoodMax: 0.5, // rad
+    hoodImpact: 0.4, // rad/s kick per m/s of landing impact
+    flutterPerSpeed: 0.00045, // m of shell flutter per m/s of speed — a pure function of sim time, no state
+    flutterMax: 0.008, // m
   },
   spray: {
     rate: 900, // particles/s at full scrub
@@ -101,7 +383,12 @@ export const params = {
     gravity: 6.0, // m/s²
   },
   audio: {
-    master: 0.55,
+    /**
+     * Muted for now — not wanted at this stage. Every layer and the landing thump run through
+     * this one gain, so 0 silences the lot, and the slider brings it back live without a
+     * reload. Was 0.55.
+     */
+    master: 0,
     edgeGain: 0.5, // edge bite at full scrub
     edgeFilterBase: 380, // Hz at a standstill
     edgeFilterGain: 95, // Hz per m/s
@@ -115,14 +402,35 @@ export const params = {
     thumpFilter: 220, // Hz lowpass — a thud, not a crack
     thumpDecay: 0.28, // s
   },
+  haptics: {
+    on: 1, // 1: rumble on the pad where the browser supports it (Chrome)
+    pop: 0.3, // 0..1 motor strength on a pop
+    rail: 0.45, // locking onto a rail
+    land: 0.35, // a clean landing
+    sketchy: 0.65, // a sketchy one, held twice as long
+    bail: 1.0, // a bail, three times as long
+    wind: 0.2, // a light tick at each third of wind-up (spin model 1), so you feel how much is loaded
+    ms: 70, // pulse length
+  },
   camera: {
-    springStiffness: 9.0,
-    distance: 5.5, // m, behind the rider along heading
+    springStiffness: 5.5, // 1/s (was 9) — loose enough that the rider moves in frame
+    lookStiffness: 7.0, // 1/s the aim point follows the rider — lets them drift off centre on turns and landings
+    distance: 2.5, // m, behind the rider along heading
     height: 1.8, // m, along the contact normal
     lookAhead: 6.0, // m down the fall line — keeps the slope in frame, not the sky
     fovBase: 62, // deg
     fovSpeedGain: 0.5, // deg per m/s
+    // Speed feel, all render-side: past speedFrom the camera tightens in and down and widens
+    // its FOV, reaching full at speedFull — the ground near the board is what reads as fast.
+    speedFrom: 8.0, // m/s (29 km/h) where the speed feel starts
+    speedFull: 18.0, // m/s (65 km/h) where it is full
+    speedFov: 14.0, // deg of extra FOV at full speed feel, on top of fovSpeedGain
+    speedCloser: 0.25, // fraction the distance shrinks at full speed feel
+    speedLower: 0.3, // fraction the height drops at full speed feel
+    shake: 0.025, // m of camera judder at full speed feel, on the snow only
+    shakeRate: 11.0, // Hz of the judder
     rollGain: 0.18, // rad per unit edge
+    followSpeed: 3.0, // m/s above which the camera follows travel fully rather than the board
   },
 };
 
@@ -144,4 +452,22 @@ export function applyParams(target: Params, src: Params): void {
       if (typeof value === 'number') dstGroup[key] = value;
     }
   }
+}
+
+/** The values as authored, captured at load before any tuning session mutates `params`. */
+const DEFAULTS = cloneParams(params);
+
+/**
+ * Params for replaying a serialized take or preset. What it recorded wins; groups that did
+ * not exist when it was recorded fall back to the authored defaults — the v1 takes predate
+ * `params.rig` entirely. The fallback is the defaults and never the live values, so a take
+ * stays immune to the tuning session it is being replayed inside of.
+ */
+export function withDefaults(src: Params, before?: Params): Params {
+  const merged = cloneParams(DEFAULTS);
+  // `before`: values that reproduce the sim from before a param existed, for params that
+  // switched on new behaviour. Applied under `src`, so only keys `src` lacks take them.
+  if (before) applyParams(merged, before);
+  applyParams(merged, src);
+  return merged;
 }

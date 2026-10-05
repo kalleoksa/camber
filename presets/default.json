@@ -19,29 +19,47 @@
     "brakeDecel": 9,
     "brakeGripLoss": 0.7,
     "normalSmoothing": 12,
-    "edgeResponse": 9
+    "edgeResponse": 9,
+    "stanceResponse": 9
   },
   "pop": {
-    "chargeTime": 0.35,
+    "chargeTime": 0.25,
     "decay": 0.4,
     "base": 2,
     "charged": 5,
     "stanceBias": 0.3,
-    "trigger": 0.15
+    "trigger": 0.15,
+    "compressResponse": 9
   },
   "air": {
     "detachClearance": 0.12,
+    "detachSpeed": 1.5,
+    "levelRate": 3,
+    "levelWhole": 1,
+    "levelTiltMax": 0.3,
     "authority": 1.2,
     "tuckMultiplier": 1.25,
     "extendMultiplier": 0.85,
     "spinMax": 9,
     "axisTiltMax": 1.1,
-    "spinTakeoff": 7
+    "corkRightMax": 1,
+    "flipRate": 6,
+    "corkDeadzone": 0.5,
+    "corkRecover": 6,
+    "spinTakeoff": 9,
+    "takeoffWindow": 0.1,
+    "checkRate": 6,
+    "shiftyMax": 0.9,
+    "shiftyRate": 8,
+    "spinCarveReject": 0,
+    "spinRefRate": 5,
+    "spinArmBand": 0.25
   },
   "land": {
-    "clean": 0.44,
+    "clean": 0.5,
     "sketchy": 0.87,
     "rollClean": 0.35,
+    "rollSketchy": 0.87,
     "sketchySpeedLoss": 0.25,
     "absorbTime": 0.22,
     "headingSnap": 18
@@ -50,7 +68,8 @@
     "drag": 16,
     "recoverSpeed": 2.5,
     "minTime": 0.9,
-    "tumbleRate": 8
+    "tumbleRate": 8,
+    "tumbleSpeedRef": 8
   },
   "rail": {
     "captureRadius": 0.35,
@@ -72,6 +91,37 @@
     "grip": 0.3,
     "yawAuthority": 3.2
   },
+  "grab": {
+    "commit": 0.35,
+    "edgeSharpness": 2,
+    "tweakEnter": 0.55,
+    "tweakRate": 10,
+    "tweakRecover": 14,
+    "tweakGain": 1,
+    "tweakPitchMax": 1.75,
+    "tweakRollMax": 0.6,
+    "indyPitch": -0.16,
+    "indyRoll": 0,
+    "mutePitch": 0.34,
+    "muteRoll": 0.17,
+    "japanPitch": 0.91,
+    "japanRoll": 1,
+    "melonPitch": 0.31,
+    "melonRoll": 0.35,
+    "methodPitch": 0.55,
+    "methodRoll": 0.72,
+    "stalefishPitch": -0.18,
+    "stalefishRoll": 1,
+    "nosegrabPitch": 0.36,
+    "nosegrabRoll": -0.28,
+    "tailgrabPitch": -0.18,
+    "tailgrabRoll": -0.2,
+    "reachTime": 0.18,
+    "holdTime": 0.4,
+    "releaseTime": 0.14,
+    "gripDelay": 0.75,
+    "reachWarn": 0.9
+  },
   "rig": {
     "thigh": 0.44,
     "shin": 0.44,
@@ -83,8 +133,22 @@
     "hipHeight": 0.86,
     "spine": 0.52,
     "neck": 0.16,
-    "hipStiffness": 90,
-    "hipDamping": 1
+    "crouchDepth": 0.28,
+    "hipStiffness": 250,
+    "hipDamping": 1,
+    "edgeRoll": 0.55,
+    "absorbPerImpact": 0.022,
+    "edgeHipShift": 0.1,
+    "stanceHipShift": 0.14,
+    "stanceSpineSide": 0.3,
+    "spineBendBase": 0.18,
+    "compressSpineBend": 0.25,
+    "spineStiffness": 55,
+    "spineDamping": 1,
+    "counterRotation": 0.7,
+    "shoulderLead": 0.25,
+    "headLead": 0.18,
+    "headTurnMax": 1.2
   },
   "spray": {
     "rate": 900,
@@ -97,7 +161,7 @@
     "gravity": 6
   },
   "audio": {
-    "master": 0.55,
+    "master": 0,
     "edgeGain": 0.5,
     "edgeFilterBase": 380,
     "edgeFilterGain": 95,
@@ -118,6 +182,7 @@
     "lookAhead": 6,
     "fovBase": 62,
     "fovSpeedGain": 0.5,
-    "rollGain": 0.18
+    "rollGain": 0.18,
+    "followSpeed": 3
   }
 }

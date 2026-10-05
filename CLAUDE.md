@@ -44,6 +44,8 @@ These are not preferences. Breaking one is a bug even if the code runs.
    You are presetting drivers, not a skeleton. The moment an anchor needs a *timeline*,
    it has become a clip and this invariant is broken.
 4. **Sim is deterministic.** Same params + same recorded input = same frames, always.
+   Sim transcendentals come from `src/sim/dmath.ts`, never `Math` — enforced by
+   `npm run check-math`.
 5. **Sim and render are separate.** `src/sim/**` must not import Three.js scene objects,
    read the clock, read input directly, or touch the DOM. It receives an input snapshot
    and a dt, and mutates state. Render reads state and draws it.
@@ -118,7 +120,7 @@ features from a later milestone "while we're in here."
 | 1 | Harness: slope, capsule, gamepad, Tweakpane, record/replay | A recorded take replays frame-identically after a param change |
 | 2 | Carving: gravity, edge grip, speed, spray, sound | Carving an empty hill is satisfying with nothing else in the scene |
 | 3 | Air: pop, rotation, landing tolerance, bail | Straight airs and a 360 land cleanly and read correctly |
-| 4 | Grabs + procedural rig | A method you'd be happy with is reachable from sliders alone, in pose mode, before any gameplay code is wired to the rig |
+| 4 | Grabs + procedural rig | A method you'd be happy with is reachable from sliders alone, in pose mode |
 | 5 | Rails: attach, slide variants, balance, exits | 50-50, boardslide, tailslide all feel distinct; balance is winnable but not free |
 | 6 | Wallrides + butters | Both chain into and out of other states without a hitch |
 | 7 | Park as JSON data | A new line can be built by editing park.json only |
@@ -126,7 +128,8 @@ features from a later milestone "while we're in here."
 
 Milestone 4's gate is a slider test on purpose: if a good method isn't reachable by hand,
 no amount of gameplay code will generate one. Use video reference, including your own
-footage, to set the anchor poses.
+footage, to set the anchor poses. Anchors are data and can be refined at any point —
+gameplay wiring to the rig does not wait on them.
 
 ---
 
@@ -138,6 +141,10 @@ footage, to set the anchor poses.
   determinism, refactors contained to one file.
 - **Never do:** invent scoring, add UI chrome, add menus, add a tutorial, "polish" a
   milestone that hasn't passed its gate.
+  One agreed exception to "no UI chrome": the trick name fades in low on screen after
+  each trick (`render/trickText.ts`, toggle in the panel). Names only, never a number.
+  Second agreed exception: the controls sheet (`render/controlsHelp.ts`) — a small "?" button,
+  H or the touchpad opens it and pauses the game. Controls only, no menu behind it.
 - Feel cannot be delegated. When a milestone lands, stop and say what to tune and which
   params to reach for. Don't guess at whether it feels right.
 

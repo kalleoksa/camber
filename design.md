@@ -15,6 +15,10 @@ Reference document for the sim model. Read with `CLAUDE.md`.
 - `edge` = signed −1..1. Negative = heel edge, positive = toe edge. 0 = flat base.
 - `stance` = signed −1..1 weight along board. −1 = full tail, +1 = full nose.
 - Regular stance assumed. Switch is `heading` 180° from velocity, not a separate mode.
+- Sim math: `exp`, `log`, `pow`, `sin`, `cos`, `tan`, `acos`, `atan2` come from
+  `src/sim/dmath.ts`, never `Math`. Engine versions differ in the last bit between ARM and
+  x86 (a take recorded on an M-series Mac drifted in CI within seconds), and determinism
+  has to hold across machines. `npm run check-math` enforces it in CI.
 
 ---
 
@@ -24,8 +28,8 @@ Xbox-layout gamepad. Analog everywhere it matters.
 
 | Input | Grounded | Airborne | Railed |
 |---|---|---|---|
-| Left stick X | Edge angle (target) | Spin rate about spin axis | Balance correction |
-| Left stick Y | Stance: nose / tail press | Spin axis tilt → cork / off-axis | Nose / tail press shift |
+| Left stick X | Edge angle (target) | Spin rate about spin axis | Weight shift (screen space): lean + contact |
+| Left stick Y | Stance: nose / tail press | Flip (back = backflip); with X, cork | Weight shift (screen space): lean + contact |
 | RT (analog) | Compress; **release = pop** | Absorb (prepare landing) | Compress; release = pop off |
 | LT | Brake / heel scrub | — | — |
 | Right stick | — | Grab: position on the board (§7.3); **push past the grab = tweak** | — |
@@ -38,6 +42,35 @@ The right stick is a *continuous coordinate on the board*, not an 8-way selector
 where the hand catches starts tweaking. Grab identity is a hand target plus a body pose
 bias, never a clip. Method = heel grab near mid-board + full tail stance + back arch +
 deep tweak. Emergent, not enumerated.
+
+**Riding switch.** Once you travel tail first (past `ground.switchSpeed`), the sticks
+follow the direction of travel, not the board:
+
+- Left stick X: right still turns right — on the heel edge, which is now the edge on your
+  right. The edge, the lean and the camera roll are the board's real ones.
+- Left stick Y: up presses the leading end (the tail), down the trailing end — so down is
+  still the ollie and up still the nollie.
+- Right stick: X is still toe (right) / heel (left); Y is the leading end (up) to the
+  trailing end (down). A grab reached tail first is the switch version: the regular grab
+  mirrored nose-for-tail — the leading hand takes it, and pose and board pitch mirror too
+  (`grab.switchMirror`).
+
+**Grabs by stick**, regular or switch. The named grab is the same stick either way; riding
+switch you get its switch version (e.g. a switch method), done with the other hand:
+
+| Grab | Hand | Right stick |
+|---|---|---|
+| Method | leading, heel edge, ahead of the front foot | up-left |
+| Melon | leading, heel edge, between the feet | left, a touch up |
+| Stalefish | trailing, heel edge, between the feet | left, a touch down |
+| Mute | leading, toe edge | right, a touch up |
+| Indy | trailing, toe edge | right, a touch down |
+| Nose / tail | leading / trailing, the tip | up / down |
+
+Push further past the grab to tweak it. **The same hand as your regular method while
+riding switch** — the nose hand on the heel edge — is the trailing hand now: stick
+down-left. It has no named anchor of its own there; you get a blend of stalefish and tail
+grab, which is what that grab is.
 
 **Design note:** don't put trick names in the input layer. The player composes
 edge + pop + spin axis + grab + stance. Naming happens in the feedback layer, if at all.
@@ -133,7 +166,18 @@ welded together.
 - Spin axis in board-local space, lerped by left stick Y at takeoff:
   stick centred → board up (flat spin); stick pushed → tilted toward board forward/right
   (cork, rodeo, misty come out of the same axis lerp — do not special-case them).
-- `angularVelocity` set from stick X magnitude at takeoff.
+- `angularVelocity` set at takeoff from **how far stick X has been whipped past the carve
+  already being held**, not from its absolute position. Left stick X is the edge stick
+  grounded and the spin stick airborne, and the pop is the seam between the two — read the
+  position raw and a hard carve *is* a request for a 360 whether the rider wanted one or
+  not, which is exactly what it did. `state.spinRef` follows the stick at
+  `air.spinRefRate` and takeoff measures against that, so a steady thumb pops straight and
+  a deliberate whip spins. `air.spinCarveReject` at 0 restores the raw-position read.
+  Two consequences worth knowing, both symmetric and both intended: how long you hold the
+  whip before releasing RT meters the rotation down (full whip → 360 released immediately,
+  ~180 after 150 ms, ~0 after 500 ms), and relaxing the stick to centre out of a hard carve
+  and popping *immediately* is itself a full whip, so it spins you the other way. Settle
+  for `spinRefRate`'s time constant first if you want the straight air.
 - In flight, **stick position means the same thing it did at takeoff: spin speed.** It
   pulls the rate toward `stickX * air.spinTakeoff` at `air.authority` per second, so a
   short air cannot fully retarget and takeoff still decides where you start. A centred
@@ -143,7 +187,66 @@ welded together.
   whatever the stick happened to be at on release, and since full stick saturated near
   360° that was the only repeatable trick — a 180 needed the stick inside a ~6% band you
   cannot see. One consistent scale plus a real response rate makes the whole range
-  reachable: half stick is a 180, full stick is a 360, and mid-air stick moves it.
+  reachable: half whip is a 180, full whip is a 360, and mid-air stick moves it.
+  In-air spin control is **disarmed until the stick comes back inside `air.spinArmBand`**.
+  Leaving the ground mid-carve the thumb is still buried where the carve put it, and
+  without the latch the air controller spends the whole air dragging the rate up to the
+  carve's value — measured at 146° of unrequested rotation off an otherwise straight pop,
+  enough to undo the takeoff fix on its own. Once armed, the law above applies unchanged.
+- **Checking the spin.** (Once armed: a disarmed spin coasts, neither steered nor checked.) Two recorded takes showed every spin under-rotated: with a
+  centred stick coasting, rotation was air time × stick rate and nothing else, so a 360
+  existed only on a full-charge pop (0.92 s of air) and typical 0.7–0.84 s airs came up
+  30–90° short with no way to recover. Now a centred stick *checks* the spin at
+  `air.checkRate` (leftover ≈ rate / checkRate), and `air.spinTakeoff` is raised to 9 so
+  full stick overspins and the player opens up to spot the landing — a 360 lands from
+  ~0.70 s of air, a 180 from ~0.6 s. Holding the stick still holds the spin; holding it
+  to contact overspins. `air.takeoffWindow` (0.1 s) lets a stick that arrives just after
+  the trigger still count as the wind-up; it only ever strengthens the spin. Both new
+  params at 0 restore the old coast.
+- **Levelling moves the whole rotation.** In flight the takeoff surface's up (`airUp`)
+  is rotated toward the ground below at `air.levelRate`, and the board with it, as one
+  rigid rotation. A full spin about any axis returns the board to its takeoff attitude, so
+  correcting that attitude lands flat spins *and* corks on the landing's angle without
+  ever fighting the spin. The first version levelled board up and had to switch off for
+  corks; a recorded cork 360 off the kicker, 6° from a full turn, then landed 42° nose-high
+  (the lip-to-landing angle) and sketchy. It lands clean under this rule.
+- **Flips: the stick is a rotation, not a rate plus a tilt.** At the pop the stick sets
+  a board-local rotation vector: X spins about board up (`air.spinTakeoff`), Y — past the
+  cork deadzone — flips about the board's lateral, toe–heel axis (`air.flipRate`): across
+  the direction of travel, so on a backflip the nose comes up and over toward the tail.
+  Stick back, the tail press, is a backflip. (The first version flipped about the board's
+  length, which played as a barrel roll.)
+  The axis is the vector's direction and the rate its length, so sideways is a flat spin,
+  straight back or forward a flip, a diagonal a cork, and a diagonal held long enough a
+  double cork — one rule, as this section always asked. The older rule (X sets the rate,
+  Y only tilts the axis, capped at `axisTiltMax`) made a straight flip unreachable; takes
+  recorded under it replay with `flipRate` 0. In the air the stick is read against the
+  current axis: held it holds the rotation, eased it slows it, it can't swing the axis.
+  Opening up (Y centred) unwinds only the flip part, leaving the spin part as it was, and
+  rights the board only when it is already within `air.corkRightMax` of the ground — so a
+  flip let go upside down does not land itself, and flips need timing where corks forgive.
+- **Coming out of a cork.** A spin about a fixed tilted axis only returns the board
+  upright after whole turns; at any half turn — a cork 180 or 540 landing fakie — it is
+  tipped over by twice the tilt, so those were impossible. Riders go off axis and then
+  open up. Holding stick Y keeps the cork, as holding X keeps the spin; centring it
+  swings the spin axis back to board up and rights the board toward the ground below at
+  `air.corkRecover`, the spin untouched. A cork 540 now lands fakie if you come out in
+  time, and bails if you don't.
+- **Cork deadzone.** Stick Y at takeoff is also the tail press, so |Y| under
+  `air.corkDeadzone` (0.5) is a flat spin; past it the tilt rescales to the full cork.
+  Found on a recorded 720 off the kicker: a thumb pressing tail at −0.41 while throwing
+  the spin had tilted the axis 26°, which also switched off in-air levelling, and the
+  board came down 28° off the landing — sketchy on a spin that was 4° from perfect.
+- **Only a pop sets rotation.** Riding off a lip without popping carries the carve's
+  yaw rate onto a flat axis; the stick does not launch a spin nobody wound up, and the
+  spin starts disarmed if the thumb is still in the carve.
+- **Shifty** (LB/RB) yaws the board under the body toward ±`air.shiftyMax` at
+  `air.shiftyRate`. Drawn board and landing test are `spinFrame ∘ shifty ∘ tweakOffset`,
+  so a shifty held into contact is judged like any other off-axis board.
+  The same rule means a small shifty at contact can *save* a slightly over- or
+  under-rotated spin by bringing the board back onto the direction of travel.
+  Decided by play: keep it — it's how a real rider saves a landing. The lever if it
+  ever gets too forgiving is `air.shiftyMax`, not a special case in the landing test.
 - Grab held → `air.tuckMultiplier` (~1.25) faster spin. Extended → slower. This is real
   and it's the main mid-air expression tool.
 
@@ -165,10 +268,15 @@ Then:
 | Condition | Result |
 |---|---|
 | `θ < land.clean` AND `φ < land.rollClean` | **Clean.** Heading pulled onto velocity. Full speed retained. |
-| `θ < land.sketchy` | **Sketchy.** Heading snapped, speed penalty, hard absorb, rider wobble, audio scrape. |
+| `θ < land.sketchy` AND `φ < land.rollSketchy` | **Sketchy.** Heading snapped, speed penalty, hard absorb, rider wobble, audio scrape. |
 | otherwise | **Bail.** Edge catch, ragdoll. |
 
-Start with `land.clean = 25°`, `land.sketchy = 50°`.
+Start with `land.clean = 25°`, `land.sketchy = 50°`, `land.rollSketchy = 50°`. Without
+the roll bound on the sketchy row, a board that comes down upside down but pointing the
+right way survives.
+
+Board heading at contact is read from the composed orientation, not carried over from
+takeoff. Carrying it over judges a 180 correctly and then rebuilds it riding forward.
 
 The heading correction is *converged* at `land.headingSnap` over the absorb window, not
 teleported. An instant snap of up to `land.sketchy` makes every landing come out at an
@@ -184,6 +292,29 @@ still hanging 60° off axis at contact fails both `θ` and `φ` and catches an e
 it for style, pull it back in time, or eat it. That is the scoreless feedback problem
 from §11 solved in the physics instead of in a UI element — do not also stamp it on
 screen.
+
+**Impact as a third test** (built; older takes replay with it off). Judged on angles
+alone, an 18 m/s slam into the landing past a kicker's end read clean if the board lined
+up. The speed into the surface, `impact = |v·n|` at contact, is now a third input:
+
+| Impact | Result |
+|---|---|
+| `impact < land.impactSketchy` | no change — the angles decide |
+| `< land.impactBail` | at best **sketchy**: knees buckle, speed penalty |
+| otherwise | **bail**, however well the board lines up |
+
+Absorb raises both limits: holding RT in the air (the airborne "absorb" in §2) as you come
+down scales them by `land.absorbGain`, so a big drop to flat is survivable if you prepare
+for it — a legs-bent landing, not a stiff one. Starting points from the probes: clean park
+landings run 5–12 m/s, the overshoot that prompted this was 18, so roughly
+`impactSketchy` 13 and `impactBail` 17. The research (equivalent fall height, §10 notes)
+puts a real rider's comfortable limit near 1.5 m of fall — at the sim's gravity about
+7 m/s — but the game's airs are bigger than real ones, so start from play, not from that.
+As built, `absorbGain` is 0.25. Probe, dropping flat onto the slope at 10 m/s along it:
+4 m clean (11 m/s), 8 m sketchy (15.5), 10 m and up bail. Absorbed, 10–16 m is sketchy
+and 20 m still bails. Sochi landings stay clean (5–12 m/s); overshooting the corner to its
+deck (14.4) is sketchy.
+Walls and the quarter pipe are judged the same way; a wallride entry is not a landing.
 
 ---
 
@@ -207,7 +338,17 @@ Almost the entire vocabulary is *where the hips sit relative to the board*:
 ### 7.2 The driver vector
 
 The whole rider is about twenty numbers. Small enough to bind every one to Tweakpane,
-which is the point — see §7.8.
+which is the point — see §7.8. It is twenty-three now: 21–23 below were each added
+because a pose the rig was supposed to reach turned out to be unreachable without them.
+Every one was found the same way: by measuring a pose against `grabs.md` and finding no
+value of the existing drivers that satisfied it.
+
+`boardBack` is the one worth learning from. Its absence looked like a *proportions* problem
+— the arm measured 4% too short to make a method at anatomically correct knee flexion, and
+lengthening it did fix the numbers. But the real cause was that the board could not go
+behind the rider, so the torso had to lean over to reach it. Once `boardBack` existed the
+arm went back to 0.66 m and the pose came out inside every band. A missing degree of
+freedom impersonates a wrong constant.
 
 | # | Driver | Space / range |
 |---|---|---|
@@ -219,8 +360,29 @@ which is the point — see §7.8.
 | 14–15 | Hand attachment, per hand | 0 = rest pose, 1 = locked to board |
 | 16 | Tweak depth | 0..1 |
 | 17–18 | Head look-at: yaw, pitch | rad, world-relative |
-| 19 | Knee pole splay | rad |
+| 19 | Knee pole splay | rad, swept from the toe side. **Past π/2 the knees break backward** — a method needs that, and the slider used to stop at 1.4 so it was unreachable |
 | 20 | Stance width scale | multiplier on binding separation |
+| 21 | Board lift | m the board rises toward the rider along its own normal — the leg tuck. Without it a grab is only reachable by folding the torso double |
+| 22 | Board back | m the board travels toward the heel side, **behind the rider's back**. Lift alone could only raise it, so the only way onto the heel edge was to lean the torso 57° over to meet it — which is a fold, not a method. It is also the melon/method discriminator: board under the rider versus behind them |
+| 23 | Free arm raise | 0 at the side, 1 at ~155° shoulder flexion. A method's trailing arm is a counterweight thrown skyward and the rest pose pinned it down |
+
+**Head pitch is about board Z, not board X.** The rider faces −X, so X is their *facing*
+axis and a rotation about it rolls the head ear-to-shoulder. Neck extension — looking up
+and back — needs Z. `hipPitch` and `hipRoll` still have this backwards: `hipPitch` rotates
+about X, which for the rider is a roll, and `hipRoll` about Z, which is a pitch. They are
+named in the board's frame and authored in the rider's, and the two disagree.
+
+**Known unreachable, from `grabs.md`:**
+
+- **`armRouting`** — `outside` | `betweenLegs` | `crossed`. The same `(hand, edge, t)` on a
+  different arm path is a different trick: roast beef and stalefish grab nearly the same
+  spot. The elbow pole is currently a fixed toe-side vector, so every routing is `outside`,
+  and a melon's arm will happily pass *in front* of the front leg, which is anatomically
+  impossible at that `t`.
+- **`boneMap`** — which leg extends, `front` | `back` | `both` | `neither`. "Boned" means
+  extended, and per `grabs.md` this is where most of the perceived style lives. `kneeSplay`
+  is one driver shared by both legs, so a boned indy — front leg pushed straight while the
+  back stays tucked — cannot be posed at all.
 
 **Sim owns**, because it feeds the landing test or the physics: `spinFrame`,
 `tweakOffset`, the active grab (`edge`, `t`, which hand, attached), `compress`, `stance`,
@@ -233,7 +395,29 @@ render side of invariant 5.
 This supersedes the 8-way diagram that used to be in §2.
 
 Two splines run along the board, one per edge, parameterised `t` from tail (0) to nose
-(1). A grab is `(edge, t, whichHand)`. The right stick maps continuously into that
+(1). A grab is `(edge, t, whichHand)` — **incomplete**, see `grabs.md` §1: it needs
+`armRouting` as a fourth parameter, and `boneMap` on the tweak side.
+
+**The strongest argument for this whole architecture:** a method and a melon are the *same
+grab*. Front hand, heel edge, `t` ≈ 0.5, identical coordinate. Everything that separates
+them happens after the hand lands — spine extension, board behind rather than under. That
+is why the grab spline and the driver vector have to be separate systems, and why trick
+names must never appear in the input layer.
+
+**The arm is a tension member, never an actuator.** Once anchored, the hand does not lift
+the board; the legs push the board away against the anchored hand. Board orientation is
+the *effect*, knee and hip action the *cause*. Implemented the other way round the poses
+come out geometrically correct and read as dead.
+
+**The centre of mass stays on its parabola.** If tucking the legs swings the board back,
+the hips move forward by the mass-weighted equivalent. This single constraint generates
+most of what reads as authentic, including the arch in a method, which is largely
+counter-rotation of 15–25° against the board rather than decoration. A pose that moves the
+COM is wrong even when the silhouette looks right.
+
+Note that `grabs.md`'s data block uses the **opposite sign convention for `spineBend`** —
+there `+` is extension (arch), in the rig `+` folds the chest toward the toes. Its method
+value of `+0.92` is this rig's `−0.92`. The right stick maps continuously into that
 space: stick X → edge, stick Y → `t`.
 
 | Grab | Hand | Edge | `t` |
@@ -282,6 +466,12 @@ Two consequences that are easy to get wrong:
   `thigh + shin`, so how far the board can be shoved out is limited by the geometry
   rather than by a tuned maximum. Clamp `tweakOffset` to whatever keeps both feet
   reachable and let the anatomy be the limit.
+
+**In play the sim owns the board's attitude.** Each grab's pitch and roll live in
+`params.grab` (`methodPitch`, `methodRoll`, …) and `src/sim/grabs.ts` blends them over the
+grab spots, so the landing test composes `spinFrame ∘ shifty ∘ pitch ∘ roll` from the same
+numbers the rig draws. The anchors supply the body; pose mode's "write to anchor" copies an
+anchor's `boardPitch`/`tweakRoll` into those params.
 
 **Recovery is automatic.** Release the right stick and `tweakOffset` springs to zero at
 `grab.tweakRecover`, roughly 70 ms at the starting value. Decided, not open: requiring a
@@ -368,18 +558,61 @@ not.
 
 ## 8. Rails
 
-- Rails are catmull-rom splines in `park.json`, with a `width` and `type` (round/flat/tube).
-- On attach, position is constrained to the spline; velocity keeps only its tangential
-  component. Speed carried in ≈ speed carried through, minus `rail.friction`.
-- **Slide angle** is board heading relative to spline tangent, held by the player:
-  0° = 50-50, 90° = boardslide, plus `stance` offset for nose/tailslide. Continuous, not
-  a menu — a 70° slide is a legitimate thing to be doing.
-- **Balance** is a signed scalar drifting under seeded noise scaled by
-  `rail.driftBase * (1 + |slideAngle|)` and by how far off-centre the stance is.
-  Left stick X counters it. Exceeding `rail.balanceMax` → BAILED.
-  Balance must be *winnable but never free* — that tension is the whole feature.
-- Exit: pop (carries rail momentum + pop), ride off the end (retain state, re-enter
-  AIRBORNE), or bail.
+- Rails are polylines of straight segments (`rails` in the slope config, carried by the
+  take), points as (x, height above snow, z). Curves from short segments until M7 needs
+  splines.
+- On attach, position is constrained to the rail; velocity keeps only its tangential
+  component. Speed then follows gravity along the rail minus `rail.friction`, scaled up by
+  `rail.slideFriction` the further the board is turned across.
+- Capture: within `rail.captureRadius`, travelling within `rail.captureAngle` of the rail
+  line, not rising faster than `rail.captureRise` of speed. From air or snow.
+- **Slide angle** starts from how the board met the rail; LB/RB turn it at
+  `rail.slideRate`. 0 = 50-50, ±π/2 = boardslide, stance press = nose/tailslide.
+  Continuous, not a menu.
+- **Balance** is deterministic, no noise: an unstable lean
+  `b'' = λb − c·b' + rail.correctionGain·lx`, with
+  `λ = rail.instability·(1 + rail.slideDrift·|sin slide| + rail.pressDrift·|stance|)`.
+  The entry seeds it — lateral miss (`rail.entryOffsetGain`), sideways speed
+  (`rail.entryVelGain`), never less than `rail.minImbalance`. `|b| > rail.balanceMax` → BAILED.
+  Winnable but never free: hands off falls in ~1.2–1.6 s.
+- **Trick model** (`rail.trickModel` 1; takes before it replay with 0, the model above).
+  Presses and slides come from where the weight sits, not from spinning:
+  - The left stick is a weight shift in screen space (X toward the rail's side, Y toward
+    travel), split onto the board by the slide angle. So a 50-50, a boardslide and
+    riding switch all read the same way on the stick.
+  - Across the board it fights the **lean over the edges** (`balance`, + heel):
+    `b'' = λb − c·b' + correctionGain·w_heel + rail.slidePull·sin slide`, with `|contact|`
+    in place of `|stance|` in λ. The slide term is the rail grabbing the board while the
+    body keeps going: a boardslide pitches you toward travel, and holding it takes a steady
+    push back.
+  - Along the board it moves the **contact point** (−1 tail … +1 nose), a damped spring
+    (`rail.pressStiffness`, `rail.pressDamping`) toward `rail.pressMax·w_along`. Past
+    `rail.pressTip` the end outweighs you (`rail.tipInstability`) and must be fought back;
+    `|contact| ≥ 1` slips off that end → BAILED. A nose press is a 50-50 with the contact
+    forward; a noseslide is a boardslide with it forward.
+  - Capture seeds the contact from where along the board the rail was met and the lean
+    from the miss across it; sideways speed starts both moving.
+  - The board sits with its contact point over the rail. Render tips it onto that point
+    (`rig.pressPitch`) and puts the hips over it (`rig.pressHipShift`).
+  - LB/RB still turn the slide angle, now slowly (`rail.slideRate` 2): the way into a
+    boardslide is an ollie turned 90° onto the rail. Capture takes the slide angle from the
+    board, and a quick flick after the pop lands 45–120° across (probe).
+- **Slide poses** (render, `poses.ts`): anchors blended by how far across the rail the
+  board is and by the contact point, with the balance lean on top.
+  - `backsideBoardslide`: travelling toward the toes (open). Your pose: folded over the
+    toes, hips rolled, lead arm out along the rail.
+  - `frontsideBoardslide`: travelling toward the heels (blind). Your pose: shoulders opened,
+    head turned right round, upright.
+  - `press`: chest and front hand over the pressed end, mirrored for the tail.
+  - Came in riding switch (`switchRide`): the board sits the same on the rail but the lead
+    is the tail side, so the slide pose mirrors nose-for-tail.
+  - A slide anchor's `shifty` means the body turned against the board. In play the sim
+    owns the board, so it is applied as hip yaw.
+- **Names**, as read from the state (no score). Board across the rail, travelling toward
+  the heels (blind) = **frontside boardslide**; toward the toes (open) = **backside
+  boardslide** — your convention. Along the rail with the contact at an end = nose or tail
+  press; across with the contact at an end = nose or tail slide. Lipslides (approached so
+  the tail crosses the rail first) are still to name.
 
 ---
 
@@ -389,16 +622,44 @@ not.
 `wall.minSpeed` (~8 m/s). While WALLED, gravity is scaled to `wall.gravityScale` (~0.35)
 and speed bleeds at `wall.drag`. Dropping below min speed slides you off downward, not a
 bail. Board is slaved to the wall normal, so a wallride is visually just a very steep
-carve — which is exactly what it is.
+carve — which is exactly what it is. As built: WALLED runs the grounded step with those
+two changes. Entry needs the smoothed ground normal still gentle — the face arriving under
+the board — so a wall that has let go doesn't re-grab while you slide back down it. Walls
+are terrain (`walls` in the slope config): transition arc, straight face at `angle`, flat
+top, back face, ends faded in; their surface reads as `wall`. Popping on a wall's
+transition on the way in (steeper than `wall.popAngle`, not yet walled) while heading up or
+along it drives you up the face by `wall.popScale` of the pop instead of launching you off
+it; once walled, a pop is an ordinary air off the face, along its normal, and flying into a face
+fast enough sticks — only the heading angle is judged, since the board is slaved to it.
 
-**Butter.** `|stance| > butter.threshold` while grounded and below `butter.maxSpeed`:
-contact reduces to nose or tail point, grip drops to `butter.grip`, and yaw authority
-rises sharply so ground 180s/360s are possible. Exit by re-centering. Nose press into a
-pop is the entry to a nollie; keep those two systems composable.
+**Butter.** `|stance| > butter.press` while grounded and below `butter.maxSpeed` (faded in
+over `butter.speedFade`): grip scales by `butter.gripScale`, the carve stops handing scrub
+back to forward speed, and the edge stick pivots the board at `butter.yawRate`,
+independent of speed — so a ground 180/360 turns the board, not the rider's path. Render
+tips the board onto the pressed end by `butter.pitch`. Exit by re-centering. Nose press
+into a pop is the entry to a nollie; the pop's stance bias already composes with it.
 
 ---
 
 ## 10. Park format
+
+**Stand-in until milestone 7:** one table-top in `SlopeConfig.kicker` (main.ts), built into
+the heightfield — circular transition to the lip, flat deck, landing ramp. **Sidelines are landable, and that is intended** (decided by play). The landing test
+reads the contact normal wherever the board touches down, so the kicker's side taper — up
+to ~36° across — lands clean when the board matches it: a recorded 695° came down 7.4 m
+off centre on the side slope, clean. Keep the sides as a slope, not a wall, and don't
+special-case "off the landing" in the test.
+
+Two things it
+needed in the sim: grounded detaches when the surface turns away under the board
+(`air.detachSpeed`), or the deck catches the rider at the lip every tick; and in flight the
+board's pitch/roll relax toward the ground beneath (`air.levelRate`), or every straight air
+lands nose-high off the lip's angle. It is now a park table-top: circular takeoff to a 5.5 m lip, flat deck, rounded knuckle,
+a straight landing 0.3 rad below the slope (~33° absolute), rounded run-out. Sized by
+simulation at the 10–12 m/s you arrive with 10 m below spawn — the old 30 m placement gave
+18–22 m/s, which no park-sized landing can catch. Straight rolls land at ~3 m/s of impact.
+Popped airs still come in around 9 m/s: the pop adds ~7 m/s of lift, far more than an ollie
+off a real lip, so `pop.charged` is the lever there, not the landing.
 
 ```json
 {
@@ -464,7 +725,7 @@ export const params = {
     edgeResponse: 9.0,      // 1/s, stick-to-edge-angle rate
   },
   pop: {
-    chargeTime: 0.35,       // s to full compress
+    chargeTime: 0.25,       // s to full compress
     decay: 0.4,             // 1/s bleed after full
     base: 2.0,              // m/s uncharged
     charged: 5.0,           // m/s added at full charge
@@ -478,12 +739,15 @@ export const params = {
     extendMultiplier: 0.85, // spin rate while stretched
     spinMax: 9.0,           // rad/s cap
     axisTiltMax: 1.1,       // rad, max cork axis lerp
-    spinTakeoff: 7.0,       // rad/s at full stick on takeoff
+    spinTakeoff: 9.0,       // rad/s at full stick on takeoff (was 7, see §5)
+    takeoffWindow: 0.1,     // s after a pop the stick still counts as takeoff
+    checkRate: 6.0,         // 1/s, spin decay with the stick centred; 0 = coast
   },
   land: {
     clean: 0.44,            // rad ≈ 25°
     sketchy: 0.87,          // rad ≈ 50°
     rollClean: 0.35,        // rad, board-up vs contact normal
+    rollSketchy: 0.87,      // rad ≈ 50°, roll past which even a straight board bails
     sketchySpeedLoss: 0.25, // fraction
     absorbTime: 0.22,       // s
     headingSnap: 18.0,      // 1/s, heading correction onto velocity
@@ -515,10 +779,13 @@ export const params = {
     yawAuthority: 3.2,      // rad/s
   },
   grab: {
+    commit: 0.35,           // right-stick magnitude past which the hand reaches
+    edgeSharpness: 2.0,     // stick X gain onto the edge coordinate
     reachTime: 0.12,        // s, hand travel to the board once the stick commits
     releaseTime: 0.09,      // s, hand back to rest
     tweakEnter: 0.55,       // stick magnitude past which the tweak starts
-    tweakDepthMax: 1.0,     // rad of board rotation about the grab point at full push
+    tweakDepthMax: 1.15,    // rad of board rotation about the grab point at full push
+    tweakRate: 10.0,        // 1/s, board shoved out toward the stick's depth
     tweakRecover: 14.0,     // 1/s, board springs back to spinFrame on release
   },
   rig: {
@@ -529,9 +796,9 @@ export const params = {
     stanceWidth: 0.52,      // m between bindings
     hipHeight: 0.86,        // m above the deck, uncompressed
     kneeSplay: 0.5,         // rad, pole vector out from forward
-    hipStiffness: 90.0,     // ω, vertical and lateral hip spring
+    hipStiffness: 9.5,      // ω rad/s, vertical and lateral hip spring (90 was ω²)
     hipDamping: 1.0,        // ζ, 1.0 = critically damped
-    spineStiffness: 55.0,   // ω
+    spineStiffness: 7.4,    // ω rad/s (55 was ω²)
     spineDamping: 1.0,      // ζ
     counterRotation: 0.7,   // rad of spine twist against a wound-up spin at full charge
     shoulderLead: 0.25,     // rad, shoulders ahead of the board in flight
@@ -571,12 +838,49 @@ export const params = {
     fovBase: 62,            // deg
     fovSpeedGain: 0.5,      // deg per m/s
     rollGain: 0.18,         // rad per unit edge
+    followSpeed: 3.0,       // m/s above which the camera follows travel, not the board
   },
 };
 ```
 
 `rig.*` are render-side and do not affect the sim hash — except `grab.*`, which does,
 because `tweakOffset` reaches the landing test.
+
+---
+
+## Milestone status
+
+| # | Milestone | Status |
+|---|---|---|
+| 1 | Harness | Gate passed — real takes replay bit-identically, across machines since `dmath` |
+| 2 | Carving | Gate passed |
+| 3 | Air | Gate passed 2026-09 — spins with check, corks, flips, landing tolerance tuned by play |
+| 4 | Grabs + rig | Gate passed 2026-09 — authored anchors, grabs/tweak/shifty wired, pose-mode anchor editing |
+| 5 | Rails | **Unfinished** — built, gate not yet played: 50-50, boardslide, tailslide distinct; balance winnable not free |
+| 6 | Wallrides + butters | First pass in, started before M5's gate by choice — gate: both chain into and out of other states without a hitch |
+
+The default terrain is the Sochi 2014 Olympic course (`src/park/sochi.ts`) from the FIS
+plans, scaled by 9.81/16 = 0.61 so it rides at the real speeds under the sim's gravity:
+three jib sections — each a table with a small kicker in, rails and boxes on the deck and a
+landing off the end, ridden at ~10 m/s with walls beside — then three pairs of twin kickers — a narrow
+takeoff on a wide table (`deckWidth`) — on a stepped profile where the slope drops away
+under each landing. Snow friction (`ground.friction`, μ 0.06) is what lets a stepped course
+hold its speed; powder can later be its own μ. `?park=slopestyle` loads the first park.
+
+The first test terrain is a small slopestyle line in `src/park/slopestyle.ts` — rails, a wall,
+two kickers, a last rail and a corner, with near-flat decks (`grades`) holding speed
+between them. The corner (`corners` in the slope config) is a straight takeoff onto a long
+narrow deck with landings falling away on both sides and ahead: carve across the takeoff
+toward your toes for the frontside landing, toward your heels for the backside one.
+At the bottom is a quarter pipe (`quarters`), facing uphill, ridden at full gravity — the
+wallride's reduced gravity applies to wall surfaces only. A heightfield can't be vertical,
+so leaving a quarter-pipe face drops the horizontal speed that would carry you over the
+deck and adds `wall.vertReturn` back into the pipe: airs go straight up and land back on
+the face. Popping on the face adds to the climb, like the pop onto a wall. Because that
+pop goes into the climb, leaving the top is the takeoff (`wall.lipTakeoff`): the stick at
+the lip sets the spin as it would at a pop, within `air.takeoffWindow`. The spin turns in
+the wall's plane, so every 180 lands: nose down forward, nose up fakie.
+Hand-placed data; milestone 7 moves it to `park.json`.
 
 ---
 
@@ -587,8 +891,8 @@ because `tweakOffset` reaches the landing test.
    scale takeoff uses.
 2. Should switch riding invert the edge mapping, or is heading-relative enough?
 3. Does `speedFactorKnee` at 6 m/s make slow-speed riding feel dead?
-4. Rail balance: noise-driven, or fully deterministic from entry angle? Deterministic is
-   more learnable; noise is more tense. Try deterministic first.
+4. ~~Rail balance: noise-driven, or fully deterministic from entry angle?~~ **Decided:**
+   deterministic. Learnable beats tense; noise can be layered later if it plays free.
 5. Does a scoreless game need a "clean/sketchy" stamp at all, or is the physical read
    enough? Build without it, add only if the game feels mute.
 6. Crossed grabs (crail, roast beef) need the hand that §7.3's reach rule would not
