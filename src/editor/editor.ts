@@ -4,7 +4,10 @@ import { Pane, type FolderApi } from 'tweakpane';
 import { GEN } from '../gen/config.ts';
 import type { Kind } from '../gen/lines.ts';
 import type { Size } from '../gen/kit.ts';
+import { popRange } from '../gen/flight.ts';
 import type { Design, FeatureSpec, Layout } from '../park/layout.ts';
+import type { PatchConfig } from '../sim/heightfield.ts';
+import type { OverlayName } from '../render/debugOverlays.ts';
 import type { Rect } from '../render/terrainMesh.ts';
 import type { Params } from '../sim/params.ts';
 import type { Spawn } from '../sim/state.ts';
@@ -20,7 +23,9 @@ import {
   groupOf,
   mirrored,
   moved,
+  newPatch,
   originOf,
+  patchAt,
   printOf,
   rectOf,
   removeFeatures,
@@ -29,7 +34,10 @@ import {
   sizesOf,
   type Place,
 } from './edits.ts';
+import { lipOf, takeoffOf, validate, type Verdict } from './airs.ts';
 import { addGroundFolder } from './groundPanel.ts';
+import { createMarks } from './marks.ts';
+import { createProfile } from './profile.ts';
 import { createHistory, dropCopy, hashOf, keepCopy, localCopy, parkKey } from './store.ts';
 
 /**
@@ -48,7 +56,8 @@ export type EditorHost = {
   setPark(layout: Layout, changed?: readonly Rect[]): void;
   /** Leave edit mode and ride: from `spawn` when given, else from the last start. */
   ride(spawn?: Spawn): void;
-  heatmap(on: boolean): void;
+  /** Show one of the park's overlays (render/debugOverlays.ts), or none. */
+  overlay(name: OverlayName): void;
   download(name: string, json: string): void;
 };
 
@@ -101,8 +110,11 @@ export function createEditor(host: EditorHost): Editor {
     status.text = text;
   };
 
-  // --- selection and the gizmo ---
+  // --- selection and the gizmo: features, or one terrain patch ---
   let sel: number[] = [];
+  let patch = -1;
+  const patchOf = (): PatchConfig | undefined => layout.ground.field?.patches[patch];
+  const basePitch = (): number => layout.ground.field?.pitch ?? layout.ground.pitch;
   const pivot = new THREE.Object3D();
   host.scene.add(pivot);
   const gizmo = new TransformControls(view.camera, host.canvas);
@@ -131,9 +143,15 @@ export function createEditor(host: EditorHost): Editor {
     return f ? originOf(f) : { x: 0, z: 0, yaw: 0 };
   };
   const seatPivot = (): void => {
-    const on = sel.length > 0 && active;
+    const pa = patchOf();
+    const on = (sel.length > 0 || !!pa) && active;
     helper.visible = on;
     gizmo.enabled = on;
+    if (pa) {
+      pivot.position.set(pa.x, heightAt(pa.x, pa.z), pa.z);
+      pivot.rotation.set(0, -pa.yaw, 0);
+      return;
+    }
     if (!sel.length) return;
     const p = placeOf(sel);
     pivot.position.set(p.x, heightAt(p.x, p.z), p.z);
@@ -147,9 +165,91 @@ export function createEditor(host: EditorHost): Editor {
   const select = (idx: number[]): void => {
     // Ascending: a group's parts were added in the kit's order, which a re-solve returns them in.
     sel = [...new Set(idx)].filter((i) => i >= 0 && i < layout.features.length).sort((a, b) => a - b);
+    if (patch >= 0) {
+      patch = -1;
+      groundPanel.select(-1);
+    }
     seatPivot();
     buildFeature();
+    profile.set(shown());
+    describe();
   };
+  /** Select terrain patch `i` (−1: none): the gizmo moves and turns it, the profile shows its section. */
+  const selectPatch = (i: number, fromPanel = false): void => {
+    sel = [];
+    patch = i;
+    if (!fromPanel) groundPanel.select(i);
+    seatPivot();
+    buildFeature();
+    const p = patchOf();
+    if (p) profile.setPatch(p, i, basePitch());
+    else profile.set(undefined);
+  };
+  /** The part of the selection the profile shows: the one that takes off, else the first. */
+  const shown = (): FeatureSpec | undefined => {
+    const parts = sel.map((i) => layout.features[i]).filter((f): f is FeatureSpec => !!f);
+    return parts.find((f) => takeoffOf(f)) ?? parts[0];
+  };
+
+  // --- checks: validation dots, impact on landings, the profile ---
+  const [pop0, pop1] = popRange(host.params);
+  const checks = { profile: true, dots: true, impact: false, overlay: 'none' as OverlayName, popMin: pop0, popMax: pop1, turn: 0 };
+  const pops = (): [number, number] => [Math.min(checks.popMin, checks.popMax), Math.max(checks.popMin, checks.popMax)];
+  const marks = createMarks(host.scene);
+  marks.show(false);
+  let verdicts: Map<number, Verdict> | undefined;
+  const verdictText = { text: '' };
+  /** The selected feature's verdict, in words. */
+  const describe = (): void => {
+    const v = sel.map((i) => verdicts?.get(i)).find((x) => x);
+    verdictText.text = !checks.dots ? 'validation off' : !v ? 'not checked' : `${v.colour}${v.why.length ? ': ' + v.why.join('; ') : ''}`;
+  };
+  let checkTimer: ReturnType<typeof setTimeout> | undefined;
+  /** Checks run a moment after the last change, not on every frame of a drag. */
+  const recheck = (): void => {
+    clearTimeout(checkTimer);
+    checkTimer = setTimeout(() => {
+      if (!active) return;
+      verdicts = checks.dots ? validate(layout, host.terrain(), host.params, pops()) : undefined;
+      marks.dots(layout, host.terrain(), verdicts);
+      marks.impact(checks.impact ? layout : undefined, host.terrain(), host.params, pops());
+      describe();
+    }, 300);
+  };
+  const profile = createProfile({
+    editPatch: (change, final) => {
+      const p = patchOf();
+      if (!p) return;
+      change(p);
+      groundPanel.outline();
+      if (!final) return profile.redraw();
+      rebuild();
+      commit();
+      groundPanel.refresh();
+    },
+    terrain: host.terrain,
+    ground: () => groundNow(),
+    params: host.params,
+    pops,
+    turn: () => checks.turn,
+    edit: (change, final) => {
+      const f = shown();
+      const i = f ? layout.features.indexOf(f) : -1;
+      if (!f || i < 0) return;
+      const old = rectsOf([i]);
+      const next = structuredClone(f);
+      change(next);
+      if (next.meta && (next.kind === 'kicker' || next.kind === 'corner')) next.meta.lip = lipOf(next);
+      layout.features[i] = next;
+      if (!final) {
+        pending = [...(pending ?? []), ...old, ...rectsOf([i])];
+        return;
+      }
+      rebuild();
+      commit();
+      buildFeature();
+    },
+  });
 
   /** A finished edit: keep it for undo, mark the local copy stale. */
   const commit = (): void => {
@@ -158,11 +258,21 @@ export function createEditor(host: EditorHost): Editor {
   };
   const rebuild = (rects?: readonly Rect[]): void => {
     host.setPark(layout, rects);
+    const p = patchOf();
+    if (p) profile.setPatch(p, patch, basePitch());
+    else profile.set(shown());
+    recheck();
   };
 
   // --- dragging: the parts move rigidly while held; a designed obstacle re-solves on release ---
   let start: { parts: FeatureSpec[]; place: Place; rects: Rect[]; x: number; z: number; rot: number } | undefined;
+  let patchStart: { x: number; z: number; yaw: number; px: number; pz: number; rot: number } | undefined;
   const startDrag = (): void => {
+    const p = patchOf();
+    if (p) {
+      patchStart = { x: p.x, z: p.z, yaw: p.yaw, px: pivot.position.x, pz: pivot.position.z, rot: pivot.rotation.y };
+      return;
+    }
     if (!sel.length) return;
     start = {
       parts: sel.map((i) => structuredClone(layout.features[i] as FeatureSpec)),
@@ -179,6 +289,15 @@ export function createEditor(host: EditorHost): Editor {
     return { x: start.place.x + pivot.position.x - start.x, z: start.place.z + pivot.position.z - start.z, yaw: start.place.yaw - (pivot.rotation.y - start.rot) };
   };
   const drag = (): void => {
+    const p = patchOf();
+    if (p && patchStart) {
+      // The patch's data and outline follow the gizmo; the snow re-bakes on release.
+      p.x = patchStart.x + pivot.position.x - patchStart.px;
+      p.z = patchStart.z + pivot.position.z - patchStart.pz;
+      p.yaw = patchStart.yaw - (pivot.rotation.y - patchStart.rot);
+      groundPanel.outline();
+      return;
+    }
     const to = dragged();
     if (!start || !to) return;
     const dx = to.x - start.place.x;
@@ -191,6 +310,14 @@ export function createEditor(host: EditorHost): Editor {
     pending = [...start.rects, ...rectsOf(sel)];
   };
   const endDrag = (): void => {
+    if (patchStart) {
+      patchStart = undefined;
+      rebuild();
+      commit();
+      seatPivot();
+      groundPanel.refresh();
+      return;
+    }
     if (!start) return;
     const was = start;
     start = undefined;
@@ -292,7 +419,7 @@ export function createEditor(host: EditorHost): Editor {
   });
 
   // --- palette ---
-  const palette = { kind: 'kicker' as Kind, size: 'M' as Size, align: true, armed: false };
+  const palette = { kind: 'kicker' as Kind, size: 'M' as Size, align: true, armed: false, patch: false };
   const place = pane.addFolder({ title: 'place', expanded: false });
   const kindOptions: Record<string, Kind> = {};
   for (const k of KINDS) kindOptions[k] = k;
@@ -308,8 +435,15 @@ export function createEditor(host: EditorHost): Editor {
   place.addBinding(palette, 'kind', { options: kindOptions }).on('change', () => sizeList());
   sizeList();
   place.addBinding(palette, 'align', { label: 'align to fall line (Alt: the other)', index: 2 });
+  place.addButton({ title: 'add terrain patch: then click the snow' }).on('click', () => {
+    if (!layout.ground.field) return say("this park's ground is a plane: it has no patches");
+    palette.armed = true;
+    palette.patch = true;
+    say('click the snow where the patch starts (Esc cancels)');
+  });
   place.addButton({ title: 'place: then click the snow', index: 3 }).on('click', () => {
     palette.armed = true;
+    palette.patch = false;
     say(`click the snow to place a ${palette.size} ${palette.kind} (Esc cancels)`);
   });
 
@@ -319,6 +453,15 @@ export function createEditor(host: EditorHost): Editor {
     if (palette.align !== alt) {
       const n = groundNow().sample(x, z, c).normal;
       if (Math.hypot(n.x, n.z) > 0.01) yaw = Math.atan2(n.x, -n.z);
+    }
+    const list = layout.ground.field?.patches;
+    if (palette.patch && list) {
+      list.push(newPatch(x, z, yaw, basePitch()));
+      rebuild();
+      commit();
+      groundPanel.refresh();
+      selectPatch(list.length - 1);
+      return say('patch added: drag it with the gizmo, shape it in the profile');
     }
     const d: Design = { kind: palette.kind, place: { x, z, yaw }, size: palette.size, speed: designSpeed(palette.kind, palette.size, host.params), inputs: {} };
     const parts = design(d, groundNow(), host.params, freeGroup(layout), rangesFor(d));
@@ -354,6 +497,7 @@ export function createEditor(host: EditorHost): Editor {
     const d = oneGroup() ? designOf(layout, sel) : undefined;
     const type = f.meta?.design?.kind ?? f.meta?.type ?? (f.kind === 'shape' ? f.cfg.kind : f.kind);
     featureFolder = pane.addFolder({ title: `${type} #${i}${sel.length > 1 ? ` (+${sel.length - 1} parts)` : ''} — ${d ? 'designed' : 'hand'}` });
+    featureFolder.addBinding(verdictText, 'text', { readonly: true, multiline: true, rows: 3, label: 'check' });
     if (d) designPanel(featureFolder, d.design);
     else handPanel(featureFolder, i, f);
   };
@@ -403,14 +547,24 @@ export function createEditor(host: EditorHost): Editor {
         const next = structuredClone(layout.features[i] as FeatureSpec);
         const n = next.cfg as unknown as Record<string, number>;
         n[k] = angle(k) ? (values[k] ?? 0) / DEG : (values[k] ?? 0);
+        if (next.meta && (next.kind === 'kicker' || next.kind === 'corner')) next.meta.lip = lipOf(next);
         layout.features[i] = next;
         rebuild([...old, ...rectsOf([i])]);
         commit();
       });
     }
-    if (f.meta?.speed) {
-      const info = { speed: `${f.meta.speed[0]}–${f.meta.speed[1]} m/s` };
-      folder.addBinding(info, 'speed', { readonly: true, label: 'design speed' });
+    const meta = f.meta;
+    if (meta?.speed) {
+      // The speeds it is checked at (profile, validation): a hand feature's are only a label.
+      const speed = { min: meta.speed[0], max: meta.speed[1] };
+      const set = (): void => {
+        meta.speed = [Math.min(speed.min, speed.max), Math.max(speed.min, speed.max)];
+        profile.redraw();
+        recheck();
+        commit();
+      };
+      folder.addBinding(speed, 'min', { label: 'speed min m/s', min: 0, max: 30, step: 0.5 }).on('change', (ev) => ev.last && set());
+      folder.addBinding(speed, 'max', { label: 'speed max m/s', min: 0, max: 30, step: 0.5 }).on('change', (ev) => ev.last && set());
     }
   };
 
@@ -425,8 +579,29 @@ export function createEditor(host: EditorHost): Editor {
       rebuild();
       commit();
     },
-    host.heatmap,
+    (on) => {
+      checks.overlay = on ? 'slope' : 'none';
+      host.overlay(checks.overlay);
+      pane.refresh();
+    },
+    (i) => selectPatch(i, true),
   );
+
+  // --- checks folder ---
+  const checkFolder = pane.addFolder({ title: 'checks', expanded: false });
+  checkFolder.addBinding(checks, 'profile', { label: 'profile (section)' }).on('change', (ev) => profile.show(active && ev.value));
+  checkFolder.addBinding(checks, 'dots', { label: 'validation dots' }).on('change', () => recheck());
+  checkFolder.addBinding(checks, 'impact', { label: 'impact on landings' }).on('change', () => recheck());
+  checkFolder
+    .addBinding(checks, 'overlay', { options: { none: 'none', 'slope heatmap': 'slope', 'connection graph': 'graph', 'design arcs': 'arcs', 'lines and footprints': 'lines' } })
+    .on('change', (ev) => host.overlay(ev.value));
+  const popChanged = (): void => {
+    profile.redraw();
+    recheck();
+  };
+  checkFolder.addBinding(checks, 'popMin', { label: 'pop min m/s', min: 0, max: 6, step: 0.1 }).on('change', (ev) => ev.last && popChanged());
+  checkFolder.addBinding(checks, 'popMax', { label: 'pop max m/s', min: 0, max: 6, step: 0.1 }).on('change', (ev) => ev.last && popChanged());
+  checkFolder.addBinding(checks, 'turn', { label: 'section heading °', min: -90, max: 90, step: 1 }).on('change', () => profile.redraw());
 
   // --- actions ---
   const replaceLayout = (l: Layout): void => {
@@ -452,6 +627,15 @@ export function createEditor(host: EditorHost): Editor {
     say('redone');
   };
   const remove = (): void => {
+    const p = patchOf();
+    if (p) {
+      layout.ground.field?.patches.splice(patch, 1);
+      selectPatch(-1);
+      rebuild();
+      commit();
+      groundPanel.refresh();
+      return say('patch deleted');
+    }
     if (!sel.length) return;
     const old = rectsOf(sel);
     removeFeatures(layout, sel);
@@ -463,6 +647,20 @@ export function createEditor(host: EditorHost): Editor {
     say('deleted');
   };
   const duplicate = (): void => {
+    const pa = patchOf();
+    if (pa) {
+      // Beside it, across its axis, clear of its edge fade.
+      const w = 2 * (pa.halfWidth + pa.edge);
+      const copy: PatchConfig = { ...structuredClone(pa), natural: undefined, x: pa.x + Math.cos(pa.yaw) * w, z: pa.z + Math.sin(pa.yaw) * w };
+      delete copy.natural;
+      const list = layout.ground.field?.patches;
+      if (!list) return;
+      list.push(copy);
+      rebuild();
+      commit();
+      selectPatch(list.length - 1);
+      return say(`patch duplicated ${w.toFixed(0)} m across`);
+    }
     if (!sel.length) return;
     const p = printOf(layout.features[sel[0] ?? 0] as FeatureSpec);
     const shift = p.w1 - p.w0 + 4; // beside it, clear of it
@@ -479,6 +677,15 @@ export function createEditor(host: EditorHost): Editor {
     say(`duplicated ${shift.toFixed(0)} m across`);
   };
   const mirror = (): void => {
+    const pa = patchOf();
+    if (pa) {
+      pa.yaw = -pa.yaw;
+      rebuild();
+      commit();
+      seatPivot();
+      groundPanel.refresh();
+      return say('patch mirrored');
+    }
     if (!sel.length) return;
     const d = oneGroup() ? designOf(layout, sel) : undefined;
     if (d) {
@@ -515,7 +722,8 @@ export function createEditor(host: EditorHost): Editor {
     say(`${designed.length - failed} re-solved${failed ? `, ${failed} can't stand where they are` : ''}`);
   };
   const frame = (): void => {
-    const p = sel.length ? placeOf(sel) : layout.spawn;
+    const pa = patchOf();
+    const p = pa ?? (sel.length ? placeOf(sel) : layout.spawn);
     view.frame(p.x, heightAt(p.x, p.z), p.z, 45);
   };
   const rideHere = (): void => {
@@ -574,6 +782,12 @@ export function createEditor(host: EditorHost): Editor {
     if (palette.armed) return placeAt(at.x, at.z, ev.altKey);
     const i = featureAt(layout, at.x, at.z);
     if (i === undefined) {
+      // No feature there: the terrain patch under it, if any.
+      const pi = patchAt(layout.ground.field?.patches ?? [], at.x, at.z);
+      if (pi !== undefined && !ev.shiftKey) {
+        selectPatch(pi);
+        return say(`terrain patch ${pi} — drag the gizmo, shape it in the profile, Esc to let go`);
+      }
       if (!ev.shiftKey) select([]);
       return;
     }
@@ -613,7 +827,8 @@ export function createEditor(host: EditorHost): Editor {
       if (palette.armed) {
         palette.armed = false;
         say('placing cancelled');
-      } else select([]);
+      } else if (patch >= 0) selectPatch(-1);
+      else select([]);
     }
   });
   addEventListener('keyup', (ev) => held.delete(ev.code));
@@ -641,6 +856,11 @@ export function createEditor(host: EditorHost): Editor {
       seatPivot();
       groundPanel.refresh();
       buildFeature();
+      marks.show(true);
+      profile.show(checks.profile);
+      profile.set(shown());
+      host.overlay(checks.overlay);
+      recheck();
     },
     leave() {
       save();
@@ -652,6 +872,9 @@ export function createEditor(host: EditorHost): Editor {
       helper.visible = false;
       gizmo.enabled = false;
       groundPanel.show(false);
+      marks.show(false);
+      profile.show(false);
+      host.overlay('none');
     },
     update(dt) {
       if (!active) return;

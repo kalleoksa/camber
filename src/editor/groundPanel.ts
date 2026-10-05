@@ -3,13 +3,23 @@ import type { FolderApi, Pane } from 'tweakpane';
 import type { Layout } from '../park/layout.ts';
 import type { PatchConfig } from '../sim/heightfield.ts';
 import { createContact, type Terrain } from '../sim/terrain.ts';
+import { patchStep } from './edits.ts';
 
 /**
  * The ground folder: base pitch, banks and the heightfield's band patches as data — not
  * sculpting. The selected patch is outlined on the snow (inner line: full height, outer: where
  * its edge fade ends). Changes apply on release: the field re-bakes and the park is rebuilt.
  */
-export type GroundPanel = { refresh(): void; show(on: boolean): void; dispose(): void };
+export type GroundPanel = {
+  refresh(): void;
+  /** Select patch `i` (−1: none), as a click on the snow does. */
+  select(i: number): void;
+  selected(): number;
+  /** Redraw the selected patch's outline: while it is dragged, before the snow is re-baked. */
+  outline(): void;
+  show(on: boolean): void;
+  dispose(): void;
+};
 
 const DEG = 180 / Math.PI;
 
@@ -21,6 +31,7 @@ export function addGroundFolder(
   focus: () => { x: number; z: number },
   changed: () => void,
   heatmap: (on: boolean) => void,
+  selected: (i: number) => void,
 ): GroundPanel {
   const folder = pane.addFolder({ title: 'ground', expanded: false });
   const outline = new THREE.Group();
@@ -31,13 +42,7 @@ export function addGroundFolder(
 
   const patches = (): PatchConfig[] => get().ground.field?.patches ?? [];
 
-  /** Height the patch leaves over the base grade at its end: anything but 0 is a step across the slope. */
-  const stepOf = (p: PatchConfig): number => {
-    const base = Math.tan(get().ground.field?.pitch ?? get().ground.pitch);
-    let h = 0;
-    for (const [len, pitch] of p.segs) h += (base - Math.tan(pitch)) * len;
-    return h;
-  };
+  const stepOf = (p: PatchConfig): number => patchStep(p, get().ground.field?.pitch ?? get().ground.pitch);
 
   const drawOutline = (): void => {
     for (const o of outline.children) (o as THREE.Line).geometry.dispose();
@@ -101,12 +106,16 @@ export function addGroundFolder(
     const options: Record<string, number> = { none: -1 };
     f.patches.forEach((p, i) => (options[`${i}${p.natural ? ' (natural)' : ''} at z ${p.z.toFixed(0)}`] = i));
     if (state.patch >= f.patches.length) state.patch = -1;
-    body.addBinding(state, 'patch', { options }).on('change', () => later());
+    body.addBinding(state, 'patch', { options }).on('change', () => {
+      selected(state.patch);
+      later();
+    });
     body.addButton({ title: 'add patch here' }).on('click', () => {
       const at = focus();
       f.patches.push({ x: at.x, z: at.z, yaw: 0, halfWidth: 8, edge: 4, blend: 4, segs: [[20, g.pitch * 0.5], [10, g.pitch * 2]] });
       state.patch = f.patches.length - 1;
       apply();
+      selected(state.patch);
       later();
     });
     const p = f.patches[state.patch];
@@ -117,6 +126,7 @@ export function addGroundFolder(
       f.patches.splice(state.patch, 1);
       state.patch = -1;
       apply();
+      selected(-1);
       later();
     });
     const frame = { yaw: p.yaw * DEG };
@@ -164,9 +174,16 @@ export function addGroundFolder(
   build();
   return {
     refresh: build,
+    select(i) {
+      state.patch = i;
+      if (i >= 0) folder.expanded = true;
+      later();
+      drawOutline();
+    },
+    selected: () => state.patch,
+    outline: drawOutline,
     show(on) {
       outline.visible = on;
-      if (state.heatmap) heatmap(on); // an editing aid: off while riding, back on return
     },
     dispose() {
       for (const o of outline.children) (o as THREE.Line).geometry.dispose();

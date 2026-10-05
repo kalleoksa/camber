@@ -3,7 +3,7 @@ import { corners, footprint, type Footprint } from '../gen/footprint.ts';
 import { redesign, wantedSpeed, type Kind } from '../gen/lines.ts';
 import type { Size } from '../gen/kit.ts';
 import { toSlopeConfig, type Design, type FeatureSpec, type Layout } from '../park/layout.ts';
-import type { Field } from '../sim/heightfield.ts';
+import type { Field, PatchConfig } from '../sim/heightfield.ts';
 import type { Params } from '../sim/params.ts';
 import { createRng } from '../sim/rng.ts';
 import { createContact, createSlope, type Terrain } from '../sim/terrain.ts';
@@ -238,4 +238,49 @@ export function rideSpawn(f: FeatureSpec, terrain: Terrain, runIn: number): { po
     heading: Math.PI - o.yaw,
     speed: mid > 0 && mid < 40 ? mid : 8,
   };
+}
+
+/** Height a patch leaves over the base grade at its end: anything but 0 is a step across the slope. */
+export function patchStep(p: PatchConfig, basePitch: number): number {
+  const base = Math.tan(basePitch);
+  let h = 0;
+  for (const [len, pitch] of p.segs) h += (base - Math.tan(pitch)) * len;
+  return h;
+}
+
+/** Where (x, z) is in a patch's frame (heightfield.ts): `along` its axis from its start, `across` it. */
+export function patchFrame(p: PatchConfig, x: number, z: number): { along: number; across: number } {
+  const c = Math.cos(p.yaw);
+  const s = Math.sin(p.yaw);
+  return { along: (p.z - z) * c + (x - p.x) * s, across: (x - p.x) * c - (p.z - z) * s };
+}
+
+/** The patch under (x, z): the smallest holding it at full height. Natural zones aren't shapes, so not those. */
+export function patchAt(patches: readonly PatchConfig[], x: number, z: number): number | undefined {
+  let best: number | undefined;
+  let area = Infinity;
+  patches.forEach((p, i) => {
+    if (p.natural) return;
+    let total = 0;
+    for (const [len] of p.segs) total += len;
+    const { along, across } = patchFrame(p, x, z);
+    const a = total * p.halfWidth;
+    if (along >= 0 && along <= total && Math.abs(across) <= p.halfWidth && a < area) {
+      best = i;
+      area = a;
+    }
+  });
+  return best;
+}
+
+/**
+ * A new patch at (x, z) facing `yaw`: a gentle bench and then a steeper roll that gives the
+ * height back, so it leaves no step.
+ */
+export function newPatch(x: number, z: number, yaw: number, basePitch: number): PatchConfig {
+  const bench = 15;
+  const flat = Math.tan(basePitch * 0.3);
+  const steep = Math.tan(Math.max(basePitch * 2.2, 15 / (180 / Math.PI)));
+  const roll = (bench * (Math.tan(basePitch) - flat)) / Math.max(1e-3, steep - Math.tan(basePitch));
+  return { x, z, yaw, halfWidth: 8, edge: 4, blend: 4, segs: [[bench, Math.atan(flat)], [Math.max(2, roll), Math.atan(steep)]] };
 }

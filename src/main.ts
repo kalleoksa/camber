@@ -899,7 +899,7 @@ async function edit(): Promise<void> {
     terrain: () => terrain,
     setPark,
     ride,
-    heatmap: (on) => overlays.show(on ? 'slope' : 'none'),
+    overlay: (name) => overlays.show(name),
     download,
   });
   finishRun();

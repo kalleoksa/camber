@@ -195,6 +195,22 @@ shared ride bot. (`meta.group` is done.)
 9. Impact overlay and validation dots.
 10. Connection graph overlay (`Layout.links` exists).
 
+*Phase 2 done* (`src/editor/airs.ts`, `profile.ts`, `marks.ts`). Where it differs:
+- **Profile handles** only on hand-built kickers and plain corners (lip height, lip angle, table
+  length, knuckle height for step up/down). A designed kicker has no inputs besides its size; its
+  shape is solved, so the profile shows it without handles.
+- **Validation red** is "something raises the snow on its run-in" (compared with the obstacle
+  alone on the ground), not footprint overlap: Talma's split kickers share a table on purpose.
+  Arrival speeds come from the speed check bot for features on a line (red under the design
+  minimum, amber over the maximum straight-lining), from the speed map off the lines (red only).
+  No `brakeMargin` term: the bot's straight-line arrival is already the worst case.
+- **Connection graph:** the existing `graph` overlay, from the checks folder.
+- **Ground like obstacles** (asked for after phase 1): a click on snow with no feature selects
+  the terrain patch under it; the gizmo moves and turns it (the snow re-bakes on release); the
+  profile shows its long section with its segments as designed, a handle at each segment's end
+  (length) and middle (pitch), and the step it leaves at its end. Delete, duplicate, mirror
+  work on a patch; "add terrain patch" in the place folder drops one that gives its height back.
+
 ## Done when
 
 First use: fix the Talma reference park with it and export its JSON for `parks/`.
