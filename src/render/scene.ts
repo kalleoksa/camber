@@ -8,6 +8,7 @@ import { createContact } from '../sim/terrain.ts';
 import { length, vec3, type Vec3 } from '../sim/vec3.ts';
 import { boardAttitude, GRABS, grabAttitude } from '../sim/grabs.ts';
 import { ANCHORS, BODY_KEYS, grabBody, namedGrabBody } from './poses.ts';
+import { createTerrainMesh, type TerrainMesh } from './terrainMesh.ts';
 import { butterAmount } from '../sim/states/grounded.ts';
 import { BOARD_HALF, copyDrivers, createRig, edgePoint, gripWeight, mirrorDrivers, neutralDrivers, smoothstep, type RigDrivers } from './rig.ts';
 import type { Secondary } from './secondary.ts';
@@ -145,8 +146,8 @@ export function interpolateRider(prev: RiderState, cur: RiderState, alpha: numbe
 export type SceneView = {
   renderer: THREE.WebGLRenderer;
   scene: THREE.Scene;
-  /** The terrain mesh; debug overlays share its geometry. */
-  ground: THREE.Mesh;
+  /** The terrain mesh, chunked; `update` each frame sharpens it round the camera. */
+  ground: TerrainMesh;
   rider: THREE.Group;
   /** Drivers the rig is currently posed with. Pose mode writes here directly. */
   drivers: RigDrivers;
@@ -241,101 +242,6 @@ function runInOf(k: KickerConfig | CornerConfig): number {
 /** Kickers and corners: both start with the same arc up to a lip. */
 function takeoffs(cfg: SlopeConfig): Array<KickerConfig | CornerConfig> {
   return [...(cfg.kickers ?? []), ...(cfg.corners ?? [])];
-}
-
-function gridColumns(cfg: SlopeConfig, cell: number): number[] {
-  const half = cfg.width / 2;
-  const xs: number[] = [];
-  const coarse = Math.round(cfg.width / cell);
-  for (let i = 0; i <= coarse; i++) xs.push(-half + (cfg.width * i) / coarse);
-  for (const w of cfg.walls ?? []) {
-    const span = w.radius + w.top + 2 * w.height + 1;
-    const from = Math.min(w.x, w.x + w.side * span) - 0.5;
-    const to = Math.max(w.x, w.x + w.side * span) + 0.5;
-    for (let x = from; x <= to; x += 0.1) xs.push(x);
-  }
-  // Cut takeoffs: fine columns across each side so the wall is a wall, not a ramp. Turned
-  // ones (yaw) run across the columns, so they don't get them.
-  for (const k of takeoffs(cfg)) {
-    if (k.sideTaper > 1 || k.yaw) continue;
-    for (const side of [-1, 1]) {
-      const edge = k.x + side * k.width * 0.5;
-      for (let x = edge - 0.3; x <= edge + 0.3 + k.sideTaper; x += 0.1) xs.push(side > 0 ? x : 2 * edge - x);
-    }
-  }
-  // Quarter pipes facing across the slope: their face runs along Z, like a wall's. Only the
-  // transition and face need it — deck and back are gentle, and these run the park's length.
-  for (const q of cfg.quarters ?? []) {
-    if (!q.side) continue;
-    const span = q.radius + q.height + 0.5;
-    const from = Math.min(q.x, q.x + q.side * span) - 0.5;
-    const to = Math.max(q.x, q.x + q.side * span) + 0.5;
-    for (let x = from; x <= to; x += 0.15) xs.push(x);
-  }
-  xs.sort((p, q) => p - q);
-  return xs.filter((x, i) => Math.abs(x) <= half && (i === 0 || x - (xs[i - 1] ?? -Infinity) > 0.02));
-}
-
-/** Grid rows down the slope, likewise: 0.1 m across an uphill-facing quarter pipe's face, which runs across X. */
-function gridRows(cfg: SlopeConfig, runOut: number, cell: number): number[] {
-  const zs: number[] = [];
-  const coarse = Math.round((cfg.length + runOut) / cell);
-  for (let j = 0; j <= coarse; j++) zs.push(runOut - ((cfg.length + runOut) * j) / coarse);
-  // A kicker's lip: fine rows across it, so the edge reads sharp.
-  for (const k of takeoffs(cfg)) {
-    const lip = k.z - runInOf(k);
-    for (let z = lip + 0.6; z >= lip - 0.6; z -= 0.1) zs.push(z);
-  }
-  for (const q of cfg.quarters ?? []) {
-    if (q.side) continue;
-    const span = q.radius + q.deck + 2 * q.height + 1;
-    for (let z = q.z + 0.5; z >= q.z - span; z -= 0.1) zs.push(z);
-  }
-  zs.sort((p, q) => q - p);
-  return zs.filter((z, j) => j === 0 || (zs[j - 1] ?? Infinity) - z > 0.02);
-}
-
-function slopeMesh(cfg: SlopeConfig, terrain: Terrain, cell: number): THREE.Mesh {
-  const runOut = 20;
-  const xs = gridColumns(cfg, cell);
-  const zs = gridRows(cfg, runOut, cell);
-  const rows = zs.length - 1;
-  const cols = xs.length;
-  const positions = new Float32Array(cols * (rows + 1) * 3);
-  const uvs = new Float32Array(cols * (rows + 1) * 2);
-  const contact = createContact();
-  for (let j = 0; j <= rows; j++) {
-    const z = zs[j] ?? 0;
-    for (let i = 0; i < cols; i++) {
-      const x = xs[i] ?? 0;
-      const k = j * cols + i;
-      positions[k * 3] = x;
-      positions[k * 3 + 1] = terrain.sample(x, z, contact).height;
-      positions[k * 3 + 2] = z;
-      // World-scaled: one texture tile per 4 m, whatever the cell size.
-      uvs[k * 2] = x / 4;
-      uvs[k * 2 + 1] = z / 4;
-    }
-  }
-  const index: number[] = [];
-  for (let j = 0; j < rows; j++) {
-    for (let i = 0; i < cols - 1; i++) {
-      const a = j * cols + i;
-      const b = a + cols;
-      index.push(a, a + 1, b, a + 1, b + 1, b); // counter-clockwise seen from above
-    }
-  }
-  const geometry = new THREE.BufferGeometry();
-  geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-  geometry.setAttribute('uv', new THREE.BufferAttribute(uvs, 2));
-  geometry.setIndex(index);
-  geometry.computeVertexNormals();
-
-  const texture = snowTexture();
-  const material = new THREE.MeshStandardMaterial({ map: texture, roughness: 0.95, metalness: 0 });
-  const mesh = new THREE.Mesh(geometry, material);
-  mesh.receiveShadow = true;
-  return mesh;
 }
 
 /** Side markers every 20 m — a fixed reference for reading speed and turn shape. */
@@ -497,7 +403,7 @@ function railMeshes(terrain: Terrain): THREE.Group {
 }
 
 /** `cell` is the coarse grid size in m — larger for a park scaled up, whose features are too. */
-export function createScene(cfg: SlopeConfig, terrain: Terrain, camera: THREE.PerspectiveCamera, cell = 0.75): SceneView {
+export function createScene(cfg: SlopeConfig, terrain: Terrain, camera: THREE.PerspectiveCamera): SceneView {
   const renderer = new THREE.WebGLRenderer({ antialias: true });
   renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
   // CSS sizes the canvas to the screen (index.html); `resize` matches the drawing buffer to
@@ -516,13 +422,13 @@ export function createScene(cfg: SlopeConfig, terrain: Terrain, camera: THREE.Pe
   scene.add(sun);
   scene.add(new THREE.HemisphereLight(0xbcd7f0, 0xe8eef4, 1.1));
 
-  const slope = slopeMesh(cfg, terrain, cell);
+  const snowMap = snowTexture();
   // The camera looks along the snow at a grazing angle; without anisotropic filtering the
   // texture smears to flat white a few metres out and the ground stops showing speed.
-  const snowMap = (slope.material as THREE.MeshStandardMaterial).map;
-  if (snowMap) snowMap.anisotropy = renderer.capabilities.getMaxAnisotropy();
+  snowMap.anisotropy = renderer.capabilities.getMaxAnisotropy();
+  const slope = createTerrainMesh(cfg, terrain, new THREE.MeshStandardMaterial({ map: snowMap, roughness: 0.95, metalness: 0 }));
   const markers = slopeMarkers(cfg, terrain);
-  scene.add(slope);
+  scene.add(slope.group);
   scene.add(markers);
   const rails = railMeshes(terrain);
   scene.add(rails);
@@ -858,7 +764,7 @@ export function createScene(cfg: SlopeConfig, terrain: Terrain, camera: THREE.Pe
     },
 
     setStage(clean) {
-      slope.visible = !clean;
+      slope.group.visible = !clean;
       markers.visible = !clean;
       scene.fog = clean ? null : fog;
       scene.background = clean ? stageColour : skyColour;

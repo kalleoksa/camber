@@ -49,12 +49,14 @@ export const LEGEND: Record<OverlayName, string> = {
   arcs: 'per kicker, the designed airs: blue slowest (no pop) · green middle · red fastest (medium pop). Ball at touchdown: white clean, orange sketchy, red bail. Post: the knuckle',
 };
 
-export function createOverlays(scene: THREE.Scene, ground: THREE.Mesh, terrain: Terrain, speedMap: SpeedMap | undefined, layout: Layout, params: Params): Overlays {
-  const position = ground.geometry.getAttribute('position');
+export function createOverlays(scene: THREE.Scene, terrain: Terrain, speedMap: SpeedMap | undefined, layout: Layout, params: Params): Overlays {
   const contact = createContact();
+  let grid: THREE.BufferGeometry | undefined;
   const colour = new THREE.Color();
 
   const layer = (value: (x: number, z: number) => number, bands: [number, number][]): THREE.Mesh => {
+    grid ??= overlayGrid(layout.ground.width, layout.ground.length, terrain);
+    const position = grid.getAttribute('position');
     const colours = new Float32Array(position.count * 3);
     for (let i = 0; i < position.count; i++) {
       const v = value(position.getX(i), position.getZ(i));
@@ -65,7 +67,7 @@ export function createOverlays(scene: THREE.Scene, ground: THREE.Mesh, terrain: 
     }
     const geometry = new THREE.BufferGeometry();
     geometry.setAttribute('position', position);
-    geometry.setIndex(ground.geometry.getIndex());
+    geometry.setIndex(grid.getIndex());
     geometry.setAttribute('color', new THREE.BufferAttribute(colours, 3));
     const mesh = new THREE.Mesh(
       geometry,
@@ -277,4 +279,35 @@ function graphLines(layout: Layout, terrain: Terrain): THREE.Group {
       }
     });
   return group;
+}
+
+/** The heatmaps' own grid over the zone, a touch above the snow: the terrain mesh is chunked and changes detail. */
+function overlayGrid(width: number, length: number, terrain: Terrain): THREE.BufferGeometry {
+  const CELL = 1; // m
+  const nx = Math.round(width / CELL);
+  const nz = Math.round((length + 40) / CELL);
+  const pos = new Float32Array((nx + 1) * (nz + 1) * 3);
+  const c = createContact();
+  for (let j = 0; j <= nz; j++) {
+    const z = 20 - j * CELL;
+    for (let i = 0; i <= nx; i++) {
+      const x = -width / 2 + (width * i) / nx;
+      const k = (j * (nx + 1) + i) * 3;
+      pos[k] = x;
+      pos[k + 1] = terrain.sample(x, z, c).height + 0.05;
+      pos[k + 2] = z;
+    }
+  }
+  const index: number[] = [];
+  for (let j = 0; j < nz; j++) {
+    for (let i = 0; i < nx; i++) {
+      const a = j * (nx + 1) + i;
+      const b = a + nx + 1;
+      index.push(a, a + 1, b, a + 1, b + 1, b);
+    }
+  }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+  g.setIndex(index);
+  return g;
 }
