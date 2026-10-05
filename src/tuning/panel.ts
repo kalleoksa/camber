@@ -87,6 +87,8 @@ export type PanelHandlers = {
 export type FeedbackState = { tester: string; status: string };
 
 export type Panel = {
+  /** The pane itself, for folders built elsewhere (tuning/parkPanel.ts). */
+  pane: Pane;
   refresh(): void;
   /** List a note in the feedback folder, with a button that replays the run up to it. */
   addNote(note: Note, label: string, jump: () => void): void;
@@ -237,6 +239,7 @@ export function createPanel(
   }
 
   return {
+    pane,
     refresh: () => pane.refresh(),
     addNote(note, label, jump) {
       const folder = notes.addFolder({ title: label, expanded: true });

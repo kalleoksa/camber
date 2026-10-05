@@ -15,7 +15,8 @@
     "gate": "node scripts/pose-gate.ts",
     "clip": "node scripts/clip-check.ts",
     "airs": "node scripts/air-table.ts",
-    "lanes": "node scripts/lanes.ts"
+    "lanes": "node scripts/lanes.ts",
+    "gen-check": "node scripts/gen-check.ts"
   },
   "dependencies": {
     "three": "^0.180.0",

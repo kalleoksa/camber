@@ -52,10 +52,13 @@ import {
   type RiderState,
 } from './sim/state.ts';
 import { createContact, createSlope, type SlopeConfig } from './sim/terrain.ts';
+import { generateLayout } from './gen/generate.ts';
 import { toSlopeConfig } from './park/layout.ts';
 import { HOME, PARKS } from './park/parks.ts';
 import { PARK_GRAVITY, REAL_GRAVITY } from './park/scale.ts';
 import { length } from './sim/vec3.ts';
+import { addParkFolder } from './tuning/parkPanel.ts';
+import { createOverlays } from './render/debugOverlays.ts';
 import { createPanel, download, type FeedbackState, type Readout } from './tuning/panel.ts';
 
 const SEED = 1;
@@ -64,7 +67,10 @@ const SEED = 1;
 // gravity. A take stores its terrain and params, so takes from before (16 m/s², 0.61-scale
 // parks) replay as they were.
 const query = new URLSearchParams(location.search);
-const layout = PARKS[query.get('park') ?? 'home'] ?? HOME;
+const parkName = query.get('park') ?? 'home';
+const seed = Math.max(1, Math.round(Number(query.get('seed') ?? 1)) || 1);
+// ?park=gen&seed=N: the generated park (src/gen); the same seed always builds the same park.
+const layout = parkName === 'gen' ? generateLayout(seed) : (PARKS[parkName] ?? HOME);
 const slopeConfig: SlopeConfig = toSlopeConfig(layout);
 // ?spin=0 starts on the older spin model (air.spinModel in the panel switches live).
 if (query.get('spin') === '0') params.air.spinModel = 0;
@@ -764,6 +770,7 @@ const panel = createPanel(params, readout, view.drivers, preview, feedback, {
     panel.refresh();
   },
 });
+addParkFolder(panel.pane, layout.name, layout.seed ?? seed, createOverlays(view.scene, view.ground, terrain));
 
 function restart(): void {
   finishRun();

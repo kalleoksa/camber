@@ -255,3 +255,12 @@ fill; 7 connection graph in a worker; 8 trajectory preview; 9 generated park as 
 Step 1 done: `src/park/layout.ts` (Layout, `toSlopeConfig`, `layoutFromSlope`),
 `src/park/parks.ts` (home, slopestyle, sochi as layouts; `?park=home` is the fallback). Each
 layout rebuilds its park sample-for-sample (checked over 2.6M samples), so takes are unchanged.
+
+Step 2 done: generated ground. `src/sim/heightfield.ts` bakes a grid (2 m) from a base grade,
+seeded value noise and band patches (a main segment — flat bench, run-in or steep — and a
+recovery segment that gives the height back, turned up to ±25° off the fall line), sampled
+bicubically (no allocation). `SlopeConfig.field` swaps it in for the plane; old parks don't set
+it. `src/gen/` (config, ground, generate) builds it from a seed; `?park=gen&seed=N` loads it;
+the panel's park folder has seed / regenerate / fallback and the slope heatmap
+(`&overlay=heatmap`). `npm run gen-check -- 1-5`: same layout twice per seed, band shares,
+steepest spot, sharpest bend. Known: patch edges overlapping can reach ~38° in small spots.

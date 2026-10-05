@@ -1,5 +1,6 @@
 import { normalize, vec3, type Vec3 } from './vec3.ts';
 import * as dm from './dmath.ts';
+import { buildField, sampleField, type FieldConfig, type FieldSample } from './heightfield.ts';
 import { buildRail, type Rail, type RailConfig } from './rails.ts';
 
 export type SurfaceType = 'snow' | 'rail' | 'wall' | 'quarter';
@@ -45,6 +46,8 @@ export type SlopeConfig = {
    * steep pitch builds it.
    */
   grades?: GradeConfig[];
+  /** Generated ground (heightfield.ts) in place of the plane, its banks and grades. */
+  field?: FieldConfig;
 };
 
 /**
@@ -202,20 +205,30 @@ export function createSlope(cfg: SlopeConfig): Terrain {
     return h;
   };
 
-  const heightAt = (x: number, z: number): number => z * slope + bank(x) + featureHeight(x, z);
+  const field = cfg.field ? buildField(cfg.field) : undefined;
+  const fs: FieldSample = { h: 0, dx: 0, dz: 0 };
+  const groundAt = (x: number, z: number): number => (field ? sampleField(field, x, z, fs).h : z * slope + bank(x));
+  const heightAt = (x: number, z: number): number => groundAt(x, z) + featureHeight(x, z);
   const rails = (cfg.rails ?? []).map((r) => buildRail(r, heightAt));
 
   return {
     rails,
     sample(x, z, out) {
-      out.height = z * slope + bank(x);
-
-      // Analytic gradient: dh/dx from the bank, dh/dz from the pitch.
       const eps = 0.05;
-      const dhdx = (bank(x + eps) - bank(x - eps)) / (2 * eps);
-      out.normal.x = -dhdx;
-      out.normal.y = 1;
-      out.normal.z = -slope;
+      if (field) {
+        sampleField(field, x, z, fs);
+        out.height = fs.h;
+        out.normal.x = -fs.dx;
+        out.normal.y = 1;
+        out.normal.z = -fs.dz;
+      } else {
+        out.height = z * slope + bank(x);
+        // Analytic gradient: dh/dx from the bank, dh/dz from the pitch.
+        const dhdx = (bank(x + eps) - bank(x - eps)) / (2 * eps);
+        out.normal.x = -dhdx;
+        out.normal.y = 1;
+        out.normal.z = -slope;
+      }
 
       // Features on top, by central difference — only near one, so the plain slope stays
       // bit-identical to before features existed and old takes keep their hashes.

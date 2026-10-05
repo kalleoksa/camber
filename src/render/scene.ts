@@ -138,6 +138,8 @@ export function interpolateRider(prev: RiderState, cur: RiderState, alpha: numbe
 export type SceneView = {
   renderer: THREE.WebGLRenderer;
   scene: THREE.Scene;
+  /** The terrain mesh; debug overlays share its geometry. */
+  ground: THREE.Mesh;
   rider: THREE.Group;
   /** Drivers the rig is currently posed with. Pose mode writes here directly. */
   drivers: RigDrivers;
@@ -736,6 +738,7 @@ export function createScene(cfg: SlopeConfig, terrain: Terrain, camera: THREE.Pe
   };
 
   return {
+    ground: slope,
     renderer,
     scene,
     rider: rig.root,

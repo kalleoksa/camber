@@ -17,9 +17,11 @@ const walk = (dir: string): string[] =>
     return statSync(path).isDirectory() ? walk(path) : [path];
   });
 const simDir = new URL('../src/sim', import.meta.url).pathname;
+// The park generator too: the same seed has to give the same park on every machine.
+const genDir = new URL('../src/gen', import.meta.url).pathname;
 // secondary.ts is render-owned but stepped on the tick and hashed, so it is held to the same rule.
 const secondary = new URL('../src/render/secondary.ts', import.meta.url).pathname;
-for (const file of [...walk(simDir), secondary]) {
+for (const file of [...walk(simDir), ...walk(genDir), secondary]) {
   if (file.endsWith('dmath.ts')) continue;
   readFileSync(file, 'utf8')
     .split('\n')

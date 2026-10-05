@@ -1,4 +1,5 @@
 import type { RailConfig } from '../sim/rails.ts';
+import type { FieldConfig } from '../sim/heightfield.ts';
 import type { CornerConfig, GradeConfig, KickerConfig, QuarterConfig, SlopeConfig, WallConfig } from '../sim/terrain.ts';
 
 /**
@@ -19,8 +20,8 @@ export type Layout = {
   links: LinkSpec[];
 };
 
-/** The base slope: a plane at `pitch` reshaped by grades down the hill. */
-export type Ground = { length: number; width: number; pitch: number; grades?: GradeConfig[] };
+/** The base slope: a plane at `pitch` reshaped by grades down the hill, or a generated field. */
+export type Ground = { length: number; width: number; pitch: number; grades?: GradeConfig[]; field?: FieldConfig };
 
 export type FeatureMeta = { type: string; speed?: [number, number]; hero?: boolean };
 
@@ -41,6 +42,7 @@ export function toSlopeConfig(layout: Layout): SlopeConfig {
   const g = layout.ground;
   const cfg: SlopeConfig = { length: g.length, width: g.width, pitch: g.pitch };
   if (g.grades) cfg.grades = g.grades;
+  if (g.field) cfg.field = g.field;
   const kickers: KickerConfig[] = [];
   const corners: CornerConfig[] = [];
   const quarters: QuarterConfig[] = [];
