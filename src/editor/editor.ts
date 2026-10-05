@@ -382,6 +382,10 @@ export function createEditor(host: EditorHost): Editor {
   edit.addButton({ title: 'move (G)' }).on('click', () => setMode('translate'));
   edit.addButton({ title: 'rotate (R)' }).on('click', () => setMode('rotate'));
   edit.addButton({ title: 'frame selection (F)' }).on('click', () => frame());
+  // Jump along the park: what the arrows do from the keyboard, for touch.
+  const hill = { at: 0 };
+  const hillBlade = edit.addBinding(hill, 'at', { label: 'hill position m (↑ ↓ keys)', min: 0, max: layout.ground.length, step: 5 });
+  hillBlade.on('change', (ev) => view.goTo(-ev.value, heightAt));
   edit.addButton({ title: 'duplicate (Ctrl/Cmd-D)' }).on('click', () => duplicate());
   edit.addButton({ title: 'mirror (M)' }).on('click', () => mirror());
   edit.addButton({ title: 'delete (Del)' }).on('click', () => remove());
@@ -856,6 +860,8 @@ export function createEditor(host: EditorHost): Editor {
       seatPivot();
       groundPanel.refresh();
       buildFeature();
+      hill.at = Math.max(0, -view.controls.target.z);
+      hillBlade.refresh();
       marks.show(true);
       profile.show(checks.profile);
       profile.set(shown());
