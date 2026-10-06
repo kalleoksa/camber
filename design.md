@@ -39,6 +39,10 @@ full rule set). Left stick is the upper body, right stick the lower body:
 | LT | — | — | — |
 | LB / RB | — | Grab hand, with the right stick | Slide angle |
 
+On a rail, right stick X turns the slide angle too (same way round as the air shifty), and a
+shifty held as you catch the rail goes into the slide angle — an ollie with a shifty onto a
+rail is a boardslide.
+
 A flip reads a *flick* of left stick Y against `state.flipRef` (lagged at
 `air.spinRefRate`, held through the pop window), so a tuck held into the lip pops straight.
 A pop out of a butter carries `butter.popCarry` of its pivot into the spin. Wound up and

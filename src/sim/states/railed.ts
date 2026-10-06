@@ -1,6 +1,6 @@
 import type { InputSnapshot } from '../../input/snapshot.ts';
 import type { Params } from '../params.ts';
-import { axisZ, setFromBasis } from '../quat.ts';
+import { axisX, axisZ, setFromBasis } from '../quat.ts';
 import { nearestOnRail, railAt } from '../rails.ts';
 import type { RiderState } from '../state.ts';
 import type { Terrain } from '../terrain.ts';
@@ -50,8 +50,11 @@ export function stepRailed(state: RiderState, input: InputSnapshot, params: Para
   const friction = r.friction * (1 + r.slideFriction * sinSlide);
   state.railSpeed += (along - friction - params.ground.drag * state.railSpeed * state.railSpeed) * dt;
 
-  // Slide angle, turned by LB/RB.
-  state.slide = wrapAngle(state.slide + ((input.rb ? 1 : 0) - (input.lb ? 1 : 0)) * r.slideRate * dt);
+  // Slide angle, turned by LB/RB — and on two sticks by the right stick sideways too, the
+  // lower body turning the board under you, analog. Same way round as the air shifty the
+  // same push gives, so a shifty onto the rail and the stick on it agree.
+  const turn = (input.rb ? 1 : 0) - (input.lb ? 1 : 0) - (params.input.scheme > 0 ? input.rx : 0);
+  state.slide = wrapAngle(state.slide + Math.max(-1, Math.min(1, turn)) * r.slideRate * dt);
 
   const rail = terrain.rails[state.railIndex];
   const box = rail !== undefined && rail.width > 0 ? r.boxStability : 1;
@@ -226,6 +229,14 @@ export function tryCapture(state: RiderState, params: Params, terrain: Terrain, 
     }
 
     axisZ(F, state.spinFrame);
+    if (params.input.scheme > 0 && state.shifty !== 0) {
+      // Two sticks: the board as drawn, with the shifty — a shifty onto a rail is a
+      // boardslide. It yaws the board about its own up: nose toward board +X for +shifty.
+      axisX(heel, state.spinFrame);
+      const cs = dm.cos(state.shifty);
+      const sn = dm.sin(state.shifty);
+      set(F, F.x * cs + heel.x * sn, F.y * cs + heel.y * sn, F.z * cs + heel.z * sn);
+    }
     state.slide = dm.atan2(dot(F, S), dot(F, T));
     const along_ = along >= 0 ? along : -along;
     if (r.trickModel >= 0.5) {
