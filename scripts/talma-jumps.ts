@@ -11,10 +11,12 @@
  * knuckle) — and a short run-out on the base grade. The snow kickers are the kit's, solved over
  * that ground: the big one's table ends on the earth's edge, the small one's lip is level with the
  * big one's. A bench's length sets its grade (the longer, the nearer the base grade, the faster
- * the lip), and is solved so a rider straight-lining from the start arrives at the pair's lips at
- * the speed both sizes work at — the overlap of their ranges, the two averaged. Where even a flat
+ * the lip), and is solved so a rider straight-lining the big line arrives at its lip a little
+ * under the top of the big size's range (`aim`): a margin for riders who carve on the way, while
+ * the small line checks speed. Where even a flat
  * bench (the shortest) is too fast — a smaller jump after a bigger one — the line asks riders to
- * check speed there. The speed check bot rides the result; what it falls short of the reckoning
+ * check speed there. The top is a short steep roll-in (TOP) so the first bench can be short.
+ * The speed check bot rides the result; what it falls short of the reckoning
  * by is fed back over a few rounds and the best kept. The park grows to fit.
  */
 import { readFileSync, writeFileSync } from 'node:fs';
@@ -38,8 +40,11 @@ const PAIRS: { big: Size; small: Size }[] = [
 const LINES = { big: 12, small: 18.5 }; // m across: the big line on the lift side, the small one beside it toward the rails — far enough from both for the corridor's banks
 const DECK_WIDTH = { big: 7, small: 5 }; // m of table, each fading over DECK_TAPER: neither rider crosses the other's table
 const DECK_TAPER = 2;
+// The top: a short steep roll-in across the whole slope, so a run picks up speed at once and the
+// first jump comes soon after (the reference photo: the lift top drops steeply into the park).
+// Its length is solved: as long as the first pair's speed needs, the first bench as short as it goes.
+const TOP = { length: 25, pitch: 20, blend: 6, spawn: -2, longest: 120 }; // m, °, m, m (z of the start), m
 const EARTH = {
-  start: -40, // m: where the corridor's first bench starts
   drop: 20, // ° the earth falls at under a landing
   share: 2 / 3, // of the big kicker's landing fall the earth gives (as a multiple of its snow knuckle: share / (1 − share))
   approach: 25, // m of bench before a takeoff, at the least
@@ -49,6 +54,8 @@ const EARTH = {
   edge: 12, // m its sides fade over: banks of ~30° at the tallest step, ending short of the lift (x ≈ −8) and the rail lines (x ≈ 36)
   blend: 3, // m the grades are eased over
 };
+/** Where the corridor's first bench starts: the foot of the roll-in. */
+const start = (): number => -TOP.length;
 const SOLVE_LENGTH = 1200; // m of park while solving: room for any bench tried
 const BOTTOM = { after: 40, runout: 35 }; // m of park past the corridor's end; the bottom patch's last stretch
 
@@ -60,12 +67,14 @@ const tanBase = Math.tan(base);
 const corridor = (DECK_WIDTH.small / 2 + DECK_TAPER + LINES.small + LINES.big - DECK_WIDTH.big / 2 - DECK_TAPER) / 2;
 const keep = layout.features.filter((f) => f.kind !== 'kicker'); // the old jump line's kickers go
 
-/** The speed both sizes of a pair work at: the middle of the overlap of their ranges. */
-const overlap = (p: (typeof PAIRS)[number]): number => {
-  const a = GEN.kicker.sizes[p.big].speed;
-  const b = GEN.kicker.sizes[p.small].speed;
-  return (Math.max(a[0] ?? 0, b[0] ?? 0) + Math.min(a[1] ?? 0, b[1] ?? 0)) / 2;
-};
+/**
+ * The speed a pair is built for: straight-lining, the big line reaches its lip MARGIN under the
+ * top of the big size's range. Run-ins are built a little fast — a rider can always check speed,
+ * never add it — so a run that carves and pumps on the way still clears the lip; the small line
+ * checks speed for its size.
+ */
+const MARGIN = 1; // m/s under the big size's fastest
+const aim = (p: (typeof PAIRS)[number]): number => (GEN.kicker.sizes[p.big].speed[1] ?? 0) - MARGIN;
 
 // Each earth drop: twice the knuckle the kit gives the big kicker on plain ground.
 const plain = PAIRS.map((p) => designKicker({ x: 0, z: 0, yaw: 0 }, p.big, base, GEN, params));
@@ -96,7 +105,7 @@ function corridorPatch(steps: Step[]): { patch: PatchConfig; edges: number[] } {
     segs.push([drop, EARTH.drop * RAD], [EARTH.runout, base]);
     s += drop + EARTH.runout;
   });
-  return { patch: { x: corridor, z: EARTH.start, yaw: 0, halfWidth: EARTH.halfWidth, edge: EARTH.edge, blend: EARTH.blend, segs }, edges };
+  return { patch: { x: corridor, z: start(), yaw: 0, halfWidth: EARTH.halfWidth, edge: EARTH.edge, blend: EARTH.blend, segs }, edges };
 }
 
 /** A kicker of `size` at `x`, its transition starting at `z`, solved over `ground`. */
@@ -128,9 +137,13 @@ function pair(p: (typeof PAIRS)[number], edgeZ: number, ground: Terrain): [Featu
 /** The park with these steps, `length` m long: corridor, kickers, lines. */
 function build(steps: Step[], length = SOLVE_LENGTH): Layout {
   const { patch, edges } = corridorPatch(steps);
-  // The bottom run-out (the lowest full-width patch) moves to the new end.
+  // The bottom run-out (the lowest full-width patch) moves to the new end; the top one (the
+  // highest) becomes the roll-in.
   const bottom = field.patches.reduce((b, p, i) => (p.halfWidth >= 60 && p.z < (field.patches[b]?.z ?? 0) ? i : b), -1);
-  const patches = field.patches.map((p, i) => (i === bottom ? { ...p, z: -(length - BOTTOM.runout) } : { ...p }));
+  const top = field.patches.reduce((b, p, i) => (p.halfWidth >= 60 && p.z > (field.patches[b]?.z ?? -Infinity) ? i : b), -1);
+  const patches = field.patches.map((p, i) =>
+    i === bottom ? { ...p, z: -(length - BOTTOM.runout) } : i === top ? { ...p, z: 0, blend: TOP.blend, segs: [[TOP.length, TOP.pitch * RAD]] as [number, number][] } : { ...p },
+  );
   // The old jump line's patches — the narrow ones within the corridor's reach, banks included — go;
   // the corridor takes the first one's place.
   const reach = EARTH.halfWidth + EARTH.edge;
@@ -146,19 +159,19 @@ function build(steps: Step[], length = SOLVE_LENGTH): Layout {
   steps.forEach((_, k) => {
     const p = PAIRS[k];
     if (!p) return;
-    const [b, s] = pair(p, EARTH.start - (edges[k] ?? 0), ground);
+    const [b, s] = pair(p, start() - (edges[k] ?? 0), ground);
     big.push(next.features.push(b) - 1);
     small.push(next.features.push(s) - 1);
   });
   next.lines = [
-    { name: 'big line', features: big, speed: PAIRS.map(overlap) },
-    { name: 'small line', features: small, speed: PAIRS.map(overlap) },
+    { name: 'big line', features: big, speed: PAIRS.map(aim) },
+    { name: 'small line', features: small, speed: PAIRS.map(aim) },
     // The rail lines as they were, by the rails' new places.
     ...layout.lines
       .filter((l) => l.name !== 'jump line')
       .map((l) => ({ ...l, features: l.features.map((i) => layout.features[i]).filter((f): f is FeatureSpec => !!f && f.kind !== 'kicker').map((f) => next.features.indexOf(f)) })),
   ];
-  next.spawn = { ...layout.spawn, x: LINES.big };
+  next.spawn = { ...layout.spawn, x: LINES.big, z: TOP.spawn };
   return next;
 }
 
@@ -166,8 +179,8 @@ function build(steps: Step[], length = SOLVE_LENGTH): Layout {
  * Speed at each pair's lips, riding straight down each line from the start over the snow as it
  * is (kickers and all, flown or not: no friction in the air, but it is short): speed from height
  * lost, less friction and drag, as the generator reckons it. Smooth in the grades, unlike a bot
- * ride, so a bisection on it settles; the bot checks the result. Per pair: the big kicker's, moved
- * toward the small one's by half the gap — the two averaged.
+ * ride, so a bisection on it settles; the bot checks the result. The big line's: what the steps
+ * are built for.
  */
 function arrivals(l: Layout): number[] {
   const t = createSlope(toSlopeConfig(l));
@@ -191,9 +204,7 @@ function arrivals(l: Layout): number[] {
     return out;
   };
   const lips = (name: string): number[] => (l.lines.find((n) => n.name === name)?.features ?? []).map((i) => lipOf(l.features[i] as FeatureSpec));
-  const big = ride(LINES.big, lips('big line'));
-  const small = ride(LINES.small, lips('small line'));
-  return big.map((v, k) => (v + (small[k] ?? v)) / 2);
+  return ride(LINES.big, lips('big line'));
 }
 
 // Solve each bench's length from the top on the reckoning (smooth, so a bisection settles), then
@@ -204,11 +215,11 @@ function arrivals(l: Layout): number[] {
 const steps: Step[] = PAIRS.map((_, k) => ({ length: shortest[k] ?? 40 }));
 const bias = PAIRS.map(() => 0);
 const slowest = new Set<number>(); // pairs that ask for a speed check
-let best: { steps: Step[]; score: number } | undefined;
+let best: { steps: Step[]; top: number; score: number } | undefined;
 for (let round = 0; round < 4; round++) {
   slowest.clear();
   for (let k = 0; k < PAIRS.length; k++) {
-    const target = overlap(PAIRS[k] as (typeof PAIRS)[number]) + (bias[k] ?? 0);
+    const target = aim(PAIRS[k] as (typeof PAIRS)[number]) + (bias[k] ?? 0);
     const st = steps[k] as Step;
     const at = (length: number): number => {
       st.length = length;
@@ -216,6 +227,26 @@ for (let round = 0; round < 4; round++) {
     };
     const lo = shortest[k] ?? 40;
     const hi = EARTH.longest;
+    if (k === 0) {
+      // The first pair: the bench as short as it goes, the roll-in as long as the speed needs.
+      st.length = lo;
+      const atTop = (length: number): number => {
+        TOP.length = length;
+        return arrivals(build(steps))[0] ?? 0;
+      };
+      let a = 10;
+      let b = TOP.longest;
+      if (atTop(b) >= target) {
+        for (let it = 0; it < 14; it++) {
+          const m = (a + b) / 2;
+          if (atTop(m) < target) a = m;
+          else b = m;
+        }
+        TOP.length = (a + b) / 2;
+        continue;
+      }
+      // Even the longest roll-in is short of it: the bench takes up the rest, as for the others.
+    }
     if (at(lo) >= target) {
       st.length = lo;
       slowest.add(k);
@@ -241,32 +272,36 @@ for (let round = 0; round < 4; round++) {
   const botSmall = checks.find((c) => c.name === 'small line')?.features ?? [];
   let score = 3 * (2 * PAIRS.length - bot.length - botSmall.length);
   PAIRS.forEach((p, k) => {
-    const a = GEN.kicker.sizes[p.big].speed;
-    const b = GEN.kicker.sizes[p.small].speed;
-    const lo = Math.max(a[0] ?? 0, b[0] ?? 0);
-    const hi = Math.min(a[1] ?? 0, b[1] ?? 0);
-    // A pair that asks for a speed check is scored on its landings only: the bot doesn't check speed.
-    for (const f of [bot[k], botSmall[k]]) if (f) score += (slowest.has(k) ? 0 : Math.max(0, lo - f.at, f.at - hi)) + (f.how === 'clean' ? 0 : f.how === 'sketchy' ? 1 : 3);
-    const big = bot[k]?.at;
-    const small = botSmall[k]?.at;
-    if (big !== undefined) bias[k] = Math.max(-2, Math.min(2, (bias[k] ?? 0) + ((model[k] ?? big) - (small === undefined ? big : (big + small) / 2)) * 0.6));
+    const top = GEN.kicker.sizes[p.big].speed[1] ?? 0;
+    const want = aim(p);
+    // The big line within a metre a second of its aim (or, asking for a speed check, at least
+    // fast enough); the small line fast enough for its size. Every landing that isn't clean counts.
+    const b = bot[k];
+    const sm = botSmall[k];
+    if (b) score += (slowest.has(k) ? Math.max(0, want - 1 - b.at) : Math.max(0, want - 1 - b.at, b.at - top)) + (b.how === 'clean' ? 0 : b.how === 'sketchy' ? 1 : 3);
+    if (sm) score += Math.max(0, (GEN.kicker.sizes[p.small].speed[0] ?? 0) - sm.at) + (sm.how === 'clean' ? 0 : sm.how === 'sketchy' ? 1 : 3);
+    if (b) bias[k] = Math.max(-2, Math.min(2, (bias[k] ?? 0) + ((model[k] ?? b.at) - b.at) * 0.6));
   });
   console.log(`round ${round + 1}: bot ${bot.map((f) => f.at.toFixed(1)).join(' / ')} · small ${botSmall.map((f) => f.at.toFixed(1)).join(' / ')} · score ${score.toFixed(1)}`);
-  if (!best || score < best.score) best = { steps: steps.map((st) => ({ ...st })), score };
+  if (!best || score < best.score) best = { steps: steps.map((st) => ({ ...st })), top: TOP.length, score };
 }
-if (best) best.steps.forEach((st, k) => Object.assign(steps[k] as Step, st));
+if (best) {
+  best.steps.forEach((st, k) => Object.assign(steps[k] as Step, st));
+  TOP.length = best.top;
+}
 const { patch, edges } = corridorPatch(steps);
 let total = 0;
 for (const [len] of patch.segs) total += len;
-const park = build(steps, Math.ceil((-EARTH.start + total + BOTTOM.after) / 10) * 10);
+const park = build(steps, Math.ceil((-start() + total + BOTTOM.after) / 10) * 10);
 park.name = 'talma-jumps';
 writeFileSync(output, JSON.stringify(park, null, 1) + '\n');
 
 // Report.
-console.log(`park ${park.ground.length} m long; corridor x ${corridor.toFixed(1)} ± ${EARTH.halfWidth} (+${EARTH.edge} fade), ${total.toFixed(0)} m from z ${EARTH.start}`);
+console.log(`roll-in ${TOP.length.toFixed(0)} m at ${TOP.pitch}°`);
+console.log(`park ${park.ground.length} m long; corridor x ${corridor.toFixed(1)} ± ${EARTH.halfWidth} (+${EARTH.edge} fade), ${total.toFixed(0)} m from z ${start()}`);
 steps.forEach((st, k) => {
   const p = PAIRS[k];
-  console.log(`step ${k + 1} (${p?.big} + ${p?.small}): bench ${st.length.toFixed(0)} m at ${(gradeOf(k, st.length) / RAD).toFixed(1)}°, earth drop ${drops[k]?.toFixed(1)} m, edge z ${(EARTH.start - (edges[k] ?? 0)).toFixed(0)}, target ${overlap(p as (typeof PAIRS)[number])} m/s${slowest.has(k) ? ' — too fast even flat: check speed' : ''}`);
+  console.log(`step ${k + 1} (${p?.big} + ${p?.small}): bench ${st.length.toFixed(0)} m at ${(gradeOf(k, st.length) / RAD).toFixed(1)}°, earth drop ${drops[k]?.toFixed(1)} m, edge z ${(start() - (edges[k] ?? 0)).toFixed(0)}, big line aimed at ${aim(p as (typeof PAIRS)[number])} m/s${slowest.has(k) ? ' — too fast even flat: check speed' : ''}`);
 });
 for (const line of checkLines(park, createSlope(toSlopeConfig(park)), params)) {
   console.log(line.name);
