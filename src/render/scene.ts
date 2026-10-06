@@ -32,6 +32,8 @@ export type RiderView = {
   edge: number;
   stance: number;
   posture: number; // two sticks: −1 stand tall .. +1 tuck
+  popStance: number; // the press the last pop went off: − ollie, + nollie, 0 not popped
+  airTime: number; // s since leaving the snow
   compress: number;
   scrub: number;
   brake: number;
@@ -73,6 +75,8 @@ const view: RiderView = {
   edge: 0,
   stance: 0,
   posture: 0,
+  popStance: 0,
+  airTime: 0,
   compress: 0,
   scrub: 0,
   brake: 0,
@@ -116,6 +120,8 @@ export function interpolateRider(prev: RiderState, cur: RiderState, alpha: numbe
   view.edge = prev.edge + (cur.edge - prev.edge) * alpha;
   view.stance = prev.stance + (cur.stance - prev.stance) * alpha;
   view.posture = prev.posture + (cur.posture - prev.posture) * alpha;
+  view.popStance = cur.popStance;
+  view.airTime = cur.mode === prev.mode ? prev.airTime + (cur.airTime - prev.airTime) * alpha : cur.airTime;
   view.compress = prev.compress + (cur.compress - prev.compress) * alpha;
   view.scrub = cur.scrub;
   view.brake = cur.brake;
@@ -719,6 +725,20 @@ export function createScene(cfg: SlopeConfig, terrain: Terrain, camera: THREE.Pe
     const butterTip = butter > 0 ? Math.sign(view.stance) : 0;
     drivers.boardPitch = (view.grabSwitch ? -a.pitch : a.pitch) - butterTip * butter * params.butter.pitch;
     pinZ = butterTip * BOARD_HALF;
+    // Ollie and nollie, drawn: crouching on a press the board tips onto that end, and just
+    // after the pop the other end snaps up — nose up off the tail, tail up off the nose —
+    // then levels. Pivots on the end that popped. Render only: the landing test reads the
+    // sim's board, and the snap is gone `rig.popPitchTime` into the air.
+    let popTip = 0;
+    if (grounded && butter === 0) popTip = -view.stance * view.compress * r.popLoadPitch;
+    else if (view.mode === 'airborne' && view.popStance !== 0 && view.airTime < r.popPitchTime) {
+      // A grab coming on takes the board's attitude over, pivoting on the hand.
+      popTip = -view.popStance * r.popPitch * Math.sin((Math.PI * view.airTime) / r.popPitchTime) * (1 - view.grip);
+    }
+    if (popTip !== 0) {
+      drivers.boardPitch += popTip;
+      if (view.grip === 0) pinZ = popTip > 0 ? -BOARD_HALF : BOARD_HALF;
+    }
     if (trick) {
       // A press tips the board onto its contact point: nose press, nose down.
       drivers.boardPitch -= view.railContact * r.pressPitch;

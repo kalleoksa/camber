@@ -3,7 +3,7 @@ import type { Params } from './params.ts';
 import { resetRiderState, type RiderState } from './state.ts';
 import { stepAirborne } from './states/airborne.ts';
 import { stepBailed } from './states/bailed.ts';
-import { stepGrounded } from './states/grounded.ts';
+import { butterAmount, stepGrounded } from './states/grounded.ts';
 import { stepRailed } from './states/railed.ts';
 import type { Terrain } from './terrain.ts';
 import { dampScalar } from './vec3.ts';
@@ -47,9 +47,15 @@ export function tick(
     // The press is the lower body: right stick Y. RT held on a press locks it (a butter
     // held through the wind-up, popped out of); in the air with a hand on the board the
     // right stick is the grab, so the weight comes back to the middle.
-    const locked = onSnow && input.rt > params.pop.trigger && Math.abs(state.stance) > params.butter.press;
+    // The lock only stops the press easing off, and only on an actual butter — at speed a
+    // press under RT is just the ollie or nollie loading, and keeps following the stick.
+    const v = state.velocity;
+    const buttering = onSnow && butterAmount(state.stance, Math.sqrt(v.x * v.x + v.y * v.y + v.z * v.z), params) > 0;
     const grabbing = state.mode === 'airborne' && (input.lb || input.rb);
-    if (!locked) state.stance = dampScalar(state.stance, grabbing ? 0 : input.ry * dir, params.ground.stanceResponse, dt);
+    const target = grabbing ? 0 : input.ry * dir;
+    const easing = target * state.stance <= 0 || Math.abs(target) < Math.abs(state.stance);
+    const locked = buttering && input.rt > params.pop.trigger && easing;
+    if (!locked) state.stance = dampScalar(state.stance, target, params.ground.stanceResponse, dt);
     // Left stick Y on the snow is posture, the speed control: forward tucks, back stands tall.
     state.posture = dampScalar(state.posture, onSnow ? input.ly : 0, params.ground.stanceResponse, dt);
     // Flips read a flick of left stick Y against this, so a held tuck pops straight. Held

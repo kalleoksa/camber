@@ -278,7 +278,12 @@ pop's pitch added to a pre-rotated cork (the right stick held with it does nothi
 Pre-rotation needs the left stick X held — Y alone is the tuck — so there is no slow
 straight flip, only slow spins and corks. Inside the pop window a wound stick counts as a
 send only once it crosses to the other side, so letting go of the held stick after the pop
-doesn't reverse the slow spin. Probe, flat pop with 1.06 s of air: full hold 3.6 rad/s
+doesn't reverse the slow spin. Riding off the lip with the wind-up still held releases
+it too, with no pop — so RT let go a moment after the lip still spins. Ollie and nollie
+are drawn (the board tips onto the loaded end while crouching, then the other end snaps up
+off the pop: `rig.popLoadPitch`, `rig.popPitch`, `rig.popPitchTime`) and named (a plain pop
+is an ollie or nollie; a nollie is named on spins too). The butter lock holds the press
+only on an actual butter, and only against easing off. Probe, flat pop with 1.06 s of air: full hold 3.6 rad/s
 (218°; ~360° over a big jump's 1.5–2 s), held diagonal a 2.8 rad/s cork, a 0.2 carve held
 into the pop 12°, the counter-rotated spin 8.6 rad/s (524°).
 

@@ -53,6 +53,8 @@ export type RiderState = {
   flipRef: number;
   /** Two sticks: −1 stand tall .. +1 tuck, left stick Y on the snow, smoothed. 0 in the air and on the one-stick scheme. */
   posture: number;
+  /** The press the last pop went off, −1 tail (ollie) .. +1 nose (nollie), board frame. 0 for an air not popped (a lip ridden off). */
+  popStance: number;
   /**
    * In-air spin control is disarmed until the stick comes back through centre. Without it,
    * carrying a carve into the air drags the spin rate up to the carve's value.
@@ -149,6 +151,7 @@ export function createRiderState(spawn: Spawn): RiderState {
     spinRef: 0,
     flipRef: 0,
     posture: 0,
+    popStance: 0,
     spinArmed: true,
     windUp: 0,
     tuck: 1,
@@ -211,6 +214,7 @@ export function resetRiderState(state: RiderState): void {
   state.spinRef = 0;
   state.flipRef = 0;
   state.posture = 0;
+  state.popStance = 0;
   state.spinArmed = true;
   state.windUp = 0;
   state.tuck = 1;
@@ -272,6 +276,7 @@ export function copyRiderState(dst: RiderState, src: RiderState): void {
   dst.spinRef = src.spinRef;
   dst.flipRef = src.flipRef;
   dst.posture = src.posture;
+  dst.popStance = src.popStance;
   dst.spinArmed = src.spinArmed;
   dst.windUp = src.windUp;
   dst.tuck = src.tuck;

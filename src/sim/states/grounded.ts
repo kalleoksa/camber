@@ -344,6 +344,7 @@ export function popBias(stance: number, params: Params): number {
 function enterAir(state: RiderState): void {
   state.mode = 'airborne';
   state.airTime = 0;
+  state.popStance = 0;
   state.tuck = 1;
   state.airYaw = 0;
   state.landing = 'none';
@@ -357,6 +358,9 @@ function enterAir(state: RiderState): void {
  */
 export function popTakeoff(state: RiderState, input: InputSnapshot, params: Params): void {
   enterAir(state);
+  // Read by render (the ollie's nose-up, the nollie's tail-up) and the trick names. Not a
+  // sim input: nothing in the sim reads it back.
+  state.popStance = state.stance;
   state.popWindow = params.air.spinModel > 0 ? Math.max(params.air.takeoffWindow, params.air.flickWindow) : params.air.takeoffWindow;
   setTakeoffSpin(state, input, params);
   // Leaving the ground mid-carve, the thumb is still buried where the carve put it. Hold
@@ -551,6 +555,10 @@ export function rideOff(state: RiderState, input: InputSnapshot, params: Params,
   state.spinAxis.y = 1;
   state.spinAxis.z = 0;
   state.spinRate = headingRate;
+  // Pre-rotation (two sticks) needs no pop: wound up and still holding as the board leaves
+  // the lip, the takeoff releases it — a slow spin set off the edge. Also what makes RT let
+  // go a moment after the lip, rather than on it, still spin.
+  if (preRotation(rotation, state, input, params)) setRotation(state, rotation, params);
 }
 
 const travel = vec3();

@@ -407,6 +407,11 @@ export const params = {
     tuckFold: 0.35, // rad the chest folds over the knees at full tuck
     tallRise: 0.05, // m the hips come up standing tall
     tallFold: 0.15, // rad the chest straightens standing tall
+    // Ollie / nollie, drawn: the board loaded onto the pressed end while crouching, then the
+    // other end snapping up off the pop.
+    popLoadPitch: 0.12, // rad the board tips onto the pressed end at full press and full crouch
+    popPitch: 0.35, // rad (~20°) of nose-up (ollie) or tail-up (nollie) at the peak of the snap, full press
+    popPitchTime: 0.35, // s the snap takes, up and back level
   },
   // Cloth (9c): springs on the fixed tick in render/secondary.ts, so replay reproduces
   // them; they change the spring hash, not the sim. Angles in rad, rates in rad/s.
