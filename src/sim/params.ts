@@ -368,6 +368,8 @@ export const params = {
     spinLook: 1, // 1: spins land with the head over the nose shoulder (backside) or the tail's (frontside) — blind landings look uphill
     spinLookMin: 1.5, // rad/s of yaw below which an air keeps the riding look
     landLookHold: 0.3, // s the spin's look holds past touchdown before the head comes round
+    shiftyHipFollow: 0.6, // fraction of an air shifty the hips turn with the board — the legs don't twist the whole way
+    shiftyCounter: 0.15, // fraction of an air shifty the shoulders turn the other way, against the board
     shiftyGrabTurn: 0.7, // fraction of a shifty the whole rider turns through while a hand holds the board — the rest twists the board under the body. 0 leaves the hand short of the board (up to 16 cm on a nose or tail grab)
     armTuck: 0.4, // rad the arms pull in when tucking to spin faster (spin model 1)
     openTime: 0.3, // s before touchdown the rider opens up and squares to the board

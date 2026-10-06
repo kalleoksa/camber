@@ -910,11 +910,14 @@ export function createRig(): Rig {
       // positive and the knees break backward toward the heel side, which a method needs.
       legSpan.front = hipL.distanceTo(footF);
       legSpan.back = hipR.distanceTo(footB);
-      pole.set(-Math.cos(d.kneeSplay), 0, Math.sin(d.kneeSplay));
+      // The knees point the board's way, not the body's: feet are bolted to the board, so a
+      // shifty turns the knees with it. Without this a 90° shifty pointed both knees along
+      // the board, into each other, and the legs crossed.
+      pole.set(-Math.cos(d.kneeSplay), 0, Math.sin(d.kneeSplay)).applyAxisAngle(yAxis, d.shifty);
       solveTwoBone(kneeF, hipL, footF, r.thigh, r.shin, pole);
       placeBone(thighL, hipL, kneeF, r.thigh);
       placeBone(shinL, kneeF, footF, r.shin);
-      pole.set(-Math.cos(d.kneeSplay), 0, -Math.sin(d.kneeSplay));
+      pole.set(-Math.cos(d.kneeSplay), 0, -Math.sin(d.kneeSplay)).applyAxisAngle(yAxis, d.shifty);
       solveTwoBone(kneeB, hipR, footB, r.thigh, r.shin, pole);
       placeBone(thighR, hipR, kneeB, r.thigh);
       placeBone(shinR, kneeB, footB, r.shin);

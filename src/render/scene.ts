@@ -858,6 +858,13 @@ export function createScene(cfg: SlopeConfig, terrain: Terrain, camera: THREE.Pe
           roll.setFromAxisAngle(yAxis, turn);
           rig.root.quaternion.multiply(roll);
         }
+        // An air shifty is the body splitting, not the board turning under a still one: the
+        // hips go part of the way with the board and the shoulders counter-rotate against it.
+        // Not the speed check's skid (shiftPivot), where the body stays down the line.
+        if (view.mode === 'airborne' && view.shiftPivot === 0) {
+          drivers.hipYaw += drivers.shifty * params.rig.shiftyHipFollow;
+          drivers.spineTwist -= drivers.shifty * (params.rig.shiftyHipFollow + params.rig.shiftyCounter);
+        }
       }
       if (pinZ !== 0) {
         // Where the pressed tip ends up after the rig pitches the board about the hand
