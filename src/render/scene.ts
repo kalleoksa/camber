@@ -11,7 +11,7 @@ import { ANCHORS, BODY_KEYS, grabBody, namedGrabBody } from './poses.ts';
 import { createTerrainMesh, type Rect, type TerrainMesh } from './terrainMesh.ts';
 import { butterAmount } from '../sim/states/grounded.ts';
 import { BOARD_HALF, copyDrivers, createRig, edgePoint, gripWeight, mirrorDrivers, neutralDrivers, smoothstep, type RigDrivers } from './rig.ts';
-import type { Secondary } from './secondary.ts';
+import { carveLoad, type Secondary } from './secondary.ts';
 import { flutter, lcg } from './toon.ts';
 import { TICK_DT } from '../core/loop.ts';
 
@@ -639,6 +639,17 @@ export function createScene(cfg: SlopeConfig, terrain: Terrain, camera: THREE.Pe
     drivers.headYaw += secondary.head;
     drivers.hipX += secondary.swayX;
     drivers.hipZ += secondary.swayZ;
+    // Carving posture (two-stick spec §8): legs and torso shape the turn apart. Heelside you
+    // sit toward the heel and fold the chest forward over the toes; toeside the knees drive
+    // at the snow while the hips stay over the board and the chest stays tall. The torso
+    // tipping back toward the outside of the turn is the angulation. The board's edge roll
+    // already tips the whole rider; this is the shape inside it.
+    const load = grounded ? carveLoad(secondary, params) * (1 - secondary.inAir) : 0;
+    const heel = Math.max(0, load);
+    const toe = Math.max(0, -load);
+    drivers.hipX += heel * r.heelSit + toe * r.toeHipBack;
+    drivers.spineBend += load * r.angulation;
+    drivers.kneeSplay -= toe * r.toeKneeDrive;
 
     const front = view.grabFront;
     const handEdge = anchor ? (front ? anchor.frontHandEdge : anchor.backHandEdge) : view.grabEdge;
@@ -684,6 +695,15 @@ export function createScene(cfg: SlopeConfig, terrain: Terrain, camera: THREE.Pe
     drivers.backShoulderSwing += (secondary.armYaw - secondary.armX) * bg;
     drivers.frontShoulderOut -= (secondary.armOpen + secondary.armZ) * fg;
     drivers.backShoulderOut += (secondary.armZ - secondary.armOpen) * bg;
+    // Carving arms: forward as counterweight to a heelside sit; past `handDragLoad` the
+    // trailing hand reaches toward the snow inside the turn — behind on the heel side, out
+    // over the toes on the toe side — and the lead arm lifts against it. + Swing is toward
+    // the toes. Riding switch the trailing arm is the front one.
+    const drag = smoothstep((Math.abs(load) - r.handDragLoad) / Math.max(1 - r.handDragLoad, 1e-3)) * r.handDrag;
+    const trailing = -Math.sign(load) * drag;
+    const leading = 0.5 * Math.sign(load) * drag;
+    drivers.frontShoulderSwing += (heel * r.heelArms + (view.switchRide ? trailing : leading)) * fg;
+    drivers.backShoulderSwing += (heel * r.heelArms + (view.switchRide ? leading : trailing)) * bg;
 
     const a = named
       ? grabAttitude(view.grabId, view.grip, view.tweak, params)

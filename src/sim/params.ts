@@ -361,6 +361,23 @@ export const params = {
     hipSwayDamping: 0.6, // ζ
     carveLead: 0.35, // rad of shoulder turn into a carve per rad/s of heading change
     carveLeadMax: 0.5, // rad — a landing's heading snap would otherwise wrench the shoulders
+    // Carving posture (docs/two-stick-controls-spec.md §8). Driven by the load across the
+    // board — the smoothed board-frame acceleration the loose body already reads — so legs
+    // and torso shape the turn apart, and a set edge at walking speed carries no posture.
+    carveLoadFull: 0.25, // g across the board at which the posture is full — the sim's hardest carves pull 0.2–0.3 g
+    carveCrouch: 0.12, // m the hips drop at full load; the load passes zero between turns, so you rise there
+    crossUnderSpeed: 14.0, // m/s above which the hips stop rising between turns — the legs swing under a low body
+    crossUnderFade: 4.0, // m/s over which that comes in
+    crossUnderHold: 0.7, // fraction of the full-load crouch held between turns at speed
+    angulation: 0.35, // rad the torso tips back toward the outside at full load — legs in, chest over the edge
+    heelSit: 0.08, // m the hips move toward the heel edge on a heelside turn — sitting into it
+    heelSitDrop: 0.06, // m of extra hip drop on a heelside turn
+    heelArms: 0.35, // rad both arms come forward on a heelside turn, counterweight to the sit
+    toeKneeDrive: 0.35, // rad the knees turn toward the toes on a toeside turn (kneeSplay down) — driven at the snow
+    toeHipBack: 0.03, // m the hips stay toward the heel on a toeside turn, over the board while the knees go in
+    carveLook: 1.0, // s ahead along the turn the head looks, within headTurnMax
+    handDragLoad: 0.8, // fraction of full load past which the trailing hand reaches toward the snow inside the turn
+    handDrag: 0.6, // rad of trailing-arm swing toward the inside at full load; the lead arm lifts half that the other way
   },
   // Cloth (9c): springs on the fixed tick in render/secondary.ts, so replay reproduces
   // them; they change the spring hash, not the sim. Angles in rad, rates in rad/s.

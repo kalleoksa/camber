@@ -175,43 +175,46 @@ sim already has. No clips.
 | Posture | Left stick Y (§2): tuck / tall |
 | Skid, press | Right stick X / Y (§2) |
 
-**1. Load sets the depth.** Hips drop by `rig.carveCrouch` × load. A hard carve folds
+**Built** (render-only, `rig.*`). Load is the loose body's smoothed acceleration across
+the board (`secondary.accX`) over `rig.carveLoadFull` (0.25 g: the sim's hardest carves
+pull 0.2–0.3 g), signed + heelside, − toeside. Takes recorded before it replay with the
+crouch and head look off.
+
+**1. Load sets the depth.** Hips drop by `rig.carveCrouch` × |load|. A hard carve folds
 you; a lazy one leaves you standing. Edge angle alone doesn't: a high edge at walking
 speed carries no load, so no crouch.
 
-**2. Angulation: legs lean further than the torso.** The lean that balances the turn is
-`atan(load)`. The hips and knees take `rig.angulation` of it (hip shift toward the inside,
-knees driven in), the torso the rest, so the spine tilts back toward vertical over the
-legs. That gap between the angle of the legs and the angle of the torso is the read.
-`rig.edgeHipShift` stays as a small static part, so a set edge with no load still shows.
+**2. Angulation: legs in, torso out.** The board's edge roll (`rig.edgeRoll`) already
+tips the whole rider into the turn. Inside that, the torso tips back toward the outside
+by `rig.angulation` × load (as `spineBend`), so the legs lean further than the chest.
+`rig.edgeHipShift` stays as the static part.
 
 **3. Toe and heel turns look different.**
 
 | | Heelside | Toeside |
 |---|---|---|
-| Hips | Back and down, sitting over the heel edge (`rig.heelSit`) | Forward over the toes, knees driven down toward the snow (`rig.toeKneeDrive`, wider `kneeSplay`) |
-| Torso | Folds forward from the hips to counter the sit | Tall; the chest stays up, back slightly arched |
-| Arms | Forward, in front of the knees | Lead arm forward along the turn, back arm trailing low |
-| Head | Up the turn, over the lead shoulder | Over the lead shoulder, chin toward the inside |
+| Hips | Toward the heel edge and down: sitting into it (`rig.heelSit`, `rig.heelSitDrop`) | Stay over the board, a touch toward the heel (`rig.toeHipBack`) |
+| Knees | As the crouch puts them | Turned toward the toes, driven at the snow (`rig.toeKneeDrive`, lowers `kneeSplay`) |
+| Torso | Folds forward over the toes (angulation, +) | Tall, chest up (angulation, −) |
+| Arms | Forward, counterweight to the sit (`rig.heelArms`) | Riding arms |
 
-Blended by the sign and size of `edge`, so the edge change is a continuous swap, not a
-cut.
+Blended by the sign and size of the load, so the edge change is a continuous swap.
 
-**4. Up and down between turns.** As the edge crosses flat the body extends
-(`rig.transitionRise`, driven by how fast the edge is changing), then sinks into the next
-turn's load. Above `rig.crossUnderSpeed` the rise fades into a cross-under: the hips stay
-low and the legs swing under the body, which is how fast edge-to-edge riding looks.
+**4. Up and down between turns.** No separate rise: the load passes zero between turns,
+so the crouch lets go and you extend, then sink into the next one. Above
+`rig.crossUnderSpeed` (faded in over `rig.crossUnderFade`) the hips hold
+`rig.crossUnderHold` of the full crouch between turns: low body, legs swinging under it.
 
 **5. Order: shoulders, then hips, then board.** Shoulders turn first (`carveLead`, kept),
-the hips follow on their spring, the board's edge roll last. The head looks
-`rig.carveLook` seconds along the turn, not along the board. The lag between them is what
-sells the weight transfer; don't stiffen the springs to remove it.
+the hips follow on their springs, the board's edge roll last. The head looks
+`rig.carveLook` seconds along the turn (within `rig.headTurnMax`), not along the board.
 
-**6. Arms at high load.** Past `rig.handDragLoad` the inside hand reaches toward the snow
-and the outside arm lifts as counterweight. The hand reaches toward the snow; it doesn't
-touch it.
+**6. Arms at high load.** Past `rig.handDragLoad` of full load the trailing hand swings
+toward the snow on the inside (behind on heelside, over the toes on toeside) by up to
+`rig.handDrag`, and the lead arm lifts half that the other way. Riding switch the trailing
+arm is the front one.
 
-**7. The new inputs, drawn.**
+**7. The new inputs, drawn** (waits for the remap).
 - Tuck (left stick forward): hips down, chest folded over the knees, arms in. Stand tall:
   the reverse.
 - Skid (right stick X): hips back over the tail, upper body stays facing down the fall
@@ -219,9 +222,10 @@ touch it.
   the spin wind-up.
 - Press: as now (`rig.stanceHipShift`, `rig.stanceSpineSide`).
 
-**Tuning.** Pose mode gets a fake load and edge (sliders, like the grab `hold` preview),
-so toe and heel carves can be set against video reference without riding. Set heelside
-and toeside at full load first; everything else is a blend between those and standing.
+**Tuning.** Ride, or replay a fresh take, with the `rig` folder open: all of it is render,
+so sliders change the look without touching the sim. Set heelside and toeside at full
+load first. Not built: a pose-mode preview with a fake load, which would let carves be set
+against video without riding. Add it if tuning on the hill is too slow.
 
 ## 9. Not decided — resolve by play
 
@@ -241,12 +245,8 @@ and toeside at full load first; everything else is a blend between those and sta
   sticks), recorded in the take's params like `air.spinModel`. Old takes replay on 0.
 - New params, each in `params.ts` and the panel: `ride.tuckDrag`, `ride.tallDrag`,
   `ride.tuckCarve`, `pop.ollieGain`, `pop.nollieGain`, `pop.pressWindow`, `grab.spinMid`,
-  `grab.spinTip`, `rail.offBalanceSpin`. Render (§8): `rig.carveCrouch`,
-  `rig.angulation`, `rig.heelSit`, `rig.toeKneeDrive`, `rig.transitionRise`,
-  `rig.crossUnderSpeed`, `rig.carveLook`, `rig.handDragLoad`.
-- §8 does not depend on the remap and can be built first: it is render-only, needs no
-  `input.scheme`, and leaves takes untouched. The tuck and skid drawing waits for the
-  remap.
+  `grab.spinTip`, `rail.offBalanceSpin`.
+- §8 is built (except the tuck and skid drawing, which waits for the remap).
 - Update with it: design §2, `render/controlsHelp.ts`, `keyboard.md` (WASD left stick,
   arrows right stick; grabs keep Q/E).
 - Milestone note: this touches M2–M6 controls. M5's gate hasn't been played; rails come
