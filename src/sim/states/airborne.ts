@@ -123,6 +123,11 @@ export function stepAirborne(
   const shiftyStick = two ? (input.lb || input.rb ? 0 : input.rx) : (input.rb ? 1 : 0) - (input.lb ? 1 : 0);
   const shiftyTarget = shifting ? shiftyStick * params.air.shiftyMax : 0;
   state.shifty = dampScalar(state.shifty, shiftyTarget, params.air.shiftyRate, dt);
+  // Two sticks: right stick Y, no bumper, pokes the board — up the leading end down, as the
+  // press it also sets for the landing. Judged at contact with the rest of the drawn board.
+  const dir = params.ground.switchEdges > 0 && state.switchRide ? -1 : 1;
+  const pitchTarget = two && !(input.lb || input.rb) ? -input.ry * dir * params.air.pitchMax : 0;
+  state.airPitch = dampScalar(state.airPitch, pitchTarget, params.air.shiftyRate, dt);
 
   // A grab tucks the body in and spins faster; shoving the board out on a tweak extends
   // it and spins slower. Scales what the board does, not the rate the stick is steering.
@@ -335,7 +340,7 @@ function composeBoard(out: Quat, state: RiderState, params: Params): Quat {
   setFromAxisAngle(shiftyQ, UP, state.shifty + (state.grabSwitch ? -a.yaw : a.yaw));
   // A switch grab is the mirror image nose-for-tail: pitch turns over, roll about the
   // board's length doesn't.
-  setFromAxisAngle(pitchQ, LATERAL, state.grabSwitch ? -a.pitch : a.pitch);
+  setFromAxisAngle(pitchQ, LATERAL, (state.grabSwitch ? -a.pitch : a.pitch) + state.airPitch);
   setFromAxisAngle(rollQ, LONG, a.roll * params.grab.tweakRollMax);
   multiply(out, state.spinFrame, shiftyQ);
   multiply(out, out, pitchQ);
@@ -360,6 +365,7 @@ function land(state: RiderState, params: Params, n: Vec3, onWall: boolean): void
   state.grabHeld = false;
   state.tweak = 0;
   state.shifty = 0;
+  state.airPitch = 0;
   projectOntoPlane(boardForward, n);
   normalize(boardForward);
 

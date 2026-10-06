@@ -509,7 +509,11 @@ function preRotation(out: Vec3, state: RiderState, input: InputSnapshot, params:
   const amount = Math.abs(w) * held * a.preRotateGain;
   const dir = a.switchFlips > 0 && state.switchRide ? -1 : 1;
   // Turning toward +X (the stick's way) is − about board up, as in takeoffSpinRate.
-  set(out, corkStick1(input.ly, params) * a.flipRate * dir * amount, -(w > 0 ? 1 : -1) * amount * a.spinTakeoff, 0);
+  // A cork's flip part takes the pop's pitch too, as a fast flip does (pop.flipAssist):
+  // an ollie tips a slow cork back, a nollie forward. A flat slow spin stays flat.
+  const cork = corkStick1(input.ly, params) * dir;
+  const pitch = cork !== 0 ? state.stance * params.pop.flipAssist : 0;
+  set(out, (cork + pitch) * a.flipRate * amount, -(w > 0 ? 1 : -1) * amount * a.spinTakeoff, 0);
   return true;
 }
 

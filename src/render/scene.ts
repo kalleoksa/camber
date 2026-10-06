@@ -34,6 +34,7 @@ export type RiderView = {
   posture: number; // two sticks: −1 stand tall .. +1 tuck
   popStance: number; // the press the last pop went off: − ollie, + nollie, 0 not popped
   airTime: number; // s since leaving the snow
+  airPitch: number; // rad of board poke under the body in the air, nose up +
   compress: number;
   scrub: number;
   brake: number;
@@ -77,6 +78,7 @@ const view: RiderView = {
   posture: 0,
   popStance: 0,
   airTime: 0,
+  airPitch: 0,
   compress: 0,
   scrub: 0,
   brake: 0,
@@ -121,6 +123,7 @@ export function interpolateRider(prev: RiderState, cur: RiderState, alpha: numbe
   view.stance = prev.stance + (cur.stance - prev.stance) * alpha;
   view.posture = prev.posture + (cur.posture - prev.posture) * alpha;
   view.popStance = cur.popStance;
+  view.airPitch = prev.airPitch + (cur.airPitch - prev.airPitch) * alpha;
   view.airTime = cur.mode === prev.mode ? prev.airTime + (cur.airTime - prev.airTime) * alpha : cur.airTime;
   view.compress = prev.compress + (cur.compress - prev.compress) * alpha;
   view.scrub = cur.scrub;
@@ -718,6 +721,12 @@ export function createScene(cfg: SlopeConfig, terrain: Terrain, camera: THREE.Pe
     drivers.backShoulderSwing += (secondary.armYaw - secondary.armX) * bg;
     drivers.frontShoulderOut -= (secondary.armOpen + secondary.armZ) * fg;
     drivers.backShoulderOut += (secondary.armZ - secondary.armOpen) * bg;
+    // Tucked (two sticks), the arms come in: forward and bent, close to the knees.
+    const tucked = Math.max(0, view.posture);
+    drivers.frontShoulderSwing += tucked * r.tuckArmSwing * fg;
+    drivers.backShoulderSwing += tucked * r.tuckArmSwing * bg;
+    drivers.frontElbow += tucked * r.tuckElbow * fg;
+    drivers.backElbow += tucked * r.tuckElbow * bg;
     // Carving arms: forward as counterweight to a heelside sit; past `handDragLoad` the
     // trailing hand reaches toward the snow inside the turn — behind on the heel side, out
     // over the toes on the toe side — and the lead arm lifts against it. + Swing is toward
@@ -741,6 +750,8 @@ export function createScene(cfg: SlopeConfig, terrain: Terrain, camera: THREE.Pe
     // after the pop the other end snaps up — nose up off the tail, tail up off the nose —
     // then levels. Pivots on the end that popped. Render only: the landing test reads the
     // sim's board, and the snap is gone `rig.popPitchTime` into the air.
+    // The poke (two sticks, right stick Y in the air): the board the landing test judges.
+    drivers.boardPitch += view.airPitch;
     let popTip = 0;
     if (grounded && butter === 0) popTip = -view.stance * view.compress * r.popLoadPitch;
     else if (view.mode === 'airborne' && view.popStance !== 0 && view.airTime < r.popPitchTime) {

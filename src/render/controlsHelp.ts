@@ -47,6 +47,7 @@ const TWO_STICK: [string, string, string][] = [
   ['Cork', 'At the pop, flick the left stick diagonally', 'W/S + A/D'],
   ['Spin faster / slower', 'In the air, left stick toward / against the spin', 'A / D'],
   ['Shifty', 'Right stick ← → in the air, no bumper', '← / →'],
+  ['Nose / tail poke', 'Right stick ↑ ↓ in the air, no bumper — bring it back before you land', '↑ / ↓'],
   ['Grab', 'Hold L1 (left hand) or R1 (right hand) + right stick', 'Q / E + arrows'],
   ['Tweak', 'Push the right stick all the way', '+ Shift'],
   ['Revert', 'Right after landing, flick the right stick the way you were spinning', '← / →'],

@@ -82,6 +82,7 @@ export const params = {
     checkRate: 6.0, // 1/s, spin decay with the stick centred; leftover rotation ≈ rate/checkRate. 0 = coast
     shiftyMax: 1.57, // rad (90°) of board yaw against the body at full shifty — the full turn across a rail, so a shifty onto it lands a boardslide. Was 0.9
     shiftyRate: 8.0, // 1/s, board swinging out and back — held at contact, it's judged
+    pitchMax: 0.5, // rad (~30°) of board pitch under the body at full right stick Y in the air (two sticks, no bumper): a nose or tail poke, judged at contact like the shifty. Swings at shiftyRate
     /**
      * 0..1, how much of a held carve is discounted from the takeoff stick read. At 0 the
      * stick position sets spin, which means a hard carve *is* a request for a 360 whether
@@ -417,6 +418,8 @@ export const params = {
     tuckFold: 0.35, // rad the chest folds over the knees at full tuck
     tallRise: 0.05, // m the hips come up standing tall
     tallFold: 0.15, // rad the chest straightens standing tall
+    tuckArmSwing: 0.45, // rad the arms come forward at full tuck
+    tuckElbow: 0.7, // rad more elbow bend at full tuck — arms pulled in
     // Ollie / nollie, drawn: the board loaded onto the pressed end while crouching, then the
     // other end snapping up off the pop.
     popLoadPitch: 0.12, // rad the board tips onto the pressed end at full press and full crouch

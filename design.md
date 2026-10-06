@@ -33,7 +33,7 @@ full rule set). Left stick is the upper body, right stick the lower body:
 |---|---|---|---|
 | Left stick X | Edge; while charging, the spin wind-up | Tuck / open against the spin | Balance lean, screen space (with Y); also the wind-up |
 | Left stick Y | Posture: tuck (less drag, wider turn) / stand tall (more drag, tighter) | Flick at the pop: flip, diagonal cork; held, keeps the axis | Balance lean, screen space (with X) |
-| Right stick Y | Nose / tail press; at the pop, ollie (tail, highest) / nollie (nose) | Press to land into | Contact point: nose / tail press |
+| Right stick Y | Nose / tail press; at the pop, ollie (tail, highest) / nollie (nose) | Poke: board pitched nose/tail under the body (`air.pitchMax`), judged at landing like the shifty; also the press to land into | Contact point: nose / tail press |
 | Right stick X | Skid — the speed check | Shifty (no bumper) | — |
 | RT | Compress; release = pop. Held on a press: locks it (butter wind-up) | Absorb | Compress; release = pop off |
 | LT | — | — | — |

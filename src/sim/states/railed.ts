@@ -282,6 +282,7 @@ export function tryCapture(state: RiderState, params: Params, terrain: Terrain, 
     state.grabHeld = false;
     state.tweak = 0;
     state.shifty = 0;
+    state.airPitch = 0;
     return true;
   }
   return false;

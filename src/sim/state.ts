@@ -55,6 +55,8 @@ export type RiderState = {
   posture: number;
   /** The press the last pop went off, −1 tail (ollie) .. +1 nose (nollie), board frame. 0 for an air not popped (a lip ridden off). */
   popStance: number;
+  /** Two sticks: rad of board pitch under the body in the air, nose up +, right stick Y with no bumper. Judged at landing like the shifty. */
+  airPitch: number;
   /**
    * In-air spin control is disarmed until the stick comes back through centre. Without it,
    * carrying a carve into the air drags the spin rate up to the carve's value.
@@ -152,6 +154,7 @@ export function createRiderState(spawn: Spawn): RiderState {
     flipRef: 0,
     posture: 0,
     popStance: 0,
+    airPitch: 0,
     spinArmed: true,
     windUp: 0,
     tuck: 1,
@@ -215,6 +218,7 @@ export function resetRiderState(state: RiderState): void {
   state.flipRef = 0;
   state.posture = 0;
   state.popStance = 0;
+  state.airPitch = 0;
   state.spinArmed = true;
   state.windUp = 0;
   state.tuck = 1;
@@ -277,6 +281,7 @@ export function copyRiderState(dst: RiderState, src: RiderState): void {
   dst.flipRef = src.flipRef;
   dst.posture = src.posture;
   dst.popStance = src.popStance;
+  dst.airPitch = src.airPitch;
   dst.spinArmed = src.spinArmed;
   dst.windUp = src.windUp;
   dst.tuck = src.tuck;
