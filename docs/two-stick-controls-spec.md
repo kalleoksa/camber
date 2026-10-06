@@ -104,6 +104,33 @@ other way. That falls out of adding the pop's pitch to the flip; no special case
 | Against the spin | Open — arms out, counter-rotating | × down to `1 − air.openGain` |
 | Y held | Keeps the cork / flip axis | Centring Y comes out of it (`air.corkRecover`) |
 
+**Slow spins: pre-rotation.** A big jump gives 1.5–2 s of air, so a 360 needs a third of
+the rate a park kicker does. A whip can't hit that reliably: the smallest flick is already
+`flickGain` (half) of full spin. Riders set slow spins differently: shoulders turned *the
+way of the spin* before the lip and held, the board following them round. Counter-rotation
+is the snap, pre-rotation the slow, even turn.
+
+| Gesture | Spin |
+|---|---|
+| Wind against, point toward at the pop (counter-rotation) | Fast. As above |
+| Stick held toward the spin through the charge **and through the pop**, only RT let go (pre-rotation) | Slow, even. Rate = held deflection × wind-up time × `air.preRotateGain` (~0.4 of `spinTakeoff`) |
+| Centred | Straight air |
+
+- **Off-axis is the held direction.** The whole held stick sets the axis, the way a flicked
+  one does: X held is a slow flat spin, Y alone a slow off-axis flip, a diagonal a slow
+  cork. The flip part scales down with the spin part, so a slow cork 540 is slow on both
+  axes, not a slow spin with a fast flip bolted on. In the remap the right stick held
+  with it adds the pop's pitch (§3), so both sticks held down-and-across are the slow cork.
+- **More in the air by tucking.** Held toward the spin in the air is the tuck (above), so
+  a slow 360 set on the lip turns into a 720 by keeping the stick there, and comes back to
+  a 540 by opening. Nothing rounds it.
+- **Replaces "held against through the pop = straight air".** With pre-rotation, a held
+  stick means a slow spin that way. A straight air is a centred stick, which it already is.
+- **Wind-up direction.** Today the stick held during the charge loads a wind-up for the
+  *opposite* spin. Under pre-rotation, what the pop does with it depends on what the stick
+  does at release: reversed (sent) is counter-rotation, still held is pre-rotation the held
+  way. One stored wind-up, read two ways at the pop. No timing or order rules beyond that.
+
 Never snap rotation in flight. The landing test (§6) decides.
 
 ## 5. Butters
@@ -238,6 +265,9 @@ against video without riding. Add it if tuning on the hill is too slow.
    because the shoulders really do lead a carve. Flag it if carving feels detached.
 4. **Flip flick vs. tuck.** If tucking into a kicker still throws unwanted flips, raise
    the flick threshold before anything else.
+5. **Pre-rotation vs. a carve into the lip.** Holding the stick toward the spin while
+   charging is also a carve. If slow spins start from carves nobody meant as spins, require
+   RT held for a minimum time before a held stick counts as pre-rotation.
 
 ## 10. Building it
 
@@ -245,7 +275,9 @@ against video without riding. Add it if tuning on the hill is too slow.
   sticks), recorded in the take's params like `air.spinModel`. Old takes replay on 0.
 - New params, each in `params.ts` and the panel: `ride.tuckDrag`, `ride.tallDrag`,
   `ride.tuckCarve`, `pop.ollieGain`, `pop.nollieGain`, `pop.pressWindow`, `grab.spinMid`,
-  `grab.spinTip`, `rail.offBalanceSpin`.
+  `grab.spinTip`, `rail.offBalanceSpin`, `air.preRotateGain`.
+- Pre-rotation (§4) is sim and works on today's left stick, so it can go in before the
+  remap. Old takes replay with `air.preRotateGain` 0, which is today's straight air.
 - §8 is built (except the tuck and skid drawing, which waits for the remap).
 - Update with it: design §2, `render/controlsHelp.ts`, `keyboard.md` (WASD left stick,
   arrows right stick; grabs keep Q/E).
