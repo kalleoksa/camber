@@ -345,6 +345,12 @@ export const params = {
     railTilt: 0.35, // rad the rider tips about the rail at full balance, toward the side they're falling to
     pressPitch: 0.25, // rad the board tips onto the rail at full contact — a nose press is nose down
     pressHipShift: 0.12, // m of hip travel toward the contact at full contact
+    // Across the rail with the weight on an end (contact, −1 tail … +1 nose): a blunt has the
+    // rail under a foot, a nose/tailslide has it out at the tip. Names (tricks.ts) and poses.
+    slideEndMin: 0.15, // |contact| below which a slide is centred — a boardslide or lipslide
+    bluntContact: 0.34, // |contact| of a foot (half the stance over half the board): a pure blunt
+    slideContact: 0.47, // |contact| from which it is a noseslide or tailslide; between, blended and named by the nearer
+    bluntPitch: 0.35, // rad the board stands up on a blunt, free end high
     spineStiffness: 55.0, // ω² for the spine twist and head springs, like hipStiffness — ω ≈ 7.4 rad/s
     spineDamping: 1.0, // ζ
     counterRotation: 1.0, // rad (~57°) the shoulders wind against the coming spin at full charge

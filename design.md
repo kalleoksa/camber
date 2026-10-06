@@ -640,8 +640,14 @@ not.
 - **Names**, as read from the state (no score). Board across the rail, travelling toward
   the heels (blind) = **frontside boardslide**; toward the toes (open) = **backside
   boardslide** — your convention. Along the rail with the contact at an end = nose or tail
-  press; across with the contact at an end = nose or tail slide. Lipslides (approached so
-  the tail crosses the rail first) are still to name.
+  press. Across with the weight on an end, how far along the board the rail sits names it:
+  under a foot (`rig.bluntContact`) a **blunt**, or nose blunt under the front foot; out at
+  a tip (`rig.slideContact`) a **noseslide** or **tailslide**. Centred, which end crossed
+  first splits boardslide from lipslide. On two sticks a half right-stick press is a blunt,
+  a full one a nose/tailslide.
+- **Blunt and slide poses**: `noseBlunt` (board stood up on the rail, `rig.bluntPitch`, body
+  upright over the front foot) and `noseslide` (low, folded over the nose), each mirrored
+  for the tail; seeded from the press, to refine in pose mode.
 
 ---
 

@@ -524,6 +524,8 @@ export function createScene(cfg: SlopeConfig, terrain: Terrain, camera: THREE.Pe
   // to keep one board point where the sim put it — the pressed tip of a butter on the snow,
   // the contact point of a press over the rail. `pinZ` is that point on board Z; 0 is none.
   let pinZ = 0;
+  // 0..1, how much the rail pose is a blunt — read again for the board's pitch.
+  let railBlunt = 0;
   // The grab's turn of the whole rider (sim grabs.ts `yaw`), applied to the root after the
   // drivers — the sim's board turns by the same, so the landing judges what is drawn.
   let grabYaw = 0;
@@ -628,13 +630,23 @@ export function createScene(cfg: SlopeConfig, terrain: Terrain, camera: THREE.Pe
         slideScratch.hipYaw -= slideScratch.shifty;
         blendToward(drivers, slideScratch, across);
       }
-      const pressPose = ANCHORS.press;
-      const pressAmount = smoothstep(Math.abs(view.railContact) / Math.max(params.rail.pressMax, 1e-3));
-      if (pressPose && pressAmount > 0) {
-        copyDrivers(pressScratch, pressPose);
+      // Weight on an end. Along the rail it's a press. Across it, the rail under a foot is
+      // a blunt (nose blunt under the front foot), out at a tip a noseslide or tailslide —
+      // each its own anchor, authored for the nose and mirrored for the tail.
+      const end = Math.abs(view.railContact);
+      const pressAmount = smoothstep(end / Math.max(params.rail.pressMax, 1e-3));
+      const onEnd = smoothstep((end - r.slideEndMin) / Math.max(r.slideEndMin, 1e-3)) * across;
+      const tipward = smoothstep((end - r.bluntContact) / Math.max(r.slideContact - r.bluntContact, 1e-3));
+      railBlunt = onEnd * (1 - tipward);
+      const toEnd = (endPose: RigDrivers | undefined, w: number): void => {
+        if (!endPose || w <= 0) return;
+        copyDrivers(pressScratch, endPose);
         if (view.railContact < 0) mirrorDrivers(pressScratch);
-        blendToward(drivers, pressScratch, pressAmount);
-      }
+        blendToward(drivers, pressScratch, w);
+      };
+      toEnd(ANCHORS.press, pressAmount * (1 - across));
+      toEnd(ANCHORS.noseBlunt, railBlunt);
+      toEnd(ANCHORS.noseslide, onEnd * tipward);
       // The lean you are fighting, and the hips over the contact, on top of whatever pose.
       drivers.hipX += view.balance * r.railLean;
       drivers.hipZ += view.railContact * r.pressHipShift;
@@ -742,6 +754,8 @@ export function createScene(cfg: SlopeConfig, terrain: Terrain, camera: THREE.Pe
     if (trick) {
       // A press tips the board onto its contact point: nose press, nose down.
       drivers.boardPitch -= view.railContact * r.pressPitch;
+      // A blunt stands the board up on the rail: the free end high.
+      drivers.boardPitch -= Math.sign(view.railContact) * railBlunt * r.bluntPitch;
       pinZ = view.railContact * params.rail.boardHalf; // where the sim put the contact
     }
     drivers.tweakRoll = a.roll;

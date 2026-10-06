@@ -292,9 +292,14 @@ export function createTrickReader(): TrickReader {
           const crossing = Math.abs(cross) < 0.3 ? 0 : Math.sign(cross);
           const noseSide = along > 1e-6 ? Math.sign(v.x * Math.cos(state.heading) - v.z * Math.sin(state.heading)) : 0;
           const noseOver = crossing === 0 || noseSide === 0 || noseSide === crossing;
-          if (end === 'nose') kind = noseOver ? 'noseslide' : 'nose blunt';
-          else if (end === 'tail') kind = noseOver ? 'blunt' : 'tailslide';
-          else kind = noseOver ? 'boardslide' : 'lipslide';
+          // Weight on an end: how far along the board the rail sits names it — under a foot a
+          // blunt (nose blunt under the front foot), out at a tip a noseslide or tailslide.
+          // Which end crossed first only splits a centred slide: boardslide or lipslide.
+          const r = params.rig;
+          const reach = Math.abs(c);
+          if (reach < r.slideEndMin) kind = noseOver ? 'boardslide' : 'lipslide';
+          else if (reach < (r.bluntContact + r.slideContact) / 2) kind = c > 0 ? 'nose blunt' : 'blunt';
+          else kind = c > 0 ? 'noseslide' : 'tailslide';
         }
         if (kind) {
           // Across the rail: travelling toward the heels is frontside (your convention).
