@@ -173,7 +173,7 @@ Per tick, grounded:
 ## 5. Pop and air
 
 **Charge.** RT held ramps `compress` 0→1 over `pop.chargeTime`, with visible knee bend.
-Holding past full slowly bleeds it (`pop.decay`) — rewards timing, punishes camping.
+Holding past full slowly bleeds it (`pop.decay`) down to `pop.decayFloor` (0.75), then holds — rewards timing without punishing a crouch held through the approach, which pre-rotation and the butter lock need.
 
 **Release.** Impulse along the *contact normal*, not world up:
 `v += n * (pop.base + pop.charged * compress)`. Ramp geometry adds its own velocity for

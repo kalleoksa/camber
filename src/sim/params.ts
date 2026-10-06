@@ -50,6 +50,9 @@ export const params = {
     flipAssist: 0.25, // fraction of air.flipRate the pop's pitch adds to a flip: an ollie brings a backflip round faster, a nollie a frontflip
     chargeTime: 0.25, // s to full compress
     decay: 0.4, // 1/s bleed after full
+    // Held past full the crouch bleeds only down to this, then holds: holding RT through the
+    // approach (pre-rotation, a locked butter) is a move now, not camping. 0: the old bleed to nothing.
+    decayFloor: 0.75,
     base: 1.566, // m/s uncharged — sized so an ollie is as high in metres as at the old 16 m/s²
     charged: 3.915, // m/s added at full charge
     stanceBias: 0.3, // ollie/nollie pop multiplier range

@@ -318,7 +318,7 @@ export function chargePop(state: RiderState, input: InputSnapshot, params: Param
     state.compress =
       state.charge <= params.pop.chargeTime
         ? state.charge / params.pop.chargeTime
-        : Math.max(0, 1 - (state.charge - params.pop.chargeTime) * params.pop.decay);
+        : Math.max(params.pop.decayFloor, 1 - (state.charge - params.pop.chargeTime) * params.pop.decay);
     return false;
   }
   if (state.popLatch) {
