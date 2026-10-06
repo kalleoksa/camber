@@ -31,7 +31,7 @@ Triggers and buttons:
 | Input | Grounded | Airborne | Railed |
 |---|---|---|---|
 | RT (analog) | Compress; release = pop. Held in a press = locks the press | Absorb: legs ready for landing | Compress; release = pop off |
-| LT | Unassigned (see §8) | — | — |
+| LT | Unassigned (see §9) | — | — |
 | L1 / R1 | — | Grab hand (front / back) with right stick | Turn slide angle |
 | Y / Triangle | Reset | Reset | Reset |
 
@@ -154,7 +154,76 @@ open, tweaked method the slowest.
   (`rail.offBalanceSpin`), which is real and matches Shredders, but as a scale, not a
   block: you get a smaller spin, not none.
 
-## 8. Not decided — resolve by play
+## 8. Carving posture
+
+Render only. Legs and torso do different jobs in a turn: **the lower body angulates into
+the turn and holds the edge; the upper body stays more upright to balance against the
+load.** Today the rig shifts the hips toward the edge in proportion to edge angle
+(`rig.edgeHipShift`) and turns the shoulders into the turn (`rig.carveLead`). The body
+leans as one block, and the same way on toe and heel.
+
+All of it is driver-vector output (design §7.2) on springs (§7.6), read from state the
+sim already has. No clips.
+
+**Inputs**, all from state or derived in render:
+
+| Input | From |
+|---|---|
+| Edge, signed toe/heel | `state.edge` |
+| Turn rate | Heading change per tick, as `carveLead` already reads it |
+| Lateral load, in g | speed × turn rate / g. What the body actually balances against |
+| Posture | Left stick Y (§2): tuck / tall |
+| Skid, press | Right stick X / Y (§2) |
+
+**1. Load sets the depth.** Hips drop by `rig.carveCrouch` × load. A hard carve folds
+you; a lazy one leaves you standing. Edge angle alone doesn't: a high edge at walking
+speed carries no load, so no crouch.
+
+**2. Angulation: legs lean further than the torso.** The lean that balances the turn is
+`atan(load)`. The hips and knees take `rig.angulation` of it (hip shift toward the inside,
+knees driven in), the torso the rest, so the spine tilts back toward vertical over the
+legs. That gap between the angle of the legs and the angle of the torso is the read.
+`rig.edgeHipShift` stays as a small static part, so a set edge with no load still shows.
+
+**3. Toe and heel turns look different.**
+
+| | Heelside | Toeside |
+|---|---|---|
+| Hips | Back and down, sitting over the heel edge (`rig.heelSit`) | Forward over the toes, knees driven down toward the snow (`rig.toeKneeDrive`, wider `kneeSplay`) |
+| Torso | Folds forward from the hips to counter the sit | Tall; the chest stays up, back slightly arched |
+| Arms | Forward, in front of the knees | Lead arm forward along the turn, back arm trailing low |
+| Head | Up the turn, over the lead shoulder | Over the lead shoulder, chin toward the inside |
+
+Blended by the sign and size of `edge`, so the edge change is a continuous swap, not a
+cut.
+
+**4. Up and down between turns.** As the edge crosses flat the body extends
+(`rig.transitionRise`, driven by how fast the edge is changing), then sinks into the next
+turn's load. Above `rig.crossUnderSpeed` the rise fades into a cross-under: the hips stay
+low and the legs swing under the body, which is how fast edge-to-edge riding looks.
+
+**5. Order: shoulders, then hips, then board.** Shoulders turn first (`carveLead`, kept),
+the hips follow on their spring, the board's edge roll last. The head looks
+`rig.carveLook` seconds along the turn, not along the board. The lag between them is what
+sells the weight transfer; don't stiffen the springs to remove it.
+
+**6. Arms at high load.** Past `rig.handDragLoad` the inside hand reaches toward the snow
+and the outside arm lifts as counterweight. The hand reaches toward the snow; it doesn't
+touch it.
+
+**7. The new inputs, drawn.**
+- Tuck (left stick forward): hips down, chest folded over the knees, arms in. Stand tall:
+  the reverse.
+- Skid (right stick X): hips back over the tail, upper body stays facing down the fall
+  line while the board swings across. Counter-rotation against the skid, the same rule as
+  the spin wind-up.
+- Press: as now (`rig.stanceHipShift`, `rig.stanceSpineSide`).
+
+**Tuning.** Pose mode gets a fake load and edge (sliders, like the grab `hold` preview),
+so toe and heel carves can be set against video reference without riding. Set heelside
+and toeside at full load first; everything else is a blend between those and standing.
+
+## 9. Not decided — resolve by play
 
 1. **LT.** Freed by moving the brake to the right stick. Candidates: a crossed-grab
    modifier (design open question 6), or nothing. Leave it empty until something earns it.
@@ -166,13 +235,18 @@ open, tweaked method the slowest.
 4. **Flip flick vs. tuck.** If tucking into a kicker still throws unwanted flips, raise
    the flick threshold before anything else.
 
-## 9. Building it
+## 10. Building it
 
 - **Takes must still replay.** One switch, `input.scheme` (0: today's mapping, 1: two
   sticks), recorded in the take's params like `air.spinModel`. Old takes replay on 0.
 - New params, each in `params.ts` and the panel: `ride.tuckDrag`, `ride.tallDrag`,
   `ride.tuckCarve`, `pop.ollieGain`, `pop.nollieGain`, `pop.pressWindow`, `grab.spinMid`,
-  `grab.spinTip`, `rail.offBalanceSpin`.
+  `grab.spinTip`, `rail.offBalanceSpin`. Render (§8): `rig.carveCrouch`,
+  `rig.angulation`, `rig.heelSit`, `rig.toeKneeDrive`, `rig.transitionRise`,
+  `rig.crossUnderSpeed`, `rig.carveLook`, `rig.handDragLoad`.
+- §8 does not depend on the remap and can be built first: it is render-only, needs no
+  `input.scheme`, and leaves takes untouched. The tuck and skid drawing waits for the
+  remap.
 - Update with it: design §2, `render/controlsHelp.ts`, `keyboard.md` (WASD left stick,
   arrows right stick; grabs keep Q/E).
 - Milestone note: this touches M2–M6 controls. M5's gate hasn't been played; rails come
@@ -180,4 +254,5 @@ open, tweaked method the slowest.
 
 **What to tune first, by hand:** `pop.ollieGain` vs `pop.nollieGain` (the pop feel),
 `ride.tuckDrag` (does tucking feel worth it), `grab.spinMid` vs tweak (does a grab
-change the spin enough to feel it, not so much it decides the trick).
+change the spin enough to feel it, not so much it decides the trick), `rig.angulation`
+(legs vs torso: too low reads as a stiff lean, too high as a broken back).
