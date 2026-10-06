@@ -17,7 +17,10 @@ export function tick(
   dt: number,
 ): void {
   state.tick++;
-  state.brake = input.lt;
+  const two = params.input.scheme > 0;
+  // Two sticks: the speed check is the right stick sideways, a skid, signed toward the side
+  // it pushes the tail. Not in the landing window, where the same stick reverts and saves.
+  state.brake = two ? (state.absorb > 0 ? 0 : input.rx) : input.lt;
 
   if (input.y) {
     if (!state.resetLatch) {
@@ -37,7 +40,24 @@ export function tick(
   const winding = params.air.spinModel > 0 && input.rt > params.pop.trigger && (state.mode === 'grounded' || state.mode === 'walled');
   const steer = winding ? params.air.windSteer : 1;
   state.edge = dampScalar(state.edge, input.lx * dir * steer, params.ground.edgeResponse, dt);
-  state.stance = dampScalar(state.stance, input.ly * dir, params.ground.stanceResponse, dt);
+  const onSnow = state.mode === 'grounded' || state.mode === 'walled';
+  if (!two) {
+    state.stance = dampScalar(state.stance, input.ly * dir, params.ground.stanceResponse, dt);
+  } else {
+    // The press is the lower body: right stick Y. RT held on a press locks it (a butter
+    // held through the wind-up, popped out of); in the air with a hand on the board the
+    // right stick is the grab, so the weight comes back to the middle.
+    const locked = onSnow && input.rt > params.pop.trigger && Math.abs(state.stance) > params.butter.press;
+    const grabbing = state.mode === 'airborne' && (input.lb || input.rb);
+    if (!locked) state.stance = dampScalar(state.stance, grabbing ? 0 : input.ry * dir, params.ground.stanceResponse, dt);
+    // Left stick Y on the snow is posture, the speed control: forward tucks, back stands tall.
+    state.posture = dampScalar(state.posture, onSnow ? input.ly : 0, params.ground.stanceResponse, dt);
+    // Flips read a flick of left stick Y against this, so a held tuck pops straight. Held
+    // through the pop window, so the flick is measured from before the pop.
+    if (!(state.mode === 'airborne' && state.popWindow > 0)) {
+      state.flipRef = dampScalar(state.flipRef, input.ly, params.air.spinRefRate, dt);
+    }
+  }
 
   // The baseline takeoff measures the spin whip against — "the carve you are already
   // holding". Its own rate rather than a reuse of `state.edge`, so widening the whip window

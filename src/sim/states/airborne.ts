@@ -4,7 +4,7 @@ import { boardAttitude, GRABS, grabAttitude, nearestSpotFront, pickGrab, stickT 
 import { axisY, axisZ, multiply, normalizeQuat, quat, rotate, setFromAxisAngle, type Quat } from '../quat.ts';
 import type { RiderState } from '../state.ts';
 import { tryCapture } from './railed.ts';
-import { corkStick, setRotation, setTakeoffSpin, stickRotation, takeoffSpinRate } from './grounded.ts';
+import { corkStick, popFlipStick, setRotation, setTakeoffSpin, stickRotation, takeoffSpinRate } from './grounded.ts';
 import { createContact, type Terrain } from '../terrain.ts';
 import {
   addScaled,
@@ -74,7 +74,7 @@ export function stepAirborne(
     // is not taken back. Read as a whip, same as the pop itself.
     state.popWindow = Math.max(0, state.popWindow - dt);
     const asked = flips
-      ? length(stickRotation(stickW, takeoffSpinRate(state, input, params), state, input, params))
+      ? length(stickRotation(stickW, takeoffSpinRate(state, input, params), popFlipStick(state, input, params), state, params))
       : Math.abs(takeoffSpinRate(state, input, params));
     if (asked > Math.abs(state.spinRate)) setTakeoffSpin(state, input, params);
   } else if (!state.spinArmed && params.air.spinModel <= 0) {
@@ -85,7 +85,7 @@ export function stepAirborne(
     // Spin model 1: the rotation is what the takeoff gave it. The stick, read against the
     // axis already turning, only tucks the body in (toward the spin) or opens it out
     // (against), which speeds the same rotation up or slows it — never starts or reverses it.
-    stickRotation(stickW, -input.lx * params.air.spinTakeoff, state, input, params);
+    stickRotation(stickW, -input.lx * params.air.spinTakeoff, input.ly, state, params);
     const norm = Math.max(params.air.spinTakeoff, params.air.flipRate, 1e-6);
     const along = state.spinRate === 0 ? 0 : (dot(stickW, state.spinAxis) * (state.spinRate > 0 ? 1 : -1)) / norm;
     const s = along > 1 ? 1 : along < -1 ? -1 : along;
@@ -94,7 +94,7 @@ export function stepAirborne(
   } else if (flips && (input.lx !== 0 || corkStick(input.ly, params) !== 0)) {
     // The stick read against the axis already turning: held, it holds the rotation — spin,
     // flip or the cork between — and eased, it slows it. It cannot swing the axis mid-air.
-    stickRotation(stickW, -input.lx * params.air.spinTakeoff, state, input, params);
+    stickRotation(stickW, -input.lx * params.air.spinTakeoff, input.ly, state, params);
     const target = dot(stickW, state.spinAxis);
     state.spinRate += (target - state.spinRate) * (1 - dm.exp(-params.air.authority * dt));
   } else if (!flips && input.lx !== 0) {
@@ -111,13 +111,22 @@ export function stepAirborne(
   // Shifty: board yawed under a still body. Buttons, so it's all or nothing in intent;
   // the spring is what makes it a motion rather than a snap.
   // Stick model 2: a bumper with the stick out is a grab, not a shifty.
+  // Two sticks: the bumpers are the grab hands, and the shifty is the right stick on its own
+  // — the lower body yawing the board, analog.
   const shifting = params.grab.stickModel < 2 || !state.grabHeld;
-  const shiftyTarget = shifting ? ((input.rb ? 1 : 0) - (input.lb ? 1 : 0)) * params.air.shiftyMax : 0;
+  const two = params.input.scheme > 0;
+  const shiftyStick = two ? (input.lb || input.rb ? 0 : input.rx) : (input.rb ? 1 : 0) - (input.lb ? 1 : 0);
+  const shiftyTarget = shifting ? shiftyStick * params.air.shiftyMax : 0;
   state.shifty = dampScalar(state.shifty, shiftyTarget, params.air.shiftyRate, dt);
 
   // A grab tucks the body in and spins faster; shoving the board out on a tweak extends
   // it and spins slower. Scales what the board does, not the rate the stick is steering.
-  const body = params.air.tuckMultiplier + (params.air.extendMultiplier - params.air.tuckMultiplier) * state.tweak;
+  // With grabSpinByPlace the grab's own rate comes from where it is: between the feet the
+  // body folds and spins faster, at a tip it stretches along the board and doesn't.
+  const a = params.air;
+  const tip = a.grabSpinByPlace > 0 ? smooth(Math.abs(state.grabT - 0.5) * 2) : 0;
+  const held = a.tuckMultiplier + (a.tipMultiplier - a.tuckMultiplier) * tip;
+  const body = held + (a.extendMultiplier - held) * state.tweak;
   const tuck = params.air.spinModel > 0 ? state.tuck : 1;
   const rate = state.spinRate * (1 + (body - 1) * state.grip) * tuck;
 
@@ -237,6 +246,11 @@ function levelBoardUp(state: RiderState, rate: number, dt: number): void {
  * chosen from `t` when it starts reaching and kept until it lets go, so sliding along the
  * board mid-grab doesn't swap hands.
  */
+function smooth(t: number): number {
+  const x = t < 0 ? 0 : t > 1 ? 1 : t;
+  return x * x * (3 - 2 * x);
+}
+
 function updateGrab(state: RiderState, input: InputSnapshot, params: Params, dt: number): void {
   const g = params.grab;
   const m = Math.min(1, Math.sqrt(input.rx * input.rx + input.ry * input.ry));

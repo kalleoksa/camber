@@ -31,6 +31,7 @@ export type RiderView = {
   course: number; // heading of horizontal velocity — what the camera follows in the air
   edge: number;
   stance: number;
+  posture: number; // two sticks: −1 stand tall .. +1 tuck
   compress: number;
   scrub: number;
   brake: number;
@@ -71,6 +72,7 @@ const view: RiderView = {
   course: 0,
   edge: 0,
   stance: 0,
+  posture: 0,
   compress: 0,
   scrub: 0,
   brake: 0,
@@ -113,6 +115,7 @@ export function interpolateRider(prev: RiderState, cur: RiderState, alpha: numbe
   view.heading = shortestAngleLerp(prev.heading, cur.heading, alpha);
   view.edge = prev.edge + (cur.edge - prev.edge) * alpha;
   view.stance = prev.stance + (cur.stance - prev.stance) * alpha;
+  view.posture = prev.posture + (cur.posture - prev.posture) * alpha;
   view.compress = prev.compress + (cur.compress - prev.compress) * alpha;
   view.scrub = cur.scrub;
   view.brake = cur.brake;
@@ -650,6 +653,8 @@ export function createScene(cfg: SlopeConfig, terrain: Terrain, camera: THREE.Pe
     drivers.hipX += heel * r.heelSit + toe * r.toeHipBack;
     drivers.spineBend += load * r.angulation;
     drivers.kneeSplay -= toe * r.toeKneeDrive;
+    // Posture: the tuck folds the chest over the knees, standing tall straightens it.
+    drivers.spineBend += view.posture > 0 ? view.posture * r.tuckFold : view.posture * r.tallFold;
 
     const front = view.grabFront;
     const handEdge = anchor ? (front ? anchor.frontHandEdge : anchor.backHandEdge) : view.grabEdge;

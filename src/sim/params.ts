@@ -3,6 +3,13 @@
  * can bind them generically and presets can serialize them wholesale.
  */
 export const params = {
+  // Which pad mapping the sim reads (docs/two-stick-controls-spec.md). 0: one stick — the
+  // left stick edges, presses and flips, LT brakes; takes before the remap replay on it.
+  // 1: two sticks — left is the upper body (edge, tuck/stand tall, spin, flip flick), right
+  // the lower body (press, skid, ollie/nollie, grabs, shifty).
+  input: {
+    scheme: 1,
+  },
   world: {
     gravity: 9.81, // m/s², real. Parks are full size and speeds real (src/park/scale.ts); takes before this carry 16
     terminalSpeed: 26.0, // m/s
@@ -26,11 +33,21 @@ export const params = {
     stanceGripLoss: 0.35, // grip lost at full press
     brakeDecel: 9.0, // m/s² at full LT
     brakeGripLoss: 0.7, // grip lost at full LT — the scrub half of brake/scrub
+    // Two sticks: left stick Y is posture on the snow. Forward tucks, back stands tall.
+    tuckDrag: 0.6, // × air drag at full tuck — you don't speed up, you stop losing it
+    tallDrag: 2.0, // × air drag standing tall — a soft speed check without skidding
+    tuckCarve: 0.85, // × carve yaw at full tuck — a wider turn
+    tallCarve: 1.15, // × carve yaw standing tall — a tighter one
     normalSmoothing: 12.0, // 1/s, board-to-terrain alignment rate
     edgeResponse: 9.0, // 1/s, stick-to-edge-angle rate
     stanceResponse: 9.0, // 1/s, stick-to-stance rate — weight shifts, it isn't an edge
   },
   pop: {
+    // Two sticks: the press at release picks the pop. Replaces stanceBias, which made a nollie
+    // weaker than a flat pop.
+    ollieGain: 1.3, // × pop off the tail — the strongest
+    nollieGain: 1.15, // × pop off the nose — between a flat pop and an ollie
+    flipAssist: 0.25, // fraction of air.flipRate the pop's pitch adds to a flip: an ollie brings a backflip round faster, a nollie a frontflip
     chargeTime: 0.25, // s to full compress
     decay: 0.4, // 1/s bleed after full
     base: 1.566, // m/s uncharged — sized so an ollie is as high in metres as at the old 16 m/s²
@@ -46,7 +63,9 @@ export const params = {
     levelWhole: 1, // 1: level the whole rotation (corks land too). 0: older board-up rule, fades on corks
     levelTiltMax: 0.3, // rad of cork tilt at which the older rule (levelWhole 0) has faded out
     authority: 1.2, // 1/s, how fast in-air stick pulls spin toward its target
-    tuckMultiplier: 1.25, // spin rate while grabbed
+    tuckMultiplier: 1.25, // spin rate while grabbed — with grabSpinByPlace, a grab between the feet
+    tipMultiplier: 1.0, // spin rate grabbing a tip (nose, tail) — the body stretched along the board
+    grabSpinByPlace: 1, // 1: a grab's spin rate comes from where on the board it is (tuck mid-board, tip at the ends). 0: tuckMultiplier for every grab
     extendMultiplier: 0.85, // spin rate while stretched
     spinMax: 9.0, // rad/s cap
     axisTiltMax: 1.1, // rad, max cork axis lerp
@@ -171,6 +190,7 @@ export const params = {
     popAngle: 0.35, // rad from up: on a wall's transition steeper than this, a pop drives you up the face instead of off it
   },
   butter: {
+    popCarry: 1.0, // two sticks: fraction of the butter's pivot rate a pop out of it carries into the spin
     press: 0.65, // |stance| where a press starts to become a butter
     maxSpeed: 12.0, // m/s, above which there is no butter — you carve on a press instead
     speedFade: 3.0, // m/s below maxSpeed over which the butter fades in
@@ -378,6 +398,11 @@ export const params = {
     carveLook: 1.0, // s ahead along the turn the head looks, within headTurnMax
     handDragLoad: 0.8, // fraction of full load past which the trailing hand reaches toward the snow inside the turn
     handDrag: 0.6, // rad of trailing-arm swing toward the inside at full load; the lead arm lifts half that the other way
+    // Posture, drawn (two sticks, left stick Y on the snow).
+    tuckDrop: 0.16, // m the hips drop at full tuck
+    tuckFold: 0.35, // rad the chest folds over the knees at full tuck
+    tallRise: 0.05, // m the hips come up standing tall
+    tallFold: 0.15, // rad the chest straightens standing tall
   },
   // Cloth (9c): springs on the fixed tick in render/secondary.ts, so replay reproduces
   // them; they change the spring hash, not the sim. Angles in rad, rates in rad/s.

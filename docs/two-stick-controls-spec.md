@@ -22,7 +22,7 @@ momentum from the wind-up and the pop, changed in the air only by body shape.
 | Idea | Shoulders, arms, where you look | Hips, knees, feet: weight along the board, the board under you |
 | Grounded | X edge / turn · Y tuck (fwd) or stand tall (back) | Y nose / tail press · X skid |
 | Charging RT | X winds up the spin (counter-rotation) · flick Y sets a flip | Y picks ollie, nollie or flat pop |
-| Airborne | Toward the spin: tuck, spins faster · against it: open, slows · centred: check | With L1/R1: grab. Alone: X shifty, Y board pitch (nose up / down) |
+| Airborne | Toward the spin: tuck, spins faster · against it: open, slows · centred: check | With L1/R1: grab. Alone: X shifty, Y the press you land into |
 | Railed | Balance lean across the rail | Y moves the contact point: nose / tail press · X unused |
 | Landing window | — | Revert / save (as now) |
 
@@ -41,9 +41,9 @@ Triggers and buttons:
 
 - **Left stick X — edge.** Unchanged: edge target, carve is velocity rotation (§4).
 - **Left stick Y — posture, the speed control.**
-  - Forward: tuck. Knees and chest down, drag × `ride.tuckDrag` (< 1), carve radius a
-    little wider (`ride.tuckCarve`). This is how you carry speed into a feature.
-  - Back: stand tall. Drag × `ride.tallDrag` (> 1), carve tighter. A soft speed check
+  - Forward: tuck. Knees and chest down, drag × `ground.tuckDrag` (< 1), carve radius a
+    little wider (`ground.tuckCarve`). This is how you carry speed into a feature.
+  - Back: stand tall. Drag × `ground.tallDrag` (> 1), carve tighter. A soft speed check
     without skidding.
   - Analog both ways. Truth: you don't speed up by pushing a button, you stop losing it.
 - **Right stick X — skid.** The lower body kicks the tail out: grip drops, the board
@@ -69,9 +69,9 @@ picks the pop:
 Replaces the symmetric `pop.stanceBias`, which makes a nollie 30% weaker than a flat pop.
 Real nollies are weaker than ollies, not weaker than nothing. Analog in between.
 
-The pop reads the **press already held**, so a tail press into a pop is an ollie without
-moving the thumb. A short flick down in the last `pop.pressWindow` before release also
-counts, for a pop from a centred stick.
+The pop reads the **press already held** (`stance`, which follows the stick at
+`ground.stanceResponse`), so a tail press into a pop is an ollie without moving the thumb,
+and a quick push down just before release mostly counts too.
 
 ## 4. Rotation — no fixed amounts
 
@@ -158,9 +158,9 @@ toward `air.extendMultiplier` (0.85). Replace the flat number with one that come
 the grab's name, so grabs stay emergent:
 
 - **Between the feet** (melon, indy, stalefish: `grabT` near the middle): body folded,
-  arms in → faster. × `grab.spinMid` (~1.3).
+  arms in → faster. × `air.tuckMultiplier` (1.25).
 - **At the tips** (nose, tail): body stretched along the board → about neutral.
-  × `grab.spinTip` (~1.0).
+  × `air.tipMultiplier` (1.0).
 - **Tweak depth** pulls it toward `air.extendMultiplier` (~0.8): a method or a tweaked
   mute shoves the board out and slows the spin, which is why riders don't method big
   spins.
@@ -271,20 +271,30 @@ against video without riding. Add it if tuning on the hill is too slow.
 
 ## 10. Building it
 
-- **Takes must still replay.** One switch, `input.scheme` (0: today's mapping, 1: two
-  sticks), recorded in the take's params like `air.spinModel`. Old takes replay on 0.
-- New params, each in `params.ts` and the panel: `ride.tuckDrag`, `ride.tallDrag`,
-  `ride.tuckCarve`, `pop.ollieGain`, `pop.nollieGain`, `pop.pressWindow`, `grab.spinMid`,
-  `grab.spinTip`, `rail.offBalanceSpin`, `air.preRotateGain`.
-- Pre-rotation (§4) is sim and works on today's left stick, so it can go in before the
-  remap. Old takes replay with `air.preRotateGain` 0, which is today's straight air.
-- §8 is built (except the tuck and skid drawing, which waits for the remap).
-- Update with it: design §2, `render/controlsHelp.ts`, `keyboard.md` (WASD left stick,
-  arrows right stick; grabs keep Q/E).
-- Milestone note: this touches M2–M6 controls. M5's gate hasn't been played; rails come
-  last in the build so the gate is played on one mapping, not two.
+**Status.** Built: §2–§6 on snow and in the air, §8, and the posture and skid drawing.
+Not built: §7 rails (still the one-stick weight shift), pre-rotation (§4), right stick Y
+as board pitch in the air (it is the press you land into instead).
+
+- **Takes still replay.** One switch, `input.scheme` (0: one stick, 1: two sticks, the
+  default), recorded in the take's params. Takes before it replay on 0 bit-identically;
+  their stored sim hashes were re-hashed for the two new state fields (`flipRef`,
+  `posture`). `takes/two-stick.json` (`scripts/make-two-stick-take.ts`) covers scheme 1 in
+  `npm run determinism`.
+- Params: `input.scheme`; `ground.tuckDrag`, `ground.tallDrag`, `ground.tuckCarve`,
+  `ground.tallCarve`; `pop.ollieGain`, `pop.nollieGain`, `pop.flipAssist`;
+  `air.tipMultiplier`, `air.grabSpinByPlace`; `butter.popCarry`; render `rig.tuckDrop`,
+  `rig.tuckFold`, `rig.tallRise`, `rig.tallFold`. The skid reuses `ground.brakeDecel` and
+  `ground.brakeGripLoss`.
+- Still to come: `rail.offBalanceSpin` with §7, `air.preRotateGain` with pre-rotation (old
+  takes replay with it 0, which is today's straight air).
+- Butter lock and the wind-up: while RT is held the left stick mostly loads the wind-up
+  (`air.windSteer`), so a locked butter pivots slowly and little of its pivot is left to
+  carry at the pop (~0.7 rad/s in a probe). The spin out of a butter comes mainly from the
+  wind-up. Raise `butter.popCarry` or `air.windSteer` if it should carry more.
 
 **What to tune first, by hand:** `pop.ollieGain` vs `pop.nollieGain` (the pop feel),
-`ride.tuckDrag` (does tucking feel worth it), `grab.spinMid` vs tweak (does a grab
+`ground.tuckDrag` / `ground.tallDrag` (does posture feel worth it — in a probe, 8 s down a
+gentle slope, tuck vs. tall was only 10.9 vs. 10.4 m/s, because air drag is small below
+~15 m/s), `air.tuckMultiplier` vs `air.tipMultiplier` and tweak (does a grab
 change the spin enough to feel it, not so much it decides the trick), `rig.angulation`
 (legs vs torso: too low reads as a stiff lean, too high as a broken back).

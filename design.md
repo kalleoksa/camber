@@ -26,6 +26,27 @@ Reference document for the sim model. Read with `CLAUDE.md`.
 
 Xbox-layout gamepad. Analog everywhere it matters.
 
+**Two sticks** (`input.scheme` 1, the default — `docs/two-stick-controls-spec.md` is the
+full rule set). Left stick is the upper body, right stick the lower body:
+
+| Input | Grounded | Airborne | Railed |
+|---|---|---|---|
+| Left stick X | Edge; while charging, the spin wind-up | Tuck / open against the spin | As below (unchanged) |
+| Left stick Y | Posture: tuck (less drag, wider turn) / stand tall (more drag, tighter) | Flick at the pop: flip, diagonal cork; held, keeps the axis | As below |
+| Right stick Y | Nose / tail press; at the pop, ollie (tail, highest) / nollie (nose) | Press to land into | — |
+| Right stick X | Skid — the speed check | Shifty (no bumper) | — |
+| RT | Compress; release = pop. Held on a press: locks it (butter wind-up) | Absorb | Compress; release = pop off |
+| LT | — | — | — |
+| LB / RB | — | Grab hand, with the right stick | Slide angle |
+
+A flip reads a *flick* of left stick Y against `state.flipRef` (lagged at
+`air.spinRefRate`, held through the pop window), so a tuck held into the lip pops straight.
+A pop out of a butter carries `butter.popCarry` of its pivot into the spin. Grabs spin
+faster mid-board than at the tips (`air.grabSpinByPlace`). Rails still read the left stick
+as below until the rail part of the remap lands.
+
+**One stick** (`input.scheme` 0 — takes recorded before the remap replay on it):
+
 | Input | Grounded | Airborne | Railed |
 |---|---|---|---|
 | Left stick X | Edge angle (target) | Spin rate about spin axis | Weight shift (screen space): lean + contact |

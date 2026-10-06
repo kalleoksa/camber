@@ -49,6 +49,10 @@ export type RiderState = {
    * is not read as asking for a spin. See `air.spinCarveReject`.
    */
   spinRef: number;
+  /** Two sticks: left stick Y lagged like `spinRef`, so a flip reads a flick of it, not a held tuck. Held still through the pop window. */
+  flipRef: number;
+  /** Two sticks: −1 stand tall .. +1 tuck, left stick Y on the snow, smoothed. 0 in the air and on the one-stick scheme. */
+  posture: number;
   /**
    * In-air spin control is disarmed until the stick comes back through centre. Without it,
    * carrying a carve into the air drags the spin rate up to the carve's value.
@@ -99,7 +103,7 @@ export type RiderState = {
 
   groundNormal: Vec3; // smoothed, what the board is slaved to
   scrub: number; // m/s² the edge is removing from lateral velocity — drives spray and edge bite
-  brake: number; // 0..1, L2 as last ticked — read by render for the speed-check skid. A copy of input, so not hashed
+  brake: number; // L2 as last ticked, 0..1 — or two sticks, right stick X, −1..1 (+ toward the toes). Read by render for the speed-check skid. A copy of input, so not hashed
   clearance: number; // m above the contact point
   airTime: number; // s since leaving the ground
   popWindow: number; // s left in which the stick still counts as takeoff
@@ -143,6 +147,8 @@ export function createRiderState(spawn: Spawn): RiderState {
     airYaw: 0,
     airUp: vec3(0, 1, 0),
     spinRef: 0,
+    flipRef: 0,
+    posture: 0,
     spinArmed: true,
     windUp: 0,
     tuck: 1,
@@ -203,6 +209,8 @@ export function resetRiderState(state: RiderState): void {
   state.airYaw = 0;
   setXYZ(state.airUp, 0, 1, 0);
   state.spinRef = 0;
+  state.flipRef = 0;
+  state.posture = 0;
   state.spinArmed = true;
   state.windUp = 0;
   state.tuck = 1;
@@ -262,6 +270,8 @@ export function copyRiderState(dst: RiderState, src: RiderState): void {
   dst.airYaw = src.airYaw;
   copyInto(dst.airUp, src.airUp);
   dst.spinRef = src.spinRef;
+  dst.flipRef = src.flipRef;
+  dst.posture = src.posture;
   dst.spinArmed = src.spinArmed;
   dst.windUp = src.windUp;
   dst.tuck = src.tuck;

@@ -35,6 +35,12 @@ Diagonals are normalized so they don't reach further than straight.
 
 Existing keys kept: `[` `]` step anchors in pose mode.
 
+**Two sticks** (`input.scheme` 1, the default; docs/two-stick-controls-spec.md): W/S are
+left stick Y — tuck / stand tall on the snow, a flip when flicked at the pop. Arrows
+without Q/E are the whole right stick: ↑↓ press (and ollie / nollie at the pop), ←→ skid
+on the snow, shifty in the air, revert and save in the landing window. With Q or E held
+they grab, as above; Shift deepens it to a tweak. Shift alone (LT) does nothing.
+
 ## 3. Digital → analog: the ramp
 
 Keys are on/off; most inputs here are analog. Each keyboard axis ramps toward its

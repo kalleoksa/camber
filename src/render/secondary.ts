@@ -223,7 +223,9 @@ export function stepSecondary(sec: Secondary, state: RiderState, params: Params,
     const fast = Math.min(1, Math.max(0, (Math.sqrt(v.x * v.x + v.y * v.y + v.z * v.z) - r.crossUnderSpeed) / Math.max(r.crossUnderFade, 1e-3)));
     carveDrop = Math.max(Math.abs(load), fast * r.crossUnderHold) * r.carveCrouch + Math.max(0, load) * r.heelSitDrop;
   }
-  const target = -state.compress * params.rig.crouchDepth - absorb - terrain - sec.airCrouch * params.rig.airCrouch - carveDrop;
+  // Posture (two sticks): tucked the hips drop, stood tall they come up. 0 on one stick.
+  const posture = state.posture > 0 ? -state.posture * r.tuckDrop : -state.posture * r.tallRise;
+  const target = -state.compress * params.rig.crouchDepth - absorb - terrain - sec.airCrouch * params.rig.airCrouch - carveDrop + posture;
   const k = params.rig.hipStiffness;
   const acc = k * (target - sec.hipY) - 2 * params.rig.hipDamping * Math.sqrt(k) * sec.hipVel;
   sec.hipVel += acc * dt;

@@ -1,3 +1,5 @@
+import { params } from '../sim/params.ts';
+
 /**
  * The controls sheet (agreed exception to "no UI chrome", like the trick name): a small "?"
  * button, H, or the pad's touchpad opens it over the game, which pauses while it is open.
@@ -5,7 +7,8 @@
  */
 export type ControlsHelp = { toggle(): void; isOpen(): boolean };
 
-const ROWS: [string, string, string][] = [
+/** One-stick mapping (input.scheme 0): the left stick edges, presses and flips. */
+const ONE_STICK: [string, string, string][] = [
   ['Carve', 'Left stick ← →', 'A / D'],
   ['Nose / tail press', 'Left stick ↑ ↓', 'W / S'],
   ['Butter 180', 'Press nose or tail + edge (diagonal), hold ~1 s', 'W/S + A/D'],
@@ -16,6 +19,33 @@ const ROWS: [string, string, string][] = [
   ['Spin faster / slower', 'In the air, left stick toward / against the spin', 'A / D'],
   ['Flip', 'At the pop, left stick ↑ / ↓', 'W / S'],
   ['Shifty', 'L1 / R1 alone, in the air', 'Q / E'],
+  ['Grab', 'Hold L1 (left hand) or R1 (right hand) + right stick', 'Q / E + arrows'],
+  ['Tweak', 'Push the right stick all the way', '+ Shift'],
+  ['Revert', 'Right after landing, flick the right stick the way you were spinning', '← / →'],
+  ['Save a sketchy landing', 'Right after landing, push the right stick the way that lines the board up', '← / →'],
+  ['Rail slide', 'L1 / R1 on a rail', 'Q / E'],
+  ['Reset', 'Triangle / Y', 'R'],
+  ['Pause', 'Options / Start', 'P'],
+  ['Mark a moment', 'Create / View (D-pad: good, bad, bug, looks off)', 'M'],
+  ['This sheet', 'Touchpad', 'H'],
+];
+
+/** Two sticks (input.scheme 1): left is the upper body, right the lower body. */
+const TWO_STICK: [string, string, string][] = [
+  ['Carve', 'Left stick ← →', 'A / D'],
+  ['Tuck (carry speed) / stand tall (slow down)', 'Left stick ↑ / ↓', 'W / S'],
+  ['Skid — speed check', 'Right stick ← →', '← / →'],
+  ['Nose / tail press', 'Right stick ↑ ↓', '↑ / ↓'],
+  ['Butter', 'Press + left stick ← →', 'arrows ↑↓ + A/D'],
+  ['Lock a butter', 'Hold R2 / RT while pressed — the press holds, the left stick winds up', 'Space'],
+  ['Crouch, then pop', 'Hold R2 / RT, release', 'Space'],
+  ['Ollie / nollie', 'Right stick ↓ / ↑ at the pop (ollie is higher)', '↓ / ↑'],
+  ['Wind up a spin', 'While crouching, left stick against the spin', 'A / D'],
+  ['Send the spin', 'At the pop, left stick toward the spin', 'A / D'],
+  ['Flip', 'At the pop, flick the left stick ↑ / ↓ (a flick — a held tuck pops straight)', 'W / S'],
+  ['Cork', 'At the pop, flick the left stick diagonally', 'W/S + A/D'],
+  ['Spin faster / slower', 'In the air, left stick toward / against the spin', 'A / D'],
+  ['Shifty', 'Right stick ← → in the air, no bumper', '← / →'],
   ['Grab', 'Hold L1 (left hand) or R1 (right hand) + right stick', 'Q / E + arrows'],
   ['Tweak', 'Push the right stick all the way', '+ Shift'],
   ['Revert', 'Right after landing, flick the right stick the way you were spinning', '← / →'],
@@ -77,7 +107,7 @@ export function createControlsHelp(onChange: (open: boolean) => void, onEdit: ()
   sheet.id = 'controls-sheet';
   sheet.innerHTML = `<div class="wrap">
     <h2>Controls — paused</h2>
-    ${table(['', 'Gamepad', 'Keyboard'], ROWS)}
+    <div id="controls-rows"></div>
     <h2>Grabs — L1 / R1 + right stick</h2>
     ${table(['Stick', 'L1 · left (front) hand', 'R1 · right (back) hand'], GRABS)}
     <p class="hint">Riding switch nothing mirrors: same buttons, same grab. Click, H, Esc or the touchpad to close.</p>
@@ -88,6 +118,9 @@ export function createControlsHelp(onChange: (open: boolean) => void, onEdit: ()
   let open = false;
   const toggle = (): void => {
     open = !open;
+    // Built on open, so it shows the mapping the sim is on (input.scheme is on the panel).
+    const rows = sheet.querySelector('#controls-rows');
+    if (open && rows) rows.innerHTML = table(['', 'Gamepad', 'Keyboard'], params.input.scheme > 0 ? TWO_STICK : ONE_STICK);
     sheet.style.display = open ? 'block' : 'none';
     onChange(open);
   };
