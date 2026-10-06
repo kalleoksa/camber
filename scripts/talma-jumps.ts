@@ -9,11 +9,11 @@
  *
  * The earth (the sketch: run-in, then per jump a short bench and a steep stretch): a steep roll-in
  * at the top; per jump a near-flat bench just long enough for the takeoff and the table, the snow
- * knuckle rolling over its edge; then a steep stretch that is that jump's landing and the next
- * one's run-in. Each bench and steep stretch together fall as the base grade does, so the strip
+ * knuckle rolling over its edge; then a steep earth landing as long as the airs reach, easing into
+ * the run-in to the next jump. Bench, landing and run-in together fall as the base grade does, so the strip
  * stays with the slope beside it — no ridge, no trench. The snow kickers are the kit's, solved over
  * that earth. The roll-in's length is solved so the big line reaches the first lip at `aim`
- * straight-lining, each steep stretch's length (and with it its grade) so it reaches the next.
+ * straight-lining, each run-in's length (and with it its grade) so it reaches the next.
  */
 import { readFileSync, writeFileSync } from 'node:fs';
 import { GEN } from '../src/gen/config.ts';
@@ -44,10 +44,12 @@ const TOP = { pitch: 20, blend: 6, spawn: -2, shortest: 10, longest: 100 }; // �
 const EARTH = {
   bench: 2, // ° of a bench: near flat
   approach: 4, // m of bench before a takeoff's transition starts
-  clear: 8, // m of steep stretch past where the fastest air comes down, before it eases into the next bench
-  longest: 120, // m a steep stretch may run to reach the next jump's speed
+  landing: 20, // ° of the earth under a landing: steep right past the knuckle, as the sketch draws it
+  clear: 4, // m of earth landing past where the fastest air comes down
+  longest: 120, // m a run-in (the stretch from a landing to the next bench) may run to reach the next jump's speed
+  runin: 6, // m of run-in at the least
   halfWidth: 9, // m full height either side of the strip's middle: both tables and their fades
-  edge: 6, // m the strip's sides fade over
+  edge: 4, // m the strip's sides fade over: clear of rail line 1's first rail (x ≈ 36.3)
   blend: 4, // m the grades are eased over
 };
 const MARGIN = 1; // m/s under the big size's fastest: run-ins built a little fast — speed can be checked, never added
@@ -70,11 +72,15 @@ const plain = PAIRS.map((p) => designKicker({ x: 0, z: 0, yaw: 0 }, p.big, base,
 const benches = plain.map((f) => EARTH.approach + (f.meta?.lip ?? 0) + (f.cfg as KickerConfig).deckLength);
 const landing = plain.map((f) => Math.max(...(f.meta?.checks ?? []).map((c) => c.past)) + EARTH.clear);
 
-/** Lengths solved: the roll-in, and each steep stretch (after jump k). */
+/** Lengths solved: the roll-in, and each run-in (the stretch after jump k's landing). */
 type Plan = { top: number; steep: number[] };
 
-/** A steep stretch `length` m long after bench k: its grade, so the two fall as the base grade does. */
-const steepGrade = (k: number, length: number): number => Math.atan(tanBase + ((benches[k] ?? 0) * (tanBase - Math.tan(EARTH.bench * RAD))) / length);
+/** What bench k and its landing hold up against the base grade, m: the run-in after them gives it back. */
+const held = (k: number): number => (benches[k] ?? 0) * (tanBase - Math.tan(EARTH.bench * RAD)) + (landing[k] ?? 0) * (tanBase - Math.tan(EARTH.landing * RAD));
+/** The run-in `length` m long after jump k: its grade, so bench, landing and run-in fall as the base grade does. */
+const steepGrade = (k: number, length: number): number => Math.atan(tanBase + held(k) / length);
+/** The shortest run-in after jump k: not under EARTH.runin, nor so short it would have to be flatter than a bench. */
+const shortestRunin = (k: number): number => Math.max(EARTH.runin, -held(k) / (tanBase - Math.tan(EARTH.bench * RAD)));
 
 /** The strip as a patch, and where each bench ends (the big table's end, the earth's edge), m along it. */
 function stripPatch(plan: Plan): { patch: PatchConfig; edges: number[] } {
@@ -83,10 +89,11 @@ function stripPatch(plan: Plan): { patch: PatchConfig; edges: number[] } {
   let s = 0;
   PAIRS.forEach((_, k) => {
     const b = benches[k] ?? 20;
+    const ld = landing[k] ?? 20;
     const st = plan.steep[k] ?? 20;
-    segs.push([b, EARTH.bench * RAD], [st, steepGrade(k, st)]);
+    segs.push([b, EARTH.bench * RAD], [ld, EARTH.landing * RAD], [st, steepGrade(k, st)]);
     edges.push(s + b);
-    s += b + st;
+    s += b + ld + st;
   });
   return { patch: { x: strip, z: -plan.top, yaw: 0, halfWidth: EARTH.halfWidth, edge: EARTH.edge, blend: EARTH.blend, segs }, edges };
 }
@@ -210,14 +217,46 @@ function solve(k: number, target: number, lo: number, hi: number, set: (x: numbe
 }
 
 // Solve: the roll-in for the first jump, each steep stretch for the jump after it.
-const plan: Plan = { top: 30, steep: [...landing] };
-// Twice over: each kicker is solved over the earth after it, so a later stretch moves an earlier lip a little.
+const plan: Plan = { top: 30, steep: PAIRS.map((_, k) => shortestRunin(k)) };
+// Twice over per round: each kicker is solved over the earth after it, so a later stretch moves an
+// earlier lip a little. Then the speed check bot rides it: the reckoning flies the airs as if
+// riding the snow, the sim loses speed into each landing, so what the bot falls short by is added
+// to the next round's targets (`bias`). The round the bot rides best is kept: big-line lips within
+// 1.5 m/s under their aim (never over the size's top), every landing clean.
 let status: string[] = [];
-for (let pass = 0; pass < 2; pass++) {
-  status = [solve(0, aim(PAIRS[0] as (typeof PAIRS)[number]), TOP.shortest, TOP.longest, (x) => (plan.top = x), plan)];
-  for (let k = 1; k < PAIRS.length; k++) {
-    status.push(solve(k, aim(PAIRS[k] as (typeof PAIRS)[number]), landing[k - 1] ?? 20, EARTH.longest, (x) => (plan.steep[k - 1] = x), plan));
+const bias = PAIRS.map(() => 0);
+let best: { plan: Plan; status: string[]; score: number } | undefined;
+const scratch = createSlope; // the bot rides each round's park
+for (let round = 0; round < 4; round++) {
+  for (let pass = 0; pass < 2; pass++) {
+    status = [solve(0, aim(PAIRS[0] as (typeof PAIRS)[number]) + (bias[0] ?? 0), TOP.shortest, TOP.longest, (x) => (plan.top = x), plan)];
+    for (let k = 1; k < PAIRS.length; k++) {
+      status.push(solve(k, aim(PAIRS[k] as (typeof PAIRS)[number]) + (bias[k] ?? 0), shortestRunin(k - 1), EARTH.longest, (x) => (plan.steep[k - 1] = x), plan));
+    }
   }
+  const trial = build(plan);
+  const reckoned = arrivals(trial);
+  const checks = checkLines(trial, scratch(toSlopeConfig(trial)), params);
+  const bot = checks.find((c) => c.name === 'big line')?.features ?? [];
+  const small = checks.find((c) => c.name === 'small line')?.features ?? [];
+  let score = 3 * (2 * PAIRS.length - bot.length - small.length);
+  PAIRS.forEach((p, k) => {
+    const b = bot[k];
+    const sm = small[k];
+    const want = aim(p);
+    const top = GEN.kicker.sizes[p.big].speed[1] ?? 0;
+    // Too slow counts double: a lip you can't clear is worse than one you check speed for.
+    if (b) score += Math.max(0, 2 * (want - 1.5 - b.at), b.at - top) + (b.how === 'clean' ? 0 : b.how === 'sketchy' ? 1 : 3);
+    if (sm) score += Math.max(0, (GEN.kicker.sizes[p.small].speed[0] ?? 0) - sm.at) + (sm.how === 'clean' ? 0 : sm.how === 'sketchy' ? 1 : 3);
+    if (b) bias[k] = Math.max(-4, Math.min(4, (bias[k] ?? 0) + ((reckoned[k] ?? b.at) - b.at) * 0.6));
+  });
+  console.log(`round ${round + 1}: big ${bot.map((f) => `${f.at.toFixed(1)} ${f.how}`).join(' / ')} · small ${small.map((f) => `${f.at.toFixed(1)} ${f.how}`).join(' / ')} · score ${score.toFixed(1)}`);
+  if (!best || score < best.score) best = { plan: { top: plan.top, steep: [...plan.steep] }, status: [...status], score };
+}
+if (best) {
+  plan.top = best.plan.top;
+  plan.steep = best.plan.steep;
+  status = best.status;
 }
 const { patch } = stripPatch(plan);
 let total = 0;
@@ -241,7 +280,7 @@ if (svg) {
 console.log(`park ${length} m; roll-in ${plan.top.toFixed(0)} m at ${TOP.pitch}°`);
 PAIRS.forEach((p, k) => {
   const st = plan.steep[k] ?? 0;
-  console.log(`jump ${k + 1} (${p.big} + ${p.small}): bench ${benches[k]?.toFixed(0)} m at ${EARTH.bench}°, then ${st.toFixed(0)} m at ${(steepGrade(k, st) / RAD).toFixed(1)}° · lip ≈ ${speeds[k]?.toFixed(1)} m/s (aim ${aim(p)}) ${status[k]}`);
+  console.log(`jump ${k + 1} (${p.big} + ${p.small}): bench ${benches[k]?.toFixed(0)} m at ${EARTH.bench}°, landing ${landing[k]?.toFixed(0)} m at ${EARTH.landing}°, run-in ${st.toFixed(0)} m at ${(steepGrade(k, st) / RAD).toFixed(1)}° · lip ≈ ${speeds[k]?.toFixed(1)} m/s (aim ${aim(p)}) ${status[k]}`);
 });
 
 /**
@@ -291,16 +330,16 @@ function profileSvg(l: Layout): string {
   let s = plan.top + z0;
   const n = patch.segs.length;
   patch.segs.forEach(([len, pitch], i) => {
-    const j = Math.floor(i / 2) + 1;
-    segs.push({ from: s, len, deg: pitch / RAD, name: i % 2 === 0 ? `bench ${j}` : i === n - 1 ? `landing ${j}` : `landing ${j} / run-in ${j + 1}` });
+    const j = Math.floor(i / 3) + 1;
+    segs.push({ from: s, len, deg: pitch / RAD, name: i % 3 === 0 ? `bench ${j}` : i % 3 === 1 ? `landing ${j}` : i === n - 1 ? 'on down' : `run-in ${j + 1}` });
     s += len;
   });
   segs.forEach((sg, i) => {
     const h = earthAt(sg.from);
     marks.push(`<line x1="${X(sg.from).toFixed(1)}" y1="${(Y(h) + 6).toFixed(1)}" x2="${X(sg.from).toFixed(1)}" y2="${(Y(h) + 62).toFixed(1)}" stroke="#b6c0ca"/>`);
     const mid = sg.from + sg.len / 2;
-    // Benches are short: their labels go below the others so they don't collide.
-    const dy = i % 2 === 1 ? 70 : 30;
+    // Short stretches side by side: their labels are staggered so they don't collide.
+    const dy = 30 + (i % 3) * 32;
     label(mid, earthAt(mid), sg.name, dy, 12, 600);
     label(mid, earthAt(mid), `${sg.len.toFixed(0)} m · ${sg.deg.toFixed(1)}°`, dy + 15, 12);
   });
@@ -322,7 +361,7 @@ function profileSvg(l: Layout): string {
   }
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" font-family="system-ui, sans-serif" fill="#1b2430">
 <rect width="100%" height="100%" fill="#f7f9fb"/>
-<text x="${pad}" y="32" font-size="18" font-weight="700">Talma jump line: big line side profile (plan, not built)</text>
+<text x="${pad}" y="32" font-size="18" font-weight="700">Talma jump line: big line side profile</text>
 <text x="${pad}" y="54" font-size="13" fill="#5b6773">Earth solid, snow dashed. Heights drawn ×${VEX}; lengths and angles are true. Base grade ${(base / RAD).toFixed(1)}°; ${(hTop - hBot).toFixed(0)} m of drop over ${sMax.toFixed(0)} m. Speeds: straight-lining, reckoned.</text>
 <path d="${path('earth')}" fill="none" stroke="#1b2430" stroke-width="2.5"/>
 <path d="${path('snow', (p) => p.snow - p.earth > 0.05)}" fill="none" stroke="#1b2430" stroke-width="1.6" stroke-dasharray="6 4"/>
