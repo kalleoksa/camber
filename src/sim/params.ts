@@ -109,6 +109,10 @@ export const params = {
     tuckGain: 0.35, // spin × (1 + this) fully tucked
     openGain: 0.75, // spin × (1 − this) fully opened — the check: arms out, upper body counter-rotating against the board
     tuckRate: 7.0, // 1/s the body tucks or opens toward what the stick asks
+    // Two sticks: pre-rotation, the slow spin. Wound up and still held the same way through the
+    // pop (only RT let go) spins that way at wind-up × held stick × this, of spinTakeoff —
+    // where reversing the stick at the pop is the fast, counter-rotated spin. 0: held = straight.
+    preRotateGain: 0.4,
   },
   land: {
     clean: 0.5, // rad ≈ 29° (was 0.44, raised by play)

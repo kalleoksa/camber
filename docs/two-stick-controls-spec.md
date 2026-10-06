@@ -272,8 +272,15 @@ against video without riding. Add it if tuning on the hill is too slow.
 ## 10. Building it
 
 **Status.** Built: §2–§6 on snow and in the air, §8, and the posture and skid drawing.
-Not built: §7 rails (still the one-stick weight shift), pre-rotation (§4), right stick Y
-as board pitch in the air (it is the press you land into instead).
+Pre-rotation (§4) is built too. Not built: §7 rails (still the one-stick weight shift),
+right stick Y as board pitch in the air (it is the press you land into instead), and the
+pop's pitch added to a pre-rotated cork (the right stick held with it does nothing extra).
+Pre-rotation needs the left stick X held — Y alone is the tuck — so there is no slow
+straight flip, only slow spins and corks. Inside the pop window a wound stick counts as a
+send only once it crosses to the other side, so letting go of the held stick after the pop
+doesn't reverse the slow spin. Probe, flat pop with 1.06 s of air: full hold 3.6 rad/s
+(218°; ~360° over a big jump's 1.5–2 s), held diagonal a 2.8 rad/s cork, a 0.2 carve held
+into the pop 12°, the counter-rotated spin 8.6 rad/s (524°).
 
 - **Takes still replay.** One switch, `input.scheme` (0: one stick, 1: two sticks, the
   default), recorded in the take's params. Takes before it replay on 0 bit-identically;
@@ -285,8 +292,8 @@ as board pitch in the air (it is the press you land into instead).
   `air.tipMultiplier`, `air.grabSpinByPlace`; `butter.popCarry`; render `rig.tuckDrop`,
   `rig.tuckFold`, `rig.tallRise`, `rig.tallFold`. The skid reuses `ground.brakeDecel` and
   `ground.brakeGripLoss`.
-- Still to come: `rail.offBalanceSpin` with §7, `air.preRotateGain` with pre-rotation (old
-  takes replay with it 0, which is today's straight air).
+- `air.preRotateGain` (0.4): old takes replay with it 0, which is the straight air held
+  through the pop gave before. Still to come: `rail.offBalanceSpin` with §7.
 - Butter lock and the wind-up: while RT is held the left stick mostly loads the wind-up
   (`air.windSteer`), so a locked butter pivots slowly and little of its pivot is left to
   carry at the pop (~0.7 rad/s in a probe). The spin out of a butter comes mainly from the

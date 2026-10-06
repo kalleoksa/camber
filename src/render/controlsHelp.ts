@@ -42,6 +42,7 @@ const TWO_STICK: [string, string, string][] = [
   ['Ollie / nollie', 'Right stick ↓ / ↑ at the pop (ollie is higher)', '↓ / ↑'],
   ['Wind up a spin', 'While crouching, left stick against the spin', 'A / D'],
   ['Send the spin', 'At the pop, left stick toward the spin', 'A / D'],
+  ['Slow spin (big jumps)', 'Hold the left stick the way of the spin through the crouch and the pop — let go of R2 only. Diagonal: slow cork', 'hold A / D through Space'],
   ['Flip', 'At the pop, flick the left stick ↑ / ↓ (a flick — a held tuck pops straight)', 'W / S'],
   ['Cork', 'At the pop, flick the left stick diagonally', 'W/S + A/D'],
   ['Spin faster / slower', 'In the air, left stick toward / against the spin', 'A / D'],

@@ -487,8 +487,34 @@ export function addSpin(state: RiderState, yawRate: number, params: Params): voi
   setRotation(state, rotation, params);
 }
 
+/**
+ * Pre-rotation (two sticks): wound up and still held the same way through the pop, with
+ * only RT let go. The shoulders were already turned the way of the spin and the board
+ * follows them round — slow and even, where reversing the stick at the pop (counter-
+ * rotation) snaps. One stored wind-up, read two ways by what the stick does at release.
+ * The held stick sets the axis: sideways a flat spin, diagonal a cork, the flip part as slow
+ * as the spin. Y alone is the tuck, so it doesn't pre-rotate a flip on its own.
+ * Writes `out` and returns true when it applies.
+ */
+function preRotation(out: Vec3, state: RiderState, input: InputSnapshot, params: Params): boolean {
+  const a = params.air;
+  const w = state.windUp;
+  if (params.input.scheme <= 0 || a.preRotateGain <= 0 || a.spinModel <= 0) return false;
+  if (Math.abs(w) <= a.flickMin || input.lx * w <= 0) return false;
+  const held = Math.min(1, Math.abs(input.lx) / Math.max(a.fullStick, 1e-3));
+  const amount = Math.abs(w) * held * a.preRotateGain;
+  const dir = a.switchFlips > 0 && state.switchRide ? -1 : 1;
+  // Turning toward +X (the stick's way) is − about board up, as in takeoffSpinRate.
+  set(out, corkStick1(input.ly, params) * a.flipRate * dir * amount, -(w > 0 ? 1 : -1) * amount * a.spinTakeoff, 0);
+  return true;
+}
+
 export function setTakeoffSpin(state: RiderState, input: InputSnapshot, params: Params): void {
   if (params.air.flipRate > 0) {
+    if (preRotation(rotation, state, input, params)) {
+      setRotation(state, rotation, params);
+      return;
+    }
     stickRotation(rotation, takeoffSpinRate(state, input, params), popFlipStick(state, input, params), state, params);
     // Two sticks: the pop's pitch goes into a flip — off the tail the nose comes up, so a
     // backflip comes round faster; off the nose, a frontflip. Board frame, so no switch mirror.

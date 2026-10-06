@@ -76,7 +76,12 @@ export function stepAirborne(
     const asked = flips
       ? length(stickRotation(stickW, takeoffSpinRate(state, input, params), popFlipStick(state, input, params), state, params))
       : Math.abs(takeoffSpinRate(state, input, params));
-    if (asked > Math.abs(state.spinRate)) setTakeoffSpin(state, input, params);
+    // Pre-rotation (two sticks): a wound stick that hasn't crossed to the other side is
+    // still held, or being let go — not a send. Without this, letting go of the held stick
+    // after the pop read as a flick the other way and reversed the slow spin.
+    const a = params.air;
+    const holding = params.input.scheme > 0 && a.preRotateGain > 0 && a.spinModel > 0 && Math.abs(state.windUp) > a.flickMin && input.lx * state.windUp >= 0;
+    if (!holding && asked > Math.abs(state.spinRate)) setTakeoffSpin(state, input, params);
   } else if (!state.spinArmed && params.air.spinModel <= 0) {
     // coast
   } else if (params.air.spinModel > 0) {

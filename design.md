@@ -41,7 +41,10 @@ full rule set). Left stick is the upper body, right stick the lower body:
 
 A flip reads a *flick* of left stick Y against `state.flipRef` (lagged at
 `air.spinRefRate`, held through the pop window), so a tuck held into the lip pops straight.
-A pop out of a butter carries `butter.popCarry` of its pivot into the spin. Grabs spin
+A pop out of a butter carries `butter.popCarry` of its pivot into the spin. Wound up and
+still held the same way through the pop (only RT let go) is pre-rotation: a slow spin that
+way at wind-up × held stick × `air.preRotateGain` of `spinTakeoff`, the held diagonal a
+slow cork; reversing the stick at the pop is the fast, counter-rotated spin. Grabs spin
 faster mid-board than at the tips (`air.grabSpinByPlace`). Rails still read the left stick
 as below until the rail part of the remap lands.
 
