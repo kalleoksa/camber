@@ -37,8 +37,11 @@ export type ProfileHost = {
 
 export type Profile = {
   set(f: FeatureSpec | undefined): void;
-  /** Show patch `index` instead; `basePitch` the field's grade, rad. */
-  setPatch(p: PatchConfig | undefined, index: number, basePitch: number): void;
+  /**
+   * Show patch `index` instead; `basePitch` the field's grade, rad; `reach` m along its axis to
+   * the bottom of the park, which its segments can't run past.
+   */
+  setPatch(p: PatchConfig | undefined, index: number, basePitch: number, reach: number): void;
   redraw(): void;
   show(on: boolean): void;
 };
@@ -69,7 +72,7 @@ export function createProfile(host: ProfileHost): Profile {
   const ctx = canvas.getContext('2d');
   const c = createContact();
   let feature: FeatureSpec | undefined;
-  let patch: { p: PatchConfig; index: number; base: number } | undefined;
+  let patch: { p: PatchConfig; index: number; base: number; reach: number } | undefined;
   let visible = false;
   let grips: Grip[] = [];
   let drag: { g: Grip; x: number; y: number; moved: boolean } | undefined;
@@ -283,8 +286,8 @@ export function createProfile(host: ProfileHost): Profile {
     );
   };
 
-  const drawPatch = (pt: { p: PatchConfig; index: number; base: number }, W: number, H: number): void => {
-    const { p, base } = pt;
+  const drawPatch = (pt: { p: PatchConfig; index: number; base: number; reach: number }, W: number, H: number): void => {
+    const { p, base, reach } = pt;
     const terrain = host.terrain();
     const dx = Math.sin(p.yaw);
     const dz = -Math.cos(p.yaw);
@@ -292,7 +295,7 @@ export function createProfile(host: ProfileHost): Profile {
     let total = 0;
     for (const [len] of p.segs) total += len;
     const s0 = -p.blend - 10;
-    const s1 = total + p.blend + 10;
+    const s1 = Math.min(total, reach) + p.blend + 10;
     const tanBase = Math.tan(base);
     // The base grade, carried on from the snow above the patch, which it doesn't touch.
     const yA = height(s0) - (0 - s0) * tanBase;
@@ -309,6 +312,14 @@ export function createProfile(host: ProfileHost): Profile {
       ends.push({ s, y });
     }
     design.push([s1, y - (s1 - s) * tanBase]);
+    // How far the design strays from the base grade: the snow beside the patch stays on it, so
+    // this is the height of the wall (or bank) along its edge.
+    let below = 0;
+    let above = 0;
+    for (const e of ends) {
+      below = Math.max(below, baseAt(e.s) - e.y);
+      above = Math.max(above, e.y - baseAt(e.s));
+    }
     const snow: [number, number][] = [];
     for (let q = s0; q <= s1; q += 0.25) snow.push([q, height(q)]);
     let y0 = Infinity;
@@ -335,6 +346,12 @@ export function createProfile(host: ProfileHost): Profile {
         const midY = top - (len / 2) * Math.tan(pitch);
         const end = ends[k] ?? { s: at + len, y: top - len * Math.tan(pitch) };
         let was: [number, number] = [len, pitch];
+        // The longest this segment can be with the patch still ending inside the park.
+        const room = (sg: [number, number]): number => {
+          let others = 0;
+          for (const q of p.segs) if (q !== sg) others += q[0];
+          return Math.max(0.5, reach - others);
+        };
         const edit = (change: (sg: [number, number]) => void, final: boolean): void =>
           host.editPatch((q) => {
             const sg = q.segs[k];
@@ -360,9 +377,9 @@ export function createProfile(host: ProfileHost): Profile {
             y: end.y,
             value: () => len,
             begin: () => (was = [seg[0], seg[1]]),
-            move: (ds) => edit((sg) => (sg[0] = Math.max(0.5, was[0] + ds)), false),
+            move: (ds) => edit((sg) => (sg[0] = Math.max(0.5, Math.min(room(sg), was[0] + ds))), false),
             done: () => edit(() => undefined, true),
-            type: (v) => edit((sg) => (sg[0] = Math.max(0.5, v)), true),
+            type: (v) => edit((sg) => (sg[0] = Math.max(0.5, Math.min(room(sg), v))), true),
             remove: () => host.editPatch((q) => void mergeAt(q, k), true),
           },
         );
@@ -372,10 +389,12 @@ export function createProfile(host: ProfileHost): Profile {
     }
     drawGrips();
     const step = patchStep(p, base);
+    // Its sides: that height fading out over `edge` m.
+    const wall = Math.atan(Math.max(below, above) / Math.max(0.5, p.edge)) * DEG;
     caption(
       W,
       H,
-      `patch ${pt.index} · dashed yellow: its segments as designed, grey: the base grade · step at its end ${step.toFixed(2)} m${Math.abs(step) > 0.3 ? ' — leaves a step across the slope' : ''}`,
+      `patch ${pt.index} · step at its end ${step.toFixed(2)} m${Math.abs(step) > 0.3 ? ' (a step across the slope)' : ''} · up to ${below.toFixed(1)} m below, ${above.toFixed(1)} m above the base grade${wall > 35 ? ` — its sides fall ${wall.toFixed(0)}° over the ${p.edge} m edge fade: a wall` : ''}`,
       'drag a middle handle up/down for pitch, an end handle along for length, tap to type · double-tap the line to add a point, an end point to remove it',
     );
   };
@@ -484,8 +503,8 @@ export function createProfile(host: ProfileHost): Profile {
       patch = undefined;
       redraw();
     },
-    setPatch(p, index, basePitch) {
-      patch = p ? { p, index, base: basePitch } : undefined;
+    setPatch(p, index, basePitch, reach) {
+      patch = p ? { p, index, base: basePitch, reach } : undefined;
       if (p) feature = undefined;
       redraw();
     },

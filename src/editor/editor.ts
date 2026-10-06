@@ -115,6 +115,8 @@ export function createEditor(host: EditorHost): Editor {
   let patch = -1;
   const patchOf = (): PatchConfig | undefined => layout.ground.field?.patches[patch];
   const basePitch = (): number => layout.ground.field?.pitch ?? layout.ground.pitch;
+  /** m along a patch's axis from its start to the bottom of the park: as long as it may run. */
+  const reachOf = (p: PatchConfig): number => Math.max(1, (p.z + layout.ground.length) / Math.max(0.2, Math.cos(p.yaw)));
   const pivot = new THREE.Object3D();
   host.scene.add(pivot);
   const gizmo = new TransformControls(view.camera, host.canvas);
@@ -182,7 +184,7 @@ export function createEditor(host: EditorHost): Editor {
     seatPivot();
     buildFeature();
     const p = patchOf();
-    if (p) profile.setPatch(p, i, basePitch());
+    if (p) profile.setPatch(p, i, basePitch(), reachOf(p));
     else profile.set(undefined);
   };
   /** The part of the selection the profile shows: the one that takes off, else the first. */
@@ -271,7 +273,7 @@ export function createEditor(host: EditorHost): Editor {
     host.setPark(layout, rects);
     showStart();
     const p = patchOf();
-    if (p) profile.setPatch(p, patch, basePitch());
+    if (p) profile.setPatch(p, patch, basePitch(), reachOf(p));
     else profile.set(shown());
     recheck();
   };

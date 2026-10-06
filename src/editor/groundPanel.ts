@@ -155,7 +155,11 @@ export function addGroundFolder(
       const row = body?.addFolder({ title: `segment ${i + 1}`, expanded: true });
       row?.addBinding(s, 'length', { label: 'length m', min: 0.5, max: 120, step: 0.5 }).on('change', (ev) => {
         if (!ev.last) return;
-        seg[0] = s.length;
+        // Not past the bottom of the park: a patch running on out of it is only seen in the walls it leaves.
+        let others = 0;
+        for (const q of p.segs) if (q !== seg) others += q[0];
+        const reach = (p.z + get().ground.length) / Math.max(0.2, Math.cos(p.yaw));
+        seg[0] = Math.max(0.5, Math.min(s.length, reach - others));
         level(p, i);
       });
       row?.addBinding(s, 'pitch', { label: 'pitch °', min: -10, max: 60, step: 0.5 }).on('change', (ev) => {
