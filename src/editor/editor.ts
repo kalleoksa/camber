@@ -197,6 +197,16 @@ export function createEditor(host: EditorHost): Editor {
   const pops = (): [number, number] => [Math.min(checks.popMin, checks.popMax), Math.max(checks.popMin, checks.popMax)];
   const marks = createMarks(host.scene);
   marks.show(false);
+  // The park start: an arrow on the snow, the way runs set off.
+  const startArrow = new THREE.ArrowHelper(new THREE.Vector3(0, 0, -1), new THREE.Vector3(), 12, 0x1f6fd6, 4, 2.5);
+  startArrow.visible = false;
+  host.scene.add(startArrow);
+  const showStart = (): void => {
+    const s = layout.spawn;
+    startArrow.position.set(s.x, heightAt(s.x, s.z) + 0.6, s.z);
+    startArrow.setDirection(new THREE.Vector3(Math.sin(s.heading), 0, Math.cos(s.heading)));
+    startArrow.visible = active;
+  };
   let verdicts: Map<number, Verdict> | undefined;
   const verdictText = { text: '' };
   /** The selected feature's verdict, in words. */
@@ -259,6 +269,7 @@ export function createEditor(host: EditorHost): Editor {
   };
   const rebuild = (rects?: readonly Rect[]): void => {
     host.setPark(layout, rects);
+    showStart();
     const p = patchOf();
     if (p) profile.setPatch(p, patch, basePitch());
     else profile.set(shown());
@@ -379,6 +390,16 @@ export function createEditor(host: EditorHost): Editor {
   const edit = pane.addFolder({ title: 'edit' });
   edit.addBinding(status, 'text', { readonly: true, multiline: true, rows: 2, label: '' });
   edit.addButton({ title: 'ride from here (Enter)' }).on('click', () => rideHere());
+  edit.addButton({ title: 'ride from the park start' }).on('click', () => {
+    const s = layout.spawn;
+    host.ride({ position: { x: s.x, y: 0, z: s.z }, heading: s.heading });
+  });
+  edit.addButton({ title: 'set park start: then click the snow' }).on('click', () => {
+    palette.armed = true;
+    palette.patch = false;
+    palette.start = true;
+    say('click the snow where runs start (Esc cancels)');
+  });
   edit.addButton({ title: 'back to riding (Tab)' }).on('click', () => host.ride());
   edit.addButton({ title: 'move (G)' }).on('click', () => setMode('translate'));
   edit.addButton({ title: 'rotate (R)' }).on('click', () => setMode('rotate'));
@@ -424,7 +445,7 @@ export function createEditor(host: EditorHost): Editor {
   });
 
   // --- palette ---
-  const palette = { kind: 'kicker' as Kind, size: 'M' as Size, align: true, armed: false, patch: false };
+  const palette = { kind: 'kicker' as Kind, size: 'M' as Size, align: true, armed: false, patch: false, start: false };
   const place = pane.addFolder({ title: 'place', expanded: false });
   const kindOptions: Record<string, Kind> = {};
   for (const k of KINDS) kindOptions[k] = k;
@@ -444,11 +465,13 @@ export function createEditor(host: EditorHost): Editor {
     if (!layout.ground.field) return say("this park's ground is a plane: it has no patches");
     palette.armed = true;
     palette.patch = true;
+    palette.start = false;
     say('click the snow where the patch starts (Esc cancels)');
   });
   place.addButton({ title: 'place: then click the snow', index: 3 }).on('click', () => {
     palette.armed = true;
     palette.patch = false;
+    palette.start = false;
     say(`click the snow to place a ${palette.size} ${palette.kind} (Esc cancels)`);
   });
 
@@ -458,6 +481,13 @@ export function createEditor(host: EditorHost): Editor {
     if (palette.align !== alt) {
       const n = groundNow().sample(x, z, c).normal;
       if (Math.hypot(n.x, n.z) > 0.01) yaw = Math.atan2(n.x, -n.z);
+    }
+    if (palette.start) {
+      // Where every run starts: facing down the fall line there (Alt: straight down −Z).
+      layout.spawn = { x, z, heading: Math.PI - yaw };
+      showStart();
+      commit();
+      return say('park start set: "ride from the park start" to try it');
     }
     const list = layout.ground.field?.patches;
     if (palette.patch && list) {
@@ -864,6 +894,7 @@ export function createEditor(host: EditorHost): Editor {
       hill.at = Math.max(0, -view.controls.target.z);
       hillBlade.refresh();
       marks.show(true);
+      showStart();
       profile.show(checks.profile);
       profile.set(shown());
       host.overlay(checks.overlay);
@@ -880,6 +911,7 @@ export function createEditor(host: EditorHost): Editor {
       gizmo.enabled = false;
       groundPanel.show(false);
       marks.show(false);
+      startArrow.visible = false;
       profile.show(false);
       host.overlay('none');
     },
