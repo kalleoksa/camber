@@ -6,7 +6,7 @@ import type { RiderState } from '../state.ts';
 import type { Terrain } from '../terrain.ts';
 import { cross, damp, dot, normalize, set, vec3, wrapAngle } from '../vec3.ts';
 import * as dm from '../dmath.ts';
-import { chargePop, popTakeoff, rideOff } from './grounded.ts';
+import { chargePop, popBias, popTakeoff, rideOff } from './grounded.ts';
 
 const railPos = vec3();
 const tan = vec3();
@@ -116,12 +116,16 @@ export function stepRailed(state: RiderState, input: InputSnapshot, params: Para
 
   if (chargePop(state, input, params, dt)) {
     // Pop off along rail up, charged like a pop off snow — and spins off a rail work too.
-    const bias = 1 - state.stance * params.pop.stanceBias;
+    const bias = popBias(state.stance, params);
     const impulse = (params.pop.base + params.pop.charged * state.compress) * bias;
     v.x += U.x * impulse;
     v.y += U.y * impulse;
     v.z += U.z * impulse;
     state.charge = 0;
+    // Off balance or out on a press you can't throw the upper body properly: the wind-up
+    // the pop can release is scaled down — a smaller spin out, not none.
+    const off = Math.min(1, Math.max(Math.abs(state.balance) / Math.max(r.balanceMax, 1e-3), trick ? Math.abs(state.railContact) : 0));
+    state.windUp *= 1 - r.offBalanceSpin * off;
     leaveRail(state);
     popTakeoff(state, input, params);
     return;
@@ -154,7 +158,12 @@ function stepTrick(state: RiderState, input: InputSnapshot, params: Params, box:
   const c = dm.cos(state.slide);
   const s = dm.sin(state.slide);
   // w = lx·S + ly·T against F = c·T + s·S and heel = U × F = s·T − c·S.
-  const wAlong = input.lx * s + input.ly * c;
+  // Two sticks: the left stick is only the lean (still screen space), and the press along
+  // the board is the right stick's, as on the snow — up the leading end — so a press no
+  // longer has to come out of the balance fight.
+  const two = params.input.scheme > 0;
+  const dir = params.ground.switchEdges > 0 && state.switchRide ? -1 : 1;
+  const wAlong = two ? input.ry * dir : input.lx * s + input.ly * c;
   const wHeel = input.ly * s - input.lx * c;
   const contact = state.railContact;
 

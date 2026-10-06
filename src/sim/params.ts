@@ -176,6 +176,7 @@ export const params = {
     // screen space, split onto the board: across it leans you over the edges (balance, + heel),
     // along it moves the contact point toward nose or tail — a press is a shift, not a spin.
     trickModel: 1,
+    offBalanceSpin: 0.6, // fraction of the wind-up lost popping off at full lean or full press — the spin out shrinks, it isn't blocked. 0: no effect
     boardHalf: 0.775, // m, centre to tip — contact ±1 is the rail at a tip
     pressMax: 0.6, // contact the stick asks for at full deflection along the board
     pressStiffness: 20.0, // 1/s², contact pulled toward the stick's ask

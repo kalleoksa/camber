@@ -51,6 +51,8 @@ const TWO_STICK: [string, string, string][] = [
   ['Tweak', 'Push the right stick all the way', '+ Shift'],
   ['Revert', 'Right after landing, flick the right stick the way you were spinning', '← / →'],
   ['Save a sketchy landing', 'Right after landing, push the right stick the way that lines the board up', '← / →'],
+  ['Rail: balance', 'Left stick, the way you are falling from', 'A / D (W / S across a slide)'],
+  ['Rail: nose / tail press', 'Right stick ↑ ↓', '↑ / ↓'],
   ['Rail slide', 'L1 / R1 on a rail', 'Q / E'],
   ['Reset', 'Triangle / Y', 'R'],
   ['Pause', 'Options / Start', 'P'],

@@ -272,7 +272,9 @@ against video without riding. Add it if tuning on the hill is too slow.
 ## 10. Building it
 
 **Status.** Built: §2–§6 on snow and in the air, §8, and the posture and skid drawing.
-Pre-rotation (§4) is built too. Not built: §7 rails (still the one-stick weight shift),
+Pre-rotation (§4) and §7 rails are built too (`takes/two-stick-rail.json`). On a rail the
+left stick is both the balance and the spin wind-up, so a long wind-up costs balance —
+wind up late and short. Not built:
 right stick Y as board pitch in the air (it is the press you land into instead), and the
 pop's pitch added to a pre-rotated cork (the right stick held with it does nothing extra).
 Pre-rotation needs the left stick X held — Y alone is the tuck — so there is no slow
@@ -298,7 +300,8 @@ into the pop 12°, the counter-rotated spin 8.6 rad/s (524°).
   `rig.tuckFold`, `rig.tallRise`, `rig.tallFold`. The skid reuses `ground.brakeDecel` and
   `ground.brakeGripLoss`.
 - `air.preRotateGain` (0.4): old takes replay with it 0, which is the straight air held
-  through the pop gave before. Still to come: `rail.offBalanceSpin` with §7.
+  through the pop gave before. `rail.offBalanceSpin` (0.6): fraction of the wind-up lost
+  popping off at full lean or full press; old takes replay with it 0.
 - Butter lock and the wind-up: while RT is held the left stick mostly loads the wind-up
   (`air.windSteer`), so a locked butter pivots slowly and little of its pivot is left to
   carry at the pop (~0.7 rad/s in a probe). The spin out of a butter comes mainly from the

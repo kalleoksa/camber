@@ -31,9 +31,9 @@ full rule set). Left stick is the upper body, right stick the lower body:
 
 | Input | Grounded | Airborne | Railed |
 |---|---|---|---|
-| Left stick X | Edge; while charging, the spin wind-up | Tuck / open against the spin | As below (unchanged) |
-| Left stick Y | Posture: tuck (less drag, wider turn) / stand tall (more drag, tighter) | Flick at the pop: flip, diagonal cork; held, keeps the axis | As below |
-| Right stick Y | Nose / tail press; at the pop, ollie (tail, highest) / nollie (nose) | Press to land into | — |
+| Left stick X | Edge; while charging, the spin wind-up | Tuck / open against the spin | Balance lean, screen space (with Y); also the wind-up |
+| Left stick Y | Posture: tuck (less drag, wider turn) / stand tall (more drag, tighter) | Flick at the pop: flip, diagonal cork; held, keeps the axis | Balance lean, screen space (with X) |
+| Right stick Y | Nose / tail press; at the pop, ollie (tail, highest) / nollie (nose) | Press to land into | Contact point: nose / tail press |
 | Right stick X | Skid — the speed check | Shifty (no bumper) | — |
 | RT | Compress; release = pop. Held on a press: locks it (butter wind-up) | Absorb | Compress; release = pop off |
 | LT | — | — | — |
@@ -45,8 +45,9 @@ A pop out of a butter carries `butter.popCarry` of its pivot into the spin. Woun
 still held the same way through the pop (only RT let go) is pre-rotation: a slow spin that
 way at wind-up × held stick × `air.preRotateGain` of `spinTakeoff`, the held diagonal a
 slow cork; reversing the stick at the pop is the fast, counter-rotated spin. Grabs spin
-faster mid-board than at the tips (`air.grabSpinByPlace`). Rails still read the left stick
-as below until the rail part of the remap lands.
+faster mid-board than at the tips (`air.grabSpinByPlace`). On a rail the left stick is only the
+lean and the right stick Y the contact point; popping off uses the ollie/nollie rule, and
+`rail.offBalanceSpin` scales the wind-up down by how far off balance or out on a press you are.
 
 **One stick** (`input.scheme` 0 — takes recorded before the remap replay on it):
 
