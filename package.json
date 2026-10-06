@@ -22,7 +22,8 @@
     "obstacle-check": "node scripts/obstacle-check.ts",
     "hip-quarter": "node scripts/hip-quarter.ts",
     "redesign-check": "node scripts/redesign-check.ts",
-    "talma": "node scripts/build-talma.ts && node scripts/talma-check.ts"
+    "talma": "node scripts/build-talma.ts && node scripts/talma-check.ts",
+    "talma-jumps": "node scripts/talma-jumps.ts"
   },
   "dependencies": {
     "three": "^0.180.0",
