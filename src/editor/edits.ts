@@ -304,3 +304,32 @@ export function zeroStep(p: PatchConfig, changed: number, basePitch: number): vo
     seg[1] = Math.max(PITCH_MIN, Math.min(PITCH_MAX, Math.atan(Math.tan(seg[1]) + step / seg[0])));
   }
 }
+
+/** Split the segment holding `s` m along the patch into two at the same pitch: the shape is unchanged. */
+export function splitSegment(p: PatchConfig, s: number): boolean {
+  let at = 0;
+  for (let k = 0; k < p.segs.length; k++) {
+    const [len, pitch] = p.segs[k] ?? [0, 0];
+    const a = s - at;
+    if (a > 0 && a < len) {
+      if (a < 0.5 || len - a < 0.5) return false; // too close to a point that is already there
+      p.segs.splice(k, 1, [a, pitch], [len - a, pitch]);
+      return true;
+    }
+    at += len;
+  }
+  return false;
+}
+
+/**
+ * Remove the point at the end of segment `k`: it and the next become one segment (the last
+ * point: the last two), at the grade that drops the same height, so the step is unchanged.
+ */
+export function mergeAt(p: PatchConfig, k: number): boolean {
+  if (p.segs.length < 2) return false;
+  const i = Math.min(k, p.segs.length - 2);
+  const [l1, p1] = p.segs[i] ?? [0, 0];
+  const [l2, p2] = p.segs[i + 1] ?? [0, 0];
+  p.segs.splice(i, 2, [l1 + l2, Math.atan((l1 * Math.tan(p1) + l2 * Math.tan(p2)) / (l1 + l2))]);
+  return true;
+}

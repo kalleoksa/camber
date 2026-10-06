@@ -212,6 +212,9 @@ shared ride bot. (`meta.group` is done.)
   work on a patch; "add terrain patch" in the place folder drops one that gives its height back.
   "Keep step at zero" (ground folder, on by default): after a segment edit the other segments
   are re-pitched, nearest first and each within −10…60°, so the patch gives its height back.
+  Double-tap the design line to add a point (the segment splits at the same pitch); double-tap
+  a segment's end point to remove it (the two either side merge at the grade that drops the
+  same height).
 
 ## Done when
 

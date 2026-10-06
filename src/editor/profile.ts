@@ -3,7 +3,7 @@ import type { PatchConfig } from '../sim/heightfield.ts';
 import type { Params } from '../sim/params.ts';
 import { createContact, type Terrain } from '../sim/terrain.ts';
 import { designedAirs, lipOf, sweep, takeoffOf, type Air } from './airs.ts';
-import { originOf, patchStep, zeroStep } from './edits.ts';
+import { mergeAt, originOf, patchStep, splitSegment, zeroStep } from './edits.ts';
 
 /**
  * The profile editor: a side section, true to scale, drawn by sampling the terrain.
@@ -57,6 +57,8 @@ type Grip = {
   move(ds: number, dy: number, s: number, y: number): void;
   done(): void;
   type(v: number): void;
+  /** Double-tap: take the point away (a patch segment's end). */
+  remove?(): void;
 };
 
 export function createProfile(host: ProfileHost): Profile {
@@ -71,6 +73,7 @@ export function createProfile(host: ProfileHost): Profile {
   let visible = false;
   let grips: Grip[] = [];
   let drag: { g: Grip; x: number; y: number; moved: boolean } | undefined;
+  let designLine: [number, number][] = []; // a patch's design line, for taps on it
   // Section to canvas: s along the section (m), y height (m).
   let scale = 1;
   let toX = (s: number): number => s;
@@ -320,6 +323,7 @@ export function createProfile(host: ProfileHost): Profile {
     line([[s0, baseAt(s0)], [s1, baseAt(s1)]], 'rgba(160,175,190,0.6)', 1, [4, 4]);
     line(snow, '#e8eef4', 1.5);
     line(design, '#ffd34d', 1.5, [6, 4]);
+    designLine = design;
 
     if (!drag) {
       grips = [];
@@ -359,6 +363,7 @@ export function createProfile(host: ProfileHost): Profile {
             move: (ds) => edit((sg) => (sg[0] = Math.max(0.5, was[0] + ds)), false),
             done: () => edit(() => undefined, true),
             type: (v) => edit((sg) => (sg[0] = Math.max(0.5, v)), true),
+            remove: () => host.editPatch((q) => void mergeAt(q, k), true),
           },
         );
         at += len;
@@ -371,7 +376,7 @@ export function createProfile(host: ProfileHost): Profile {
       W,
       H,
       `patch ${pt.index} · dashed yellow: its segments as designed, grey: the base grade · step at its end ${step.toFixed(2)} m${Math.abs(step) > 0.3 ? ' — leaves a step across the slope' : ''}`,
-      'drag a middle handle up/down for pitch, an end handle along for length, or tap to type · the snow re-bakes on release',
+      'drag a middle handle up/down for pitch, an end handle along for length, tap to type · double-tap the line to add a point, an end point to remove it',
     );
   };
 
@@ -398,10 +403,59 @@ export function createProfile(host: ProfileHost): Profile {
     const r = canvas.getBoundingClientRect();
     return { x: ev.clientX - r.left, y: ev.clientY - r.top };
   };
+  /** Pixels from (x, y) to the patch's design line. */
+  const offLine = (x: number, y: number): number => {
+    let best = Infinity;
+    for (let i = 1; i < designLine.length; i++) {
+      const [s0, y0] = designLine[i - 1] ?? [0, 0];
+      const [s1, y1] = designLine[i] ?? [0, 0];
+      const ax = toX(s0);
+      const ay = toY(y0);
+      const bx = toX(s1) - ax;
+      const by = toY(y1) - ay;
+      const t = Math.max(0, Math.min(1, ((x - ax) * bx + (y - ay) * by) / Math.max(1e-9, bx * bx + by * by)));
+      best = Math.min(best, Math.hypot(x - ax - bx * t, y - ay - by * t));
+    }
+    return best;
+  };
+  // Taps: one on a handle types a value; two quick ones on an end point remove it, on the line add one.
+  const DOUBLE = 320; // ms
+  let lastTap: { g: Grip | undefined; x: number; y: number; time: number } | undefined;
+  let pendingType: ReturnType<typeof setTimeout> | undefined;
+  const typeInto = (g: Grip): void => {
+    const typed = prompt(g.name, g.value().toFixed(2));
+    const v = typed === null ? NaN : Number(typed);
+    if (Number.isFinite(v)) g.type(v);
+  };
+  const tapped = (g: Grip | undefined, x: number, y: number): void => {
+    const now = performance.now();
+    const twice = lastTap && now - lastTap.time < DOUBLE && Math.hypot(lastTap.x - x, lastTap.y - y) < 14;
+    lastTap = { g, x, y, time: now };
+    if (twice && g?.remove) {
+      clearTimeout(pendingType);
+      lastTap = undefined;
+      g.remove();
+      return;
+    }
+    if (twice && !g && patch) {
+      lastTap = undefined;
+      const s = fromX(x);
+      host.editPatch((q) => void splitSegment(q, s), true);
+      return;
+    }
+    if (!g) return;
+    if (!g.remove) return typeInto(g);
+    // An end point might be the first tap of two: wait before asking for a value.
+    clearTimeout(pendingType);
+    pendingType = setTimeout(() => typeInto(g), DOUBLE);
+  };
   canvas.addEventListener('pointerdown', (ev) => {
     const p = at(ev);
     const g = grips.find((q) => Math.hypot(toX(q.s) - p.x, toY(q.y) - p.y) < 12);
-    if (!g) return;
+    if (!g) {
+      if (patch && offLine(p.x, p.y) < 10) tapped(undefined, p.x, p.y);
+      return;
+    }
     canvas.setPointerCapture(ev.pointerId);
     g.begin();
     drag = { g, x: p.x, y: p.y, moved: false };
@@ -420,9 +474,7 @@ export function createProfile(host: ProfileHost): Profile {
       d.g.done();
       return;
     }
-    const typed = prompt(d.g.name, d.g.value().toFixed(2));
-    const v = typed === null ? NaN : Number(typed);
-    if (Number.isFinite(v)) d.g.type(v);
+    tapped(d.g, d.x, d.y);
   });
 
   addEventListener('resize', redraw);
