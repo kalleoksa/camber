@@ -232,6 +232,10 @@ A small halfpipe low enough to ride wall to wall at park speed.
 
 ### 14. Berm and turned wall ride
 
+> **Wall rides: superseded by `docs/walls-plan.md` (2026-10-07).** A park wallride is a built
+> panel, not a snow bank; the `WallConfig` wall below stays as a snow wall only. Berms as here.
+
+
 - **`WallConfig` gets `yaw`** (it can only run straight down the fall line today), via `turned()`.
 - **Berm:** new `ShapeConfig` kind `berm`, a banked turn.
   - `radius` 8–20 m, `sweep` 45–120°, `bank` 30–50°, `height` 1.5–3 m.
@@ -259,6 +263,10 @@ A quarter pipe whose coping changes direction, so air off one section lands on t
 - **Kit:** `designFunBox` after the wedge.
 
 ### 17. Tombstone / tap wall — needs a sim rule
+
+> **Superseded by `docs/walls-plan.md`:** a tombstone is a short built panel, and the tap rule
+> is part of the panel's contact (step 4 there).
+
 
 A 1–2 m near-vertical wall for taps and stalls.
 
