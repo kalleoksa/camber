@@ -25,7 +25,9 @@ block's roof is a flat raised in the terrain height, ridden as ground: land on i
 off the edge. The snow mesh is drawn without it (`terrain.snow`). `ramp: { length }` on a block
 puts a snow ramp against its uphill end, eased into the roof so there's no lip at the seam; that
 end then has no face. Talma's hut has a 14 m one: from straight above it, 9–13 m/s at its foot
-carries you up, across the roof and off the far edge, clean.
+carries you up, across the roof and off the far edge, clean. (Fixed with it: in a park of 8+
+features the terrain buckets features by where each is, and ramps had no origin, so Talma's
+panel ramp was missing too.)
 
 Roof probe, 9° slope, 6 m hut: dropped on at 8 m/s, clean on the roof, 1 s on it, off the edge,
 clean on the snow; riding alongside 0.2 m from the side, no snap up onto the roof; square into

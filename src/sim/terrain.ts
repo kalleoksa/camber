@@ -368,6 +368,9 @@ function bucketProfiles(all: Profile[], cfg: SlopeConfig): { cellAt(x: number, z
   for (const c of cfg.corners ?? []) origins.push([c.x, c.z]);
   for (const q of cfg.quarters ?? []) origins.push([q.x, q.z]);
   for (const s of cfg.shapes ?? []) origins.push([s.x, s.z]);
+  // Ramps, in the order createSlope adds them: panels' then blocks', only those that have one.
+  for (const p of cfg.panels ?? []) if (p.ramp) origins.push([p.x, p.z]);
+  for (const b of cfg.blocks ?? []) if (b.ramp) origins.push([b.x, b.z]);
   const boxes = all.map((p, i) => {
     const [ox, oz] = origins[i] ?? [0, 0];
     let x0 = Infinity;
