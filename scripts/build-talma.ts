@@ -67,8 +67,8 @@ const TALMA = {
   // Wall and bank line, below the jump line (it ends at z −234), on its x. z where each starts.
   lower: {
     wall: { z: -248, length: 24, height: 3, angle: 75, radius: 2.5 }, // on the lifts' side (−X)
-    berm: { z: -286, radius: 16, sweep: 55, bank: 38, height: 2.2, gap: 6 }, // two, an S: toward −X, then back
-    hipQuarter: { z: -342, width: 12, angle: 45, height: 3.5, radius: 4, corner: 3 }, // corner m to +X of the line: ride up the first section near it
+    berm: { z: -280, radius: 16, sweep: 35, bank: 38, height: 3, gap: 6 }, // two, an S: toward −X, then back — centred on the line, so you come out where you went in
+    hipQuarter: { z: -342, width: 12, angle: 45, height: 3.5, radius: 4, corner: 3 }, // corner m to +X of the jump line: out of the S (~2 m left) or straight down it, you ride up the first section near the corner
   },
 } as const;
 
@@ -425,7 +425,10 @@ features.push(...designWallRide({ x: TALMA.x.jump, z: LOWER.wall.z, yaw: 0 }, fi
 // arc ends and which way it then heads (yaw = −sweep), the second starts, `gap` m on.
 const bermIn = { left: 1, radius: LOWER.berm.radius, sweep: LOWER.berm.sweep, bank: LOWER.berm.bank, height: LOWER.berm.height };
 const phi = LOWER.berm.sweep * RAD;
-const b1x = TALMA.x.jump;
+// The S shifts you 2·r(1 − cos φ) + gap·sin φ toward −X: start half that to +X of the line so
+// it's centred on it, and you leave the second berm as far left of the line as you entered right.
+const shift = 2 * LOWER.berm.radius * (1 - dm.cos(phi)) + LOWER.berm.gap * dm.sin(phi);
+const b1x = TALMA.x.jump + shift / 2;
 const b1z = LOWER.berm.z;
 const endX = b1x - LOWER.berm.radius * (1 - dm.cos(phi)) - LOWER.berm.gap * dm.sin(phi);
 const endZ = b1z - LOWER.berm.radius * dm.sin(phi) - LOWER.berm.gap * dm.cos(phi);
@@ -433,9 +436,11 @@ features.push(...designBerm({ x: b1x, z: b1z, yaw: 0 }, fixed(bermIn), GEN));
 features.push(...designBerm({ x: endX, z: endZ, yaw: -phi }, fixed({ ...bermIn, left: 0 }), GEN));
 // Back on the fall line after the second berm, and into the hip quarter's first section near
 // its corner: an inside corner, the bowl corner that transfers.
-const out2X = endX + LOWER.berm.radius * (1 - dm.cos(phi)) * dm.cos(-phi) - LOWER.berm.radius * dm.sin(phi) * dm.sin(phi);
-features.push(...designHipQuarter({ x: out2X + LOWER.hipQuarter.corner, z: LOWER.hipQuarter.z, yaw: 0 }, fixed({ left: 0, outside: 0, width: LOWER.hipQuarter.width, angle: LOWER.hipQuarter.angle, height: LOWER.hipQuarter.height, radius: LOWER.hipQuarter.radius }), GEN));
-const lowerLine: LineSpec = { name: 'wall and bank line', features: features.slice(lowerStart).map((_, i) => lowerStart + i), speed: features.slice(lowerStart).map(() => 0) };
+features.push(...designHipQuarter({ x: TALMA.x.jump + LOWER.hipQuarter.corner, z: LOWER.hipQuarter.z, yaw: 0 }, fixed({ left: 0, outside: 0, width: LOWER.hipQuarter.width, angle: LOWER.hipQuarter.angle, height: LOWER.hipQuarter.height, radius: LOWER.hipQuarter.radius }), GEN));
+// The line the check bot rides ends at the hip quarter's first section: the air across to the
+// second is a transfer it can't ride (it doesn't turn to meet the face, and bails most pipe airs).
+const lowerIdx = features.slice(lowerStart, -1).map((_, i) => lowerStart + i);
+const lowerLine: LineSpec = { name: 'wall and bank line', features: lowerIdx, speed: lowerIdx.map(() => 0) };
 
 const layout: Layout = { version: 1, name: 'talma', ground, spawn, features, lines: [jumpLine, ...railLines, lowerLine], links: [] };
 
