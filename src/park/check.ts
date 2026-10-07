@@ -61,7 +61,12 @@ export function checkLines(layout: Layout, t: Terrain, params: Params): LineChec
         if (time < 0.4) inp.lx = 0;
         // Rails are taken at their design speed: scrub to it on the way in (kickers: never brake).
         const top = (f.meta?.speed?.[1] ?? 99) - 1;
-        if (f.kind === 'rail' && toGo > 0 && toGo < 40 && speed > top && time > 0.4) inp.lt = Math.min(1, (speed - top) * 0.8);
+        if (f.kind === 'rail' && toGo > 0 && toGo < 40 && speed > top && time > 0.4) {
+          // The speed check: LT on one stick, the right stick's skid on two (LT does nothing there).
+          const scrub = Math.min(1, (speed - top) * 0.8);
+          if (params.input.scheme > 0) inp.rx = scrub;
+          else inp.lt = scrub;
+        }
       }
       if (toGo > 0 && s.mode === 'grounded') at = speed; // run-in speed, not the pop
       const was = s.mode;

@@ -10,7 +10,7 @@ import { TICK_DT } from '../src/core/loop.ts';
 import { GEN, type GenConfig } from '../src/gen/config.ts';
 import { fly, launch, popRange } from '../src/gen/flight.ts';
 import { footprint } from '../src/gen/footprint.ts';
-import { designKicker, type ArcCheck } from '../src/gen/kit.ts';
+import { designBerm, designHipQuarter, designKicker, designWallRide, type ArcCheck } from '../src/gen/kit.ts';
 import { neutralInput } from '../src/input/snapshot.ts';
 import { toSlopeConfig, type FeatureSpec, type Layout, type LineSpec } from '../src/park/layout.ts';
 import * as dm from '../src/sim/dmath.ts';
@@ -64,6 +64,12 @@ const TALMA = {
     { terrace: 4, segs: [['down', 4], ['flat', 2], ['down', 5]] }, // down-flat-down
     { terrace: 6, segs: [['flat', 3], ['down', 5], ['flat', 3]] }, // flat-down-flat
   ],
+  // Wall and bank line, below the jump line (it ends at z −234), on its x. z where each starts.
+  lower: {
+    wall: { z: -248, length: 24, height: 3, angle: 75, radius: 2.5 }, // on the lifts' side (−X)
+    berm: { z: -286, radius: 16, sweep: 55, bank: 38, height: 2.2, gap: 6 }, // two, an S: toward −X, then back
+    hipQuarter: { z: -342, width: 12, angle: 45, height: 3.5, radius: 4, corner: 3 }, // corner m to +X of the line: ride up the first section near it
+  },
 } as const;
 
 type RailPlan = { terrace: number; segs?: readonly (readonly ['down' | 'flat', number])[]; rainbow?: { length: number; rise: number; ramp: number; end: number } };
@@ -408,7 +414,30 @@ for (const [name, x, plans, terr] of [
   railLines.push(line);
 }
 
-const layout: Layout = { version: 1, name: 'talma', ground, spawn, features, lines: [jumpLine, ...railLines], links: [] };
+// Wall and bank line, on the open lower hill below the jump line: a wall ride on the lifts'
+// side, an S of two berms, and a hip quarter at the bottom — milestone 6's features in one
+// line ridden straight off the end of the jumps. Fixed sizes through the generator's own kit.
+const LOWER = TALMA.lower;
+const fixed = (inputs: Record<string, number>) => ({ inputs });
+const lowerStart = features.length;
+features.push(...designWallRide({ x: TALMA.x.jump, z: LOWER.wall.z, yaw: 0 }, fixed({ left: 1, length: LOWER.wall.length, height: LOWER.wall.height, angle: LOWER.wall.angle, radius: LOWER.wall.radius }), GEN));
+// The berms: the first turns toward the lifts (−X), the second back again. Where the first's
+// arc ends and which way it then heads (yaw = −sweep), the second starts, `gap` m on.
+const bermIn = { left: 1, radius: LOWER.berm.radius, sweep: LOWER.berm.sweep, bank: LOWER.berm.bank, height: LOWER.berm.height };
+const phi = LOWER.berm.sweep * RAD;
+const b1x = TALMA.x.jump;
+const b1z = LOWER.berm.z;
+const endX = b1x - LOWER.berm.radius * (1 - dm.cos(phi)) - LOWER.berm.gap * dm.sin(phi);
+const endZ = b1z - LOWER.berm.radius * dm.sin(phi) - LOWER.berm.gap * dm.cos(phi);
+features.push(...designBerm({ x: b1x, z: b1z, yaw: 0 }, fixed(bermIn), GEN));
+features.push(...designBerm({ x: endX, z: endZ, yaw: -phi }, fixed({ ...bermIn, left: 0 }), GEN));
+// Back on the fall line after the second berm, and into the hip quarter's first section near
+// its corner: an inside corner, the bowl corner that transfers.
+const out2X = endX + LOWER.berm.radius * (1 - dm.cos(phi)) * dm.cos(-phi) - LOWER.berm.radius * dm.sin(phi) * dm.sin(phi);
+features.push(...designHipQuarter({ x: out2X + LOWER.hipQuarter.corner, z: LOWER.hipQuarter.z, yaw: 0 }, fixed({ left: 0, outside: 0, width: LOWER.hipQuarter.width, angle: LOWER.hipQuarter.angle, height: LOWER.hipQuarter.height, radius: LOWER.hipQuarter.radius }), GEN));
+const lowerLine: LineSpec = { name: 'wall and bank line', features: features.slice(lowerStart).map((_, i) => lowerStart + i), speed: features.slice(lowerStart).map(() => 0) };
+
+const layout: Layout = { version: 1, name: 'talma', ground, spawn, features, lines: [jumpLine, ...railLines, lowerLine], links: [] };
 
 writeFileSync(new URL('../parks/talma-reference.json', import.meta.url), JSON.stringify(layout, null, 1) + '\n');
 
