@@ -1,12 +1,12 @@
 import type { InputSnapshot } from '../../input/snapshot.ts';
 import type { Params } from '../params.ts';
-import { axisZ, setFromBasis } from '../quat.ts';
+import { axisX, axisZ, setFromBasis } from '../quat.ts';
 import { nearestOnRail, railAt } from '../rails.ts';
 import type { RiderState } from '../state.ts';
 import type { Terrain } from '../terrain.ts';
 import { cross, damp, dot, normalize, set, vec3, wrapAngle } from '../vec3.ts';
 import * as dm from '../dmath.ts';
-import { chargePop, popTakeoff, rideOff } from './grounded.ts';
+import { chargePop, popBias, popTakeoff, rideOff } from './grounded.ts';
 
 const railPos = vec3();
 const tan = vec3();
@@ -50,8 +50,11 @@ export function stepRailed(state: RiderState, input: InputSnapshot, params: Para
   const friction = r.friction * (1 + r.slideFriction * sinSlide);
   state.railSpeed += (along - friction - params.ground.drag * state.railSpeed * state.railSpeed) * dt;
 
-  // Slide angle, turned by LB/RB.
-  state.slide = wrapAngle(state.slide + ((input.rb ? 1 : 0) - (input.lb ? 1 : 0)) * r.slideRate * dt);
+  // Slide angle, turned by LB/RB — and on two sticks by the right stick sideways too, the
+  // lower body turning the board under you, analog. Same way round as the air shifty the
+  // same push gives, so a shifty onto the rail and the stick on it agree.
+  const turn = (input.rb ? 1 : 0) - (input.lb ? 1 : 0) - (params.input.scheme > 0 ? input.rx : 0);
+  state.slide = wrapAngle(state.slide + Math.max(-1, Math.min(1, turn)) * r.slideRate * dt);
 
   const rail = terrain.rails[state.railIndex];
   const box = rail !== undefined && rail.width > 0 ? r.boxStability : 1;
@@ -116,12 +119,16 @@ export function stepRailed(state: RiderState, input: InputSnapshot, params: Para
 
   if (chargePop(state, input, params, dt)) {
     // Pop off along rail up, charged like a pop off snow — and spins off a rail work too.
-    const bias = 1 - state.stance * params.pop.stanceBias;
+    const bias = popBias(state.stance, params);
     const impulse = (params.pop.base + params.pop.charged * state.compress) * bias;
     v.x += U.x * impulse;
     v.y += U.y * impulse;
     v.z += U.z * impulse;
     state.charge = 0;
+    // Off balance or out on a press you can't throw the upper body properly: the wind-up
+    // the pop can release is scaled down — a smaller spin out, not none.
+    const off = Math.min(1, Math.max(Math.abs(state.balance) / Math.max(r.balanceMax, 1e-3), trick ? Math.abs(state.railContact) : 0));
+    state.windUp *= 1 - r.offBalanceSpin * off;
     leaveRail(state);
     popTakeoff(state, input, params);
     return;
@@ -154,7 +161,12 @@ function stepTrick(state: RiderState, input: InputSnapshot, params: Params, box:
   const c = dm.cos(state.slide);
   const s = dm.sin(state.slide);
   // w = lx·S + ly·T against F = c·T + s·S and heel = U × F = s·T − c·S.
-  const wAlong = input.lx * s + input.ly * c;
+  // Two sticks: the left stick is only the lean (still screen space), and the press along
+  // the board is the right stick's, as on the snow — up the leading end — so a press no
+  // longer has to come out of the balance fight.
+  const two = params.input.scheme > 0;
+  const dir = params.ground.switchEdges > 0 && state.switchRide ? -1 : 1;
+  const wAlong = two ? input.ry * dir : input.lx * s + input.ly * c;
   const wHeel = input.ly * s - input.lx * c;
   const contact = state.railContact;
 
@@ -217,6 +229,14 @@ export function tryCapture(state: RiderState, params: Params, terrain: Terrain, 
     }
 
     axisZ(F, state.spinFrame);
+    if (params.input.scheme > 0 && state.shifty !== 0) {
+      // Two sticks: the board as drawn, with the shifty — a shifty onto a rail is a
+      // boardslide. It yaws the board about its own up: nose toward board +X for +shifty.
+      axisX(heel, state.spinFrame);
+      const cs = dm.cos(state.shifty);
+      const sn = dm.sin(state.shifty);
+      set(F, F.x * cs + heel.x * sn, F.y * cs + heel.y * sn, F.z * cs + heel.z * sn);
+    }
     state.slide = dm.atan2(dot(F, S), dot(F, T));
     const along_ = along >= 0 ? along : -along;
     if (r.trickModel >= 0.5) {
@@ -262,6 +282,7 @@ export function tryCapture(state: RiderState, params: Params, terrain: Terrain, 
     state.grabHeld = false;
     state.tweak = 0;
     state.shifty = 0;
+    state.airPitch = 0;
     return true;
   }
   return false;

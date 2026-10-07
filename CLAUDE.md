@@ -145,6 +145,9 @@ gameplay wiring to the rig does not wait on them.
   each trick (`render/trickText.ts`, toggle in the panel). Names only, never a number.
   Second agreed exception: the controls sheet (`render/controlsHelp.ts`) — a small "?" button,
   H or the touchpad opens it and pauses the game. Controls only, no menu behind it.
+  Third agreed exception: the park editor (`src/editor/`, `docs/park-editor-plan.md`), opened
+  with `?edit=1` and loaded by dynamic import. Edit mode only — nothing of it shows while
+  riding. Tweakpane panels, one 2D canvas, a gizmo; no menus, no UI framework.
 - Feel cannot be delegated. When a milestone lands, stop and say what to tune and which
   params to reach for. Don't guess at whether it feels right.
 

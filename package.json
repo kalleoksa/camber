@@ -14,7 +14,16 @@
     "spin": "node scripts/spin-probe.ts",
     "gate": "node scripts/pose-gate.ts",
     "clip": "node scripts/clip-check.ts",
-    "airs": "node scripts/air-table.ts"
+    "airs": "node scripts/air-table.ts",
+    "lanes": "node scripts/lanes.ts",
+    "gen-check": "node scripts/gen-check.ts",
+    "kit-check": "node scripts/kit-check.ts",
+    "line-check": "node scripts/line-check.ts",
+    "obstacle-check": "node scripts/obstacle-check.ts",
+    "hip-quarter": "node scripts/hip-quarter.ts",
+    "redesign-check": "node scripts/redesign-check.ts",
+    "talma": "node scripts/build-talma.ts && node scripts/talma-check.ts",
+    "talma-jumps": "node scripts/talma-jumps.ts"
   },
   "dependencies": {
     "three": "^0.180.0",

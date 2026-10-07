@@ -50,31 +50,76 @@ import {
   createRiderState,
   resetRiderState,
   type RiderState,
+  type Spawn,
 } from './sim/state.ts';
-import { createContact, createSlope, type SlopeConfig } from './sim/terrain.ts';
-import { PARK } from './park/park.ts';
-import { PARK_GRAVITY, REAL_GRAVITY } from './park/scale.ts';
-import { SLOPESTYLE } from './park/slopestyle.ts';
-import { SOCHI } from './park/sochi.ts';
+import { createContact, createSlope, type SlopeConfig, type Terrain } from './sim/terrain.ts';
+import { GEN } from './gen/config.ts';
+import { loadGenerated } from './gen/load.ts';
+import { computeSpeedMap, type SpeedMap } from './gen/speedmap.ts';
+import type { Rect } from './render/terrainMesh.ts';
+import { toSlopeConfig, type Layout } from './park/layout.ts';
+import { localCopy, parkKey } from './editor/store.ts';
+import type { Editor } from './editor/editor.ts';
+import { HOME, PARKS } from './park/parks.ts';
 import { length } from './sim/vec3.ts';
+import { addParkFolder } from './tuning/parkPanel.ts';
+import { createOverlays } from './render/debugOverlays.ts';
+import { createTrajectoryPreview } from './render/trajectory.ts';
+import { createSkid } from './render/skid.ts';
 import { createPanel, download, type FeedbackState, type Readout } from './tuning/panel.ts';
 
 const SEED = 1;
-// The home park (src/park/park.ts) by default; ?park=sochi for Sochi 2014, ?park=slopestyle
-// for the first park. All full size under real gravity. A take stores its terrain and
-// params, so takes from before (16 m/s², 0.61-scale parks) replay as they were.
+// Parks are layouts (src/park/layout.ts). By default the Talma-style park (parks/talma-reference.json,
+// built by scripts/build-talma.ts). ?park=gen or ?seed=N for a generated park (src/gen) — the same
+// seed always builds the same park. ?park=home for the old hand-built park
+// (src/park/park.ts), ?park=sochi for Sochi 2014, ?park=slopestyle for the first park,
+// ?park=file for a layout loaded from a JSON file (park folder). All full size under real
+// gravity. A take stores its terrain and params, so takes from before (16 m/s², 0.61-scale
+// parks) replay as they were.
 const query = new URLSearchParams(location.search);
-const parkName = query.get('park');
-const slopeConfig: SlopeConfig = parkName === 'slopestyle' ? SLOPESTYLE : parkName === 'sochi' ? SOCHI : PARK;
+const parkName = query.get('park') ?? (query.has('seed') ? 'gen' : 'talma');
+const seed = Math.max(1, Math.round(Number(query.get('seed') ?? 1)) || 1);
+// The park as shipped, and what is ridden: the park editor's local copy of it when this browser
+// has one (src/editor/store.ts), until "reset to the shipped park" drops it.
+const shipped: Layout = parkName === 'gen' ? await generating(seed) : parkName === 'file' ? (loadedLayout() ?? HOME) : (PARKS[parkName] ?? HOME);
+const edited = localCopy(parkKey(shipped));
+let layout: Layout = edited ? edited.layout : structuredClone(shipped);
+let slopeConfig: SlopeConfig = toSlopeConfig(layout);
 // ?spin=0 starts on the older spin model (air.spinModel in the panel switches live).
 if (query.get('spin') === '0') params.air.spinModel = 0;
 
-const terrain = createSlope(slopeConfig);
-// On the home park a run starts lined up in the jump line, straight at the first kicker.
-const spawnX = slopeConfig === PARK ? (PARK.kickers?.[0]?.x ?? 0) : 0;
-const spawn = {
-  position: { x: spawnX, y: terrain.sample(spawnX, 0, createContact()).height + 1.5, z: 0 },
-  heading: Math.PI, // nose down the fall line (-Z)
+/** A layout JSON loaded from the park folder, kept in this browser until another replaces it. */
+function loadedLayout(): Layout | undefined {
+  try {
+    const json = localStorage.getItem('camber-layout');
+    return json ? (JSON.parse(json) as Layout) : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+/** A generated park takes seconds the first time; say so plainly until it's there. */
+async function generating(s: number): Promise<Layout> {
+  const note = document.createElement('div');
+  note.textContent = `generating park ${s}…`;
+  note.style.cssText = 'position:fixed;inset:0;display:grid;place-items:center;font:15px system-ui;color:#556;background:#eef2f6;z-index:2';
+  document.body.appendChild(note);
+  try {
+    return await loadGenerated(s);
+  } finally {
+    note.remove();
+  }
+}
+
+let terrain = createSlope(slopeConfig);
+// &at=x,z[,deg] starts the run there instead, facing down the hill or `deg` off it (+ toward
+// +X) — for looking at one spot.
+const at = (query.get('at') ?? '').split(',').map(Number);
+const custom = (at.length === 2 || at.length === 3) && at.every(Number.isFinite);
+const [spawnX, spawnZ] = custom ? [at[0] ?? 0, at[1] ?? 0] : [layout.spawn.x, layout.spawn.z];
+let spawn: Spawn = {
+  position: { x: spawnX, y: terrain.sample(spawnX, spawnZ, createContact()).height + 1.5, z: spawnZ },
+  heading: custom && at.length === 3 ? Math.PI - ((at[2] ?? 0) * Math.PI) / 180 : layout.spawn.heading,
 };
 
 const state = createRiderState(spawn);
@@ -134,7 +179,12 @@ let runTricks: { tick: number; text: string }[] = [];
 
 const chase = createChaseCamera(params);
 // Parks are full size, their features 1.63× the old: so is the coarse grid cell.
-const view = createScene(slopeConfig, terrain, chase.camera, 0.75 * (PARK_GRAVITY / REAL_GRAVITY));
+const view = createScene(slopeConfig, terrain, chase.camera);
+let terrainSharp = false;
+const sceneFog = view.scene.fog;
+const overview = { on: false };
+const trajectory = createTrajectoryPreview(view.scene, slopeConfig, terrain, params);
+const skid = createSkid();
 addEventListener('resize', view.resize);
 // The canvas follows the visible screen by CSS; whenever its size changes — including iPad
 // Safari's toolbars sliding, which doesn't always fire a resize — the buffer follows.
@@ -329,7 +379,7 @@ const help = createControlsHelp((open) => {
     if (pausedByHelp && paused) togglePause();
     pausedByHelp = false;
   }
-});
+}, () => void edit());
 /** Pause pressed: with the sheet up it closes the sheet (and resumes), else it toggles. */
 function pausePressed(): void {
   if (help.isOpen()) help.toggle();
@@ -338,6 +388,7 @@ function pausePressed(): void {
 addEventListener('keydown', (ev) => {
   const t = ev.target as HTMLElement | null;
   if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA')) return;
+  if (editing) return;
   if (ev.key === 'p' || ev.key === 'P') pausePressed();
   else if (ev.key === '.' && paused) stepOnce = true;
 });
@@ -345,7 +396,7 @@ addEventListener('keydown', (ev) => {
 function step(): void {
   // Pose mode disconnects gameplay entirely — the rider is frozen and the drivers are
   // the only thing moving (design §7.8, build order step 2).
-  if (poseMode) return;
+  if (poseMode || editing) return;
   if (paused) {
     if (!stepOnce) return;
     stepOnce = false;
@@ -520,7 +571,7 @@ function saveBlob(filename: string, blob: Blob): void {
 addEventListener('keydown', (ev) => {
   const t = ev.target as HTMLElement | null;
   if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA')) return;
-  if (ev.key === 'm' || ev.key === 'M') pendingMark = 'note';
+  if (!editing && (ev.key === 'm' || ev.key === 'M')) pendingMark = 'note';
 });
 
 let lastLanding: RiderState['landing'] = 'none';
@@ -535,18 +586,31 @@ function render(alpha: number): void {
   const now = performance.now();
   const dt = Math.min((now - lastRender) / 1000, 0.1);
   lastRender = now;
+  if (editing && editor) {
+    editor.update(dt);
+    view.ground.update(editor.camera.position, 3);
+    view.renderer.render(view.scene, editor.camera);
+    return;
+  }
 
   const rider = interpolateRider(previous, state, alpha);
+  if (!poseMode) skid.apply(rider, params, dt);
   // The preview is authoring state, not sim state, so it keeps the real render dt. The hip
   // spring no longer does — it is stepped on the sim tick and sampled here.
   if (poseMode) updatePreview(dt);
   sampleSecondary(secondaryView, secondaryPrevious, secondary, alpha);
   view.updateRider(rider, params, poseMode, secondaryView, dt);
+  trajectory.update(state);
   if (poseMode) {
     orbit.update(rider);
   } else {
     spray.update(rider, params, paused ? 0 : dt);
     chase.update(rider, params, dt);
+    // Debug overview: high above and behind, looking down the hill past the rider, no fog.
+    if (overview.on) {
+      chase.camera.position.set(rider.position.x, rider.position.y + 130, rider.position.z + 70);
+      chase.camera.lookAt(rider.position.x, rider.position.y - 20, rider.position.z - 110);
+    }
   }
   if (audio.running) {
     audio.update(rider, params);
@@ -558,6 +622,9 @@ function render(alpha: number): void {
   } else {
     lastLanding = state.landing;
   }
+  // Terrain detail round the camera: all of it on the first frame, then a few ms a frame.
+  view.ground.update(chase.camera.position, terrainSharp ? 3 : 2000);
+  terrainSharp = true;
   view.renderer.render(view.scene, chase.camera);
   inputOverlay.draw();
 
@@ -766,6 +833,111 @@ const panel = createPanel(params, readout, view.drivers, preview, feedback, {
     panel.refresh();
   },
 });
+// The speed map only means something on generated ground (a zone with a field).
+const speedMapOf = (t: Terrain, cfg: SlopeConfig): (() => SpeedMap | undefined) | undefined => {
+  const field = cfg.field;
+  if (!field) return undefined;
+  let map: SpeedMap | undefined;
+  return () => (map ??= computeSpeedMap(t, params, { width: field.width, length: field.length, ...GEN.speedMap }));
+};
+const overlays = createOverlays(view.scene, terrain, speedMapOf(terrain, slopeConfig), layout, params);
+
+/**
+ * Rebuild the park in place from an edited layout (the park editor's entry to the world).
+ * `changed`: where the ground moved — a feature's old and new footprints — so only the
+ * terrain mesh there is rebuilt. The heightfield is baked again only when the ground changed.
+ */
+let builtGround = JSON.stringify(layout.ground);
+export function setPark(next: Layout, changed?: readonly Rect[]): void {
+  const cfg = toSlopeConfig(next);
+  // By value: the editor changes the layout in place.
+  const groundNow = JSON.stringify(next.ground);
+  const sameGround = groundNow === builtGround;
+  builtGround = groundNow;
+  layout = next;
+  slopeConfig = cfg;
+  terrain = createSlope(cfg, sameGround ? terrain.field : undefined);
+  view.setPark(cfg, terrain, sameGround ? changed : undefined);
+  trajectory.setPark(cfg, terrain);
+  overlays.setPark(terrain, layout, speedMapOf(terrain, cfg));
+}
+
+addParkFolder(panel.pane, layout, seed, overlays, {
+  onExport: () => download(`camber-park-${layout.name}${layout.seed !== undefined ? `-${layout.seed}` : ''}.json`, JSON.stringify(layout)),
+  onLoadLayout: (json) => {
+    try {
+      const l = JSON.parse(json) as Layout;
+      if (l.version !== 1 || !l.ground || !Array.isArray(l.features)) throw new Error('not a Camber layout');
+      localStorage.setItem('camber-layout', json);
+      location.search = '?park=file';
+    } catch (e) {
+      alert(`Couldn't load that layout: ${(e as Error).message}`);
+    }
+  },
+  onOverview: (on) => {
+    overview.on = on;
+    view.scene.fog = on ? null : sceneFog;
+  },
+  onTrajectory: (on) => trajectory.setEnabled(on),
+});
+
+/**
+ * Edit mode (src/editor, docs/park-editor-plan.md): the sim stops, the rider is hidden and the
+ * editor's camera and panels take over. Loaded on first use: ?edit=1, the controls sheet's
+ * button, then Tab back and forth.
+ */
+let editor: Editor | undefined;
+let editing = false;
+async function edit(): Promise<void> {
+  if (editing) return;
+  editor ??= (await import('./editor/editor.ts')).createEditor({
+    scene: view.scene,
+    canvas: view.renderer.domElement,
+    params,
+    layout: () => layout,
+    original: shipped,
+    terrain: () => terrain,
+    setPark,
+    ride,
+    overlay: (name) => overlays.show(name),
+    download,
+  });
+  finishRun();
+  editing = true;
+  view.rider.visible = false;
+  spray.object.visible = false;
+  showPanel(false);
+  view.scene.fog = null; // the whole park in view
+  editor.enter();
+}
+/** Back to riding: from `from` (ride from here), else from the last start, on the snow as it is now. */
+function ride(from?: Spawn): void {
+  if (!editing) return;
+  editor?.leave();
+  editing = false;
+  if (paused) togglePause();
+  view.rider.visible = true;
+  spray.object.visible = true;
+  showPanel(true);
+  view.scene.fog = overview.on ? null : sceneFog;
+  const s = from ?? spawn;
+  const p = s.position;
+  spawn = { ...s, position: { x: p.x, y: terrain.sample(p.x, p.z, createContact()).height + (s.speed ? 0.3 : 1.5), z: p.z } };
+  state.spawn = spawn;
+  restart();
+}
+function showPanel(on: boolean): void {
+  const box = panel.pane.element.parentElement;
+  if (box) box.style.display = on ? '' : 'none';
+}
+addEventListener('keydown', (ev) => {
+  const t = ev.target as HTMLElement | null;
+  if (ev.key !== 'Tab' || !editor || (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA'))) return;
+  ev.preventDefault();
+  if (editing) ride();
+  else void edit();
+});
+if (query.get('edit') === '1') void edit();
 
 function restart(): void {
   finishRun();

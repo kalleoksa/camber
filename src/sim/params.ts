@@ -3,6 +3,13 @@
  * can bind them generically and presets can serialize them wholesale.
  */
 export const params = {
+  // Which pad mapping the sim reads (docs/two-stick-controls-spec.md). 0: one stick — the
+  // left stick edges, presses and flips, LT brakes; takes before the remap replay on it.
+  // 1: two sticks — left is the upper body (edge, tuck/stand tall, spin, flip flick), right
+  // the lower body (press, skid, ollie/nollie, grabs, shifty).
+  input: {
+    scheme: 1,
+  },
   world: {
     gravity: 9.81, // m/s², real. Parks are full size and speeds real (src/park/scale.ts); takes before this carry 16
     terminalSpeed: 26.0, // m/s
@@ -26,13 +33,26 @@ export const params = {
     stanceGripLoss: 0.35, // grip lost at full press
     brakeDecel: 9.0, // m/s² at full LT
     brakeGripLoss: 0.7, // grip lost at full LT — the scrub half of brake/scrub
+    // Two sticks: left stick Y is posture on the snow. Forward tucks, back stands tall.
+    tuckDrag: 0.6, // × air drag at full tuck — you don't speed up, you stop losing it
+    tallDrag: 2.0, // × air drag standing tall — a soft speed check without skidding
+    tuckCarve: 0.85, // × carve yaw at full tuck — a wider turn
+    tallCarve: 1.15, // × carve yaw standing tall — a tighter one
     normalSmoothing: 12.0, // 1/s, board-to-terrain alignment rate
     edgeResponse: 9.0, // 1/s, stick-to-edge-angle rate
     stanceResponse: 9.0, // 1/s, stick-to-stance rate — weight shifts, it isn't an edge
   },
   pop: {
+    // Two sticks: the press at release picks the pop. Replaces stanceBias, which made a nollie
+    // weaker than a flat pop.
+    ollieGain: 1.3, // × pop off the tail — the strongest
+    nollieGain: 1.15, // × pop off the nose — between a flat pop and an ollie
+    flipAssist: 0.25, // fraction of air.flipRate the pop's pitch adds to a flip: an ollie brings a backflip round faster, a nollie a frontflip
     chargeTime: 0.25, // s to full compress
     decay: 0.4, // 1/s bleed after full
+    // Held past full the crouch bleeds only down to this, then holds: holding RT through the
+    // approach (pre-rotation, a locked butter) is a move now, not camping. 0: the old bleed to nothing.
+    decayFloor: 0.75,
     base: 1.566, // m/s uncharged — sized so an ollie is as high in metres as at the old 16 m/s²
     charged: 3.915, // m/s added at full charge
     stanceBias: 0.3, // ollie/nollie pop multiplier range
@@ -46,7 +66,9 @@ export const params = {
     levelWhole: 1, // 1: level the whole rotation (corks land too). 0: older board-up rule, fades on corks
     levelTiltMax: 0.3, // rad of cork tilt at which the older rule (levelWhole 0) has faded out
     authority: 1.2, // 1/s, how fast in-air stick pulls spin toward its target
-    tuckMultiplier: 1.25, // spin rate while grabbed
+    tuckMultiplier: 1.25, // spin rate while grabbed — with grabSpinByPlace, a grab between the feet
+    tipMultiplier: 1.0, // spin rate grabbing a tip (nose, tail) — the body stretched along the board
+    grabSpinByPlace: 1, // 1: a grab's spin rate comes from where on the board it is (tuck mid-board, tip at the ends). 0: tuckMultiplier for every grab
     extendMultiplier: 0.85, // spin rate while stretched
     spinMax: 9.0, // rad/s cap
     axisTiltMax: 1.1, // rad, max cork axis lerp
@@ -58,8 +80,9 @@ export const params = {
     spinTakeoff: 9.0, // rad/s at full whip on takeoff — overspins a full pop on purpose; centre to check
     takeoffWindow: 0.1, // s after a pop the stick still sets spin at full authority — 0 = trigger tick only
     checkRate: 6.0, // 1/s, spin decay with the stick centred; leftover rotation ≈ rate/checkRate. 0 = coast
-    shiftyMax: 0.9, // rad of board yaw against the body on LB/RB
+    shiftyMax: 1.57, // rad (90°) of board yaw against the body at full shifty — the full turn across a rail, so a shifty onto it lands a boardslide. Was 0.9
     shiftyRate: 8.0, // 1/s, board swinging out and back — held at contact, it's judged
+    pitchMax: 0.5, // rad (~30°) of board pitch under the body at full right stick Y in the air (two sticks, no bumper): a nose or tail poke, judged at contact like the shifty. Swings at shiftyRate
     /**
      * 0..1, how much of a held carve is discounted from the takeoff stick read. At 0 the
      * stick position sets spin, which means a hard carve *is* a request for a 360 whether
@@ -90,6 +113,10 @@ export const params = {
     tuckGain: 0.35, // spin × (1 + this) fully tucked
     openGain: 0.75, // spin × (1 − this) fully opened — the check: arms out, upper body counter-rotating against the board
     tuckRate: 7.0, // 1/s the body tucks or opens toward what the stick asks
+    // Two sticks: pre-rotation, the slow spin. Wound up and still held the same way through the
+    // pop (only RT let go) spins that way at wind-up × held stick × this, of spinTakeoff —
+    // where reversing the stick at the pop is the fast, counter-rotated spin. 0: held = straight.
+    preRotateGain: 0.4,
   },
   land: {
     clean: 0.5, // rad ≈ 29° (was 0.44, raised by play)
@@ -150,6 +177,7 @@ export const params = {
     // screen space, split onto the board: across it leans you over the edges (balance, + heel),
     // along it moves the contact point toward nose or tail — a press is a shift, not a spin.
     trickModel: 1,
+    offBalanceSpin: 0.6, // fraction of the wind-up lost popping off at full lean or full press — the spin out shrinks, it isn't blocked. 0: no effect
     boardHalf: 0.775, // m, centre to tip — contact ±1 is the rail at a tip
     pressMax: 0.6, // contact the stick asks for at full deflection along the board
     pressStiffness: 20.0, // 1/s², contact pulled toward the stick's ask
@@ -171,6 +199,7 @@ export const params = {
     popAngle: 0.35, // rad from up: on a wall's transition steeper than this, a pop drives you up the face instead of off it
   },
   butter: {
+    popCarry: 1.0, // two sticks: fraction of the butter's pivot rate a pop out of it carries into the spin
     press: 0.65, // |stance| where a press starts to become a butter
     maxSpeed: 12.0, // m/s, above which there is no butter — you carve on a press instead
     speedFade: 3.0, // m/s below maxSpeed over which the butter fades in
@@ -280,6 +309,12 @@ export const params = {
     reachWarn: 0.9,
   },
   rig: {
+    // Speed check (L2), drawn: the board swings across the travel and the edge digs in, spray
+    // off it. Render only — the sim's brake is unchanged by it.
+    skidYaw: 1.2, // rad the board turns off the travel at full L2 (~70°)
+    skidRate: 8, // 1/s it swings round and back
+    skidEdge: 0.5, // edge it shows at full skid, of full
+    skidSpray: 0.6, // spray, as m/s² of scrub per m/s of speed at full skid
     thigh: 0.44, // m
     shin: 0.44, // m
     upperArm: 0.33, // m
@@ -311,6 +346,12 @@ export const params = {
     railTilt: 0.35, // rad the rider tips about the rail at full balance, toward the side they're falling to
     pressPitch: 0.25, // rad the board tips onto the rail at full contact — a nose press is nose down
     pressHipShift: 0.12, // m of hip travel toward the contact at full contact
+    // Across the rail with the weight on an end (contact, −1 tail … +1 nose): a blunt has the
+    // rail under a foot, a nose/tailslide has it out at the tip. Names (tricks.ts) and poses.
+    slideEndMin: 0.15, // |contact| below which a slide is centred — a boardslide or lipslide
+    bluntContact: 0.34, // |contact| of a foot (half the stance over half the board): a pure blunt
+    slideContact: 0.47, // |contact| from which it is a noseslide or tailslide; between, blended and named by the nearer
+    bluntPitch: 0.35, // rad the board stands up on a blunt, free end high
     spineStiffness: 55.0, // ω² for the spine twist and head springs, like hipStiffness — ω ≈ 7.4 rad/s
     spineDamping: 1.0, // ζ
     counterRotation: 1.0, // rad (~57°) the shoulders wind against the coming spin at full charge
@@ -324,6 +365,11 @@ export const params = {
     hipLead: 0.2, // rad the hips lead
     armSpread: 0.9, // rad the arms open out along the board — at the lip, and to stop the spin for landing
     rideHeadYaw: 0.9, // rad the head turns from straight across the board toward the way of travel — riders look down the hill. Mirrored riding switch
+    spinLook: 1, // 1: spins land with the head over the nose shoulder (backside) or the tail's (frontside) — blind landings look uphill
+    spinLookMin: 1.5, // rad/s of yaw below which an air keeps the riding look
+    landLookHold: 0.3, // s the spin's look holds past touchdown before the head comes round
+    shiftyHipFollow: 0.6, // fraction of an air shifty the hips turn with the board — the legs don't twist the whole way
+    shiftyCounter: 0.15, // fraction of an air shifty the shoulders turn the other way, against the board
     shiftyGrabTurn: 0.7, // fraction of a shifty the whole rider turns through while a hand holds the board — the rest twists the board under the body. 0 leaves the hand short of the board (up to 16 cm on a nose or tail grab)
     armTuck: 0.4, // rad the arms pull in when tucking to spin faster (spin model 1)
     openTime: 0.3, // s before touchdown the rider opens up and squares to the board
@@ -352,6 +398,35 @@ export const params = {
     hipSwayDamping: 0.6, // ζ
     carveLead: 0.35, // rad of shoulder turn into a carve per rad/s of heading change
     carveLeadMax: 0.5, // rad — a landing's heading snap would otherwise wrench the shoulders
+    // Carving posture (docs/two-stick-controls-spec.md §8). Driven by the load across the
+    // board — the smoothed board-frame acceleration the loose body already reads — so legs
+    // and torso shape the turn apart, and a set edge at walking speed carries no posture.
+    carveLoadFull: 0.25, // g across the board at which the posture is full — the sim's hardest carves pull 0.2–0.3 g
+    carveCrouch: 0.12, // m the hips drop at full load; the load passes zero between turns, so you rise there
+    crossUnderSpeed: 14.0, // m/s above which the hips stop rising between turns — the legs swing under a low body
+    crossUnderFade: 4.0, // m/s over which that comes in
+    crossUnderHold: 0.7, // fraction of the full-load crouch held between turns at speed
+    angulation: 0.35, // rad the torso tips back toward the outside at full load — legs in, chest over the edge
+    heelSit: 0.08, // m the hips move toward the heel edge on a heelside turn — sitting into it
+    heelSitDrop: 0.06, // m of extra hip drop on a heelside turn
+    heelArms: 0.35, // rad both arms come forward on a heelside turn, counterweight to the sit
+    toeKneeDrive: 0.35, // rad the knees turn toward the toes on a toeside turn (kneeSplay down) — driven at the snow
+    toeHipBack: 0.03, // m the hips stay toward the heel on a toeside turn, over the board while the knees go in
+    carveLook: 1.0, // s ahead along the turn the head looks, within headTurnMax
+    handDragLoad: 0.8, // fraction of full load past which the trailing hand reaches toward the snow inside the turn
+    handDrag: 0.6, // rad of trailing-arm swing toward the inside at full load; the lead arm lifts half that the other way
+    // Posture, drawn (two sticks, left stick Y on the snow).
+    tuckDrop: 0.16, // m the hips drop at full tuck
+    tuckFold: 0.35, // rad the chest folds over the knees at full tuck
+    tallRise: 0.05, // m the hips come up standing tall
+    tallFold: 0.15, // rad the chest straightens standing tall
+    tuckArmSwing: 0.45, // rad the arms come forward at full tuck
+    tuckElbow: 0.7, // rad more elbow bend at full tuck — arms pulled in
+    // Ollie / nollie, drawn: the board loaded onto the pressed end while crouching, then the
+    // other end snapping up off the pop.
+    popLoadPitch: 0.12, // rad the board tips onto the pressed end at full press and full crouch
+    popPitch: 0.35, // rad (~20°) of nose-up (ollie) or tail-up (nollie) at the peak of the snap, full press
+    popPitchTime: 0.35, // s the snap takes, up and back level
   },
   // Cloth (9c): springs on the fixed tick in render/secondary.ts, so replay reproduces
   // them; they change the spring hash, not the sim. Angles in rad, rates in rad/s.

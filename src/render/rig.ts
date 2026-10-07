@@ -514,6 +514,11 @@ export type Rig = {
   /** Foot separation the leg solve produced. A diagnostic — the board is derived from it. */
   readonly stance: number;
   apply(drivers: RigDrivers, params: Params): void;
+  /**
+   * Where a shifty turns the board: 0 about its centre (an air shifty), 1 about the front
+   * binding — the tail pushed round, as in a speed check. Set before `apply`.
+   */
+  shiftPivot: number;
   /** Dressed rider (outfit.ts) or the bare segments the poses were authored on. */
   setDressed(on: boolean): void;
   /** Pivots the cloth springs turn (9c): the jacket skirt at the waist, the hood at the neck. */
@@ -521,6 +526,9 @@ export type Rig = {
   /** Outfit pieces the clip check measures (scripts/clip-check.ts). */
   fit: Outfit['fit'];
 };
+
+const pivotAt = new THREE.Vector3();
+const pivotMoved = new THREE.Vector3();
 
 const SKIN = 0x2f6ee2;
 const DARK = 0x1b1f24;
@@ -665,7 +673,8 @@ export function createRig(): Rig {
   const boardLong = new THREE.Vector3();
   let effectiveStance = 0;
 
-  return {
+  const rig: Rig = {
+    shiftPivot: 0,
     root,
     board,
     strain,
@@ -733,8 +742,11 @@ export function createRig(): Rig {
       // spinFrame ∘ shifty ∘ pitch ∘ roll, the order the sim's landing test composes.
       if (d.shifty !== 0) {
         tmpQuat.setFromAxisAngle(yAxis, d.shifty);
+        // About the front binding when the tail is pushed round: hold that binding where it was.
+        if (rig.shiftPivot > 0) pivotAt.set(0, 0.09, halfStance).applyQuaternion(board.quaternion).add(board.position);
         board.quaternion.premultiply(tmpQuat);
         board.position.applyQuaternion(tmpQuat);
+        if (rig.shiftPivot > 0) board.position.addScaledVector(pivotAt.sub(pivotMoved.copy(pivotAt).applyQuaternion(tmpQuat)), rig.shiftPivot);
       }
 
       // 1. Feet, bolted to the bindings, following the board.
@@ -898,11 +910,14 @@ export function createRig(): Rig {
       // positive and the knees break backward toward the heel side, which a method needs.
       legSpan.front = hipL.distanceTo(footF);
       legSpan.back = hipR.distanceTo(footB);
-      pole.set(-Math.cos(d.kneeSplay), 0, Math.sin(d.kneeSplay));
+      // The knees point the board's way, not the body's: feet are bolted to the board, so a
+      // shifty turns the knees with it. Without this a 90° shifty pointed both knees along
+      // the board, into each other, and the legs crossed.
+      pole.set(-Math.cos(d.kneeSplay), 0, Math.sin(d.kneeSplay)).applyAxisAngle(yAxis, d.shifty);
       solveTwoBone(kneeF, hipL, footF, r.thigh, r.shin, pole);
       placeBone(thighL, hipL, kneeF, r.thigh);
       placeBone(shinL, kneeF, footF, r.shin);
-      pole.set(-Math.cos(d.kneeSplay), 0, -Math.sin(d.kneeSplay));
+      pole.set(-Math.cos(d.kneeSplay), 0, -Math.sin(d.kneeSplay)).applyAxisAngle(yAxis, d.shifty);
       solveTwoBone(kneeB, hipR, footB, r.thigh, r.shin, pole);
       placeBone(thighR, hipR, kneeB, r.thigh);
       placeBone(shinR, kneeB, footB, r.shin);
@@ -914,4 +929,5 @@ export function createRig(): Rig {
       effectiveStance = halfStance * 2;
     },
   };
+  return rig;
 }

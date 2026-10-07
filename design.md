@@ -26,6 +26,35 @@ Reference document for the sim model. Read with `CLAUDE.md`.
 
 Xbox-layout gamepad. Analog everywhere it matters.
 
+**Two sticks** (`input.scheme` 1, the default — `docs/two-stick-controls-spec.md` is the
+full rule set). Left stick is the upper body, right stick the lower body:
+
+| Input | Grounded | Airborne | Railed |
+|---|---|---|---|
+| Left stick X | Edge; while charging, the spin wind-up | Tuck / open against the spin | Balance lean, screen space (with Y); also the wind-up |
+| Left stick Y | Posture: tuck (less drag, wider turn) / stand tall (more drag, tighter) | Flick at the pop: flip, diagonal cork; held, keeps the axis | Balance lean, screen space (with X) |
+| Right stick Y | Nose / tail press; at the pop, ollie (tail, highest) / nollie (nose) | Poke: board pitched nose/tail under the body (`air.pitchMax`), judged at landing like the shifty; also the press to land into | Contact point: nose / tail press |
+| Right stick X | Skid — the speed check | Shifty (no bumper) | — |
+| RT | Compress; release = pop. Held on a press: locks it (butter wind-up) | Absorb | Compress; release = pop off |
+| LT | — | — | — |
+| LB / RB | — | Grab hand, with the right stick | Slide angle |
+
+On a rail, right stick X turns the slide angle too (same way round as the air shifty), and a
+shifty held as you catch the rail goes into the slide angle — an ollie with a shifty onto a
+rail is a boardslide.
+
+A flip reads a *flick* of left stick Y against `state.flipRef` (lagged at
+`air.spinRefRate`, held through the pop window), so a tuck held into the lip pops straight.
+A pop out of a butter carries `butter.popCarry` of its pivot into the spin. Wound up and
+still held the same way through the pop (only RT let go) is pre-rotation: a slow spin that
+way at wind-up × held stick × `air.preRotateGain` of `spinTakeoff`, the held diagonal a
+slow cork; reversing the stick at the pop is the fast, counter-rotated spin. Grabs spin
+faster mid-board than at the tips (`air.grabSpinByPlace`). On a rail the left stick is only the
+lean and the right stick Y the contact point; popping off uses the ollie/nollie rule, and
+`rail.offBalanceSpin` scales the wind-up down by how far off balance or out on a press you are.
+
+**One stick** (`input.scheme` 0 — takes recorded before the remap replay on it):
+
 | Input | Grounded | Airborne | Railed |
 |---|---|---|---|
 | Left stick X | Edge angle (target) | Spin rate about spin axis | Weight shift (screen space): lean + contact |
@@ -149,7 +178,7 @@ Per tick, grounded:
 ## 5. Pop and air
 
 **Charge.** RT held ramps `compress` 0→1 over `pop.chargeTime`, with visible knee bend.
-Holding past full slowly bleeds it (`pop.decay`) — rewards timing, punishes camping.
+Holding past full slowly bleeds it (`pop.decay`) down to `pop.decayFloor` (0.75), then holds — rewards timing without punishing a crouch held through the approach, which pre-rotation and the butter lock need.
 
 **Release.** Impulse along the *contact normal*, not world up:
 `v += n * (pop.base + pop.charged * compress)`. Ramp geometry adds its own velocity for
@@ -611,8 +640,14 @@ not.
 - **Names**, as read from the state (no score). Board across the rail, travelling toward
   the heels (blind) = **frontside boardslide**; toward the toes (open) = **backside
   boardslide** — your convention. Along the rail with the contact at an end = nose or tail
-  press; across with the contact at an end = nose or tail slide. Lipslides (approached so
-  the tail crosses the rail first) are still to name.
+  press. Across with the weight on an end, how far along the board the rail sits names it:
+  under a foot (`rig.bluntContact`) a **blunt**, or nose blunt under the front foot; out at
+  a tip (`rig.slideContact`) a **noseslide** or **tailslide**. Centred, which end crossed
+  first splits boardslide from lipslide. On two sticks a half right-stick press is a blunt,
+  a full one a nose/tailslide.
+- **Blunt and slide poses**: `noseBlunt` (board stood up on the rail, `rig.bluntPitch`, body
+  upright over the front foot) and `noseslide` (low, folded over the nose), each mirrored
+  for the tail; seeded from the press, to refine in pose mode.
 
 ---
 

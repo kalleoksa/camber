@@ -1,15 +1,17 @@
 import * as THREE from 'three';
+import { hipTakeoff } from '../sim/hip.ts';
 import { quat, slerp, type Quat } from '../sim/quat.ts';
 import type { Params } from '../sim/params.ts';
 import type { LandingRead, RiderMode, RiderState } from '../sim/state.ts';
-import type { CornerConfig, KickerConfig, SlopeConfig, Terrain } from '../sim/terrain.ts';
+import type { HipConfig, KickerConfig, SlopeConfig, Terrain } from '../sim/terrain.ts';
 import { createContact } from '../sim/terrain.ts';
 import { length, vec3, type Vec3 } from '../sim/vec3.ts';
 import { boardAttitude, GRABS, grabAttitude } from '../sim/grabs.ts';
 import { ANCHORS, BODY_KEYS, grabBody, namedGrabBody } from './poses.ts';
+import { createTerrainMesh, type Rect, type TerrainMesh } from './terrainMesh.ts';
 import { butterAmount } from '../sim/states/grounded.ts';
 import { BOARD_HALF, copyDrivers, createRig, edgePoint, gripWeight, mirrorDrivers, neutralDrivers, smoothstep, type RigDrivers } from './rig.ts';
-import type { Secondary } from './secondary.ts';
+import { carveLoad, type Secondary } from './secondary.ts';
 import { flutter, lcg } from './toon.ts';
 import { TICK_DT } from '../core/loop.ts';
 
@@ -29,8 +31,14 @@ export type RiderView = {
   course: number; // heading of horizontal velocity — what the camera follows in the air
   edge: number;
   stance: number;
+  posture: number; // two sticks: −1 stand tall .. +1 tuck
+  popStance: number; // the press the last pop went off: − ollie, + nollie, 0 not popped
+  airTime: number; // s since leaving the snow
+  airPitch: number; // rad of board poke under the body in the air, nose up +
   compress: number;
   scrub: number;
+  brake: number;
+  shiftPivot: number; // 0 an air shifty about the board's centre, 1 a speed check's tail pushed round the front binding
   speed: number;
   mode: RiderMode;
   landing: LandingRead;
@@ -67,8 +75,14 @@ const view: RiderView = {
   course: 0,
   edge: 0,
   stance: 0,
+  posture: 0,
+  popStance: 0,
+  airTime: 0,
+  airPitch: 0,
   compress: 0,
   scrub: 0,
+  brake: 0,
+  shiftPivot: 0,
   speed: 0,
   mode: 'airborne',
   landing: 'none',
@@ -107,8 +121,14 @@ export function interpolateRider(prev: RiderState, cur: RiderState, alpha: numbe
   view.heading = shortestAngleLerp(prev.heading, cur.heading, alpha);
   view.edge = prev.edge + (cur.edge - prev.edge) * alpha;
   view.stance = prev.stance + (cur.stance - prev.stance) * alpha;
+  view.posture = prev.posture + (cur.posture - prev.posture) * alpha;
+  view.popStance = cur.popStance;
+  view.airPitch = prev.airPitch + (cur.airPitch - prev.airPitch) * alpha;
+  view.airTime = cur.mode === prev.mode ? prev.airTime + (cur.airTime - prev.airTime) * alpha : cur.airTime;
   view.compress = prev.compress + (cur.compress - prev.compress) * alpha;
   view.scrub = cur.scrub;
+  view.brake = cur.brake;
+  view.shiftPivot = 0;
   view.speed = length(cur.velocity);
   view.time = (prev.tick + (cur.tick - prev.tick) * alpha) * TICK_DT;
   view.mode = cur.mode;
@@ -138,6 +158,8 @@ export function interpolateRider(prev: RiderState, cur: RiderState, alpha: numbe
 export type SceneView = {
   renderer: THREE.WebGLRenderer;
   scene: THREE.Scene;
+  /** The terrain mesh, chunked; `update` each frame sharpens it round the camera. */
+  ground: TerrainMesh;
   rider: THREE.Group;
   /** Drivers the rig is currently posed with. Pose mode writes here directly. */
   drivers: RigDrivers;
@@ -164,6 +186,11 @@ export type SceneView = {
    */
   setStage(clean: boolean): void;
   setDressed(on: boolean): void;
+  /**
+   * Show another park, or this one edited. `changed`: where the ground moved (a feature's old
+   * and new footprints) — only the terrain there is rebuilt. Omitted, all of it is.
+   */
+  setPark(cfg: SlopeConfig, terrain: Terrain, changed?: readonly Rect[]): void;
   resize(): void;
 };
 
@@ -223,103 +250,15 @@ function snowTexture(): THREE.Texture {
  * side taper read as curves, and 0.1 m across a wall so its face is a face and not a ramp.
  * Walls run down the fall line, so only X needs the extra columns.
  */
+/** Metres from a takeoff's start to its lip: the arc, or a hip's arc and straight lip. */
+function runInOf(k: KickerConfig | HipConfig): number {
+  if ('hip' in k && k.hip) return hipTakeoff(k, k.hip).runIn;
+  return (k.lipHeight / (1 - Math.cos(k.lipAngle))) * Math.sin(k.lipAngle);
+}
+
 /** Kickers and corners: both start with the same arc up to a lip. */
-function takeoffs(cfg: SlopeConfig): Array<KickerConfig | CornerConfig> {
+function takeoffs(cfg: SlopeConfig): Array<KickerConfig | HipConfig> {
   return [...(cfg.kickers ?? []), ...(cfg.corners ?? [])];
-}
-
-function gridColumns(cfg: SlopeConfig, cell: number): number[] {
-  const half = cfg.width / 2;
-  const xs: number[] = [];
-  const coarse = Math.round(cfg.width / cell);
-  for (let i = 0; i <= coarse; i++) xs.push(-half + (cfg.width * i) / coarse);
-  for (const w of cfg.walls ?? []) {
-    const span = w.radius + w.top + 2 * w.height + 1;
-    const from = Math.min(w.x, w.x + w.side * span) - 0.5;
-    const to = Math.max(w.x, w.x + w.side * span) + 0.5;
-    for (let x = from; x <= to; x += 0.1) xs.push(x);
-  }
-  // Cut takeoffs: fine columns across each side so the wall is a wall, not a ramp.
-  for (const k of takeoffs(cfg)) {
-    if (k.sideTaper > 1) continue;
-    for (const side of [-1, 1]) {
-      const edge = k.x + side * k.width * 0.5;
-      for (let x = edge - 0.3; x <= edge + 0.3 + k.sideTaper; x += 0.1) xs.push(side > 0 ? x : 2 * edge - x);
-    }
-  }
-  // Quarter pipes facing across the slope: their face runs along Z, like a wall's. Only the
-  // transition and face need it — deck and back are gentle, and these run the park's length.
-  for (const q of cfg.quarters ?? []) {
-    if (!q.side) continue;
-    const span = q.radius + q.height + 0.5;
-    const from = Math.min(q.x, q.x + q.side * span) - 0.5;
-    const to = Math.max(q.x, q.x + q.side * span) + 0.5;
-    for (let x = from; x <= to; x += 0.15) xs.push(x);
-  }
-  xs.sort((p, q) => p - q);
-  return xs.filter((x, i) => Math.abs(x) <= half && (i === 0 || x - (xs[i - 1] ?? -Infinity) > 0.02));
-}
-
-/** Grid rows down the slope, likewise: 0.1 m across an uphill-facing quarter pipe's face, which runs across X. */
-function gridRows(cfg: SlopeConfig, runOut: number, cell: number): number[] {
-  const zs: number[] = [];
-  const coarse = Math.round((cfg.length + runOut) / cell);
-  for (let j = 0; j <= coarse; j++) zs.push(runOut - ((cfg.length + runOut) * j) / coarse);
-  // A kicker's lip: fine rows across it, so the edge reads sharp.
-  for (const k of takeoffs(cfg)) {
-    const lip = k.z - (k.lipHeight / (1 - Math.cos(k.lipAngle))) * Math.sin(k.lipAngle);
-    for (let z = lip + 0.6; z >= lip - 0.6; z -= 0.1) zs.push(z);
-  }
-  for (const q of cfg.quarters ?? []) {
-    if (q.side) continue;
-    const span = q.radius + q.deck + 2 * q.height + 1;
-    for (let z = q.z + 0.5; z >= q.z - span; z -= 0.1) zs.push(z);
-  }
-  zs.sort((p, q) => q - p);
-  return zs.filter((z, j) => j === 0 || (zs[j - 1] ?? Infinity) - z > 0.02);
-}
-
-function slopeMesh(cfg: SlopeConfig, terrain: Terrain, cell: number): THREE.Mesh {
-  const runOut = 20;
-  const xs = gridColumns(cfg, cell);
-  const zs = gridRows(cfg, runOut, cell);
-  const rows = zs.length - 1;
-  const cols = xs.length;
-  const positions = new Float32Array(cols * (rows + 1) * 3);
-  const uvs = new Float32Array(cols * (rows + 1) * 2);
-  const contact = createContact();
-  for (let j = 0; j <= rows; j++) {
-    const z = zs[j] ?? 0;
-    for (let i = 0; i < cols; i++) {
-      const x = xs[i] ?? 0;
-      const k = j * cols + i;
-      positions[k * 3] = x;
-      positions[k * 3 + 1] = terrain.sample(x, z, contact).height;
-      positions[k * 3 + 2] = z;
-      // World-scaled: one texture tile per 4 m, whatever the cell size.
-      uvs[k * 2] = x / 4;
-      uvs[k * 2 + 1] = z / 4;
-    }
-  }
-  const index: number[] = [];
-  for (let j = 0; j < rows; j++) {
-    for (let i = 0; i < cols - 1; i++) {
-      const a = j * cols + i;
-      const b = a + cols;
-      index.push(a, a + 1, b, a + 1, b + 1, b); // counter-clockwise seen from above
-    }
-  }
-  const geometry = new THREE.BufferGeometry();
-  geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-  geometry.setAttribute('uv', new THREE.BufferAttribute(uvs, 2));
-  geometry.setIndex(index);
-  geometry.computeVertexNormals();
-
-  const texture = snowTexture();
-  const material = new THREE.MeshStandardMaterial({ map: texture, roughness: 0.95, metalness: 0 });
-  const mesh = new THREE.Mesh(geometry, material);
-  mesh.receiveShadow = true;
-  return mesh;
 }
 
 /** Side markers every 20 m — a fixed reference for reading speed and turn shape. */
@@ -350,15 +289,31 @@ function edgeLines(cfg: SlopeConfig, terrain: Terrain): THREE.Group {
   const group = new THREE.Group();
   const material = new THREE.MeshBasicMaterial({ color: 0xd8325a });
   const contact = createContact();
+  // Paint is laid out as if the feature faced straight down the hill (yaw 0) about its origin
+  // (cx, cz), then turned with it — the same turn `turned()` gives its height function.
+  let cx = 0;
+  let cz = 0;
+  let sinYaw = 0;
+  let cosYaw = 1;
+  const frame = (f: { x: number; z: number; yaw?: number }): void => {
+    cx = f.x;
+    cz = f.z;
+    sinYaw = Math.sin(f.yaw ?? 0);
+    cosYaw = Math.cos(f.yaw ?? 0);
+  };
+  const worldX = (x: number, z: number): number => cx + (cz - z) * sinYaw + (x - cx) * cosYaw;
+  const worldZ = (x: number, z: number): number => cz - (cz - z) * cosYaw + (x - cx) * sinYaw;
+  const heightAt = (x: number, z: number): number => terrain.sample(worldX(x, z), worldZ(x, z), contact).height;
   const at = (x: number, z: number, insetX: number, insetZ: number): THREE.Vector3 =>
-    new THREE.Vector3(x, terrain.sample(x - insetX, z - insetZ, contact).height + 0.03, z);
+    new THREE.Vector3(worldX(x, z), heightAt(x - insetX, z - insetZ) + 0.03, worldZ(x, z));
   const tube = (points: THREE.Vector3[]): void => {
     const curve = new THREE.CatmullRomCurve3(points);
     group.add(new THREE.Mesh(new THREE.TubeGeometry(curve, points.length * 2, 0.045, 6, false), material));
   };
   for (const k of takeoffs(cfg)) {
     if (k.sideTaper > 1) continue;
-    const runIn = (k.lipHeight / (1 - Math.cos(k.lipAngle))) * Math.sin(k.lipAngle);
+    frame(k);
+    const runIn = runInOf(k);
     const lip = k.z - runIn;
     const half = k.width * 0.5;
     for (const side of [-1, 1]) {
@@ -382,7 +337,8 @@ function edgeLines(cfg: SlopeConfig, terrain: Terrain): THREE.Group {
   // A corner's deck edges too — the knuckle on all three sides, where its landings start.
   for (const c of cfg.corners ?? []) {
     if (c.sideTaper > 1) continue;
-    const lip = c.z - (c.lipHeight / (1 - Math.cos(c.lipAngle))) * Math.sin(c.lipAngle);
+    frame(c);
+    const lip = c.z - runInOf(c);
     const end = lip - c.deckLength + 0.05;
     const half = c.deckWidth * 0.5 - 0.05;
     for (const side of [-1, 1]) {
@@ -393,14 +349,16 @@ function edgeLines(cfg: SlopeConfig, terrain: Terrain): THREE.Group {
     const back: THREE.Vector3[] = [];
     for (let i = 0; i <= 8; i++) back.push(at(c.x - half + (2 * half * i) / 8, end, 0, -0.05));
     tube(back);
-    // The side landings' cut uphill ends, from the deck corner down to the snow.
+    // The side landings' cut uphill ends, from the deck corner down to the snow — on a hip, the
+    // knuckle seen from the side; only where it has a landing.
     if (c.deckTaper !== undefined && c.deckTaper <= 1) {
       const reach = 3 * c.lipHeight / Math.tan(c.landingAngle); // past the landing's end; the line stops at the snow
       for (const side of [-1, 1]) {
+        if (c.hip && c.hip.side !== 0 && c.hip.side !== side) continue;
         const pts: THREE.Vector3[] = [];
         for (let i = 0; i <= 30; i++) {
           const p = at(c.x + side * (half + (reach * i) / 30), lip - 0.05, 0, 0.05);
-          if (p.y - terrain.sample(c.x + side * (half + (reach * i) / 30), lip + 2, contact).height < 0.1) break;
+          if (p.y - heightAt(c.x + side * (half + (reach * i) / 30), lip + 2) < 0.1) break;
           pts.push(p);
         }
         if (pts.length > 1) tube(pts);
@@ -409,6 +367,7 @@ function edgeLines(cfg: SlopeConfig, terrain: Terrain): THREE.Group {
   }
   // Coping: just onto the deck past the face, along the full-height length of the pipe.
   for (const q of cfg.quarters ?? []) {
+    frame(q);
     const r = q.radius;
     const faceEnd = r * Math.sin(q.angle) + Math.max(0, q.height - r * (1 - Math.cos(q.angle))) / Math.tan(q.angle);
     const pts: THREE.Vector3[] = [];
@@ -420,7 +379,32 @@ function edgeLines(cfg: SlopeConfig, terrain: Terrain): THREE.Group {
     }
     tube(pts);
   }
+  // Painted small kickers (side hits built as park features): the lip and both sides of the ramp.
+  for (const h of cfg.shapes ?? []) {
+    if (h.kind !== 'sideHit' || !h.paint) continue;
+    frame(h);
+    const runIn = (h.height / (1 - Math.cos(h.angle))) * Math.sin(h.angle);
+    const half = h.width * 0.5;
+    for (const side of [-1, 1]) {
+      const pts: THREE.Vector3[] = [];
+      for (let i = 0; i <= 12; i++) pts.push(at(h.x + side * (half - 0.05), h.z - (runIn * i) / 12, side * 0.05, 0));
+      tube(pts);
+    }
+    const lipPts: THREE.Vector3[] = [];
+    for (let i = 0; i <= 8; i++) lipPts.push(at(h.x - half + 0.05 + ((2 * half - 0.1) * i) / 8, h.z - runIn + 0.02, 0, 0));
+    tube(lipPts);
+  }
   return group;
+}
+
+/** Take a group out of the scene and free what it built. Each builder above makes its own materials. */
+function disposeGroup(scene: THREE.Scene, group: THREE.Group): void {
+  scene.remove(group);
+  group.traverse((o) => {
+    if (!(o instanceof THREE.Mesh || o instanceof THREE.Line)) return;
+    o.geometry.dispose();
+    for (const m of Array.isArray(o.material) ? o.material : [o.material]) (m as THREE.Material).dispose();
+  });
 }
 
 /** A flat arrow on the snow along board +Z, the way of travel: shaft and head, 1.3 m long. */
@@ -479,7 +463,7 @@ function railMeshes(terrain: Terrain): THREE.Group {
 }
 
 /** `cell` is the coarse grid size in m — larger for a park scaled up, whose features are too. */
-export function createScene(cfg: SlopeConfig, terrain: Terrain, camera: THREE.PerspectiveCamera, cell = 0.75): SceneView {
+export function createScene(cfg: SlopeConfig, terrain: Terrain, camera: THREE.PerspectiveCamera): SceneView {
   const renderer = new THREE.WebGLRenderer({ antialias: true });
   renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
   // CSS sizes the canvas to the screen (index.html); `resize` matches the drawing buffer to
@@ -498,17 +482,17 @@ export function createScene(cfg: SlopeConfig, terrain: Terrain, camera: THREE.Pe
   scene.add(sun);
   scene.add(new THREE.HemisphereLight(0xbcd7f0, 0xe8eef4, 1.1));
 
-  const slope = slopeMesh(cfg, terrain, cell);
+  const snowMap = snowTexture();
   // The camera looks along the snow at a grazing angle; without anisotropic filtering the
   // texture smears to flat white a few metres out and the ground stops showing speed.
-  const snowMap = (slope.material as THREE.MeshStandardMaterial).map;
-  if (snowMap) snowMap.anisotropy = renderer.capabilities.getMaxAnisotropy();
-  const markers = slopeMarkers(cfg, terrain);
-  scene.add(slope);
-  scene.add(markers);
-  const rails = railMeshes(terrain);
-  scene.add(rails);
-  scene.add(edgeLines(cfg, terrain));
+  snowMap.anisotropy = renderer.capabilities.getMaxAnisotropy();
+  const snow = new THREE.MeshStandardMaterial({ map: snowMap, roughness: 0.95, metalness: 0 });
+  let slope = createTerrainMesh(cfg, terrain, snow);
+  let markers = slopeMarkers(cfg, terrain);
+  let rails = railMeshes(terrain);
+  let edges = edgeLines(cfg, terrain);
+  scene.add(slope.group, markers, rails, edges);
+  let size = { width: cfg.width, length: cfg.length };
   // Pose mode: an arrow under the rider along the direction of travel, down the hill, to set
   // a grab's turn against.
   const downhill = downhillArrow();
@@ -543,6 +527,8 @@ export function createScene(cfg: SlopeConfig, terrain: Terrain, camera: THREE.Pe
   // to keep one board point where the sim put it — the pressed tip of a butter on the snow,
   // the contact point of a press over the rail. `pinZ` is that point on board Z; 0 is none.
   let pinZ = 0;
+  // 0..1, how much the rail pose is a blunt — read again for the board's pitch.
+  let railBlunt = 0;
   // The grab's turn of the whole rider (sim grabs.ts `yaw`), applied to the root after the
   // drivers — the sim's board turns by the same, so the landing judges what is drawn.
   let grabYaw = 0;
@@ -647,13 +633,23 @@ export function createScene(cfg: SlopeConfig, terrain: Terrain, camera: THREE.Pe
         slideScratch.hipYaw -= slideScratch.shifty;
         blendToward(drivers, slideScratch, across);
       }
-      const pressPose = ANCHORS.press;
-      const pressAmount = smoothstep(Math.abs(view.railContact) / Math.max(params.rail.pressMax, 1e-3));
-      if (pressPose && pressAmount > 0) {
-        copyDrivers(pressScratch, pressPose);
+      // Weight on an end. Along the rail it's a press. Across it, the rail under a foot is
+      // a blunt (nose blunt under the front foot), out at a tip a noseslide or tailslide —
+      // each its own anchor, authored for the nose and mirrored for the tail.
+      const end = Math.abs(view.railContact);
+      const pressAmount = smoothstep(end / Math.max(params.rail.pressMax, 1e-3));
+      const onEnd = smoothstep((end - r.slideEndMin) / Math.max(r.slideEndMin, 1e-3)) * across;
+      const tipward = smoothstep((end - r.bluntContact) / Math.max(r.slideContact - r.bluntContact, 1e-3));
+      railBlunt = onEnd * (1 - tipward);
+      const toEnd = (endPose: RigDrivers | undefined, w: number): void => {
+        if (!endPose || w <= 0) return;
+        copyDrivers(pressScratch, endPose);
         if (view.railContact < 0) mirrorDrivers(pressScratch);
-        blendToward(drivers, pressScratch, pressAmount);
-      }
+        blendToward(drivers, pressScratch, w);
+      };
+      toEnd(ANCHORS.press, pressAmount * (1 - across));
+      toEnd(ANCHORS.noseBlunt, railBlunt);
+      toEnd(ANCHORS.noseslide, onEnd * tipward);
       // The lean you are fighting, and the hips over the contact, on top of whatever pose.
       drivers.hipX += view.balance * r.railLean;
       drivers.hipZ += view.railContact * r.pressHipShift;
@@ -667,6 +663,19 @@ export function createScene(cfg: SlopeConfig, terrain: Terrain, camera: THREE.Pe
     drivers.headYaw += secondary.head;
     drivers.hipX += secondary.swayX;
     drivers.hipZ += secondary.swayZ;
+    // Carving posture (two-stick spec §8): legs and torso shape the turn apart. Heelside you
+    // sit toward the heel and fold the chest forward over the toes; toeside the knees drive
+    // at the snow while the hips stay over the board and the chest stays tall. The torso
+    // tipping back toward the outside of the turn is the angulation. The board's edge roll
+    // already tips the whole rider; this is the shape inside it.
+    const load = grounded ? carveLoad(secondary, params) * (1 - secondary.inAir) : 0;
+    const heel = Math.max(0, load);
+    const toe = Math.max(0, -load);
+    drivers.hipX += heel * r.heelSit + toe * r.toeHipBack;
+    drivers.spineBend += load * r.angulation;
+    drivers.kneeSplay -= toe * r.toeKneeDrive;
+    // Posture: the tuck folds the chest over the knees, standing tall straightens it.
+    drivers.spineBend += view.posture > 0 ? view.posture * r.tuckFold : view.posture * r.tallFold;
 
     const front = view.grabFront;
     const handEdge = anchor ? (front ? anchor.frontHandEdge : anchor.backHandEdge) : view.grabEdge;
@@ -712,6 +721,21 @@ export function createScene(cfg: SlopeConfig, terrain: Terrain, camera: THREE.Pe
     drivers.backShoulderSwing += (secondary.armYaw - secondary.armX) * bg;
     drivers.frontShoulderOut -= (secondary.armOpen + secondary.armZ) * fg;
     drivers.backShoulderOut += (secondary.armZ - secondary.armOpen) * bg;
+    // Tucked (two sticks), the arms come in: forward and bent, close to the knees.
+    const tucked = Math.max(0, view.posture);
+    drivers.frontShoulderSwing += tucked * r.tuckArmSwing * fg;
+    drivers.backShoulderSwing += tucked * r.tuckArmSwing * bg;
+    drivers.frontElbow += tucked * r.tuckElbow * fg;
+    drivers.backElbow += tucked * r.tuckElbow * bg;
+    // Carving arms: forward as counterweight to a heelside sit; past `handDragLoad` the
+    // trailing hand reaches toward the snow inside the turn — behind on the heel side, out
+    // over the toes on the toe side — and the lead arm lifts against it. + Swing is toward
+    // the toes. Riding switch the trailing arm is the front one.
+    const drag = smoothstep((Math.abs(load) - r.handDragLoad) / Math.max(1 - r.handDragLoad, 1e-3)) * r.handDrag;
+    const trailing = -Math.sign(load) * drag;
+    const leading = 0.5 * Math.sign(load) * drag;
+    drivers.frontShoulderSwing += (heel * r.heelArms + (view.switchRide ? trailing : leading)) * fg;
+    drivers.backShoulderSwing += (heel * r.heelArms + (view.switchRide ? leading : trailing)) * bg;
 
     const a = named
       ? grabAttitude(view.grabId, view.grip, view.tweak, params)
@@ -722,9 +746,27 @@ export function createScene(cfg: SlopeConfig, terrain: Terrain, camera: THREE.Pe
     const butterTip = butter > 0 ? Math.sign(view.stance) : 0;
     drivers.boardPitch = (view.grabSwitch ? -a.pitch : a.pitch) - butterTip * butter * params.butter.pitch;
     pinZ = butterTip * BOARD_HALF;
+    // Ollie and nollie, drawn: crouching on a press the board tips onto that end, and just
+    // after the pop the other end snaps up — nose up off the tail, tail up off the nose —
+    // then levels. Pivots on the end that popped. Render only: the landing test reads the
+    // sim's board, and the snap is gone `rig.popPitchTime` into the air.
+    // The poke (two sticks, right stick Y in the air): the board the landing test judges.
+    drivers.boardPitch += view.airPitch;
+    let popTip = 0;
+    if (grounded && butter === 0) popTip = -view.stance * view.compress * r.popLoadPitch;
+    else if (view.mode === 'airborne' && view.popStance !== 0 && view.airTime < r.popPitchTime) {
+      // A grab coming on takes the board's attitude over, pivoting on the hand.
+      popTip = -view.popStance * r.popPitch * Math.sin((Math.PI * view.airTime) / r.popPitchTime) * (1 - view.grip);
+    }
+    if (popTip !== 0) {
+      drivers.boardPitch += popTip;
+      if (view.grip === 0) pinZ = popTip > 0 ? -BOARD_HALF : BOARD_HALF;
+    }
     if (trick) {
       // A press tips the board onto its contact point: nose press, nose down.
       drivers.boardPitch -= view.railContact * r.pressPitch;
+      // A blunt stands the board up on the rail: the free end high.
+      drivers.boardPitch -= Math.sign(view.railContact) * railBlunt * r.bluntPitch;
       pinZ = view.railContact * params.rail.boardHalf; // where the sim put the contact
     }
     drivers.tweakRoll = a.roll;
@@ -733,6 +775,9 @@ export function createScene(cfg: SlopeConfig, terrain: Terrain, camera: THREE.Pe
   };
 
   return {
+    get ground() {
+      return slope;
+    },
     renderer,
     scene,
     rider: rig.root,
@@ -813,6 +858,13 @@ export function createScene(cfg: SlopeConfig, terrain: Terrain, camera: THREE.Pe
           roll.setFromAxisAngle(yAxis, turn);
           rig.root.quaternion.multiply(roll);
         }
+        // An air shifty is the body splitting, not the board turning under a still one: the
+        // hips go part of the way with the board and the shoulders counter-rotate against it.
+        // Not the speed check's skid (shiftPivot), where the body stays down the line.
+        if (view.mode === 'airborne' && view.shiftPivot === 0) {
+          drivers.hipYaw += drivers.shifty * params.rig.shiftyHipFollow;
+          drivers.spineTwist -= drivers.shifty * (params.rig.shiftyHipFollow + params.rig.shiftyCounter);
+        }
       }
       if (pinZ !== 0) {
         // Where the pressed tip ends up after the rig pitches the board about the hand
@@ -826,6 +878,7 @@ export function createScene(cfg: SlopeConfig, terrain: Terrain, camera: THREE.Pe
         rig.root.position.sub(tip);
       }
 
+      rig.shiftPivot = view.shiftPivot;
       rig.apply(drivers, params);
 
       // Cloth (9c): springs from Secondary, flutter from sim time and speed. Still in pose
@@ -838,7 +891,7 @@ export function createScene(cfg: SlopeConfig, terrain: Terrain, camera: THREE.Pe
     },
 
     setStage(clean) {
-      slope.visible = !clean;
+      slope.group.visible = !clean;
       markers.visible = !clean;
       scene.fog = clean ? null : fog;
       scene.background = clean ? stageColour : skyColour;
@@ -849,6 +902,28 @@ export function createScene(cfg: SlopeConfig, terrain: Terrain, camera: THREE.Pe
 
     setDressed(on) {
       rig.setDressed(on);
+    },
+
+    setPark(next, nextTerrain, changed) {
+      if (next.width === size.width && next.length === size.length) {
+        slope.invalidate(nextTerrain, changed);
+      } else {
+        const visible = slope.group.visible;
+        scene.remove(slope.group);
+        slope.dispose();
+        slope = createTerrainMesh(next, nextTerrain, snow);
+        slope.group.visible = visible;
+        scene.add(slope.group);
+        size = { width: next.width, length: next.length };
+      }
+      // Markers, rails and paint are cheap: rebuilt whole.
+      const visible = markers.visible;
+      for (const g of [markers, rails, edges]) disposeGroup(scene, g);
+      markers = slopeMarkers(next, nextTerrain);
+      markers.visible = visible;
+      rails = railMeshes(nextTerrain);
+      edges = edgeLines(next, nextTerrain);
+      scene.add(markers, rails, edges);
     },
 
     resize() {

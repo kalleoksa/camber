@@ -197,6 +197,8 @@ wait until powder exists.
 
 ## 9. Visual slope builder — to design and plan (2026-10-04)
 
+Spec: "Camber — Terrain & Level Design Spec" (Claude Docs, https://claude.ai/artifact/FwXRXvXLWbYxoRp47dnN1q), checked against the code on 2026-10-05: build order starts from milestone 7's layout JSON for the existing park.
+
 Parks are built in code today (`src/park/*.ts`, numbers per feature). We need a visual way
 to build slopes and lines. Not started; needs a design and a plan first. Open questions:
 
@@ -209,3 +211,185 @@ to build slopes and lines. Not started; needs a design and a plan first. Open qu
 - How you test a change: ride it straight from the editor, plus `npm run airs`-style checks
   (speed into each feature, airtime, landing spot) shown while placing.
 - Dependencies: the stack is locked; anything beyond Three.js and Tweakpane needs asking.
+
+## 10. Spin landings look the right way (2026-10-04)
+
+One rule: a backside spin lands with the head over the nose shoulder, a frontside one over
+the tail's (as the takeoff stance had them; switch mirrors). With the half-turns that gives
+bs 360/720 and fs 180/540 looking down the hill, bs 180/540 and fs 360/720 blind (uphill).
+Render only (`render/secondary.ts`): set from the spin's direction once it passes
+`rig.spinLookMin`, held `rig.landLookHold` (0.3 s) past touchdown, then the head comes
+round to the riding look at its spring rate. `rig.spinLook` 0 turns it off; old takes pin 0.
+Next if wanted: the shoulders follow the head partway on a blind landing.
+
+## 11. Jump section three lanes wide (2026-10-04)
+
+Every row of the jump line is now three gap jumps abreast: smaller on the left (`LANE_L`),
+the original in the middle, bigger on the right (`LANE_R`), 15 m apart (pre-scale), the side
+ones nudged ±2.5 m row by row so no line runs straight. Side kickers put their knuckle on the
+row's knuckle (`laneKicker`), so every lane lands on the row's landing grade; their takeoffs
+fall where their size puts them. Landing hills are 11 m across rounding off over 4, so
+neighbouring lanes' hills meet: jump one lane, land the next (transfer). Three corners abreast
+at the bottom, the side landings meeting between them. Rows 24 / 28 m apart (were 14 / 18),
+room to switch lanes. Park 220 m wide (was 140), rail lane moved right to x 30.
+
+`npm run lanes -- RMLMRL`: rides a route (a lane per row, then the corner) and prints speed,
+airtime, landing past the knuckle. Straight lanes: all rows clean in all three; corners land
+(middle and right sketchy on impact). Switching every row (bot steering, crude) makes it
+through, landing a few metres short on the rise after the hardest switches — a human plans
+them earlier. Terrain mesh 1.44M triangles (was 0.85M) — watch the frame rate on iPad.
+
+## 12. Procedural park generator (2026-10-05)
+
+Asked for: replace the home park with a seeded generator (~300 × 800 m, Shredders-like density,
+hips, rails, transfers, varied steepness), validated by physics, output as layout JSON that
+hand-built parks share. This runs ahead of the milestone order on request. The specs it reads
+are Claude Docs, not repo files: terrain (https://claude.ai/artifact/FwXRXvXLWbYxoRp47dnN1q),
+landing & feel (https://claude.ai/artifact/VU9NgwkzLEz1aPHWqDQrbr), trick input
+(https://claude.ai/artifact/3BQQ2QVtCdTfnMiV8cHB3T).
+
+Build steps: 1 layout format + old parks as layouts; 2 heightfield ground + slope heatmap +
+seed in the panel; 3 speed map; 4 feature kit with yaw + design arcs; 5 spine lines; 6 Poisson
+fill; 7 connection graph in a worker; 8 trajectory preview; 9 generated park as default.
+
+Step 1 done: `src/park/layout.ts` (Layout, `toSlopeConfig`, `layoutFromSlope`),
+`src/park/parks.ts` (home, slopestyle, sochi as layouts; `?park=home` is the fallback). Each
+layout rebuilds its park sample-for-sample (checked over 2.6M samples), so takes are unchanged.
+
+Step 2 done: generated ground. `src/sim/heightfield.ts` bakes a grid (2 m) from a base grade,
+seeded value noise and band patches (a main segment — flat bench, run-in or steep — and a
+recovery segment that gives the height back, turned up to ±25° off the fall line), sampled
+bicubically (no allocation). `SlopeConfig.field` swaps it in for the plane; old parks don't set
+it. `src/gen/` (config, ground, generate) builds it from a seed; `?park=gen&seed=N` loads it;
+the panel's park folder has seed / regenerate / fallback and the slope heatmap
+(`&overlay=heatmap`). `npm run gen-check -- 1-5`: same layout twice per seed, band shares,
+steepest spot, sharpest bend. Known: patch edges overlapping can reach ~38° in small spots.
+
+Step 3 done: speed map (`src/gen/speedmap.ts`): rows marched downhill, each cell fed from the
+row above along its fall line: v² += 2g·drop − 2(μg·cosβ + k·v²)·ds, capped at the sim's
+terminal speed. Checked against the headless sim riding straight down (seeds 1–2, three
+lanes): within a few km/h. Overlay `speed` (colours + fall-line ticks), `?overlay=speed`; the
+park folder's overlay picker replaces the heatmap toggle. Finding: straight-lining, the
+generated ground hits terminal (94 km/h) after ~350 m — about half the zone; jump speeds
+(40–70 km/h) are ~15% of it. Speed control is step 5's job (flats before features), with
+`basePitch` the blunt lever.
+
+Step 4 done: feature kit. Sim side: `yaw` on kickers, corners and quarters (`turned()` in
+`src/sim/features.ts`), new shapes there (roller, spine, side hit), `topLength` on gap kickers
+(a step-up's flat top). Generator side (`src/gen/kit.ts`): kicker sized S–XL from a speed range
+at the lip — knuckle where the slowest unpopped air comes down to knuckle height, landing
+angle from the middle air (−4°, 28–35° from horizontal), knuckle raised until the fastest air
+(medium pop) lands on the straight; then one ride of the real rider (`src/gen/ride.ts`) moves
+the knuckle so that slowest air clears it by 0.5 m. `npm run kit-check` rides each size on
+12° and 20°: slowest air +0.4–0.6 m past the knuckle, clean; top speed with a full pop
+overshoots L/XL (sketchy; XL on 12° bails) — a landing can't be taller than its lip here.
+Step-up (rise solved down until the air reaches the top), hip (the home corner's hip scaled
+S/M/L — not physics-sized yet), quarter, spine, roller, side hit, rails/boxes (straight or
+flat-down, either end). The generated park shows one of each (showcase, until step 5).
+Overlays: `arcs` (designed airs flown over the real terrain, touchdown by grade, knuckle post),
+overview camera (`&view=top`), `&at=x,z` spawn. Turned features get no red paint and no fine
+mesh columns yet.
+
+Step 5 done: spine lines (`src/gen/lines.ts`). Three lines from the top, down the fall line
+with a seeded drift (≤22°, never more than 60° off straight down), kept 40 m from lines
+already traced. Features every 15–40 m of run-in by odds (kicker, step-up, hip, rail/box,
+roller, spine), one hero (L/XL kicker or L hip) past 55% of the way down, a quarter pipe to
+finish. Each is sized to the speed the line reaches going straight (the biggest whose slowest
+design speed it beats by 15%); arriving faster is the rider's to check (L2), so the run-in must
+be long enough to brake to its top speed. Speed is followed over the real surface and over each
+air (designed flight, speed kept along the landing). Benches were tried and dropped: on
+μ 0.06 snow an 80 m flat barely bleeds speed. Base grade now 8–10°, band blends 26 m (a crest
+must bend over more than v²/g or it launches you at speed). Landing radii shrink to fit small
+jumps and spines (a 1.5 m kicker's arcs used to leave a hidden 2 m step — found by the bot).
+`npm run line-check -- seed [line]`: a bot rides each line, checking speed and popping. Seeds
+1–3: 4 of 9 lines ridden to the end; most jumps clean, sketchy when taken fast with a full pop;
+the rest are mostly the bot (loses the path after a big air, rails at an angle). `gen-check`
+counts walls (rises > 0.5 m in 0.5 m going downhill): 0 on seeds 1–5. Overlay `lines`.
+Known: lines can still cross across a feature; clearance is step 6. Generation ~2–3 s.
+
+## 13. Hip jump spec (2026-10-05)
+
+Spec: "Camber — Hip Jump Spec" (Claude Docs, https://claude.ai/artifact/1RiJ2SwEMe7eAoxdt9gg7p).
+Taken: the shape. Kept: sizes and speeds (the home corner's, scaled S/M/L in the generator), the
+landing grades (no EFH thresholds — they'd grade nearly every landing in the game sketchy), no
+scoring tags. `src/sim/hip.ts`: constant-radius transition finishing in a straight lip, sides
+cut; a table in line (0 m: pointed); the landing hangs off the lip corner and the table, cut
+at the lip line, falling away from the nearest point of the table's outline — sideways, round
+its end corner like a cone's shoulder, straight on as the second landing — and down the hill
+with the ground. It starts over a small knuckle at 15°, steepens evenly to 33° (the shape of a
+constant-impact landing), then a bottom transition. Single (left/right) or double. The home
+park's middle corner is a double hip; the generator makes singles 60% of the time.
+Not done (spec physics): levelling toward the predicted landing rather than the ground below;
+the constant-EFH solve itself (the 15→33° ramp stands in for it).
+
+Hip landing steepened to 30° → 45° (home park and generator): the 49° lip brings airs down at
+~63°, so the spec's 15° → 33° was far gentler than what lands on it. Side-landing impacts at
+14 m/s, 30° aim: 12 → 9 m/s. Most airs aimed 15° still come down on the 11.4 m table (flat,
+sketchy at speed) — a narrower table would put more of them on the hip; that's a size call.
+
+Step 6 done: clearance and fill. `src/gen/footprint.ts`: each feature's footprint is its own
+raised ground (measured from its height function) plus 20 m of clear run-in before its
+takeoff, 3 m margin. Line features may not overlap another line's; `src/gen/fill.ts` throws
+darts for 30 more features: ≥ 30 m from any other, off the lines' paths (5 m), turned up to
+60° off the fall line, sized to the straight-line speed there; side hits near the edges.
+Seeds 1–3: 67–72 features, 0 overlapping footprints, about a third of the fill turned > 30°.
+The lines overlay draws footprints (fill grey).
+
+Ground steepened (feedback: after a fall a rider couldn't get going again). Base grade 8–10° →
+12–15°, benches 0–5° → 5–8° (snow friction alone holds a rider below ~3.4°), fewer of them.
+`gen-check` now does a restart test — from standing, straight down the fall line, metres to
+30 km/h: was median 30 m with 21–28% of spots stuck, now median 18–19 m (slowest quarter 28 m),
+1–6% stuck (spots inside features). Straight-lining now reaches top speed on ~70% of the zone:
+L2 does the speed control, as intended. The line bot rides seed 1's lines further than before.
+
+Step 7 done: connection graph (`src/gen/graph.ts`). From every takeoff (kicker and hip lips,
+side hits, roller crests, rail ends), airs at 3 speeds across its range × 7 headings within
+±30°, flown over the finished park. A clean landing links on to every feature whose lip is
+downhill of it, 8–90 m away, in front of its axis (6 m + 0.6 × distance off it), reached at
+its slowest design speed — or, landing on another feature's own landing, a transfer. Features
+nothing leads into (not near the top, not a line's first) are dropped and the graph rebuilt;
+fewer than 3 chains of 4+ links re-rolls the seed (best of 5 kept; `layout.roll`). Seeds 1–5:
+roll 0 each, 50–68 features, 68–123 links, 0–1 transfers (hips are rare), 3–5 chains of 4+,
+longest 8–15 links — chains cross between the planned lines and the fill. Generation now
+5–10 s: runs in a Web Worker (`src/gen/worker.ts`, `load.ts`) behind a "generating park"
+note, cached in localStorage per build and seed. Overlay `graph`.
+
+Step 8 done: trajectory preview (`src/render/trajectory.ts`, park folder toggle, `&preview=1`,
+any park). Riding toward a lip (nearest within 70 m and ±26° of travel): the air off it at the
+speed carried less the climb and the snow, with the pop charged so far (none if RT isn't held),
+touchdown coloured clean / sketchy / bail; in the air, the rest of the flight. Checked against
+the real rider on the home park's middle lane: at takeoff, landings within 0.2 m of the
+prediction, with and without a full pop (it was 2–13 m short until it used the full speed
+along the lip's face rather than the horizontal part).
+
+Step 9 done: the generated park is the default (no `?park`: seed 1; `?seed=N`), starting at the
+top of its middle line. `?park=home` is the old park; `?park=gen&seed=N` still works. The park
+folder shows the seed (and re-roll), exports the layout as JSON and loads one (`?park=file`,
+kept in this browser) — the way in for hand-built parks, same format.
+
+Speed check drawn (feedback: it should look like one — a shift, braking on the upper edge).
+L2 already braked (9 m/s²); now the back foot pushes the tail round under the body — the board
+pivots on the front binding (`rig.shiftPivot`), up to ~70°, the upper body stays facing down
+the line — and it brakes on the uphill edge: a frontside shift on the heels, a backside shift
+on the toes, whichever edge you're on as it starts (heels if flat). Spray off that edge; the
+tail comes back in line on release (`render/skid.ts`, `rig.skidYaw/skidRate/skidEdge/
+skidSpray`). Render only: the sim's brake is unchanged; `state.brake` mirrors L2 for the
+render (not hashed — a copy of input). Old takes pin `rig.skidYaw` 0.
+
+## 14. Talma-style reference park (2026-10-05)
+
+Spec: `docs/talma-reference-park.md`. Built by `node scripts/build-talma.ts` into
+`parks/talma-reference.json`, now the default park (`?park=gen` or `?seed=N` for the generator).
+Checked by `node scripts/talma-check.ts`: the sim's rider rides each line from the top, never
+braking into kickers, scrubbing into rails at their design speed.
+
+- Terrain: 400 m, 57 m vertical, 9° base, flatter top and run-out. Rail lines are terraced:
+  every terrace is the same length and drop on both lines, so decks line up; each drop is
+  shaped to the rail on it (30° down sections, a bench for a flat between them).
+- Jump line: three split kickers. Big takeoff by `designKicker` at the doc's lips; design
+  speeds centred on the no-brake lip speed. Small takeoff touching it, sharing its knuckle
+  line and landing; gap and lip searched so the slowest air clears the knuckle.
+- Differs from the doc: tables 5.1 / 7.1 / 7.7 m (doc 8 / 10 / 12) — the solve, at the 10.5–12.2
+  m/s a 9° line delivers; small lips 0.9 / 1.2 / 1.6 m (doc 0.8 / 1.0 / 1.0) to clear the
+  knuckle. Jump line ends at z −234; the lower hill is open.
+- Later: big air, halfpipe, cross-overs/side hits, atmosphere.

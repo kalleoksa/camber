@@ -1,5 +1,8 @@
 import { normalize, vec3, type Vec3 } from './vec3.ts';
 import * as dm from './dmath.ts';
+import { shapeProfile, turned, type ShapeConfig } from './features.ts';
+import { hipProfile, type HipShape } from './hip.ts';
+import { buildField, sampleField, type Field, type FieldConfig, type FieldSample } from './heightfield.ts';
 import { buildRail, type Rail, type RailConfig } from './rails.ts';
 
 export type SurfaceType = 'snow' | 'rail' | 'wall' | 'quarter';
@@ -25,6 +28,8 @@ export type Terrain = {
   sample(x: number, z: number, out: Contact): Contact;
   /** Rails in world space, built from the config. Empty when there are none. */
   rails: readonly Rail[];
+  /** The baked heightfield, when the config has one: pass it back to `createSlope` to skip the bake. */
+  field?: Field;
 };
 
 export type SlopeConfig = {
@@ -34,7 +39,7 @@ export type SlopeConfig = {
   /** Legacy single kicker, kept so takes recorded with it replay. New terrain uses `kickers`. */
   kicker?: KickerConfig;
   kickers?: KickerConfig[];
-  corners?: CornerConfig[];
+  corners?: HipConfig[]; // hips; the key keeps its old name so recorded takes and layouts load
   quarters?: QuarterConfig[];
   rails?: RailConfig[];
   walls?: WallConfig[];
@@ -45,16 +50,20 @@ export type SlopeConfig = {
    * steep pitch builds it.
    */
   grades?: GradeConfig[];
+  /** Generated ground (heightfield.ts) in place of the plane, its banks and grades. */
+  field?: FieldConfig;
+  /** Rollers, spines, side hits (features.ts). */
+  shapes?: ShapeConfig[];
 };
 
 /**
- * A corner (hip) jump: a straight takeoff up the fall line to a lip, a flat deck, and
+ * A hip jump: a straight takeoff up the fall line to a lip, a flat deck, and
  * landings falling away on both sides and ahead. Come into the takeoff angled left or
  * right and the air carries you over the side landing — frontside one way, backside the
  * other. The landing profile is the kicker's (knuckle, straight, run-out), measured from
  * the deck's edge, so the corners of the deck round off instead of meeting in a crease.
  */
-export type CornerConfig = {
+export type HipConfig = {
   z: number; // m, where the transition starts
   x: number; // m, centre across the slope
   width: number; // m of takeoff
@@ -67,6 +76,11 @@ export type CornerConfig = {
   landingAngle: number; // rad the landings fall away below the slope
   knuckleRadius: number; // m
   runoutRadius: number; // m
+  /** Square the deck's downhill corners: straight knuckles meeting in a crease, not rounded off. */
+  squareCorners?: boolean;
+  /** Built as a hip (hip.ts): its own takeoff, knuckle line and landings; the landing fields above are unused. */
+  hip?: HipShape;
+  yaw?: number; // rad, turned about (x, z) off the fall line, toward +X as it grows
 };
 
 /**
@@ -87,6 +101,7 @@ export type QuarterConfig = {
   sideTaper: number; // m over which the sides roll off
   side?: 1 | -1; // set: faces across the slope, rising toward +X or −X, as one wall of a halfpipe
   backAngle?: number; // rad of the back face; defaults to `angle`, a drop off the deck
+  yaw?: number; // rad, turned about (x, z) off the fall line, toward +X as it grows
 };
 
 export type GradeConfig = {
@@ -111,6 +126,7 @@ export type WallConfig = {
   radius: number; // m, transition radius
   top: number; // m of flat top
   taper: number; // m over which each end fades in
+  yaw?: number; // rad, turned about (x, z) off the fall line, toward +X as it grows
 };
 
 /**
@@ -153,6 +169,16 @@ export type KickerConfig = {
    */
   knuckleHeight?: number;
   backLength?: number; // m, the lip's back face; defaults to 0.4 × lipHeight (steep)
+  /** m of flat top at knuckle height before the landing starts: with `knuckleHeight` above the lip, a step-up. */
+  topLength?: number;
+  yaw?: number; // rad, turned about (x, z) off the fall line, toward +X as it grows
+  /**
+   * Gap builds only: rad the ground under it falls across its axis, toward +X in its own frame
+   * (negative: toward −X). The low side is built up in proportion to the feature's height, so a
+   * kicker set across a slope has a level lip and a landing level at its knuckle, easing back to
+   * the ground's own cross-fall at the run-out.
+   */
+  tilt?: number;
 };
 
 export function createContact(): Contact {
@@ -163,7 +189,12 @@ export function createContact(): Contact {
  * Constant-pitch plane falling toward -Z, with the sides rolled up slightly so a run
  * that drifts wide is pushed back to the fall line instead of off the edge.
  */
-export function createSlope(cfg: SlopeConfig): Terrain {
+/**
+ * `baked`: the field a terrain built from the same `cfg.field` already baked (`terrain.field`).
+ * The bake is the slow part, and moving a feature doesn't change the ground; the heights are
+ * the same either way.
+ */
+export function createSlope(cfg: SlopeConfig, baked?: Field): Terrain {
   const slope = dm.tan(cfg.pitch);
   const half = cfg.width * 0.5;
   const bankHeight = cfg.width * 0.06;
@@ -176,39 +207,60 @@ export function createSlope(cfg: SlopeConfig): Terrain {
     return bankHeight * t * t;
   };
 
-  const kickers = (cfg.kickers ?? (cfg.kicker ? [cfg.kicker] : [])).map(kickerProfile);
-  const walls = (cfg.walls ?? []).map(wallProfile);
-  const corners = (cfg.corners ?? []).map(cornerProfile);
-  const quarters = (cfg.quarters ?? []).map(quarterProfile);
+  const kickers = (cfg.kickers ?? (cfg.kicker ? [cfg.kicker] : [])).map((k) => turned(k.x, k.z, k.yaw, kickerProfile(k)));
+  const walls = (cfg.walls ?? []).map((w) => turned(w.x, w.z, w.yaw, wallProfile(w)));
+  const corners = (cfg.corners ?? []).map((c) => turned(c.x, c.z, c.yaw, cornerProfile(c)));
+  const quarters = (cfg.quarters ?? []).map((q) => turned(q.x, q.z, q.yaw, quarterProfile(q)));
+  const shapes = (cfg.shapes ?? []).map(shapeProfile);
   const grades = gradeProfile(cfg.pitch, cfg.grades ?? []);
 
   // Features merge by max, so twin kickers can share a table; each is ≥ 0, so where only
   // one is present this is exactly its height and old takes keep their hashes. Grade
   // changes reshape the slope under all of them, so they add.
+  // Max is order-free, so one list does; many features are bucketed so a point only asks the
+  // few whose ground it could be on (each exactly 0 outside its extent, so the answer is the same).
+  const all: Profile[] = [...kickers, ...walls, ...corners, ...quarters, ...shapes];
+  const buckets = all.length >= BUCKET_MIN ? bucketProfiles(all, cfg) : undefined;
   const featureHeight = (x: number, z: number): number => {
     let h = 0;
-    for (let i = 0; i < kickers.length; i++) h = Math.max(h, kickers[i]?.(x, z) ?? 0);
-    for (let i = 0; i < walls.length; i++) h = Math.max(h, walls[i]?.(x, z) ?? 0);
-    for (let i = 0; i < corners.length; i++) h = Math.max(h, corners[i]?.(x, z) ?? 0);
-    for (let i = 0; i < quarters.length; i++) h = Math.max(h, quarters[i]?.(x, z) ?? 0);
+    if (buckets) {
+      const i = buckets.cellAt(x, z);
+      if (i >= 0) {
+        const end = buckets.start[i + 1] ?? 0;
+        for (let k = buckets.start[i] ?? 0; k < end; k++) h = Math.max(h, all[buckets.items[k] ?? 0]?.(x, z) ?? 0);
+      }
+    } else {
+      for (let i = 0; i < all.length; i++) h = Math.max(h, all[i]?.(x, z) ?? 0);
+    }
     if (grades) h += grades(x, z);
     return h;
   };
 
-  const heightAt = (x: number, z: number): number => z * slope + bank(x) + featureHeight(x, z);
+  const field = cfg.field ? (baked ?? buildField(cfg.field)) : undefined;
+  const fs: FieldSample = { h: 0, dx: 0, dz: 0 };
+  const groundAt = (x: number, z: number): number => (field ? sampleField(field, x, z, fs).h : z * slope + bank(x));
+  const heightAt = (x: number, z: number): number => groundAt(x, z) + featureHeight(x, z);
   const rails = (cfg.rails ?? []).map((r) => buildRail(r, heightAt));
 
   return {
     rails,
+    ...(field ? { field } : {}),
     sample(x, z, out) {
-      out.height = z * slope + bank(x);
-
-      // Analytic gradient: dh/dx from the bank, dh/dz from the pitch.
       const eps = 0.05;
-      const dhdx = (bank(x + eps) - bank(x - eps)) / (2 * eps);
-      out.normal.x = -dhdx;
-      out.normal.y = 1;
-      out.normal.z = -slope;
+      if (field) {
+        sampleField(field, x, z, fs);
+        out.height = fs.h;
+        out.normal.x = -fs.dx;
+        out.normal.y = 1;
+        out.normal.z = -fs.dz;
+      } else {
+        out.height = z * slope + bank(x);
+        // Analytic gradient: dh/dx from the bank, dh/dz from the pitch.
+        const dhdx = (bank(x + eps) - bank(x - eps)) / (2 * eps);
+        out.normal.x = -dhdx;
+        out.normal.y = 1;
+        out.normal.z = -slope;
+      }
 
       // Features on top, by central difference — only near one, so the plain slope stays
       // bit-identical to before features existed and old takes keep their hashes.
@@ -250,6 +302,79 @@ export function createSlope(cfg: SlopeConfig): Terrain {
 
 type Profile = (x: number, z: number) => number;
 
+const BUCKET_MIN = 8; // features before bucketing pays; fewer (the kit's test slopes) just loop
+const BUCKET_CELL = 16; // m
+const SCAN_STEP = 2; // m between samples when measuring a feature's extent
+const SCAN_MARGIN = 4; // m added round what the scan found
+const SCAN_REACH = 160; // m searched round the feature's origin
+
+/**
+ * Features per grid cell: each feature's extent is measured once by sampling it (every feature
+ * is one connected lump, so a 2 m scan plus a 4 m margin can't miss its edge), then listed in
+ * every cell its box touches. Flat arrays, so lookups on the tick path don't allocate.
+ */
+function bucketProfiles(all: Profile[], cfg: SlopeConfig): { cellAt(x: number, z: number): number; start: Int32Array; items: Int32Array } {
+  // The origin each profile is built round: scan from there.
+  const origins: [number, number][] = [];
+  for (const k of cfg.kickers ?? (cfg.kicker ? [cfg.kicker] : [])) origins.push([k.x, k.z]);
+  for (const w of cfg.walls ?? []) origins.push([w.x, w.z]);
+  for (const c of cfg.corners ?? []) origins.push([c.x, c.z]);
+  for (const q of cfg.quarters ?? []) origins.push([q.x, q.z]);
+  for (const s of cfg.shapes ?? []) origins.push([s.x, s.z]);
+  const boxes = all.map((p, i) => {
+    const [ox, oz] = origins[i] ?? [0, 0];
+    let x0 = Infinity;
+    let x1 = -Infinity;
+    let z0 = Infinity;
+    let z1 = -Infinity;
+    for (let x = ox - SCAN_REACH; x <= ox + SCAN_REACH; x += SCAN_STEP) {
+      for (let z = oz - SCAN_REACH; z <= oz + SCAN_REACH; z += SCAN_STEP) {
+        if (p(x, z) === 0) continue;
+        if (x < x0) x0 = x;
+        if (x > x1) x1 = x;
+        if (z < z0) z0 = z;
+        if (z > z1) z1 = z;
+      }
+    }
+    return [x0 - SCAN_MARGIN, x1 + SCAN_MARGIN, z0 - SCAN_MARGIN, z1 + SCAN_MARGIN] as const;
+  });
+  let gx0 = Infinity;
+  let gz0 = Infinity;
+  let gx1 = -Infinity;
+  let gz1 = -Infinity;
+  for (const [x0, x1, z0, z1] of boxes) {
+    if (!Number.isFinite(x0)) continue;
+    gx0 = Math.min(gx0, x0);
+    gx1 = Math.max(gx1, x1);
+    gz0 = Math.min(gz0, z0);
+    gz1 = Math.max(gz1, z1);
+  }
+  const cols = Math.max(1, Math.ceil((gx1 - gx0) / BUCKET_CELL));
+  const rows = Math.max(1, Math.ceil((gz1 - gz0) / BUCKET_CELL));
+  const lists: number[][] = Array.from({ length: cols * rows }, () => []);
+  boxes.forEach(([x0, x1, z0, z1], i) => {
+    if (!Number.isFinite(x0)) return;
+    for (let r = Math.floor((z0 - gz0) / BUCKET_CELL); r <= Math.floor((z1 - gz0) / BUCKET_CELL); r++) {
+      for (let c = Math.floor((x0 - gx0) / BUCKET_CELL); c <= Math.floor((x1 - gx0) / BUCKET_CELL); c++) {
+        if (r >= 0 && r < rows && c >= 0 && c < cols) lists[r * cols + c]?.push(i);
+      }
+    }
+  });
+  const start = new Int32Array(cols * rows + 1);
+  lists.forEach((l, i) => (start[i + 1] = (start[i] ?? 0) + l.length));
+  const items = new Int32Array(start[cols * rows] ?? 0);
+  lists.forEach((l, i) => l.forEach((f, k) => (items[(start[i] ?? 0) + k] = f)));
+  return {
+    start,
+    items,
+    cellAt(x, z) {
+      const c = Math.floor((x - gx0) / BUCKET_CELL);
+      const r = Math.floor((z - gz0) / BUCKET_CELL);
+      return c < 0 || r < 0 || c >= cols || r >= rows ? -1 : r * cols + c;
+    },
+  };
+}
+
 /**
  * Kicker height above the slope, along s = metres downhill past its start. The transition
  * is a circular arc so the rider is loaded smoothly into the lip; its radius follows from
@@ -275,15 +400,17 @@ function kickerProfile(k: KickerConfig): Profile {
   // The landing starts at the knuckle: the lip's height on a table, its own on a gap jump.
   const top = k.knuckleHeight ?? k.lipHeight;
   const straightLen = park ? Math.max(0, top - knuckleDrop - runoutRise) / slopeAlpha : 0;
-  const knuckleEnd = deckEnd + knuckleLen;
+  // A step-up holds its top flat for `topLength` before the knuckle: somewhere to land.
+  const landStart = deckEnd + (k.topLength ?? 0);
+  const knuckleEnd = landStart + knuckleLen;
   const straightEnd = knuckleEnd + straightLen;
   const end = park ? straightEnd + runoutLen : deckEnd + (k.landingLength ?? 0);
 
   // Deck and landing height at s ≥ runIn, park landing only (a wide table implies one).
   const tableHeight = (s: number): number => {
-    if (s < deckEnd) return top;
+    if (s < landStart) return top;
     if (s < knuckleEnd) {
-      const u = s - deckEnd;
+      const u = s - landStart;
       return top - (rk - Math.sqrt(rk * rk - u * u));
     }
     if (s < straightEnd) return top - knuckleDrop - (s - knuckleEnd) * slopeAlpha;
@@ -295,6 +422,8 @@ function kickerProfile(k: KickerConfig): Profile {
   const fade = (t: number): number => (t <= 0 ? 0 : t >= 1 ? 1 : t * t * (3 - 2 * t));
 
   const back = k.backLength ?? k.lipHeight * 0.4;
+  const tilt = dm.tan(k.tilt ?? 0);
+  const low = tilt >= 0 ? 1 : -1; // the side of its width the ground falls to
 
   return (x: number, z: number): number => {
     const s = k.z - z;
@@ -307,10 +436,12 @@ function kickerProfile(k: KickerConfig): Profile {
       let takeoff = 0;
       if (s < runIn) takeoff = radius - Math.sqrt(radius * radius - s * s);
       else if (s < runIn + back) takeoff = k.lipHeight * (1 - fade((s - runIn) / back));
+      if (tilt !== 0) takeoff *= 1 + Math.max(0, (x - k.x + low * k.width * 0.5) * tilt) / k.lipHeight;
       takeoff *= fade(1 - (dx - k.width * 0.5) / k.sideTaper);
       let hill = 0;
       if (s > runIn) {
-        const along = s < deckEnd ? top * fade((s - runIn) / Math.max(deckEnd - runIn, 1e-3)) : tableHeight(s);
+        let along = s < deckEnd ? top * fade((s - runIn) / Math.max(deckEnd - runIn, 1e-3)) : tableHeight(s);
+        if (tilt !== 0 && top > 0) along *= 1 + Math.max(0, (x - k.x + low * deckHalf) * tilt) / top;
         hill = along * fade(1 - (dx - deckHalf) / (k.deckTaper ?? k.sideTaper));
       }
       return takeoff > hill ? takeoff : hill;
@@ -415,7 +546,8 @@ function gradeProfile(pitch: number, grades: GradeConfig[]): Profile | null {
 }
 
 /** Corner height above the slope: max of the takeoff and the three-sided landing. */
-function cornerProfile(c: CornerConfig): Profile {
+function cornerProfile(c: HipConfig): Profile {
+  if (c.hip) return hipProfile(c, c.hip);
   const radius = c.lipHeight / (1 - dm.cos(c.lipAngle));
   const runIn = radius * dm.sin(c.lipAngle);
   const deckEnd = runIn + c.deckLength;
@@ -463,7 +595,7 @@ function cornerProfile(c: CornerConfig): Profile {
     // ends slope rather than stand as walls beside the takeoff.
     const outX = Math.max(0, dx - halfDeck);
     const outS = Math.max(0, s - deckEnd);
-    let land = landing(Math.sqrt(outX * outX + outS * outS));
+    let land = landing(c.squareCorners ? Math.max(outX, outS) : Math.sqrt(outX * outX + outS * outS));
     if (s < runIn) {
       const t = Math.max(0, 1 - (runIn - s) / (c.deckTaper ?? c.sideTaper));
       land *= t * t * (3 - 2 * t);
