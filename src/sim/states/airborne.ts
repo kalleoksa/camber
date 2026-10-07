@@ -4,6 +4,7 @@ import { boardAttitude, GRABS, grabAttitude, nearestSpotFront, pickGrab, stickT 
 import { axisY, axisZ, multiply, normalizeQuat, quat, rotate, setFromAxisAngle, type Quat } from '../quat.ts';
 import type { RiderState } from '../state.ts';
 import { tryCapture } from './railed.ts';
+import { tryPanel } from './walled.ts';
 import { corkStick, popFlipStick, setRotation, setTakeoffSpin, stickRotation, takeoffSpinRate } from './grounded.ts';
 import { createContact, type Terrain } from '../terrain.ts';
 import {
@@ -126,7 +127,13 @@ export function stepAirborne(
   // Two sticks: right stick Y, no bumper, pokes the board — up the leading end down, as the
   // press it also sets for the landing. Judged at contact with the rest of the drawn board.
   const dir = params.ground.switchEdges > 0 && state.switchRide ? -1 : 1;
-  const pitchTarget = two && !(input.lb || input.rb) ? -input.ry * dir * params.air.pitchMax : 0;
+  // Coming down, `air.pokeSettle` from contact, the same stick is the press you land into:
+  // the poke eases to a press's own tip (`butter.pitch`), so landing into a butter reads as
+  // a press, not a nose jammed in. Up in the air it's the full poke.
+  const fall = -state.velocity.y;
+  const settling = fall > 0 && state.clearance < fall * params.air.pokeSettle;
+  const pokeMax = settling ? params.butter.pitch : params.air.pitchMax;
+  const pitchTarget = two && !(input.lb || input.rb) ? -input.ry * dir * pokeMax : 0;
   state.airPitch = dampScalar(state.airPitch, pitchTarget, params.air.shiftyRate, dt);
 
   // A grab tucks the body in and spins faster; shoving the board out on a tweak extends
@@ -151,6 +158,7 @@ export function stepAirborne(
   addScaled(p, v, dt);
   state.airTime += dt;
   if (tryCapture(state, params, terrain, false)) return;
+  if (terrain.panels.length > 0 && tryPanel(state, params, terrain)) return;
 
   terrain.sample(p.x, p.z, contact);
   state.clearance = p.y - contact.height;

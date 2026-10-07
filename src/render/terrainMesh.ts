@@ -78,7 +78,9 @@ export function createTerrainMesh(cfg: SlopeConfig, initial: Terrain, material: 
       for (let i = 0; i < cols; i++) {
         const x = c.x0 + (w * i) / nx;
         const k = j * cols + i;
-        terrain.sample(x, z, contact);
+        // The snow alone: a block's roof is drawn with the block, not smeared into the mesh.
+        if (terrain.snow) terrain.snow(x, z, contact);
+        else terrain.sample(x, z, contact);
         pos[k * 3] = x;
         pos[k * 3 + 1] = contact.height;
         pos[k * 3 + 2] = z;

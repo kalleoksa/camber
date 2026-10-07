@@ -8,6 +8,7 @@
  */
 import { TICK_DT } from '../src/core/loop.ts';
 import { neutralInput } from '../src/input/snapshot.ts';
+import { joinQuarters } from '../src/gen/kit.ts';
 import { params } from '../src/sim/params.ts';
 import { tick } from '../src/sim/rider.ts';
 import { createRiderState } from '../src/sim/state.ts';
@@ -18,10 +19,12 @@ const Q: Omit<QuarterConfig, 'x' | 'z' | 'yaw'> = { width: W, height: 3.5, angle
 const c = createContact();
 for (const beta of [0, -60, -45, -30, 30, 45, 60]) {
   const b = beta * D;
-  const quarters: QuarterConfig[] = [
-    { ...Q, x: -W / 2, z: 0, yaw: 0 },
-    { ...Q, x: (W / 2) * Math.cos(b), z: (W / 2) * Math.sin(b), yaw: b, ...(beta === 0 ? { width: W + 0.01 } : {}) },
-  ];
+  // Joined at the corner as the generator builds it (joinQuarters: no gap at an outside hip).
+  const quarters: QuarterConfig[] = joinQuarters(
+    { ...Q, x: -W / 2, z: 0, yaw: 0 }, 1,
+    { ...Q, x: (W / 2) * Math.cos(b), z: (W / 2) * Math.sin(b), yaw: b, ...(beta === 0 ? { width: W + 0.01 } : {}) }, -1,
+    0, 0,
+  );
   const t = createSlope({ length: 400, width: 200, pitch: 10 * D, quarters });
   const rows: string[] = [];
   for (const v of [9, 12]) for (const off of [20, 35, 50]) {
