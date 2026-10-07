@@ -82,6 +82,7 @@ export const params = {
     checkRate: 6.0, // 1/s, spin decay with the stick centred; leftover rotation ≈ rate/checkRate. 0 = coast
     shiftyMax: 1.57, // rad (90°) of board yaw against the body at full shifty — the full turn across a rail, so a shifty onto it lands a boardslide. Was 0.9
     shiftyRate: 8.0, // 1/s, board swinging out and back — held at contact, it's judged
+    pokeSettle: 0.2, // s before contact the poke eases to a press's tip (butter.pitch), so holding the stick lands you into the press. 0: the full poke is judged
     pitchMax: 0.5, // rad (~30°) of board pitch under the body at full right stick Y in the air (two sticks, no bumper): a nose or tail poke, judged at contact like the shifty. Swings at shiftyRate
     /**
      * 0..1, how much of a held carve is discounted from the takeoff stick read. At 0 the
@@ -188,7 +189,8 @@ export const params = {
   },
   wall: {
     minAngle: 1.13, // rad ≈ 65° from up — surface steeper than this, fast enough, is a wallride
-    minSpeed: 8.0, // m/s, below which the wall lets go and full gravity takes you back down
+    minSpeed: 8.0, // m/s to get onto a wall
+    exitFraction: 0.75, // the wall lets go below this × minSpeed (6 m/s) and full gravity takes you back down — lower than getting on, so a wall taken at the speed doesn't flick off
     gravityScale: 0.35, // fraction of gravity while walled
     drag: 3.0, // m/s² while walled
     popScale: 0.5, // fraction of the pop that goes up the face when popping onto a wall — the rest is absorbed by the stick

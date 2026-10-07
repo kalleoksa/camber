@@ -655,7 +655,7 @@ not.
 
 **Wallride.** Contact normal steeper than `wall.minAngle` (~65°) and speed above
 `wall.minSpeed` (~8 m/s). While WALLED, gravity is scaled to `wall.gravityScale` (~0.35)
-and speed bleeds at `wall.drag`. Dropping below min speed slides you off downward, not a
+and speed bleeds at `wall.drag`. Dropping below `wall.exitFraction` (0.75) of min speed — lower than getting on, so a wall taken right at the speed doesn't flick on and off — slides you off downward, not a
 bail. Board is slaved to the wall normal, so a wallride is visually just a very steep
 carve — which is exactly what it is. As built: WALLED runs the grounded step with those
 two changes. Entry needs the smoothed ground normal still gentle — the face arriving under
@@ -891,7 +891,7 @@ because `tweakOffset` reaches the landing test.
 | 2 | Carving | Gate passed |
 | 3 | Air | Gate passed 2026-09 — spins with check, corks, flips, landing tolerance tuned by play |
 | 4 | Grabs + rig | Gate passed 2026-09 — authored anchors, grabs/tweak/shifty wired, pose-mode anchor editing |
-| 5 | Rails | **Unfinished** — built, gate not yet played: 50-50, boardslide, tailslide distinct; balance winnable not free |
+| 5 | Rails | Gate passed 2026-10 — on the two-stick mapping: 50-50, boardslide, blunts and nose/tailslides distinct; balance winnable, not free. Poses still to refine |
 | 6 | Wallrides + butters | First pass in, started before M5's gate by choice — gate: both chain into and out of other states without a hitch |
 
 The default terrain is the Sochi 2014 Olympic course (`src/park/sochi.ts`) from the FIS

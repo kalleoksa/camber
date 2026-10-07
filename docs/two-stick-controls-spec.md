@@ -278,7 +278,8 @@ wind up late and short. The way across a rail: right stick X on it turns the sli
 angle (with L1/R1, same way round as the air shifty), and a shifty held at the catch goes
 into the slide angle — full shifty (`air.shiftyMax`, 90°) lands fully across, a boardslide. Not built:
 nothing left of §1–§8 — right stick Y in the air pokes the board (`air.pitchMax`,
-judged at contact) as well as setting the press you land into; a pre-rotated cork takes the
+judged at contact; `air.pokeSettle` before touchdown it eases to a press's tip, so holding it
+lands you into the press) as well as setting the press you land into; a pre-rotated cork takes the
 pop's pitch (`pop.flipAssist`, scaled like the rest of the slow rotation; a flat slow spin
 stays flat); the tuck pulls the arms in (`rig.tuckArmSwing`, `rig.tuckElbow`).
 Pre-rotation needs the left stick X held — Y alone is the tuck — so there is no slow

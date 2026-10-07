@@ -80,10 +80,15 @@ export function stepGrounded(
   // Walls only: a quarter pipe is ridden at full gravity.
   const minNy = dm.cos(params.wall.minAngle);
   const steep = n.y < minNy && contact.surface === 'wall';
-  const moving = length(v) >= params.wall.minSpeed;
+  // Hysteresis: it takes `minSpeed` to get on, and lets go below `exitFraction` of that.
+  // One threshold for both made a wall taken right at the speed flick on and off in a few
+  // ticks — the first tick of wall drag dropped you under it.
+  const wallSpeed = length(v);
+  const moving = wallSpeed >= params.wall.minSpeed;
+  const holding = wallSpeed >= params.wall.minSpeed * params.wall.exitFraction;
   const arriving = state.groundNormal.y >= minNy;
   if (state.mode === 'grounded' && steep && moving && arriving) state.mode = 'walled';
-  else if (state.mode === 'walled' && !(steep && moving)) state.mode = 'grounded';
+  else if (state.mode === 'walled' && !(steep && holding)) state.mode = 'grounded';
   const walled = state.mode === 'walled';
   const fromQuarter = contact.surface === 'quarter';
   set(faceNormal, n.x, n.y, n.z);
