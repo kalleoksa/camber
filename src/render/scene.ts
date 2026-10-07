@@ -32,6 +32,7 @@ export type RiderView = {
   edge: number;
   stance: number;
   posture: number; // two sticks: −1 stand tall .. +1 tuck
+  onPanel: boolean; // riding a built face: the board is on it, no edge roll
   popStance: number; // the press the last pop went off: − ollie, + nollie, 0 not popped
   airTime: number; // s since leaving the snow
   airPitch: number; // rad of board poke under the body in the air, nose up +
@@ -76,6 +77,7 @@ const view: RiderView = {
   edge: 0,
   stance: 0,
   posture: 0,
+  onPanel: false,
   popStance: 0,
   airTime: 0,
   airPitch: 0,
@@ -122,6 +124,7 @@ export function interpolateRider(prev: RiderState, cur: RiderState, alpha: numbe
   view.edge = prev.edge + (cur.edge - prev.edge) * alpha;
   view.stance = prev.stance + (cur.stance - prev.stance) * alpha;
   view.posture = prev.posture + (cur.posture - prev.posture) * alpha;
+  view.onPanel = cur.panelIndex >= 0;
   view.popStance = cur.popStance;
   view.airPitch = prev.airPitch + (cur.airPitch - prev.airPitch) * alpha;
   view.airTime = cur.mode === prev.mode ? prev.airTime + (cur.airTime - prev.airTime) * alpha : cur.airTime;
@@ -462,6 +465,52 @@ function railMeshes(terrain: Terrain): THREE.Group {
   return group;
 }
 
+/**
+ * Built wallrides (docs/walls-plan.md): each panel a plywood slab behind its face with a darker
+ * cap along the top; each block (a building, a box) one solid box. Block faces are panels in the
+ * sim, so they're the panels past the config's own, drawn here as the block instead.
+ */
+function panelMeshes(cfg: SlopeConfig, terrain: Terrain): THREE.Group {
+  const group = new THREE.Group();
+  const wood = new THREE.MeshStandardMaterial({ color: 0xc79a5b, roughness: 0.8 });
+  const cap = new THREE.MeshStandardMaterial({ color: 0x6b5640, roughness: 0.7 });
+  const wall = new THREE.MeshStandardMaterial({ color: 0x8c8f93, roughness: 0.9 });
+  const thick = 0.15;
+  const a = new THREE.Vector3();
+  const e = new THREE.Vector3();
+  const n = new THREE.Vector3();
+  const basis = new THREE.Matrix4();
+  const own = cfg.panels?.length ?? 0;
+  for (let i = 0; i < own; i++) {
+    const p = terrain.panels[i];
+    if (!p) continue;
+    a.set(p.ax, p.ay, p.az);
+    e.set(p.ex, p.ey, p.ez);
+    n.set(p.nx, p.ny, p.nz);
+    basis.makeBasis(a, e, n);
+    const slab = new THREE.Mesh(new THREE.BoxGeometry(p.length, p.height, thick), wood);
+    slab.quaternion.setFromRotationMatrix(basis);
+    slab.position.set(p.x0, p.y0, p.z0).addScaledVector(a, p.length / 2).addScaledVector(e, p.height / 2).addScaledVector(n, -thick / 2);
+    slab.castShadow = true;
+    group.add(slab);
+    const top = new THREE.Mesh(new THREE.BoxGeometry(p.length, 0.08, thick + 0.04), cap);
+    top.quaternion.copy(slab.quaternion);
+    top.position.set(p.x0, p.y0, p.z0).addScaledVector(a, p.length / 2).addScaledVector(e, p.height).addScaledVector(n, -thick / 2);
+    group.add(top);
+  }
+  const contact = createContact();
+  for (const b of cfg.blocks ?? []) {
+    const ground = terrain.sample(b.x, b.z, contact).height;
+    const box = new THREE.Mesh(new THREE.BoxGeometry(b.width, b.height, b.length), wall);
+    // Box Z along the block's axis (sin yaw, −cos yaw): turned −yaw about up.
+    box.rotation.y = -b.yaw;
+    box.position.set(b.x, ground + b.height / 2, b.z);
+    box.castShadow = true;
+    group.add(box);
+  }
+  return group;
+}
+
 /** `cell` is the coarse grid size in m — larger for a park scaled up, whose features are too. */
 export function createScene(cfg: SlopeConfig, terrain: Terrain, camera: THREE.PerspectiveCamera): SceneView {
   const renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -490,8 +539,9 @@ export function createScene(cfg: SlopeConfig, terrain: Terrain, camera: THREE.Pe
   let slope = createTerrainMesh(cfg, terrain, snow);
   let markers = slopeMarkers(cfg, terrain);
   let rails = railMeshes(terrain);
+  let panels = panelMeshes(cfg, terrain);
   let edges = edgeLines(cfg, terrain);
-  scene.add(slope.group, markers, rails, edges);
+  scene.add(slope.group, markers, rails, edges, panels);
   let size = { width: cfg.width, length: cfg.length };
   // Pose mode: an arrow under the rider along the direction of travel, down the hill, to set
   // a grab's turn against.
@@ -814,7 +864,7 @@ export function createScene(cfg: SlopeConfig, terrain: Terrain, camera: THREE.Pe
       }
 
       // Edge roll is cosmetic and only means anything on snow.
-      if (view.mode === 'grounded' || view.mode === 'walled') {
+      if ((view.mode === 'grounded' || view.mode === 'walled') && !view.onPanel) {
         // Local +X is the heel side (design §1), so a toe edge tips −X down.
         roll.setFromAxisAngle(zAxis, view.edge * params.rig.edgeRoll);
         rig.root.quaternion.multiply(roll);
@@ -918,12 +968,13 @@ export function createScene(cfg: SlopeConfig, terrain: Terrain, camera: THREE.Pe
       }
       // Markers, rails and paint are cheap: rebuilt whole.
       const visible = markers.visible;
-      for (const g of [markers, rails, edges]) disposeGroup(scene, g);
+      for (const g of [markers, rails, edges, panels]) disposeGroup(scene, g);
       markers = slopeMarkers(next, nextTerrain);
       markers.visible = visible;
       rails = railMeshes(nextTerrain);
+      panels = panelMeshes(next, nextTerrain);
       edges = edgeLines(next, nextTerrain);
-      scene.add(markers, rails, edges);
+      scene.add(markers, rails, edges, panels);
     },
 
     resize() {

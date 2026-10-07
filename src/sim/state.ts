@@ -57,6 +57,8 @@ export type RiderState = {
   popStance: number;
   /** Two sticks: rad of board pitch under the body in the air, nose up +, right stick Y with no bumper. Judged at landing like the shifty. */
   airPitch: number;
+  /** The built wall (terrain.panels) being ridden while walled; −1 for none — then walled is the snow wall. */
+  panelIndex: number;
   /**
    * In-air spin control is disarmed until the stick comes back through centre. Without it,
    * carrying a carve into the air drags the spin rate up to the carve's value.
@@ -155,6 +157,7 @@ export function createRiderState(spawn: Spawn): RiderState {
     posture: 0,
     popStance: 0,
     airPitch: 0,
+    panelIndex: -1,
     spinArmed: true,
     windUp: 0,
     tuck: 1,
@@ -219,6 +222,7 @@ export function resetRiderState(state: RiderState): void {
   state.posture = 0;
   state.popStance = 0;
   state.airPitch = 0;
+  state.panelIndex = -1;
   state.spinArmed = true;
   state.windUp = 0;
   state.tuck = 1;
@@ -282,6 +286,7 @@ export function copyRiderState(dst: RiderState, src: RiderState): void {
   dst.posture = src.posture;
   dst.popStance = src.popStance;
   dst.airPitch = src.airPitch;
+  dst.panelIndex = src.panelIndex;
   dst.spinArmed = src.spinArmed;
   dst.windUp = src.windUp;
   dst.tuck = src.tuck;

@@ -200,6 +200,24 @@ export const params = {
     vertExit: 1, // 1: any exit going up off a pipe that was just ridden steep comes back in, using the face it climbed — the board leaves a few cm past the coping, where the surface is already the deck's. 0: older rule, only off the steep face itself
     popAngle: 0.35, // rad from up: on a wall's transition steeper than this, a pop drives you up the face instead of off it
   },
+  // Built wallrides (docs/walls-plan.md, sim/states/walled.ts): faces ridden on the base.
+  panel: {
+    gravityScale: 0.35, // fraction of gravity pulling down the face while ridden — the snow wall's number; tune toward 1 for momentum-only wallrides
+    friction: 1.5, // m/s² the face takes off (plywood under a waxed base), on top of air drag
+    minSpeed: 6.0, // m/s along the face to get on it
+    exitFraction: 0.6, // lets go below this × minSpeed
+    captureAngle: 0.96, // rad (~55°): travel within this of the face's run is a wallride; squarer is a bonk
+    captureDist: 0.35, // m from the face the board catches it
+    climb: 0.7, // fraction of the speed into the face that turns up it on catching it, as a transition turns it
+    thickness: 0.15, // m of panel behind the face — riders inside it are pushed out
+    rideHeight: 0.05, // m the board's centre sits off the face
+    steerRate: 1.2, // rad/s the left stick turns the run on the face at full lock
+    popScale: 1.0, // fraction of a snow pop a pop off the face gives
+    popUp: 1.0, // how much of a pop off the face goes up rather than straight out (normal + popUp·up; 1 = 45°): so a plain one comes down landable
+    leaveSpeed: 0.5, // m/s off the face when it lets go, so it isn't caught again next tick
+    bonkSpeed: 3.0, // m/s into a face, not a wallride, past which you bounce off and go down; under it you're pushed off and carry on
+    bonkRestitution: 0.2, // fraction of the speed into the face given back on a bonk
+  },
   butter: {
     popCarry: 1.0, // two sticks: fraction of the butter's pivot rate a pop out of it carries into the spin
     press: 0.65, // |stance| where a press starts to become a butter

@@ -4,6 +4,7 @@ import { boardAttitude, GRABS, grabAttitude, nearestSpotFront, pickGrab, stickT 
 import { axisY, axisZ, multiply, normalizeQuat, quat, rotate, setFromAxisAngle, type Quat } from '../quat.ts';
 import type { RiderState } from '../state.ts';
 import { tryCapture } from './railed.ts';
+import { tryPanel } from './walled.ts';
 import { corkStick, popFlipStick, setRotation, setTakeoffSpin, stickRotation, takeoffSpinRate } from './grounded.ts';
 import { createContact, type Terrain } from '../terrain.ts';
 import {
@@ -157,6 +158,7 @@ export function stepAirborne(
   addScaled(p, v, dt);
   state.airTime += dt;
   if (tryCapture(state, params, terrain, false)) return;
+  if (terrain.panels.length > 0 && tryPanel(state, params, terrain)) return;
 
   terrain.sample(p.x, p.z, contact);
   state.clearance = p.y - contact.height;

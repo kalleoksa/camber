@@ -846,18 +846,20 @@
    }
   },
   {
-   "kind": "wall",
+   "kind": "panel",
    "cfg": {
-    "x": 1.5,
+    "x": 0.5,
     "z": -248,
     "yaw": 0,
-    "side": -1,
     "length": 24,
-    "height": 3,
-    "angle": 1.3089969389957472,
-    "radius": 2.5,
-    "top": 1,
-    "taper": 3
+    "height": 2.5,
+    "lean": 0.13962634015954636,
+    "side": 1,
+    "foot": 0.5,
+    "ramp": {
+     "height": 0.5,
+     "length": 3
+    }
    },
    "meta": {
     "type": "wallRide"
@@ -945,6 +947,20 @@
    },
    "meta": {
     "type": "hipQuarter"
+   }
+  },
+  {
+   "kind": "block",
+   "cfg": {
+    "x": -16,
+    "z": -318,
+    "length": 16,
+    "width": 6,
+    "height": 4,
+    "yaw": 0
+   },
+   "meta": {
+    "type": "hut"
    }
   }
  ],

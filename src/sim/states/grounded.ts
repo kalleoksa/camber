@@ -3,6 +3,7 @@ import type { Params } from '../params.ts';
 import { axisY, setFromBasis } from '../quat.ts';
 import type { RiderState } from '../state.ts';
 import { tryCapture } from './railed.ts';
+import { tryPanel } from './walled.ts';
 import { createContact, type Terrain } from '../terrain.ts';
 import {
   addScaled,
@@ -250,6 +251,7 @@ export function stepGrounded(
 
   addScaled(p, v, dt);
   if (tryCapture(state, params, terrain, true)) return;
+  if (terrain.panels.length > 0 && tryPanel(state, params, terrain)) return;
 
   terrain.sample(p.x, p.z, contact);
   state.clearance = p.y - contact.height;

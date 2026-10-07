@@ -62,6 +62,7 @@ export function groundFrame(world: Terrain, place: Place): Terrain {
   const cs = dm.cos(place.yaw);
   return {
     rails: [],
+    panels: [],
     sample(x, z, out) {
       world.sample(place.x - z * sn + x * cs, place.z + z * cs + x * sn, out);
       const nx = out.normal.x;
@@ -78,6 +79,7 @@ export function stack(ground: Terrain, features: Terrain): Terrain {
   const f = createContact();
   return {
     rails: [],
+    panels: [],
     sample(x, z, out) {
       features.sample(x, z, f);
       ground.sample(x, z, out);

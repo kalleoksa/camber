@@ -4,6 +4,7 @@ import { shapeProfile, turned, type ShapeConfig } from './features.ts';
 import { hipProfile, type HipShape } from './hip.ts';
 import { buildField, sampleField, type Field, type FieldConfig, type FieldSample } from './heightfield.ts';
 import { buildRail, type Rail, type RailConfig } from './rails.ts';
+import { blockFaces, buildPanel, panelRamp, type BlockConfig, type Panel, type PanelConfig } from './walls.ts';
 
 export type SurfaceType = 'snow' | 'rail' | 'wall' | 'quarter';
 
@@ -28,6 +29,8 @@ export type Terrain = {
   sample(x: number, z: number, out: Contact): Contact;
   /** Rails in world space, built from the config. Empty when there are none. */
   rails: readonly Rail[];
+  /** Built wallride panels in world space. Empty when there are none. */
+  panels: readonly Panel[];
   /** The baked heightfield, when the config has one: pass it back to `createSlope` to skip the bake. */
   field?: Field;
 };
@@ -43,6 +46,10 @@ export type SlopeConfig = {
   quarters?: QuarterConfig[];
   rails?: RailConfig[];
   walls?: WallConfig[];
+  /** Built wallrides (walls.ts): panels ridden on the base, their snow ramps part of the terrain. */
+  panels?: PanelConfig[];
+  /** Built solids (walls.ts) — buildings, boxes — whose sides are wallride faces. */
+  blocks?: BlockConfig[];
   /**
    * Grade changes down the run. From `z` on downhill the slope falls at `pitch` instead of
    * what it fell at before, the change rounded over `blend` m so there is no kink to launch
@@ -220,6 +227,11 @@ export function createSlope(cfg: SlopeConfig, baked?: Field): Terrain {
   const corners = (cfg.corners ?? []).map((c) => turned(c.x, c.z, c.yaw, cornerProfile(c)));
   const quarters = (cfg.quarters ?? []).map((q) => mitred(q.mitre, turned(q.x, q.z, q.yaw, quarterProfile(q))));
   const shapes = (cfg.shapes ?? []).map(shapeProfile);
+  const ramps: Profile[] = [];
+  for (const pc of cfg.panels ?? []) {
+    const r = panelRamp(pc);
+    if (r) ramps.push(r);
+  }
   const grades = gradeProfile(cfg.pitch, cfg.grades ?? []);
 
   // Features merge by max, so twin kickers can share a table; each is ≥ 0, so where only
@@ -227,7 +239,7 @@ export function createSlope(cfg: SlopeConfig, baked?: Field): Terrain {
   // changes reshape the slope under all of them, so they add.
   // Max is order-free, so one list does; many features are bucketed so a point only asks the
   // few whose ground it could be on (each exactly 0 outside its extent, so the answer is the same).
-  const all: Profile[] = [...kickers, ...walls, ...corners, ...quarters, ...shapes];
+  const all: Profile[] = [...kickers, ...walls, ...corners, ...quarters, ...shapes, ...ramps];
   const buckets = all.length >= BUCKET_MIN ? bucketProfiles(all, cfg) : undefined;
   const featureHeight = (x: number, z: number): number => {
     let h = 0;
@@ -249,9 +261,12 @@ export function createSlope(cfg: SlopeConfig, baked?: Field): Terrain {
   const groundAt = (x: number, z: number): number => (field ? sampleField(field, x, z, fs).h : z * slope + bank(x));
   const heightAt = (x: number, z: number): number => groundAt(x, z) + featureHeight(x, z);
   const rails = (cfg.rails ?? []).map((r) => buildRail(r, heightAt));
+  const faces = [...(cfg.panels ?? []), ...(cfg.blocks ?? []).flatMap(blockFaces)];
+  const panels = faces.map((pc) => buildPanel(pc, heightAt));
 
   return {
     rails,
+    panels,
     ...(field ? { field } : {}),
     sample(x, z, out) {
       const eps = 0.05;

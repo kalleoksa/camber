@@ -11,6 +11,32 @@ pipes needed `vertExit`.
 
 ---
 
+## Status (2026-10-07)
+
+**Built: steps 1–3, plus blocks.** `src/sim/walls.ts` (panels, blocks, ramps),
+`src/sim/states/walled.ts` (capture, the face, exits, pop), `panel.*` params, drawn in
+`render/scene.ts`, `panel` and `block` kinds in the park JSON, `takes/two-stick-panel.json` in
+the determinism gate. Talma: a 2.5 m plywood panel with a ramp at z −248, and a hut (a block)
+left of the line at z −318.
+
+**Any built obstacle is wallrideable.** A face is the one rideable thing; a `BlockConfig` (a
+building, a box) is a solid whose four sides are faces. A free-standing wall is a panel. Roofs
+aren't solid yet: you ride a building's sides, not its top.
+
+Decided while building: catching the face turns `panel.climb` (0.7) of the speed into it up the
+face, as a transition would — without it a wallride only slid along the foot. Leaving the face
+without a pop rolls the board level, nose along the travel; over the top it keeps its attitude.
+A pop goes out and up at 45° (`panel.popUp` 1). A soft touch into a face pushes you off it;
+past `panel.bonkSpeed` (3 m/s into it) you bounce off and go down.
+
+Probe, 9° slope, panel 2.5 m: 20° in at 10 m/s, ~1 s on the face, 1 m up, lands clean; 40° in,
+up to the top edge and off, clean; square in, bonk; 4 m/s, slides past; pop off, clean; steering
+up or down the face, both land; a building's side at 25°, 1 s on it, 1.6 m up, clean.
+
+Not yet: steps 4 (taps), 5 (balance on the face, sound per material, posture), 6 (generator,
+editor). Defaults taken for the open questions below: gravity 0.35, no balance, one material
+(plywood), the snow wall kept.
+
 ## 1. What a built wall is
 
 | Field | Meaning |
