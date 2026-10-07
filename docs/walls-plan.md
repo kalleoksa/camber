@@ -22,7 +22,10 @@ left of the line at z −318.
 **Any built obstacle is wallrideable.** A face is the one rideable thing; a `BlockConfig` (a
 building, a box) is a solid whose four sides are faces. A free-standing wall is a panel. A
 block's roof is a flat raised in the terrain height, ridden as ground: land on it, ride it, drop
-off the edge. The snow mesh is drawn without it (`terrain.snow`).
+off the edge. The snow mesh is drawn without it (`terrain.snow`). `ramp: { length }` on a block
+puts a snow ramp against its uphill end, eased into the roof so there's no lip at the seam; that
+end then has no face. Talma's hut has a 14 m one: from straight above it, 9–13 m/s at its foot
+carries you up, across the roof and off the far edge, clean.
 
 Roof probe, 9° slope, 6 m hut: dropped on at 8 m/s, clean on the roof, 1 s on it, off the edge,
 clean on the snow; riding alongside 0.2 m from the side, no snap up onto the roof; square into

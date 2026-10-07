@@ -498,13 +498,18 @@ function panelMeshes(cfg: SlopeConfig, terrain: Terrain): THREE.Group {
     top.position.set(p.x0, p.y0, p.z0).addScaledVector(a, p.length / 2).addScaledVector(e, p.height).addScaledVector(n, -thick / 2);
     group.add(top);
   }
-  // A block: its four faces (the panels after the config's own, four per block, in order) as
-  // walls, and a roof across their tops, parallel to the snow — the roof that is ridden.
+  // A block: its faces (the panels after the config's own, in blockFaces order: three, four
+  // without a ramp) as walls, and a roof across their tops, parallel to the snow — the roof that
+  // is ridden. A ramp is snow, drawn by the terrain.
   const roofMaterial = new THREE.MeshStandardMaterial({ color: 0x5d6168, roughness: 0.9, side: THREE.DoubleSide });
   const blocks = cfg.blocks ?? [];
+  let first = own;
   for (let k = 0; k < blocks.length; k++) {
-    for (let f = 0; f < 4; f++) {
-      const p = terrain.panels[own + k * 4 + f];
+    const count = blocks[k]?.ramp ? 3 : 4;
+    const base = first;
+    first += count;
+    for (let f = 0; f < count; f++) {
+      const p = terrain.panels[base + f];
       if (!p) continue;
       a.set(p.ax, p.ay, p.az);
       e.set(p.ex, p.ey, p.ez);
@@ -517,8 +522,8 @@ function panelMeshes(cfg: SlopeConfig, terrain: Terrain): THREE.Group {
       group.add(side);
     }
     // Roof corners: the tops of the two long faces, each end.
-    const s0 = terrain.panels[own + k * 4];
-    const s1 = terrain.panels[own + k * 4 + 1];
+    const s0 = terrain.panels[base];
+    const s1 = terrain.panels[base + 1];
     if (!s0 || !s1) continue;
     const top = (p: typeof s0, t: number): number[] => [p.x0 + p.ax * t + p.ex * p.height, p.y0 + p.ay * t + p.ey * p.height, p.z0 + p.az * t + p.ez * p.height];
     const quad = [...top(s0, 0), ...top(s0, s0.length), ...top(s1, s1.length), ...top(s1, 0)];

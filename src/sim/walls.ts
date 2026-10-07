@@ -84,9 +84,10 @@ export function buildPanel(cfg: PanelConfig, heightAt: (x: number, z: number) =>
 /**
  * A built solid standing on the snow — a building, a box, a tombstone — whose sides are faces to
  * wallride: centred on (x, z), `length` m along its axis (yaw), `width` across, `height` tall.
- * Its roof is a raised flat in the terrain height (terrain.ts), ridden like snow.
+ * Its roof is a raised flat in the terrain height (terrain.ts), ridden like snow. `ramp`: a snow
+ * ramp up to the roof against the uphill end (−axis), `length` m long (`blockRamp`).
  */
-export type BlockConfig = { x: number; z: number; yaw: number; length: number; width: number; height: number };
+export type BlockConfig = { x: number; z: number; yaw: number; length: number; width: number; height: number; ramp?: { length: number } };
 
 /** The four outward faces of a block, each a panel standing on the snow. */
 export function blockFaces(b: BlockConfig): PanelConfig[] {
@@ -96,12 +97,39 @@ export function blockFaces(b: BlockConfig): PanelConfig[] {
   const hl = b.length / 2;
   const hw = b.width / 2;
   const face = (x: number, z: number, yaw: number, length: number, side: 1 | -1): PanelConfig => ({ x, z, yaw, length, height: b.height, lean: 0, side, foot: 0 });
-  return [
+  const faces = [
     face(b.x + c * hw - s * hl, b.z + s * hw + c * hl, b.yaw, b.length, 1), // +across side, outward +across
     face(b.x - c * hw - s * hl, b.z - s * hw + c * hl, b.yaw, b.length, -1), // −across side
     face(b.x + s * hl - c * hw, b.z - c * hl - s * hw, b.yaw + Math.PI / 2, b.width, -1), // downhill end, outward +axis
-    face(b.x - s * hl - c * hw, b.z + c * hl - s * hw, b.yaw + Math.PI / 2, b.width, 1), // uphill end, outward −axis
   ];
+  // The uphill end is buried under its ramp when there is one: no face to bonk on the way up.
+  if (!b.ramp) faces.push(face(b.x - s * hl - c * hw, b.z + c * hl - s * hw, b.yaw + Math.PI / 2, b.width, 1)); // uphill end, outward −axis
+  return faces;
+}
+
+/**
+ * A block's snow ramp, against its uphill end: rising from the snow to the roof over
+ * `ramp.length` m, eased at both ends (smoothstep) so it meets the roof flush — a lip there
+ * would launch you over it. Full width across the block, the sides falling away over 2 m.
+ * 0 on the block itself past the seam, so the side faces stand on the snow.
+ */
+export function blockRamp(b: BlockConfig): ((x: number, z: number) => number) | undefined {
+  const r = b.ramp;
+  if (!r) return undefined;
+  const s = dm.sin(b.yaw);
+  const c = dm.cos(b.yaw);
+  const fade = 2;
+  return (x, z) => {
+    const dx = x - b.x;
+    const dz = z - b.z;
+    const along = dx * s - dz * c + b.length / 2; // 0 at the uphill end, negative up the ramp
+    const across = Math.abs(dx * c + dz * s) - b.width / 2;
+    if (along <= -r.length || across >= fade) return 0;
+    // Carried a little onto the roof at its full height, so the slope sampled at the seam is
+    // the ramp's (flat there), not a drop; the roof merges with it by max (terrain.ts).
+    if (along >= 0) return along < 0.2 && across <= 0 ? b.height : 0;
+    return b.height * smooth(1 + along / r.length) * (across <= 0 ? 1 : 1 - smooth(across / fade));
+  };
 }
 
 const smooth = (t: number): number => (t <= 0 ? 0 : t >= 1 ? 1 : t * t * (3 - 2 * t));

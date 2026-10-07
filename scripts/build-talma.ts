@@ -68,7 +68,7 @@ const TALMA = {
   lower: {
     wall: { z: -248, length: 24, height: 2.5, lean: 8, offset: 2.5, ramp: { height: 0.5, length: 3 } }, // plywood panel, `offset` m left of the line (lifts' side), face toward it, leaning back `lean`°
     berm: { z: -280, radius: 16, sweep: 35, bank: 38, height: 3, gap: 6 }, // two, an S: toward −X, then back — centred on the line, so you come out where you went in
-    hut: { x: -16, z: -318, length: 16, width: 6, height: 4 }, // a building beside the line, left: wallride its side (blocks: the sides are faces)
+    hut: { x: -16, z: -318, length: 16, width: 6, height: 4, ramp: { length: 14 } }, // a building beside the line, left: wallride its side (blocks: the sides are faces), or up the snow ramp at its uphill end onto the roof
     hipQuarter: { z: -342, width: 12, angle: 45, height: 3.5, radius: 4, corner: 3 }, // corner m to +X of the jump line: out of the S (~2 m left) or straight down it, you ride up the first section near the corner
   },
 } as const;

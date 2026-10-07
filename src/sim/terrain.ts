@@ -4,7 +4,7 @@ import { inFrame, shapeProfile, turned, type ShapeConfig } from './features.ts';
 import { hipProfile, type HipShape } from './hip.ts';
 import { buildField, sampleField, type Field, type FieldConfig, type FieldSample } from './heightfield.ts';
 import { buildRail, type Rail, type RailConfig } from './rails.ts';
-import { blockFaces, buildPanel, panelRamp, type BlockConfig, type Panel, type PanelConfig } from './walls.ts';
+import { blockFaces, blockRamp, buildPanel, panelRamp, type BlockConfig, type Panel, type PanelConfig } from './walls.ts';
 
 export type SurfaceType = 'snow' | 'rail' | 'wall' | 'quarter';
 
@@ -234,6 +234,10 @@ export function createSlope(cfg: SlopeConfig, baked?: Field): Terrain {
     const r = panelRamp(pc);
     if (r) ramps.push(r);
   }
+  for (const b of cfg.blocks ?? []) {
+    const r = blockRamp(b);
+    if (r) ramps.push(r);
+  }
   const grades = gradeProfile(cfg.pitch, cfg.grades ?? []);
 
   // Features merge by max, so twin kickers can share a table; each is ≥ 0, so where only
@@ -279,7 +283,7 @@ export function createSlope(cfg: SlopeConfig, baked?: Field): Terrain {
     panels,
     snow(x, z, out) {
       terrain.sample(x, z, out);
-      if (roofs.length > 0) out.height -= roofAt(x, z);
+      if (roofs.length > 0) out.height -= Math.max(0, roofAt(x, z) - featureHeight(x, z));
       return out;
     },
     ...(field ? { field } : {}),
@@ -303,7 +307,11 @@ export function createSlope(cfg: SlopeConfig, baked?: Field): Terrain {
       // Features on top, by central difference — only near one, so the plain slope stays
       // bit-identical to before features existed and old takes keep their hashes.
       const kh = featureHeight(x, z);
-      if (
+      // On a roof the ground is flat to the snow under it: no feature slope (a ramp meets it
+      // flat; anything else under a roof is buried).
+      const roof = roofs.length > 0 ? roofAt(x, z) : 0;
+      if (roof > 0) out.height += Math.max(kh, roof);
+      else if (
         kh !== 0 ||
         featureHeight(x, z + eps) !== 0 ||
         featureHeight(x, z - eps) !== 0 ||
@@ -315,7 +323,6 @@ export function createSlope(cfg: SlopeConfig, baked?: Field): Terrain {
         out.normal.z -= (featureHeight(x, z + eps) - featureHeight(x, z - eps)) / (2 * eps);
       }
       normalize(out.normal);
-      if (roofs.length > 0) out.height += roofAt(x, z);
 
       out.surface = 'snow';
       out.faceX = 0;

@@ -957,6 +957,9 @@
     "length": 16,
     "width": 6,
     "height": 4,
+    "ramp": {
+     "length": 14
+    },
     "yaw": 0
    },
    "meta": {
