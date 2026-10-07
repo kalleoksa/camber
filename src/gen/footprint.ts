@@ -47,7 +47,7 @@ export function footprint(f: FeatureSpec, runIn: number, margin: number): Footpr
 }
 
 /** The rectangle's four corners in world (x, z). */
-function corners(p: Footprint): [number, number][] {
+export function corners(p: Footprint): [number, number][] {
   const ax = dm.sin(p.yaw);
   const az = -dm.cos(p.yaw);
   const cx = dm.cos(p.yaw);

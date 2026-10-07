@@ -148,7 +148,9 @@ export function stepGrounded(
   const edgeGrip = 1 - butter * (1 - params.butter.edgeGrip);
   let grip = g.gripFlat + (g.gripEdge - g.gripFlat) * dm.pow(edgeMag, g.gripCurve) * edgeGrip;
   grip *= 1 - stanceMag * g.stanceGripLoss;
-  grip *= 1 - input.lt * g.brakeGripLoss;
+  // The speed check: LT, or two sticks the right stick's skid (signed; the sim needs only how much).
+  const brake = Math.abs(state.brake);
+  grip *= 1 - brake * g.brakeGripLoss;
   grip *= 1 + (params.butter.gripScale - 1) * butter;
   // A landing skid pivots the board under the rider like a butter: the edge doesn't hold
   // and the travel keeps its line rather than following the turning board.
@@ -172,7 +174,10 @@ export function stepGrounded(
   if (speed > 0) {
     // Snow friction on the normal load, then air drag, brake and wall drag.
     const friction = g.friction * params.world.gravity * n.y;
-    const drag = (g.drag * speed * speed + input.lt * g.brakeDecel + (walled ? params.wall.drag : 0) + friction) * dt;
+    // Posture (two sticks): a tuck cuts the air drag, standing tall adds to it. 1 on one stick.
+    const post = state.posture;
+    const airDrag = post > 0 ? 1 + post * (g.tuckDrag - 1) : 1 - post * (g.tallDrag - 1);
+    const drag = (g.drag * speed * speed * airDrag + brake * g.brakeDecel + (walled ? params.wall.drag : 0) + friction) * dt;
     const carveCost = g.edgeDrag * edgeMag * edgeGrip * scrubbed;
     const keep = Math.max(0, speed - drag - carveCost) / speed;
     vf *= keep;
@@ -187,7 +192,10 @@ export function stepGrounded(
 
   // Carve rotation. Nose or tail press moves the effective pivot along the board, which
   // reads as a tighter, twitchier turn.
-  let yaw = state.edge * g.carveYaw * speedFactor(speed, g.speedFactorKnee) * (1 + stanceMag * g.stanceYawGain);
+  // Tucked the turn opens up, stood tall it tightens.
+  const post = state.posture;
+  const postureYaw = post > 0 ? 1 + post * (g.tuckCarve - 1) : 1 - post * (g.tallCarve - 1);
+  let yaw = state.edge * g.carveYaw * speedFactor(speed, g.speedFactorKnee) * (1 + stanceMag * g.stanceYawGain) * postureYaw;
   if (speed < g.pivotSpeed) {
     // Low-authority skid pivot so a stopped rider isn't stuck facing the wrong way.
     yaw += state.edge * g.pivotYaw * (1 - speed / g.pivotSpeed);
@@ -204,7 +212,7 @@ export function stepGrounded(
   if (state.absorb > 0) state.absorb = Math.max(0, state.absorb - dt);
 
   if (chargePop(state, input, params, dt)) {
-    const bias = 1 - state.stance * params.pop.stanceBias;
+    const bias = popBias(state.stance, params);
     const impulse = (params.pop.base + params.pop.charged * state.compress) * bias;
     state.charge = 0;
     // Popping on a wall's transition on the way in, heading up or along it, drives you up
@@ -223,6 +231,13 @@ export function stepGrounded(
       // Along the contact normal, not world up — ramp geometry then needs no special case.
       addScaled(v, n, impulse);
       popTakeoff(state, input, params);
+      // Two sticks: popped out of a butter, the board is already turning — that pivot goes
+      // into the spin. Heading and spin rate share a sign (see rideOff).
+      if (params.input.scheme > 0 && butter > 0) {
+        let pivot = state.edge * params.butter.yawRate * butter;
+        if (params.ground.switchEdges > 0 && state.switchRide) pivot = -pivot;
+        addSpin(state, -pivot * params.butter.popCarry, params);
+      }
       addScaled(p, v, dt);
       return;
     }
@@ -303,7 +318,7 @@ export function chargePop(state: RiderState, input: InputSnapshot, params: Param
     state.compress =
       state.charge <= params.pop.chargeTime
         ? state.charge / params.pop.chargeTime
-        : Math.max(0, 1 - (state.charge - params.pop.chargeTime) * params.pop.decay);
+        : Math.max(params.pop.decayFloor, 1 - (state.charge - params.pop.chargeTime) * params.pop.decay);
     return false;
   }
   if (state.popLatch) {
@@ -315,9 +330,21 @@ export function chargePop(state: RiderState, input: InputSnapshot, params: Param
   return false;
 }
 
+/**
+ * Pop strength from the press at release (§5). One stick: symmetric about flat, so a nollie
+ * came out weaker than no press at all. Two sticks: off the tail is the ollie, the
+ * strongest; off the nose the nollie, between that and a flat pop. Analog in between.
+ */
+export function popBias(stance: number, params: Params): number {
+  const pop = params.pop;
+  if (params.input.scheme <= 0) return 1 - stance * pop.stanceBias;
+  return stance < 0 ? 1 - stance * (pop.ollieGain - 1) : 1 + stance * (pop.nollieGain - 1);
+}
+
 function enterAir(state: RiderState): void {
   state.mode = 'airborne';
   state.airTime = 0;
+  state.popStance = 0;
   state.tuck = 1;
   state.airYaw = 0;
   state.landing = 'none';
@@ -331,6 +358,9 @@ function enterAir(state: RiderState): void {
  */
 export function popTakeoff(state: RiderState, input: InputSnapshot, params: Params): void {
   enterAir(state);
+  // Read by render (the ollie's nose-up, the nollie's tail-up) and the trick names. Not a
+  // sim input: nothing in the sim reads it back.
+  state.popStance = state.stance;
   state.popWindow = params.air.spinModel > 0 ? Math.max(params.air.takeoffWindow, params.air.flickWindow) : params.air.takeoffWindow;
   setTakeoffSpin(state, input, params);
   // Leaving the ground mid-carve, the thumb is still buried where the carve put it. Hold
@@ -415,12 +445,12 @@ function corkStick1(ly: number, params: Params): number {
  * roll.) A diagonal mixes the two, its tilt falling out of the ratio. One vector, so spin,
  * flip and everything off-axis between are one rule, not four.
  */
-export function stickRotation(out: Vec3, yawRate: number, state: RiderState, input: InputSnapshot, params: Params): Vec3 {
+export function stickRotation(out: Vec3, yawRate: number, ly: number, state: RiderState, params: Params): Vec3 {
   // Riding switch the tail leads, so the same flip about +X is the other way over relative
   // to travel: mirror it, as the stance stick is mirrored on the ground.
   const dir = params.air.switchFlips > 0 && state.switchRide ? -1 : 1;
   // Model 1: full at `fullStick`, past a lower deadzone, so a diagonal at the pop is a full cork.
-  const flip = params.air.spinModel > 0 ? corkStick1(input.ly, params) : corkStick(input.ly, params);
+  const flip = params.air.spinModel > 0 ? corkStick1(ly, params) : corkStick(ly, params);
   return set(out, flip * params.air.flipRate * dir, yawRate, 0);
 }
 
@@ -440,9 +470,64 @@ export function setRotation(state: RiderState, w: Vec3, params: Params): void {
   state.spinRate = Math.min(params.air.spinMax, Math.max(-params.air.spinMax, sign * m));
 }
 
+/**
+ * Stick Y as a flip reads it at the pop. One stick: its position. Two sticks: a flick — the
+ * travel since `flipRef` — because the same stick held forward is the tuck into the lip.
+ * Never more than where the stick actually points, so letting a tuck go to centre at the
+ * pop is not a backflip: the flick has to end up back.
+ */
+export function popFlipStick(state: RiderState, input: InputSnapshot, params: Params): number {
+  if (params.input.scheme <= 0) return input.ly;
+  const d = input.ly - state.flipRef;
+  if (d * input.ly <= 0) return 0;
+  const m = Math.min(Math.abs(d), Math.abs(input.ly), 1);
+  return d < 0 ? -m : m;
+}
+
+/** Adds a yaw rate about board up to the rotation already set, keeping one axis and rate. */
+export function addSpin(state: RiderState, yawRate: number, params: Params): void {
+  const r = state.spinRate;
+  set(rotation, state.spinAxis.x * r, state.spinAxis.y * r + yawRate, state.spinAxis.z * r);
+  setRotation(state, rotation, params);
+}
+
+/**
+ * Pre-rotation (two sticks): wound up and still held the same way through the pop, with
+ * only RT let go. The shoulders were already turned the way of the spin and the board
+ * follows them round — slow and even, where reversing the stick at the pop (counter-
+ * rotation) snaps. One stored wind-up, read two ways by what the stick does at release.
+ * The held stick sets the axis: sideways a flat spin, diagonal a cork, the flip part as slow
+ * as the spin. Y alone is the tuck, so it doesn't pre-rotate a flip on its own.
+ * Writes `out` and returns true when it applies.
+ */
+function preRotation(out: Vec3, state: RiderState, input: InputSnapshot, params: Params): boolean {
+  const a = params.air;
+  const w = state.windUp;
+  if (params.input.scheme <= 0 || a.preRotateGain <= 0 || a.spinModel <= 0) return false;
+  if (Math.abs(w) <= a.flickMin || input.lx * w <= 0) return false;
+  const held = Math.min(1, Math.abs(input.lx) / Math.max(a.fullStick, 1e-3));
+  const amount = Math.abs(w) * held * a.preRotateGain;
+  const dir = a.switchFlips > 0 && state.switchRide ? -1 : 1;
+  // Turning toward +X (the stick's way) is − about board up, as in takeoffSpinRate.
+  // A cork's flip part takes the pop's pitch too, as a fast flip does (pop.flipAssist):
+  // an ollie tips a slow cork back, a nollie forward. A flat slow spin stays flat.
+  const cork = corkStick1(input.ly, params) * dir;
+  const pitch = cork !== 0 ? state.stance * params.pop.flipAssist : 0;
+  set(out, (cork + pitch) * a.flipRate * amount, -(w > 0 ? 1 : -1) * amount * a.spinTakeoff, 0);
+  return true;
+}
+
 export function setTakeoffSpin(state: RiderState, input: InputSnapshot, params: Params): void {
   if (params.air.flipRate > 0) {
-    setRotation(state, stickRotation(rotation, takeoffSpinRate(state, input, params), state, input, params), params);
+    if (preRotation(rotation, state, input, params)) {
+      setRotation(state, rotation, params);
+      return;
+    }
+    stickRotation(rotation, takeoffSpinRate(state, input, params), popFlipStick(state, input, params), state, params);
+    // Two sticks: the pop's pitch goes into a flip — off the tail the nose comes up, so a
+    // backflip comes round faster; off the nose, a frontflip. Board frame, so no switch mirror.
+    if (params.input.scheme > 0 && rotation.x !== 0) rotation.x += state.stance * params.pop.flipAssist * params.air.flipRate;
+    setRotation(state, rotation, params);
     return;
   }
   // Older rule, kept so takes recorded under it replay: X sets the rate, Y only tilts the
@@ -474,6 +559,10 @@ export function rideOff(state: RiderState, input: InputSnapshot, params: Params,
   state.spinAxis.y = 1;
   state.spinAxis.z = 0;
   state.spinRate = headingRate;
+  // Pre-rotation (two sticks) needs no pop: wound up and still holding as the board leaves
+  // the lip, the takeoff releases it — a slow spin set off the edge. Also what makes RT let
+  // go a moment after the lip, rather than on it, still spin.
+  if (preRotation(rotation, state, input, params)) setRotation(state, rotation, params);
 }
 
 const travel = vec3();

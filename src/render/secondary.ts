@@ -214,7 +214,18 @@ export function stepSecondary(sec: Secondary, state: RiderState, params: Params,
   // Not during a landing's absorb: the touchdown spikes it, and `absorb` already has that.
   const onSnow = (state.mode === 'grounded' || state.mode === 'walled') && state.absorb <= 0;
   const terrain = onSnow ? clamp(sec.accY * params.rig.terrainAbsorb, params.rig.terrainAbsorbMax) : 0;
-  const target = -state.compress * params.rig.crouchDepth - absorb - terrain - sec.airCrouch * params.rig.airCrouch;
+  // Carving posture (two-stick spec §8): the turn's load folds you, so between turns, where
+  // it passes zero, you rise. At speed the hips hold low instead and the legs cross under.
+  let carveDrop = 0;
+  if (state.mode === 'grounded' || state.mode === 'walled') {
+    const load = carveLoad(sec, params);
+    const v = state.velocity;
+    const fast = Math.min(1, Math.max(0, (Math.sqrt(v.x * v.x + v.y * v.y + v.z * v.z) - r.crossUnderSpeed) / Math.max(r.crossUnderFade, 1e-3)));
+    carveDrop = Math.max(Math.abs(load), fast * r.crossUnderHold) * r.carveCrouch + Math.max(0, load) * r.heelSitDrop;
+  }
+  // Posture (two sticks): tucked the hips drop, stood tall they come up. 0 on one stick.
+  const posture = state.posture > 0 ? -state.posture * r.tuckDrop : -state.posture * r.tallRise;
+  const target = -state.compress * params.rig.crouchDepth - absorb - terrain - sec.airCrouch * params.rig.airCrouch - carveDrop + posture;
   const k = params.rig.hipStiffness;
   const acc = k * (target - sec.hipY) - 2 * params.rig.hipDamping * Math.sqrt(k) * sec.hipVel;
   sec.hipVel += acc * dt;
@@ -271,7 +282,9 @@ export function stepSecondary(sec: Secondary, state: RiderState, params: Params,
     sec.ridingLook = ridingLook;
   }
   const spinLook = sec.lookSign !== 0 ? sec.lookSign * r.rideHeadYaw - ridingLook : 0;
-  const headTarget = spinLook + (airborne ? Math.max(-r.headTurnMax, Math.min(r.headTurnMax, yawRate * r.headLead)) : 0);
+  // On snow the head looks along the turn, `carveLook` ahead; in the air, along the spin.
+  const lookAhead = airborne ? yawRate * r.headLead : grounded ? turn * r.carveLook : 0;
+  const headTarget = spinLook + Math.max(-r.headTurnMax, Math.min(r.headTurnMax, lookAhead));
   const ks = r.spineStiffness;
   const cs = 2 * r.spineDamping * Math.sqrt(ks);
   const kt = r.shoulderChainStiffness;
@@ -368,6 +381,15 @@ function inverseOf(q: { x: number; y: number; z: number; w: number }): typeof in
 
 function clamp(x: number, m: number): number {
   return x > m ? m : x < -m ? -m : x;
+}
+
+/**
+ * −1..1, the load across the board as a fraction of `rig.carveLoadFull`: + is a heelside
+ * turn (the body pulled toward the heel edge, board +X), − toeside. Read off the loose
+ * body's smoothed acceleration, so it lags the turn the way a body does. Scene reads it too.
+ */
+export function carveLoad(sec: Secondary, params: Params): number {
+  return clamp(sec.accX / (params.world.gravity * Math.max(params.rig.carveLoadFull, 1e-3)), 1);
 }
 
 const inverse = quat();

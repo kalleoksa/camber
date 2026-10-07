@@ -34,6 +34,7 @@ export type PatchConfig = {
   edge: number;
   blend: number;
   segs: [number, number][];
+  natural?: boolean; // a steep natural zone (booters, drops): the generator builds those here; the bake ignores it
 };
 
 export type Field = {

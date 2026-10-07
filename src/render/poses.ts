@@ -177,6 +177,53 @@ export const ANCHORS: Record<string, RigDrivers> = {
     backElbowPole: -0.2,
   }),
 
+  /**
+   * Nose blunt — board across the rail with the rail under the front foot, the board stood
+   * up on it, tail high. Hips over the front foot, upper body upright and leaning back
+   * against the pitch, arms out for balance. A blunt (rail under the back foot) is this
+   * mirrored. Seeded from the press — refine in pose mode against footage.
+   */
+  noseBlunt: pose({
+    hipY: -0.12,
+    hipZ: 0.06,
+    pelvisPitch: 0.05,
+    spineBend: 0.2,
+    spineSide: 0.12,
+    headYaw: 0.9,
+    headPitch: 0.15,
+    kneeSplay: 0.5,
+    frontShoulderSwing: 0.5,
+    frontShoulderOut: 0.6,
+    frontElbow: 0.35,
+    frontElbowPole: -3.1,
+    backShoulderSwing: 0.3,
+    backShoulderOut: 0.9,
+    backElbow: 0.4,
+    backElbowPole: -0.2,
+  }),
+
+  /**
+   * Noseslide — board across the rail with the rail out at the nose. Low, chest folded over
+   * the rail end, front arm reaching along it, back arm high behind. A tailslide is this
+   * mirrored. Seeded from the press — refine in pose mode against footage.
+   */
+  noseslide: pose({
+    hipY: -0.24,
+    pelvisPitch: 0.25,
+    spineBend: 0.55,
+    spineSide: 0.45,
+    headYaw: 0.95,
+    kneeSplay: 0.6,
+    frontShoulderSwing: 0.85,
+    frontShoulderOut: 0.9,
+    frontElbow: 0.15,
+    frontElbowPole: -3.1,
+    backShoulderSwing: 0.1,
+    backShoulderOut: 0.5,
+    backElbow: 0.6,
+    backElbowPole: -0.2,
+  }),
+
   // --- grab coordinates, bodies unposed (grabs.md §3) -------------------------------
   // `t` runs tail 0 to nose 1. `edge` is −1 heel, +1 toe, matching state.edge's sign.
 

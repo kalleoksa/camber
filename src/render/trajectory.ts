@@ -13,7 +13,7 @@ import { createContact, type SlopeConfig, type Terrain } from '../sim/terrain.ts
  * clean, orange sketchy, red bail). In the air, the rest of the flight you're on. Read-only:
  * it samples the sim's state and the terrain, never writes to either.
  */
-export type TrajectoryPreview = { setEnabled(on: boolean): void; update(state: RiderState): void };
+export type TrajectoryPreview = { setEnabled(on: boolean): void; update(state: RiderState): void; setPark(cfg: SlopeConfig, terrain: Terrain): void };
 
 type Lip = { x: number; z: number; yaw: number };
 
@@ -22,8 +22,9 @@ const CONE = 0.45; // rad off the direction of travel it may sit
 const EVERY = 4; // frames between updates
 const GRADE = { clean: 0xffffff, sketchy: 0xec9a2c, bail: 0xd9452b };
 
-export function createTrajectoryPreview(scene: THREE.Scene, cfg: SlopeConfig, terrain: Terrain, params: Params): TrajectoryPreview {
-  const lips = collectLips(cfg);
+export function createTrajectoryPreview(scene: THREE.Scene, cfg: SlopeConfig, initial: Terrain, params: Params): TrajectoryPreview {
+  let terrain = initial;
+  let lips = collectLips(cfg);
   const line = new THREE.Line(new THREE.BufferGeometry(), new THREE.LineBasicMaterial({ color: 0x1b2430 }));
   const ball = new THREE.Mesh(new THREE.SphereGeometry(0.45, 12, 8), new THREE.MeshBasicMaterial({ color: 0xffffff }));
   const group = new THREE.Group();
@@ -44,6 +45,10 @@ export function createTrajectoryPreview(scene: THREE.Scene, cfg: SlopeConfig, te
   };
 
   return {
+    setPark(next, nextTerrain) {
+      terrain = nextTerrain;
+      lips = collectLips(next);
+    },
     setEnabled(on) {
       enabled = on;
       if (!on) group.visible = false;

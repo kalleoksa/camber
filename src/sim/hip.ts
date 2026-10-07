@@ -1,5 +1,5 @@
 import * as dm from './dmath.ts';
-import type { CornerConfig } from './terrain.ts';
+import type { HipConfig } from './terrain.ts';
 
 /**
  * A hip, after the hip jump spec (Claude Docs "Camber — Hip Jump Spec"). The takeoff faces down
@@ -20,22 +20,30 @@ export type HipShape = {
   landingEnd: number; // rad, its grade before the bottom transition
   knuckleRadius: number; // m
   bottomRadius: number; // m, the transition into the outrun
+  /**
+   * A step-down hip: the takeoff is built this many m taller than `lipHeight`, over the same
+   * table and landings, and its back drops to the table steeply. More air into the same landing.
+   */
+  stepDown?: number;
 };
 
 type Profile = (x: number, z: number) => number;
 
 /** Takeoff geometry: transition radius, where the arc ends and the lip is (m along the axis). */
-export function hipTakeoff(c: CornerConfig, hip: HipShape): { radius: number; arcEnd: number; runIn: number; straight: number } {
+export function hipTakeoff(c: HipConfig, hip: HipShape): { radius: number; arcEnd: number; runIn: number; straight: number } {
   const th = c.lipAngle;
+  const lip = c.lipHeight + (hip.stepDown ?? 0);
   // Straight part first; whatever height it doesn't take, the arc does.
-  const straight = Math.min(hip.straightLip, (c.lipHeight * 0.5) / dm.sin(th));
-  const radius = (c.lipHeight - straight * dm.sin(th)) / (1 - dm.cos(th));
+  const straight = Math.min(hip.straightLip, (lip * 0.5) / dm.sin(th));
+  const radius = (lip - straight * dm.sin(th)) / (1 - dm.cos(th));
   const arcEnd = radius * dm.sin(th);
   return { radius, arcEnd, runIn: arcEnd + straight * dm.cos(th), straight };
 }
 
-export function hipProfile(c: CornerConfig, hip: HipShape): Profile {
-  const H = c.lipHeight;
+export function hipProfile(c: HipConfig, hip: HipShape): Profile {
+  const sd = hip.stepDown ?? 0;
+  const lip = c.lipHeight + sd;
+  const H = c.lipHeight; // the table and knuckle line: everything after the lip is measured from here
   const { radius, arcEnd, runIn } = hipTakeoff(c, hip);
   const tanTh = dm.tan(c.lipAngle);
   const takeoff = (s: number): number => (s < arcEnd ? radius - Math.sqrt(radius * radius - s * s) : radius * (1 - dm.cos(c.lipAngle)) + (s - arcEnd) * tanTh);
@@ -76,6 +84,9 @@ export function hipProfile(c: CornerConfig, hip: HipShape): Profile {
   };
   const fade = (t: number): number => (t <= 0 ? 0 : t >= 1 ? 1 : t * t * (3 - 2 * t));
   const cut = c.deckTaper ?? c.sideTaper;
+  // A step-down's lip drops to the table over `back` m; without one the table is at lip height.
+  const back = sd * 0.6;
+  const deckAt = (s: number): number => (sd > 0 && s < runIn + back ? lip - sd * fade((s - runIn) / back) : H);
 
   return (x: number, z: number): number => {
     const s = c.z - z;
@@ -93,14 +104,14 @@ export function hipProfile(c: CornerConfig, hip: HipShape): Profile {
       const edge = (H - drop(w - half)) * fade(1 - (runIn - s) / cut);
       return ramp > edge ? ramp : edge;
     }
-    if (s <= deckEnd && w <= half) return H;
+    if (s <= deckEnd && w <= half) return deckAt(s);
 
     // Landing: distance from the knuckle line (the table's side, its end, the corner between).
     const py = Math.max(0, w - half);
     const px = Math.max(0, s - deckEnd);
     if (!landingSide) {
       // No landing this side: the table cut, the second landing only straight on.
-      if (s <= deckEnd) return H * fade(1 - py / cut);
+      if (s <= deckEnd) return deckAt(s) * fade(1 - py / cut);
       return (H - drop(px)) * fade(1 - py / cut);
     }
     return H - drop(Math.sqrt(px * px + py * py));

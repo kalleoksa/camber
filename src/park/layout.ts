@@ -1,7 +1,7 @@
 import type { RailConfig } from '../sim/rails.ts';
 import type { ShapeConfig } from '../sim/features.ts';
 import type { FieldConfig } from '../sim/heightfield.ts';
-import type { CornerConfig, GradeConfig, KickerConfig, QuarterConfig, SlopeConfig, WallConfig } from '../sim/terrain.ts';
+import type { HipConfig, GradeConfig, KickerConfig, QuarterConfig, SlopeConfig, WallConfig } from '../sim/terrain.ts';
 
 /**
  * A park as data: the ground it sits on, the features placed on it, and (for generated
@@ -33,11 +33,21 @@ export type FeatureMeta = {
   fill?: boolean; // placed by the fill, not on a line
   lip?: number; // m along its axis from (x, z) to where it takes off
   checks?: { speed: number; pop: number; grade: string; impact: number; past: number }[]; // designed airs
+  group?: number; // parts of one obstacle (a table and its rail) share this id and move as one
+  design?: Design; // on the first part: what the kit was asked for, so the editor can change it and re-solve
 };
+
+/**
+ * A feature as the generator's kit designed it: which obstacle, where and which way, its size
+ * and design speeds, and its random inputs by name (kit.ts `Inputs`). `redesign` in
+ * src/gen/lines.ts builds it again from these — the same parts, or new ones with an input
+ * changed.
+ */
+export type Design = { kind: string; place: { x: number; z: number; yaw: number }; size: string; speed: [number, number]; inputs: Record<string, number> };
 
 export type FeatureSpec =
   | { kind: 'kicker'; cfg: KickerConfig; meta?: FeatureMeta }
-  | { kind: 'corner'; cfg: CornerConfig; meta?: FeatureMeta }
+  | { kind: 'corner'; cfg: HipConfig; meta?: FeatureMeta }
   | { kind: 'quarter'; cfg: QuarterConfig; meta?: FeatureMeta }
   | { kind: 'wall'; cfg: WallConfig; meta?: FeatureMeta }
   | { kind: 'rail'; cfg: RailConfig; meta?: FeatureMeta }
@@ -62,7 +72,7 @@ export function toSlopeConfig(layout: Layout): SlopeConfig {
   if (g.grades) cfg.grades = g.grades;
   if (g.field) cfg.field = g.field;
   const kickers: KickerConfig[] = [];
-  const corners: CornerConfig[] = [];
+  const corners: HipConfig[] = [];
   const quarters: QuarterConfig[] = [];
   const walls: WallConfig[] = [];
   const rails: RailConfig[] = [];

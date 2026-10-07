@@ -5,10 +5,12 @@ import type { InputSnapshot } from './snapshot.ts';
  * can't tell them apart.
  *
  *   A / D        left stick X — carve, spin
- *   W / S        left stick Y — nose / tail press, flips
- *   Q / E        LB / RB — left / right hand; alone, shifty and rail slide
- *   arrows       right stick — with Q or E held, grab where they point
- *   Shift        LT — speed check; with a grab, tweak it
+ *   W / S        left stick Y — one stick: nose / tail press, flips. Two sticks: tuck /
+ *                stand tall, flip flicks
+ *   Q / E        LB / RB — left / right hand; alone, shifty (one stick) and rail slide
+ *   arrows       right stick — with Q or E held, grab where they point. Alone, full
+ *                deflection: two sticks' press (↑↓) and skid or shifty (←→); revert and save
+ *   Shift        LT — speed check (one stick); with a grab, tweak it
  *   Space        RT — hold to load, release to pop
  *   R            Y — reset
  *   P            pause (also the pad's Options/Start); . steps one tick while paused
@@ -60,7 +62,9 @@ export function mergeKeyboard(out: InputSnapshot, dt: number): InputSnapshot {
   const gx = axis('ArrowLeft', 'ArrowRight');
   const gy = axis('ArrowDown', 'ArrowUp');
   if (gx !== 0 || gy !== 0) {
-    const scale = (shift ? TWEAK : GRAB) / Math.sqrt(gx * gx + gy * gy);
+    // A hand on the board: a plain grab, or with Shift a tweak. No hand: the whole stick.
+    const hand = held.has('KeyQ') || held.has('KeyE');
+    const scale = (hand ? (shift ? TWEAK : GRAB) : 1) / Math.sqrt(gx * gx + gy * gy);
     out.rx = gx * scale;
     out.ry = gy * scale;
   }

@@ -40,6 +40,41 @@ export function generateGround(rng: Rng, cfg: GenConfig): FieldConfig {
     }
   }
 
+  // Natural zones on top of the bands: a steep pitch sinking the ground, then a flatter run-out
+  // giving the height back.
+  const N = cfg.natural;
+  const count = Math.round(range(rng, N.count));
+  const basePitch = dm.atan(base);
+  for (let i = 0; i < count; i++) {
+    const p = range(rng, N.steep) * RAD;
+    const t = dm.tan(p);
+    const len = Math.min(range(rng, N.length), N.maxOffset / Math.max(1e-6, t - base));
+    const sunk = (t - base) * len;
+    const rp = Math.min(basePitch - 2 * RAD, range(rng, N.recover) * RAD);
+    const recover = sunk / Math.max(1e-6, base - dm.tan(rp));
+    const edge = cfg.zone.width / 2 - cfg.bank.width - 40;
+    const halfWidth = range(rng, N.halfWidth);
+    // Its sides fade over enough ground that the depth they climb stays a slope, not a wall.
+    const fade = Math.max(range(rng, N.edge), (1.5 * sunk) / dm.tan(N.side * RAD));
+    const yaw = (next(rng) * 2 - 1) * N.yaw * RAD;
+    // Grades on top of each other add up to cliffs, so the zone clears the bands it would
+    // overlap. Each patch gives back the height it takes, so removing one whole leaves no step.
+    const x = (next(rng) * 2 - 1) * edge;
+    const z = -range(rng, N.at);
+    if (patches.some((q) => q.natural && Math.abs(q.x - x) < q.halfWidth + q.edge + halfWidth + fade && Math.abs(q.z - z) < 200)) continue; // one zone per stretch of hill
+    for (let k = patches.length - 1; k >= 0; k--) {
+      const q = patches[k];
+      if (!q || q.natural) continue;
+      let qLen = 0;
+      for (const [l] of q.segs) qLen += l;
+      // Cores and half the fades: where only the outer fades meet, the grades added stay gentle.
+      const apartX = Math.abs(q.x - x) > q.halfWidth + halfWidth + 0.5 * (q.edge + fade);
+      const apartZ = q.z - qLen > z + N.blend || z - len - recover > q.z + q.blend;
+      if (!apartX && !apartZ) patches.splice(k, 1);
+    }
+    patches.push({ x, z, yaw, halfWidth, edge: fade, blend: N.blend, segs: [[len, p], [recover, rp]], natural: true });
+  }
+
   return {
     pitch,
     width: cfg.zone.width,

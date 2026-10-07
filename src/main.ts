@@ -50,12 +50,16 @@ import {
   createRiderState,
   resetRiderState,
   type RiderState,
+  type Spawn,
 } from './sim/state.ts';
-import { createContact, createSlope, type SlopeConfig } from './sim/terrain.ts';
+import { createContact, createSlope, type SlopeConfig, type Terrain } from './sim/terrain.ts';
 import { GEN } from './gen/config.ts';
 import { loadGenerated } from './gen/load.ts';
-import { computeSpeedMap } from './gen/speedmap.ts';
+import { computeSpeedMap, type SpeedMap } from './gen/speedmap.ts';
+import type { Rect } from './render/terrainMesh.ts';
 import { toSlopeConfig, type Layout } from './park/layout.ts';
+import { localCopy, parkKey } from './editor/store.ts';
+import type { Editor } from './editor/editor.ts';
 import { HOME, PARKS } from './park/parks.ts';
 import { length } from './sim/vec3.ts';
 import { addParkFolder } from './tuning/parkPanel.ts';
@@ -75,8 +79,12 @@ const SEED = 1;
 const query = new URLSearchParams(location.search);
 const parkName = query.get('park') ?? (query.has('seed') ? 'gen' : 'talma');
 const seed = Math.max(1, Math.round(Number(query.get('seed') ?? 1)) || 1);
-const layout = parkName === 'gen' ? await generating(seed) : parkName === 'file' ? (loadedLayout() ?? HOME) : (PARKS[parkName] ?? HOME);
-const slopeConfig: SlopeConfig = toSlopeConfig(layout);
+// The park as shipped, and what is ridden: the park editor's local copy of it when this browser
+// has one (src/editor/store.ts), until "reset to the shipped park" drops it.
+const shipped: Layout = parkName === 'gen' ? await generating(seed) : parkName === 'file' ? (loadedLayout() ?? HOME) : (PARKS[parkName] ?? HOME);
+const edited = localCopy(parkKey(shipped));
+let layout: Layout = edited ? edited.layout : structuredClone(shipped);
+let slopeConfig: SlopeConfig = toSlopeConfig(layout);
 // ?spin=0 starts on the older spin model (air.spinModel in the panel switches live).
 if (query.get('spin') === '0') params.air.spinModel = 0;
 
@@ -103,13 +111,13 @@ async function generating(s: number): Promise<Layout> {
   }
 }
 
-const terrain = createSlope(slopeConfig);
+let terrain = createSlope(slopeConfig);
 // &at=x,z[,deg] starts the run there instead, facing down the hill or `deg` off it (+ toward
 // +X) — for looking at one spot.
 const at = (query.get('at') ?? '').split(',').map(Number);
 const custom = (at.length === 2 || at.length === 3) && at.every(Number.isFinite);
 const [spawnX, spawnZ] = custom ? [at[0] ?? 0, at[1] ?? 0] : [layout.spawn.x, layout.spawn.z];
-const spawn = {
+let spawn: Spawn = {
   position: { x: spawnX, y: terrain.sample(spawnX, spawnZ, createContact()).height + 1.5, z: spawnZ },
   heading: custom && at.length === 3 ? Math.PI - ((at[2] ?? 0) * Math.PI) / 180 : layout.spawn.heading,
 };
@@ -371,7 +379,7 @@ const help = createControlsHelp((open) => {
     if (pausedByHelp && paused) togglePause();
     pausedByHelp = false;
   }
-});
+}, () => void edit());
 /** Pause pressed: with the sheet up it closes the sheet (and resumes), else it toggles. */
 function pausePressed(): void {
   if (help.isOpen()) help.toggle();
@@ -380,6 +388,7 @@ function pausePressed(): void {
 addEventListener('keydown', (ev) => {
   const t = ev.target as HTMLElement | null;
   if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA')) return;
+  if (editing) return;
   if (ev.key === 'p' || ev.key === 'P') pausePressed();
   else if (ev.key === '.' && paused) stepOnce = true;
 });
@@ -387,7 +396,7 @@ addEventListener('keydown', (ev) => {
 function step(): void {
   // Pose mode disconnects gameplay entirely — the rider is frozen and the drivers are
   // the only thing moving (design §7.8, build order step 2).
-  if (poseMode) return;
+  if (poseMode || editing) return;
   if (paused) {
     if (!stepOnce) return;
     stepOnce = false;
@@ -562,7 +571,7 @@ function saveBlob(filename: string, blob: Blob): void {
 addEventListener('keydown', (ev) => {
   const t = ev.target as HTMLElement | null;
   if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA')) return;
-  if (ev.key === 'm' || ev.key === 'M') pendingMark = 'note';
+  if (!editing && (ev.key === 'm' || ev.key === 'M')) pendingMark = 'note';
 });
 
 let lastLanding: RiderState['landing'] = 'none';
@@ -577,6 +586,12 @@ function render(alpha: number): void {
   const now = performance.now();
   const dt = Math.min((now - lastRender) / 1000, 0.1);
   lastRender = now;
+  if (editing && editor) {
+    editor.update(dt);
+    view.ground.update(editor.camera.position, 3);
+    view.renderer.render(view.scene, editor.camera);
+    return;
+  }
 
   const rider = interpolateRider(previous, state, alpha);
   if (!poseMode) skid.apply(rider, params, dt);
@@ -819,9 +834,35 @@ const panel = createPanel(params, readout, view.drivers, preview, feedback, {
   },
 });
 // The speed map only means something on generated ground (a zone with a field).
-const field = slopeConfig.field;
-const speedMap = field ? computeSpeedMap(terrain, params, { width: field.width, length: field.length, ...GEN.speedMap }) : undefined;
-addParkFolder(panel.pane, layout, seed, createOverlays(view.scene, terrain, speedMap, layout, params), {
+const speedMapOf = (t: Terrain, cfg: SlopeConfig): (() => SpeedMap | undefined) | undefined => {
+  const field = cfg.field;
+  if (!field) return undefined;
+  let map: SpeedMap | undefined;
+  return () => (map ??= computeSpeedMap(t, params, { width: field.width, length: field.length, ...GEN.speedMap }));
+};
+const overlays = createOverlays(view.scene, terrain, speedMapOf(terrain, slopeConfig), layout, params);
+
+/**
+ * Rebuild the park in place from an edited layout (the park editor's entry to the world).
+ * `changed`: where the ground moved — a feature's old and new footprints — so only the
+ * terrain mesh there is rebuilt. The heightfield is baked again only when the ground changed.
+ */
+let builtGround = JSON.stringify(layout.ground);
+export function setPark(next: Layout, changed?: readonly Rect[]): void {
+  const cfg = toSlopeConfig(next);
+  // By value: the editor changes the layout in place.
+  const groundNow = JSON.stringify(next.ground);
+  const sameGround = groundNow === builtGround;
+  builtGround = groundNow;
+  layout = next;
+  slopeConfig = cfg;
+  terrain = createSlope(cfg, sameGround ? terrain.field : undefined);
+  view.setPark(cfg, terrain, sameGround ? changed : undefined);
+  trajectory.setPark(cfg, terrain);
+  overlays.setPark(terrain, layout, speedMapOf(terrain, cfg));
+}
+
+addParkFolder(panel.pane, layout, seed, overlays, {
   onExport: () => download(`camber-park-${layout.name}${layout.seed !== undefined ? `-${layout.seed}` : ''}.json`, JSON.stringify(layout)),
   onLoadLayout: (json) => {
     try {
@@ -839,6 +880,64 @@ addParkFolder(panel.pane, layout, seed, createOverlays(view.scene, terrain, spee
   },
   onTrajectory: (on) => trajectory.setEnabled(on),
 });
+
+/**
+ * Edit mode (src/editor, docs/park-editor-plan.md): the sim stops, the rider is hidden and the
+ * editor's camera and panels take over. Loaded on first use: ?edit=1, the controls sheet's
+ * button, then Tab back and forth.
+ */
+let editor: Editor | undefined;
+let editing = false;
+async function edit(): Promise<void> {
+  if (editing) return;
+  editor ??= (await import('./editor/editor.ts')).createEditor({
+    scene: view.scene,
+    canvas: view.renderer.domElement,
+    params,
+    layout: () => layout,
+    original: shipped,
+    terrain: () => terrain,
+    setPark,
+    ride,
+    overlay: (name) => overlays.show(name),
+    download,
+  });
+  finishRun();
+  editing = true;
+  view.rider.visible = false;
+  spray.object.visible = false;
+  showPanel(false);
+  view.scene.fog = null; // the whole park in view
+  editor.enter();
+}
+/** Back to riding: from `from` (ride from here), else from the last start, on the snow as it is now. */
+function ride(from?: Spawn): void {
+  if (!editing) return;
+  editor?.leave();
+  editing = false;
+  if (paused) togglePause();
+  view.rider.visible = true;
+  spray.object.visible = true;
+  showPanel(true);
+  view.scene.fog = overview.on ? null : sceneFog;
+  const s = from ?? spawn;
+  const p = s.position;
+  spawn = { ...s, position: { x: p.x, y: terrain.sample(p.x, p.z, createContact()).height + (s.speed ? 0.3 : 1.5), z: p.z } };
+  state.spawn = spawn;
+  restart();
+}
+function showPanel(on: boolean): void {
+  const box = panel.pane.element.parentElement;
+  if (box) box.style.display = on ? '' : 'none';
+}
+addEventListener('keydown', (ev) => {
+  const t = ev.target as HTMLElement | null;
+  if (ev.key !== 'Tab' || !editor || (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA'))) return;
+  ev.preventDefault();
+  if (editing) ride();
+  else void edit();
+});
+if (query.get('edit') === '1') void edit();
 
 function restart(): void {
   finishRun();

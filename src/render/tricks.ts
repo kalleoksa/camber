@@ -24,6 +24,9 @@ import { ANCHORS } from './poses.ts';
  * isn't named until the rider is back on snow, so the air off it names the spin out
  * ("270 out"), and catching another rail on the way makes a transfer ("… to 50-50").
  */
+/** |press| at the pop past which it is named an ollie or nollie. */
+const POP_NAMED = 0.3;
+
 export type TrickResult = 'clean' | 'sketchy' | 'tried' | 'done';
 export type TrickEvent = { tick: number; name: string; result: TrickResult };
 
@@ -79,6 +82,7 @@ export function createTrickReader(): TrickReader {
   let spin = 0; // rad about world up, signed
   let flip = 0; // rad about the board's width, signed
   let switchAtTakeoff = false;
+  let popLead = 0; // the press the pop went off, + the leading end (nollie), − the trailing end (ollie)
   const grabTime = new Map<string, number>();
   let maxTweak = 0;
   // Rail.
@@ -103,6 +107,8 @@ export function createTrickReader(): TrickReader {
     spin = 0;
     flip = 0;
     switchAtTakeoff = state.switchRide;
+    // popStance is board frame; riding switch the tail leads.
+    popLead = state.switchRide ? -state.popStance : state.popStance;
     grabTime.clear();
     maxTweak = 0;
   }
@@ -134,9 +140,14 @@ export function createTrickReader(): TrickReader {
     }
     // A mute shoved out all the way is a japan, its own name rather than "tweaked mute".
     if (grab) parts.push(maxTweak > 0.6 ? (grab === 'mute' ? 'japan' : `tweaked ${grab}`) : grab);
+    // Off the leading end it's a nollie, named on everything; off the trailing end an ollie,
+    // the default, named only when there's nothing else to call it.
+    const pop = popLead > POP_NAMED ? 'nollie' : popLead < -POP_NAMED ? 'ollie' : '';
     if (parts.length === 0 || (parts.length === 1 && switchAtTakeoff)) {
+      if (pop) return `${switchAtTakeoff ? 'switch ' : ''}${pop}`;
       return airTime > 0.8 ? `${switchAtTakeoff ? 'switch ' : ''}straight air` : '';
     }
+    if (pop === 'nollie') parts.splice(switchAtTakeoff ? 1 : 0, 0, 'nollie');
     return parts.join(' ');
   }
 
@@ -281,9 +292,14 @@ export function createTrickReader(): TrickReader {
           const crossing = Math.abs(cross) < 0.3 ? 0 : Math.sign(cross);
           const noseSide = along > 1e-6 ? Math.sign(v.x * Math.cos(state.heading) - v.z * Math.sin(state.heading)) : 0;
           const noseOver = crossing === 0 || noseSide === 0 || noseSide === crossing;
-          if (end === 'nose') kind = noseOver ? 'noseslide' : 'nose blunt';
-          else if (end === 'tail') kind = noseOver ? 'blunt' : 'tailslide';
-          else kind = noseOver ? 'boardslide' : 'lipslide';
+          // Weight on an end: how far along the board the rail sits names it — under a foot a
+          // blunt (nose blunt under the front foot), out at a tip a noseslide or tailslide.
+          // Which end crossed first only splits a centred slide: boardslide or lipslide.
+          const r = params.rig;
+          const reach = Math.abs(c);
+          if (reach < r.slideEndMin) kind = noseOver ? 'boardslide' : 'lipslide';
+          else if (reach < (r.bluntContact + r.slideContact) / 2) kind = c > 0 ? 'nose blunt' : 'blunt';
+          else kind = c > 0 ? 'noseslide' : 'tailslide';
         }
         if (kind) {
           // Across the rail: travelling toward the heels is frontside (your convention).

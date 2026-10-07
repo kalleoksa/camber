@@ -3,7 +3,7 @@ import type { Params } from './params.ts';
 import { resetRiderState, type RiderState } from './state.ts';
 import { stepAirborne } from './states/airborne.ts';
 import { stepBailed } from './states/bailed.ts';
-import { stepGrounded } from './states/grounded.ts';
+import { butterAmount, stepGrounded } from './states/grounded.ts';
 import { stepRailed } from './states/railed.ts';
 import type { Terrain } from './terrain.ts';
 import { dampScalar } from './vec3.ts';
@@ -17,7 +17,10 @@ export function tick(
   dt: number,
 ): void {
   state.tick++;
-  state.brake = input.lt;
+  const two = params.input.scheme > 0;
+  // Two sticks: the speed check is the right stick sideways, a skid, signed toward the side
+  // it pushes the tail. Not in the landing window, where the same stick reverts and saves.
+  state.brake = two ? (state.absorb > 0 ? 0 : input.rx) : input.lt;
 
   if (input.y) {
     if (!state.resetLatch) {
@@ -37,7 +40,30 @@ export function tick(
   const winding = params.air.spinModel > 0 && input.rt > params.pop.trigger && (state.mode === 'grounded' || state.mode === 'walled');
   const steer = winding ? params.air.windSteer : 1;
   state.edge = dampScalar(state.edge, input.lx * dir * steer, params.ground.edgeResponse, dt);
-  state.stance = dampScalar(state.stance, input.ly * dir, params.ground.stanceResponse, dt);
+  const onSnow = state.mode === 'grounded' || state.mode === 'walled';
+  if (!two) {
+    state.stance = dampScalar(state.stance, input.ly * dir, params.ground.stanceResponse, dt);
+  } else {
+    // The press is the lower body: right stick Y. RT held on a press locks it (a butter
+    // held through the wind-up, popped out of); in the air with a hand on the board the
+    // right stick is the grab, so the weight comes back to the middle.
+    // The lock only stops the press easing off, and only on an actual butter — at speed a
+    // press under RT is just the ollie or nollie loading, and keeps following the stick.
+    const v = state.velocity;
+    const buttering = onSnow && butterAmount(state.stance, Math.sqrt(v.x * v.x + v.y * v.y + v.z * v.z), params) > 0;
+    const grabbing = state.mode === 'airborne' && (input.lb || input.rb);
+    const target = grabbing ? 0 : input.ry * dir;
+    const easing = target * state.stance <= 0 || Math.abs(target) < Math.abs(state.stance);
+    const locked = buttering && input.rt > params.pop.trigger && easing;
+    if (!locked) state.stance = dampScalar(state.stance, target, params.ground.stanceResponse, dt);
+    // Left stick Y on the snow is posture, the speed control: forward tucks, back stands tall.
+    state.posture = dampScalar(state.posture, onSnow ? input.ly : 0, params.ground.stanceResponse, dt);
+    // Flips read a flick of left stick Y against this, so a held tuck pops straight. Held
+    // through the pop window, so the flick is measured from before the pop.
+    if (!(state.mode === 'airborne' && state.popWindow > 0)) {
+      state.flipRef = dampScalar(state.flipRef, input.ly, params.air.spinRefRate, dt);
+    }
+  }
 
   // The baseline takeoff measures the spin whip against — "the carve you are already
   // holding". Its own rate rather than a reuse of `state.edge`, so widening the whip window

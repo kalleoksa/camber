@@ -2,7 +2,7 @@ import { normalize, vec3, type Vec3 } from './vec3.ts';
 import * as dm from './dmath.ts';
 import { shapeProfile, turned, type ShapeConfig } from './features.ts';
 import { hipProfile, type HipShape } from './hip.ts';
-import { buildField, sampleField, type FieldConfig, type FieldSample } from './heightfield.ts';
+import { buildField, sampleField, type Field, type FieldConfig, type FieldSample } from './heightfield.ts';
 import { buildRail, type Rail, type RailConfig } from './rails.ts';
 
 export type SurfaceType = 'snow' | 'rail' | 'wall' | 'quarter';
@@ -28,6 +28,8 @@ export type Terrain = {
   sample(x: number, z: number, out: Contact): Contact;
   /** Rails in world space, built from the config. Empty when there are none. */
   rails: readonly Rail[];
+  /** The baked heightfield, when the config has one: pass it back to `createSlope` to skip the bake. */
+  field?: Field;
 };
 
 export type SlopeConfig = {
@@ -37,7 +39,7 @@ export type SlopeConfig = {
   /** Legacy single kicker, kept so takes recorded with it replay. New terrain uses `kickers`. */
   kicker?: KickerConfig;
   kickers?: KickerConfig[];
-  corners?: CornerConfig[];
+  corners?: HipConfig[]; // hips; the key keeps its old name so recorded takes and layouts load
   quarters?: QuarterConfig[];
   rails?: RailConfig[];
   walls?: WallConfig[];
@@ -55,13 +57,13 @@ export type SlopeConfig = {
 };
 
 /**
- * A corner (hip) jump: a straight takeoff up the fall line to a lip, a flat deck, and
+ * A hip jump: a straight takeoff up the fall line to a lip, a flat deck, and
  * landings falling away on both sides and ahead. Come into the takeoff angled left or
  * right and the air carries you over the side landing — frontside one way, backside the
  * other. The landing profile is the kicker's (knuckle, straight, run-out), measured from
  * the deck's edge, so the corners of the deck round off instead of meeting in a crease.
  */
-export type CornerConfig = {
+export type HipConfig = {
   z: number; // m, where the transition starts
   x: number; // m, centre across the slope
   width: number; // m of takeoff
@@ -124,6 +126,7 @@ export type WallConfig = {
   radius: number; // m, transition radius
   top: number; // m of flat top
   taper: number; // m over which each end fades in
+  yaw?: number; // rad, turned about (x, z) off the fall line, toward +X as it grows
 };
 
 /**
@@ -169,6 +172,13 @@ export type KickerConfig = {
   /** m of flat top at knuckle height before the landing starts: with `knuckleHeight` above the lip, a step-up. */
   topLength?: number;
   yaw?: number; // rad, turned about (x, z) off the fall line, toward +X as it grows
+  /**
+   * Gap builds only: rad the ground under it falls across its axis, toward +X in its own frame
+   * (negative: toward −X). The low side is built up in proportion to the feature's height, so a
+   * kicker set across a slope has a level lip and a landing level at its knuckle, easing back to
+   * the ground's own cross-fall at the run-out.
+   */
+  tilt?: number;
 };
 
 export function createContact(): Contact {
@@ -179,7 +189,12 @@ export function createContact(): Contact {
  * Constant-pitch plane falling toward -Z, with the sides rolled up slightly so a run
  * that drifts wide is pushed back to the fall line instead of off the edge.
  */
-export function createSlope(cfg: SlopeConfig): Terrain {
+/**
+ * `baked`: the field a terrain built from the same `cfg.field` already baked (`terrain.field`).
+ * The bake is the slow part, and moving a feature doesn't change the ground; the heights are
+ * the same either way.
+ */
+export function createSlope(cfg: SlopeConfig, baked?: Field): Terrain {
   const slope = dm.tan(cfg.pitch);
   const half = cfg.width * 0.5;
   const bankHeight = cfg.width * 0.06;
@@ -193,7 +208,7 @@ export function createSlope(cfg: SlopeConfig): Terrain {
   };
 
   const kickers = (cfg.kickers ?? (cfg.kicker ? [cfg.kicker] : [])).map((k) => turned(k.x, k.z, k.yaw, kickerProfile(k)));
-  const walls = (cfg.walls ?? []).map(wallProfile);
+  const walls = (cfg.walls ?? []).map((w) => turned(w.x, w.z, w.yaw, wallProfile(w)));
   const corners = (cfg.corners ?? []).map((c) => turned(c.x, c.z, c.yaw, cornerProfile(c)));
   const quarters = (cfg.quarters ?? []).map((q) => turned(q.x, q.z, q.yaw, quarterProfile(q)));
   const shapes = (cfg.shapes ?? []).map(shapeProfile);
@@ -221,7 +236,7 @@ export function createSlope(cfg: SlopeConfig): Terrain {
     return h;
   };
 
-  const field = cfg.field ? buildField(cfg.field) : undefined;
+  const field = cfg.field ? (baked ?? buildField(cfg.field)) : undefined;
   const fs: FieldSample = { h: 0, dx: 0, dz: 0 };
   const groundAt = (x: number, z: number): number => (field ? sampleField(field, x, z, fs).h : z * slope + bank(x));
   const heightAt = (x: number, z: number): number => groundAt(x, z) + featureHeight(x, z);
@@ -229,6 +244,7 @@ export function createSlope(cfg: SlopeConfig): Terrain {
 
   return {
     rails,
+    ...(field ? { field } : {}),
     sample(x, z, out) {
       const eps = 0.05;
       if (field) {
@@ -406,6 +422,8 @@ function kickerProfile(k: KickerConfig): Profile {
   const fade = (t: number): number => (t <= 0 ? 0 : t >= 1 ? 1 : t * t * (3 - 2 * t));
 
   const back = k.backLength ?? k.lipHeight * 0.4;
+  const tilt = dm.tan(k.tilt ?? 0);
+  const low = tilt >= 0 ? 1 : -1; // the side of its width the ground falls to
 
   return (x: number, z: number): number => {
     const s = k.z - z;
@@ -418,10 +436,12 @@ function kickerProfile(k: KickerConfig): Profile {
       let takeoff = 0;
       if (s < runIn) takeoff = radius - Math.sqrt(radius * radius - s * s);
       else if (s < runIn + back) takeoff = k.lipHeight * (1 - fade((s - runIn) / back));
+      if (tilt !== 0) takeoff *= 1 + Math.max(0, (x - k.x + low * k.width * 0.5) * tilt) / k.lipHeight;
       takeoff *= fade(1 - (dx - k.width * 0.5) / k.sideTaper);
       let hill = 0;
       if (s > runIn) {
-        const along = s < deckEnd ? top * fade((s - runIn) / Math.max(deckEnd - runIn, 1e-3)) : tableHeight(s);
+        let along = s < deckEnd ? top * fade((s - runIn) / Math.max(deckEnd - runIn, 1e-3)) : tableHeight(s);
+        if (tilt !== 0 && top > 0) along *= 1 + Math.max(0, (x - k.x + low * deckHalf) * tilt) / top;
         hill = along * fade(1 - (dx - deckHalf) / (k.deckTaper ?? k.sideTaper));
       }
       return takeoff > hill ? takeoff : hill;
@@ -526,7 +546,7 @@ function gradeProfile(pitch: number, grades: GradeConfig[]): Profile | null {
 }
 
 /** Corner height above the slope: max of the takeoff and the three-sided landing. */
-function cornerProfile(c: CornerConfig): Profile {
+function cornerProfile(c: HipConfig): Profile {
   if (c.hip) return hipProfile(c, c.hip);
   const radius = c.lipHeight / (1 - dm.cos(c.lipAngle));
   const runIn = radius * dm.sin(c.lipAngle);

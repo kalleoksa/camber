@@ -15,7 +15,16 @@ export type TerrainMesh = {
   update(camera: THREE.Vector3, budget: number): void;
   /** Triangles currently drawn — a diagnostic. */
   triangles(): number;
+  /**
+   * The terrain changed under `rects` (everywhere when omitted): rebuild the chunks there from
+   * `next`, coarse at once. A chunk on screen keeps its old mesh until the detail it wants is built.
+   */
+  invalidate(next: Terrain, rects?: readonly Rect[]): void;
+  dispose(): void;
 };
+
+/** A world-space box on the ground, x0 < x1, z0 < z1. */
+export type Rect = { x0: number; x1: number; z0: number; z1: number };
 
 const CHUNK = 64; // m
 const CELLS = [0.5, 1.25, 3]; // m per level, finest first
@@ -32,9 +41,12 @@ type Chunk = {
   levels: (THREE.Mesh | undefined)[];
   shown: THREE.Mesh | undefined;
   building: { level: number; rows: Generator<void, THREE.Mesh, void> } | undefined;
+  /** `shown` was built from terrain since changed; it stays up until its replacement is built. */
+  stale: boolean;
 };
 
-export function createTerrainMesh(cfg: SlopeConfig, terrain: Terrain, material: THREE.Material): TerrainMesh {
+export function createTerrainMesh(cfg: SlopeConfig, initial: Terrain, material: THREE.Material): TerrainMesh {
+  let terrain = initial;
   const group = new THREE.Group();
   const contact = createContact();
   const chunks: Chunk[] = [];
@@ -42,7 +54,7 @@ export function createTerrainMesh(cfg: SlopeConfig, terrain: Terrain, material: 
   const zBottom = -cfg.length - RUN_OUT;
   for (let z0 = zTop; z0 > zBottom; z0 -= CHUNK) {
     for (let x0 = -cfg.width / 2; x0 < cfg.width / 2; x0 += CHUNK) {
-      chunks.push({ x0, z0, cx: x0 + CHUNK / 2, cz: z0 - CHUNK / 2, levels: [], shown: undefined, building: undefined });
+      chunks.push({ x0, z0, cx: x0 + CHUNK / 2, cz: z0 - CHUNK / 2, levels: [], shown: undefined, building: undefined, stale: false });
     }
   }
   const xEnd = cfg.width / 2;
@@ -170,6 +182,11 @@ export function createTerrainMesh(cfg: SlopeConfig, terrain: Terrain, material: 
         // Show the finest built at or coarser than what's wanted.
         let shown: THREE.Mesh | undefined;
         for (let l = level; l <= coarse && !shown; l++) shown = c.levels[l];
+        if (c.stale) {
+          if (!c.levels[level]) continue; // the old mesh until the wanted detail is rebuilt
+          c.shown?.geometry.dispose();
+          c.stale = false;
+        }
         show(c, shown);
         // Free fine detail left far behind.
         const fine = c.levels[0];
@@ -178,6 +195,26 @@ export function createTerrainMesh(cfg: SlopeConfig, terrain: Terrain, material: 
           c.levels[0] = undefined;
         }
       }
+    },
+    invalidate(next, rects) {
+      terrain = next;
+      for (const c of chunks) {
+        if (rects && !rects.some((r) => r.x0 <= c.x0 + CHUNK && r.x1 >= c.x0 && r.z0 <= c.z0 && r.z1 >= c.z0 - CHUNK)) continue;
+        for (const m of c.levels) if (m && m !== c.shown) m.geometry.dispose();
+        c.levels = [];
+        c.building = undefined;
+        if (c.shown) c.stale = true;
+        finish(c, coarse, build(c, coarse));
+      }
+    },
+    dispose() {
+      for (const c of chunks) {
+        for (const m of c.levels) if (m && m !== c.shown) m.geometry.dispose();
+        c.shown?.geometry.dispose();
+        c.levels = [];
+        c.shown = undefined;
+      }
+      group.clear();
     },
     triangles() {
       let n = 0;

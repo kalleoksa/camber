@@ -18,13 +18,17 @@ export function createSkid(): Skid {
     apply(view, params, dt) {
       const r = params.rig;
       const on = view.mode === 'grounded' && view.speed > 2 && r.skidYaw > 0;
-      const target = on ? view.brake : 0;
+      // Two sticks: the right stick's skid, signed — pushed toward the toes, the tail goes
+      // toward the toes (a frontside shift, on the heels). LT has no side; it takes the edge's.
+      const two = params.input.scheme > 0;
+      const target = on ? Math.abs(view.brake) : 0;
       amount += (target - amount) * (1 - Math.exp(-r.skidRate * dt));
       if (amount < 1e-3) {
         // Pick the side afresh for the next check: the edge you're on when it starts.
         side = view.edge > 0.15 ? -1 : 1;
         return;
       }
+      if (two && view.brake !== 0) side = view.brake > 0 ? 1 : -1;
       view.shifty += side * r.skidYaw * amount;
       view.shiftPivot = 1;
       view.edge = view.edge * (1 - amount) + -side * r.skidEdge * amount;
