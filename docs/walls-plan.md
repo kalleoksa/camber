@@ -20,8 +20,13 @@ the determinism gate. Talma: a 2.5 m plywood panel with a ramp at z −248, and 
 left of the line at z −318.
 
 **Any built obstacle is wallrideable.** A face is the one rideable thing; a `BlockConfig` (a
-building, a box) is a solid whose four sides are faces. A free-standing wall is a panel. Roofs
-aren't solid yet: you ride a building's sides, not its top.
+building, a box) is a solid whose four sides are faces. A free-standing wall is a panel. A
+block's roof is a flat raised in the terrain height, ridden as ground: land on it, ride it, drop
+off the edge. The snow mesh is drawn without it (`terrain.snow`).
+
+Roof probe, 9° slope, 6 m hut: dropped on at 8 m/s, clean on the roof, 1 s on it, off the edge,
+clean on the snow; riding alongside 0.2 m from the side, no snap up onto the roof; square into
+the side or the uphill end, bonk.
 
 Decided while building: catching the face turns `panel.climb` (0.7) of the speed into it up the
 face, as a transition would — without it a wallride only slid along the foot. Leaving the face

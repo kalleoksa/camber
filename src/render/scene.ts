@@ -498,15 +498,37 @@ function panelMeshes(cfg: SlopeConfig, terrain: Terrain): THREE.Group {
     top.position.set(p.x0, p.y0, p.z0).addScaledVector(a, p.length / 2).addScaledVector(e, p.height).addScaledVector(n, -thick / 2);
     group.add(top);
   }
-  const contact = createContact();
-  for (const b of cfg.blocks ?? []) {
-    const ground = terrain.sample(b.x, b.z, contact).height;
-    const box = new THREE.Mesh(new THREE.BoxGeometry(b.width, b.height, b.length), wall);
-    // Box Z along the block's axis (sin yaw, −cos yaw): turned −yaw about up.
-    box.rotation.y = -b.yaw;
-    box.position.set(b.x, ground + b.height / 2, b.z);
-    box.castShadow = true;
-    group.add(box);
+  // A block: its four faces (the panels after the config's own, four per block, in order) as
+  // walls, and a roof across their tops, parallel to the snow — the roof that is ridden.
+  const roofMaterial = new THREE.MeshStandardMaterial({ color: 0x5d6168, roughness: 0.9, side: THREE.DoubleSide });
+  const blocks = cfg.blocks ?? [];
+  for (let k = 0; k < blocks.length; k++) {
+    for (let f = 0; f < 4; f++) {
+      const p = terrain.panels[own + k * 4 + f];
+      if (!p) continue;
+      a.set(p.ax, p.ay, p.az);
+      e.set(p.ex, p.ey, p.ez);
+      n.set(p.nx, p.ny, p.nz);
+      basis.makeBasis(a, e, n);
+      const side = new THREE.Mesh(new THREE.BoxGeometry(p.length, p.height, thick), wall);
+      side.quaternion.setFromRotationMatrix(basis);
+      side.position.set(p.x0, p.y0, p.z0).addScaledVector(a, p.length / 2).addScaledVector(e, p.height / 2).addScaledVector(n, -thick / 2);
+      side.castShadow = true;
+      group.add(side);
+    }
+    // Roof corners: the tops of the two long faces, each end.
+    const s0 = terrain.panels[own + k * 4];
+    const s1 = terrain.panels[own + k * 4 + 1];
+    if (!s0 || !s1) continue;
+    const top = (p: typeof s0, t: number): number[] => [p.x0 + p.ax * t + p.ex * p.height, p.y0 + p.ay * t + p.ey * p.height, p.z0 + p.az * t + p.ez * p.height];
+    const quad = [...top(s0, 0), ...top(s0, s0.length), ...top(s1, s1.length), ...top(s1, 0)];
+    const geometry = new THREE.BufferGeometry();
+    geometry.setAttribute('position', new THREE.Float32BufferAttribute(quad, 3));
+    geometry.setIndex([0, 1, 2, 0, 2, 3]);
+    geometry.computeVertexNormals();
+    const roof = new THREE.Mesh(geometry, roofMaterial);
+    roof.receiveShadow = true;
+    group.add(roof);
   }
   return group;
 }

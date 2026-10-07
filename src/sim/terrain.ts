@@ -1,6 +1,6 @@
 import { normalize, vec3, type Vec3 } from './vec3.ts';
 import * as dm from './dmath.ts';
-import { shapeProfile, turned, type ShapeConfig } from './features.ts';
+import { inFrame, shapeProfile, turned, type ShapeConfig } from './features.ts';
 import { hipProfile, type HipShape } from './hip.ts';
 import { buildField, sampleField, type Field, type FieldConfig, type FieldSample } from './heightfield.ts';
 import { buildRail, type Rail, type RailConfig } from './rails.ts';
@@ -31,6 +31,8 @@ export type Terrain = {
   rails: readonly Rail[];
   /** Built wallride panels in world space. Empty when there are none. */
   panels: readonly Panel[];
+  /** The snow alone, without the roofs of blocks — what the terrain mesh draws and features stand on. */
+  snow?(x: number, z: number, out: Contact): Contact;
   /** The baked heightfield, when the config has one: pass it back to `createSlope` to skip the bake. */
   field?: Field;
 };
@@ -263,10 +265,23 @@ export function createSlope(cfg: SlopeConfig, baked?: Field): Terrain {
   const rails = (cfg.rails ?? []).map((r) => buildRail(r, heightAt));
   const faces = [...(cfg.panels ?? []), ...(cfg.blocks ?? []).flatMap(blockFaces)];
   const panels = faces.map((pc) => buildPanel(pc, heightAt));
+  // Roofs: a block's top, its height above the snow under it, flat to that snow, a sharp drop at
+  // its edges (no difference across them: the edge is a drop, not a steep slope to ride).
+  const roofs = (cfg.blocks ?? []).map((b) => inFrame(b.x, b.z, b.yaw, (s, w) => (Math.abs(s) <= b.length / 2 && Math.abs(w) <= b.width / 2 ? b.height : 0)));
+  const roofAt = (x: number, z: number): number => {
+    let h = 0;
+    for (let i = 0; i < roofs.length; i++) h = Math.max(h, roofs[i]?.(x, z) ?? 0);
+    return h;
+  };
 
-  return {
+  const terrain: Terrain = {
     rails,
     panels,
+    snow(x, z, out) {
+      terrain.sample(x, z, out);
+      if (roofs.length > 0) out.height -= roofAt(x, z);
+      return out;
+    },
     ...(field ? { field } : {}),
     sample(x, z, out) {
       const eps = 0.05;
@@ -300,6 +315,7 @@ export function createSlope(cfg: SlopeConfig, baked?: Field): Terrain {
         out.normal.z -= (featureHeight(x, z + eps) - featureHeight(x, z - eps)) / (2 * eps);
       }
       normalize(out.normal);
+      if (roofs.length > 0) out.height += roofAt(x, z);
 
       out.surface = 'snow';
       out.faceX = 0;
@@ -321,6 +337,7 @@ export function createSlope(cfg: SlopeConfig, baked?: Field): Terrain {
       return out;
     },
   };
+  return terrain;
 }
 
 type Profile = (x: number, z: number) => number;

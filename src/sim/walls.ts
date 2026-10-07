@@ -84,7 +84,7 @@ export function buildPanel(cfg: PanelConfig, heightAt: (x: number, z: number) =>
 /**
  * A built solid standing on the snow — a building, a box, a tombstone — whose sides are faces to
  * wallride: centred on (x, z), `length` m along its axis (yaw), `width` across, `height` tall.
- * Its roof isn't solid yet: only the sides are ridden.
+ * Its roof is a raised flat in the terrain height (terrain.ts), ridden like snow.
  */
 export type BlockConfig = { x: number; z: number; yaw: number; length: number; width: number; height: number };
 
