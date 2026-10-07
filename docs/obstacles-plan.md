@@ -39,22 +39,22 @@
 | Spine, roller, side hit | Exist | `features.ts` |
 | Quarterpipe, halfpipe, wallride wall | Exist | `QuarterConfig`, `WallConfig`; halfpipe in home park only |
 | Rails, boxes, jib tables, bonk naming | Exist | `rails.ts`, Sochi, `render/tricks.ts` |
-| Step-down | **Missing** | §1 |
-| Mini kicker | **Missing** | §2 |
-| Booter | **Missing** | §3 |
-| Corner (takeoff across the slope) | **Missing** | §4. The code's "corner" is a hip |
-| Step-down hip | **Missing** | §5 |
-| Wedge / pyramid | **Missing** | §6 |
-| Euro gap | **Missing** | §7 |
-| Gap to rail | **Missing** | §8 |
-| Rail on table (generated) | **Missing** in the generator | §9 |
-| Log / stump | **Missing** | §10 |
-| Knoll | **Missing** | §11 |
-| Cliff / drop | **Missing** | §12 |
-| Mini pipe | **Missing** | §13 |
-| Berm, turned wall ride | **Missing** | §14 |
-| Hip quarter | **Missing** | §15 |
-| Fun box | **Missing** | §16 |
+| Step-down | Built | §1 |
+| Mini kicker | Built | §2 |
+| Booter | Built | §3 |
+| Corner (takeoff across the slope) | Built | §4. The code's old "corner" is now `HipConfig` |
+| Step-down hip | Built, not in the generator | §5 |
+| Wedge / pyramid | Built | §6 |
+| Euro gap | Built | §7 |
+| Gap to rail | Built | §8 |
+| Rail on table (generated) | Built (jib table) | §9 |
+| Log / stump | Built | §10 |
+| Knoll | Built | §11 |
+| Cliff / drop | Built | §12 |
+| Mini pipe | Built | §13 |
+| Berm, turned wall ride | Built; berm keeps ≥ 90% of speed only up to ~10 m/s | §14, results below |
+| Hip quarter | Built, inside and outside corners | §15, results below |
+| Fun box | Built | §16 |
 | Tombstone / tap wall | **Missing**, needs a sim rule | §17 |
 | Channel gap | **Missing**, needs a rethink | §18 |
 | Cornice / wind lip | **Missing**, approximated | §19 |
@@ -437,3 +437,42 @@ Built (inside corners only): `designHipQuarter` — two `QuarterConfig` sections
 at 30–60°, either way round, grouped. A line ends in one 30% of the time (a straight quarter
 otherwise); fill odds 0.03. `npm run obstacle-check`: 3–4 of 6 airs along the first section's
 coping come down on the second section's face, both ways round.
+
+## Hip quarter joined, berm ridden (2026-10-07)
+
+**Hip quarter, outside corners.** The measurement above blamed `vertExit`, but the first
+problem was the geometry. Each section tapered off at its ends, so at an outside corner the two
+tapers left a gap the rider ran straight through: no air, low on the ground, past the end.
+`joinQuarters` (kit) now joins the pair: the ends at the corner don't taper
+(`QuarterConfig.joinEnd`) and are cut on the corner's bisector (`QuarterConfig.mitre`). That
+makes one wall with a corner, convex or concave. No sim change.
+
+`npm run hip-quarter`, approach 20° off straight up the first section:
+
+| Corner | Where the air comes down |
+|---|---|
+| Outside −30° / −60°, 9 m/s | Second section's face, 14–18° off its fall line |
+| Outside, 12 m/s | Second section, 4–7.5 m along it: low transition when slow, its deck when fast |
+| Inside 30–60° | Unchanged: 7 of 18 on the second section's face |
+
+The steeper 35° and 50° approaches at an outside corner run along the second section rather
+than up it and ride off its end. That is right: the section is turned away from that line.
+Most measured airs bail, but that's the bot, which doesn't turn to meet the second face.
+
+`designHipQuarter` builds outside corners too now (`GEN.hipQuarter.outside`, 0.4).
+
+**Berm, ridden.** `npm run obstacle-check` steers a bot round the arc halfway up the bank,
+with feed-forward on the carve's own turn rate, and compares the same line on bare snow:
+
+| Entry | Berm keeps | Bare snow keeps |
+|---|---|---|
+| 10 m/s | 92% | 80% |
+| 13 m/s | 81% | 72% |
+| 16 m/s | 72% | 66% |
+
+The berm always beats bare snow, but ≥ 90% only holds up to ~10 m/s. A bigger radius doesn't
+change that: carving costs speed (design §4, step 6), and at 16 m/s a 90° carve loses ~30% on
+bare snow at any radius. 50° banks bailed a steered rider off the top or cost more, so the
+generator's bank is capped at 40°. Holding ≥ 90% at speed needs the bank to carry part of the
+turn in the ground model, so the edge scrubs less. That's a carve-model change, so ask first.
+

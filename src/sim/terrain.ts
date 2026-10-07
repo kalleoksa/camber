@@ -102,6 +102,14 @@ export type QuarterConfig = {
   side?: 1 | -1; // set: faces across the slope, rising toward +X or −X, as one wall of a halfpipe
   backAngle?: number; // rad of the back face; defaults to `angle`, a drop off the deck
   yaw?: number; // rad, turned about (x, z) off the fall line, toward +X as it grows
+  /**
+   * Joined to another section (a hip quarter): the end at this side of the width (+1 toward
+   * +across, −1 the other) doesn't roll off — it runs on until `mitre` cuts it, so the two
+   * sections meet in one wall with a corner instead of two tapered ends with a gap between.
+   */
+  joinEnd?: 1 | -1;
+  /** World line (x, z) and normal (nx, nz): no height where (p − line)·n > 0. The corner's bisector. */
+  mitre?: [number, number, number, number];
 };
 
 export type GradeConfig = {
@@ -210,7 +218,7 @@ export function createSlope(cfg: SlopeConfig, baked?: Field): Terrain {
   const kickers = (cfg.kickers ?? (cfg.kicker ? [cfg.kicker] : [])).map((k) => turned(k.x, k.z, k.yaw, kickerProfile(k)));
   const walls = (cfg.walls ?? []).map((w) => turned(w.x, w.z, w.yaw, wallProfile(w)));
   const corners = (cfg.corners ?? []).map((c) => turned(c.x, c.z, c.yaw, cornerProfile(c)));
-  const quarters = (cfg.quarters ?? []).map((q) => turned(q.x, q.z, q.yaw, quarterProfile(q)));
+  const quarters = (cfg.quarters ?? []).map((q) => mitred(q.mitre, turned(q.x, q.z, q.yaw, quarterProfile(q))));
   const shapes = (cfg.shapes ?? []).map(shapeProfile);
   const grades = gradeProfile(cfg.pitch, cfg.grades ?? []);
 
@@ -609,6 +617,13 @@ function cornerProfile(c: HipConfig): Profile {
 }
 
 /** Quarter-pipe height above the slope: transition arc, near-vertical face, deck, back drop. */
+/** A profile cut off on the far side of a line — a mitred corner. */
+function mitred(m: [number, number, number, number] | undefined, p: Profile): Profile {
+  if (!m) return p;
+  const [mx, mz, nx, nz] = m;
+  return (x, z) => ((x - mx) * nx + (z - mz) * nz > 0 ? 0 : p(x, z));
+}
+
 function quarterProfile(q: QuarterConfig): Profile {
   const r = q.radius;
   const arcLen = r * dm.sin(q.angle);
@@ -623,7 +638,10 @@ function quarterProfile(q: QuarterConfig): Profile {
     // s runs up the transition; `side` is how far past the pipe's end, along the coping.
     const s = across === 0 ? q.z - z : across * (x - q.x);
     if (s <= 0 || s >= backEnd) return 0;
-    const side = (across === 0 ? Math.abs(x - q.x) : Math.abs(z - q.z)) - q.width * 0.5;
+    const w = across === 0 ? x - q.x : z - q.z;
+    // A joined end runs on a width past the section, for the mitre to cut.
+    const joined = q.joinEnd !== undefined && w * q.joinEnd > 0;
+    const side = joined ? (Math.abs(w) > q.width * 1.5 ? q.sideTaper : 0) : Math.abs(w) - q.width * 0.5;
     if (side >= q.sideTaper) return 0;
     let h: number;
     if (s < arcLen) h = r - Math.sqrt(r * r - s * s);
