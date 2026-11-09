@@ -6,8 +6,8 @@
  * Top down: a ridge to ride along, its crest rolling, the ground falling away on both sides and
  * two spurs branching off it; the ridge ends in a drop into a gully that winds down the hill
  * between its own walls, crossed by two humps with a kicker on each, landing down the hump's
- * back (park-sized: at the speed the hill gives, 80 km/h, the airs outfly the humps — they need
- * landings 60 m long, which is the next piece of ground to shape); then an open apron with a jump and a bowl of quarter pipes.
+ * back; then the big kicker, hit at the speed the hill gives, on a deck above a 60 m face that is
+ * its landing; and a bowl of quarter pipes.
  *
  * Every number is in RIDGE below. The hill is too steep to ride without braking, so the check
  * bot (src/park/check.ts) scrubs speed into each feature as a rider would and holds `cruise`
@@ -15,7 +15,7 @@
  * not checked.
  */
 import { writeFileSync } from 'node:fs';
-import { GEN } from '../src/gen/config.ts';
+import { GEN, type GenConfig } from '../src/gen/config.ts';
 import type { Size } from '../src/gen/kit.ts';
 import { group, redesign, type Kind } from '../src/gen/lines.ts';
 import { checkLines, failed } from '../src/park/check.ts';
@@ -26,17 +26,25 @@ import { createContact, createSlope, type Terrain } from '../src/sim/terrain.ts'
 
 const RAD = Math.PI / 180;
 
-type Spot = { kind: Kind | 'panel'; x: number; z: number; yaw?: number; size?: Size; inputs?: Record<string, number>; cfg?: Record<string, number>; line?: boolean };
+type Spot = { kind: Kind | 'panel'; x: number; z: number; yaw?: number; size?: Size; big?: boolean; inputs?: Record<string, number>; cfg?: Record<string, number>; line?: boolean };
 
 const RIDGE = {
-  length: 780, // m down the hill
+  length: 910, // m down the hill
   width: 320, // m across
   pitch: 15, // ° of the hill under everything
   cell: 1, // m between heightfield nodes
   bank: { width: 70, height: 26 }, // the valley's sides
   noise: { amp: 1.6, wavelength: 80, octaves: 3 }, // m of roll in the ground everywhere
-  apron: { z: -600, length: 100, pitch: 7 }, // the hill eases off below the gully
-  bowl: { length: 80, pitch: 1 },
+  // Below the gully, the big kicker's ground, full width: a deck that carries it and 25 m of
+  // table past its lip, then a long steep face. The table matters as much as the face: where the
+  // ground falls away right after the lip, a rider drops for 4–5 s and comes in far steeper than
+  // any landing. At hill speed touchdowns spread over 40 m, so the face is 80.
+  // The face steepens as it goes, like the flight does: a rider who goes further comes in steeper.
+  big: { z: -640, blend: 8, segs: [[60, 6], [22, 28], [26, 40], [36, 45], [45, 7]] as [number, number][] }, // [length m, grade °]: deck, face in three, run-out
+  // The kicker itself: hit at the speed the hill gives (m/s), wide. The editor re-solves a kicker
+  // at the kit's own sizes, so editing this one there shrinks it.
+  bigKicker: { lip: 4, speed: [18, 22], width: 10, landingExtra: 12 },
+  bowl: { length: 75, pitch: 1 },
   start: -6, // z the rider spawns at, on the ridge
   cruise: 23, // m/s the check bot holds between features (83 km/h)
   // Ridges (+) and gullies (−): [x, z, height m] down each path, held `halfWidth` m either side
@@ -54,10 +62,10 @@ const RIDGE = {
     { halfWidth: 3, skirt: 18, points: [[-46, -462, 4], [-8, -466, 7], [26, -462, 4]] },
   ] as FormConfig[],
   spots: [
-    // On the line the bot rides: a kicker up each hump, one on the apron.
+    // On the line the bot rides: a kicker up each hump, then the big one.
     { kind: 'kicker', x: 14, z: -338, size: 'L', line: true },
     { kind: 'kicker', x: -8, z: -434, size: 'L', line: true },
-    { kind: 'kicker', x: 0, z: -640, size: 'M', line: true },
+    { kind: 'kicker', x: 0, z: -659, size: 'XL', big: true, line: true },
     // Natural hits on the gully's walls, turned across it; a wall to ride on one of them.
     { kind: 'sideHit', x: 34, z: -400, yaw: -40, inputs: { height: 1.5, width: 5 } },
     { kind: 'sideHit', x: -32, z: -505, yaw: 40, inputs: { height: 1.5, width: 5 } },
@@ -66,9 +74,9 @@ const RIDGE = {
     { kind: 'sideHit', x: -9, z: -60, yaw: 55, inputs: { height: 1.2, width: 5 } },
     { kind: 'sideHit', x: 9, z: -118, yaw: -55, inputs: { height: 1.2, width: 5 } },
     // The bowl across the bottom.
-    { kind: 'quarter', x: -46, z: -752, inputs: { width: 44, height: 4, radius: 4.5 } },
-    { kind: 'hipQuarter', x: 6, z: -754, inputs: { left: 0, outside: 0, width: 16, angle: 45, height: 4, radius: 4.5 } },
-    { kind: 'quarter', x: 48, z: -752, inputs: { width: 44, height: 4.5, radius: 5 } },
+    { kind: 'quarter', x: -46, z: -872, inputs: { width: 44, height: 4, radius: 4.5 } },
+    { kind: 'hipQuarter', x: 6, z: -874, inputs: { left: 0, outside: 0, width: 16, angle: 45, height: 4, radius: 4.5 } },
+    { kind: 'quarter', x: 48, z: -872, inputs: { width: 44, height: 4.5, radius: 5 } },
   ] as Spot[],
 };
 
@@ -83,7 +91,7 @@ function field(): FieldConfig {
     bankHeight: R.bank.height,
     noise: { seed: 3, ...R.noise },
     patches: [
-      { x: 0, z: R.apron.z, yaw: 0, halfWidth: R.width, edge: 1, blend: 30, segs: [[R.apron.length, R.apron.pitch * RAD], [R.bowl.length + 40, R.bowl.pitch * RAD]] },
+      { x: 0, z: R.big.z, yaw: 0, halfWidth: R.width, edge: 1, blend: R.big.blend, segs: [...R.big.segs.map(([len, deg]): [number, number] => [len, deg * RAD]), [R.bowl.length + 40, R.bowl.pitch * RAD]] },
     ],
     forms: R.forms,
   };
@@ -98,6 +106,8 @@ const terrainOf = (features: FeatureSpec[]): Terrain => createSlope(toSlopeConfi
 const bare = terrainOf([]);
 const contact = createContact();
 
+const BIG = { ...GEN, kicker: { ...GEN.kicker, width: RIDGE.bigKicker.width, landingExtra: RIDGE.bigKicker.landingExtra, sizes: { ...GEN.kicker.sizes, XL: { lip: RIDGE.bigKicker.lip, speed: RIDGE.bigKicker.speed } } } } as GenConfig;
+
 function make(s: Spot): FeatureSpec[] {
   const yaw = (s.yaw ?? 0) * RAD;
   const c = s.cfg ?? {};
@@ -105,9 +115,10 @@ function make(s: Spot): FeatureSpec[] {
     return [{ kind: 'panel', cfg: { x: s.x, z: s.z, yaw, length: c.length ?? 20, height: c.height ?? 2.5, lean: (c.lean ?? 8) * RAD, side: c.side === -1 ? -1 : 1, foot: c.foot ?? 0.5, ramp: { height: c.foot ?? 0.5, length: c.rampLength ?? 3 } }, meta: { type: 'wallRide' } }];
   }
   const size = s.size ?? 'S';
-  const speed = s.kind === 'kicker' ? GEN.kicker.sizes[size].speed : [0, 99];
+  const cfg = s.big ? BIG : GEN;
+  const speed = s.kind === 'kicker' ? cfg.kicker.sizes[size].speed : [0, 99];
   // The kit's own design, solved over the ground as it is, kept so the editor can change it.
-  return redesign({ kind: s.kind, place: { x: s.x, z: s.z, yaw }, size, speed: [speed[0] ?? 0, speed[1] ?? 99], inputs: { ...(s.inputs ?? {}) } }, bare, GEN, params);
+  return redesign({ kind: s.kind, place: { x: s.x, z: s.z, yaw }, size, speed: [speed[0] ?? 0, speed[1] ?? 99], inputs: { ...(s.inputs ?? {}) } }, bare, cfg, params);
 }
 
 const features: FeatureSpec[] = [];
@@ -130,6 +141,7 @@ console.log(line.name);
 got.forEach((c, i) => {
   line.speed[i] = Math.round(c.at * 100) / 100;
   if (failed(c)) failures++;
+  if (features[c.feature]?.cfg && RIDGE.spots.some((sp) => sp.big)) for (const k of features[c.feature]?.meta?.checks ?? []) if (c.design[1] > 20) console.log(`      designed ${(k.speed * 3.6).toFixed(0)} km/h pop ${k.pop.toFixed(1)}: ${k.grade}, impact ${k.impact.toFixed(1)}, ${k.past.toFixed(0)} m past the knuckle`);
   console.log(`  ${c.type} ${features[c.feature]?.meta?.size ?? ''} at z ${c.z.toFixed(0)}: ${c.at.toFixed(1)} m/s (${(c.at * 3.6).toFixed(0)} km/h, design ${c.design.join('–')}) ${c.ok ? 'ok' : 'OUT'}, ${c.how}`);
 });
 if (got.length < line.features.length) {
