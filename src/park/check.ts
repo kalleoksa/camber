@@ -27,7 +27,13 @@ function target(f: FeatureSpec): { x: number; z: number } {
   return { x: k.x, z: k.z - (f.meta?.lip ?? 0) };
 }
 
-export function checkLines(layout: Layout, t: Terrain, params: Params): LineCheck[] {
+/**
+ * `brake`: on steep ground, scrub into every feature that has design speeds (not only rails), as a
+ * rider would. `cruise`: m/s held between features the same way.
+ */
+export type CheckOptions = { brake?: boolean; cruise?: number };
+
+export function checkLines(layout: Layout, t: Terrain, params: Params, opt: CheckOptions = {}): LineCheck[] {
   const c = createContact();
   const out: LineCheck[] = [];
   for (const line of layout.lines) {
@@ -60,8 +66,9 @@ export function checkLines(layout: Layout, t: Terrain, params: Params): LineChec
         if (time < lead && time > 0.02) inp.rt = 1;
         if (time < 0.4) inp.lx = 0;
         // Rails are taken at their design speed: scrub to it on the way in (kickers: never brake).
-        const top = (f.meta?.speed?.[1] ?? 99) - 1;
-        if (f.kind === 'rail' && toGo > 0 && toGo < 40 && speed > top && time > 0.4) {
+        const near = (f.kind === 'rail' || opt.brake === true) && toGo > 0 && toGo < (opt.brake ? 70 : 40) && time > 0.4;
+        const top = near ? (f.meta?.speed?.[1] ?? 99) - 1 : (opt.cruise ?? 99);
+        if (speed > top) {
           // The speed check: LT on one stick, the right stick's skid on two (LT does nothing there).
           const scrub = Math.min(1, (speed - top) * 0.8);
           if (params.input.scheme > 0) inp.rx = scrub;

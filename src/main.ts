@@ -69,15 +69,15 @@ import { createSkid } from './render/skid.ts';
 import { createPanel, download, type FeedbackState, type Readout } from './tuning/panel.ts';
 
 const SEED = 1;
-// Parks are layouts (src/park/layout.ts). By default the flow park (parks/flow.json, built by
-// scripts/build-flow.ts). ?park=talma for the Talma-style park (scripts/build-talma.ts), ?park=gen or ?seed=N for a generated park (src/gen) — the same
+// Parks are layouts (src/park/layout.ts). By default the ridge park (parks/ridge.json, built by
+// scripts/build-ridge.ts). ?park=flow for the staircase park (scripts/build-flow.ts), ?park=talma for the Talma-style park (scripts/build-talma.ts), ?park=gen or ?seed=N for a generated park (src/gen) — the same
 // seed always builds the same park. ?park=home for the old hand-built park
 // (src/park/park.ts), ?park=sochi for Sochi 2014, ?park=slopestyle for the first park,
 // ?park=file for a layout loaded from a JSON file (park folder). All full size under real
 // gravity. A take stores its terrain and params, so takes from before (16 m/s², 0.61-scale
 // parks) replay as they were.
 const query = new URLSearchParams(location.search);
-const parkName = query.get('park') ?? (query.has('seed') ? 'gen' : 'flow');
+const parkName = query.get('park') ?? (query.has('seed') ? 'gen' : 'ridge');
 const seed = Math.max(1, Math.round(Number(query.get('seed') ?? 1)) || 1);
 // The park as shipped, and what is ridden: the park editor's local copy of it when this browser
 // has one (src/editor/store.ts), until "reset to the shipped park" drops it.

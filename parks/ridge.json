@@ -1,0 +1,782 @@
+{
+ "version": 1,
+ "name": "ridge",
+ "ground": {
+  "length": 780,
+  "width": 320,
+  "pitch": 0.2617993877991494,
+  "field": {
+   "pitch": 0.2617993877991494,
+   "width": 320,
+   "length": 780,
+   "cell": 1,
+   "bankWidth": 70,
+   "bankHeight": 26,
+   "noise": {
+    "seed": 3,
+    "amp": 1.6,
+    "wavelength": 80,
+    "octaves": 3
+   },
+   "patches": [
+    {
+     "x": 0,
+     "z": -600,
+     "yaw": 0,
+     "halfWidth": 320,
+     "edge": 1,
+     "blend": 30,
+     "segs": [
+      [
+       100,
+       0.12217304763960307
+      ],
+      [
+       120,
+       0.017453292519943295
+      ]
+     ]
+    }
+   ],
+   "forms": [
+    {
+     "halfWidth": 5,
+     "skirt": 26,
+     "points": [
+      [
+       0,
+       20,
+       6
+      ],
+      [
+       0,
+       -20,
+       10
+      ],
+      [
+       2,
+       -65,
+       12.5
+      ],
+      [
+       -2,
+       -100,
+       10
+      ],
+      [
+       3,
+       -135,
+       13
+      ],
+      [
+       0,
+       -170,
+       10.5
+      ],
+      [
+       0,
+       -200,
+       12
+      ],
+      [
+       0,
+       -222,
+       12
+      ]
+     ]
+    },
+    {
+     "halfWidth": 4,
+     "skirt": 20,
+     "points": [
+      [
+       -4,
+       -92,
+       9
+      ],
+      [
+       -30,
+       -124,
+       7
+      ],
+      [
+       -60,
+       -172,
+       0
+      ]
+     ]
+    },
+    {
+     "halfWidth": 4,
+     "skirt": 20,
+     "points": [
+      [
+       4,
+       -148,
+       9
+      ],
+      [
+       32,
+       -184,
+       6
+      ],
+      [
+       62,
+       -236,
+       0
+      ]
+     ]
+    },
+    {
+     "halfWidth": 9,
+     "skirt": 32,
+     "points": [
+      [
+       0,
+       -258,
+       0
+      ],
+      [
+       0,
+       -290,
+       -8
+      ],
+      [
+       16,
+       -345,
+       -9
+      ],
+      [
+       -16,
+       -410,
+       -9
+      ],
+      [
+       12,
+       -475,
+       -9
+      ],
+      [
+       0,
+       -540,
+       -7
+      ],
+      [
+       0,
+       -585,
+       0
+      ]
+     ]
+    },
+    {
+     "halfWidth": 3,
+     "skirt": 18,
+     "points": [
+      [
+       -22,
+       -366,
+       4
+      ],
+      [
+       14,
+       -370,
+       7
+      ],
+      [
+       48,
+       -366,
+       4
+      ]
+     ]
+    },
+    {
+     "halfWidth": 3,
+     "skirt": 18,
+     "points": [
+      [
+       -46,
+       -462,
+       4
+      ],
+      [
+       -8,
+       -466,
+       7
+      ],
+      [
+       26,
+       -462,
+       4
+      ]
+     ]
+    }
+   ]
+  }
+ },
+ "spawn": {
+  "x": 0,
+  "z": -6,
+  "heading": 3.141592653589793
+ },
+ "features": [
+  {
+   "kind": "kicker",
+   "cfg": {
+    "x": 14,
+    "z": -338,
+    "width": 5,
+    "lipHeight": 3.5,
+    "lipAngle": 0.5235987755982988,
+    "deckLength": 7.308178271554029,
+    "knuckleHeight": 3.5,
+    "sideTaper": 1,
+    "deckWidth": 11,
+    "deckTaper": 4,
+    "landingAngle": 0.6108652381980153,
+    "knuckleRadius": 5.160873008842762,
+    "runoutRadius": 10.321746017685523,
+    "yaw": 0
+   },
+   "meta": {
+    "type": "kicker",
+    "size": "L",
+    "speed": [
+     12,
+     15
+    ],
+    "lip": 13.062177826491075,
+    "checks": [
+     {
+      "speed": 12,
+      "pop": 1.566,
+      "grade": "clean",
+      "impact": 3.8076612152414,
+      "past": 7.488845623845741
+     },
+     {
+      "speed": 13.5,
+      "pop": 3.5235,
+      "grade": "clean",
+      "impact": 8.86303918176474,
+      "past": 15.03001076690166
+     },
+     {
+      "speed": 15,
+      "pop": 3.5235,
+      "grade": "clean",
+      "impact": 6.031304562313572,
+      "past": 22.899235951787446
+     },
+     {
+      "speed": 15,
+      "pop": 5.481,
+      "grade": "clean",
+      "impact": 8.221035200070876,
+      "past": 24.6165193001127
+     },
+     {
+      "speed": 12,
+      "pop": 5.481,
+      "grade": "clean",
+      "impact": 9.581065909985231,
+      "past": 11.293964506035918
+     }
+    ],
+    "design": {
+     "kind": "kicker",
+     "place": {
+      "x": 14,
+      "z": -338,
+      "yaw": 0
+     },
+     "size": "L",
+     "speed": [
+      12,
+      15
+     ],
+     "inputs": {}
+    }
+   }
+  },
+  {
+   "kind": "kicker",
+   "cfg": {
+    "x": -8,
+    "z": -434,
+    "width": 5,
+    "lipHeight": 3.5,
+    "lipAngle": 0.5235987755982988,
+    "deckLength": 7.120510656653069,
+    "knuckleHeight": 3.5,
+    "sideTaper": 1,
+    "deckWidth": 11,
+    "deckTaper": 4,
+    "landingAngle": 0.6108652381980153,
+    "knuckleRadius": 5.160873008842762,
+    "runoutRadius": 10.321746017685523,
+    "yaw": 0
+   },
+   "meta": {
+    "type": "kicker",
+    "size": "L",
+    "speed": [
+     12,
+     15
+    ],
+    "lip": 13.062177826491075,
+    "checks": [
+     {
+      "speed": 12,
+      "pop": 1.566,
+      "grade": "clean",
+      "impact": 3.6305850023858355,
+      "past": 6.258865861621562
+     },
+     {
+      "speed": 13.5,
+      "pop": 3.5235,
+      "grade": "clean",
+      "impact": 8.856348465424363,
+      "past": 13.325642740776159
+     },
+     {
+      "speed": 15,
+      "pop": 3.5235,
+      "grade": "clean",
+      "impact": 5.110546304732246,
+      "past": 19.04344399432737
+     },
+     {
+      "speed": 15,
+      "pop": 5.481,
+      "grade": "clean",
+      "impact": 5.678037201098218,
+      "past": 21.505015767092274
+     },
+     {
+      "speed": 12,
+      "pop": 5.481,
+      "grade": "clean",
+      "impact": 9.476548499158632,
+      "past": 10.127206112891747
+     }
+    ],
+    "design": {
+     "kind": "kicker",
+     "place": {
+      "x": -8,
+      "z": -434,
+      "yaw": 0
+     },
+     "size": "L",
+     "speed": [
+      12,
+      15
+     ],
+     "inputs": {}
+    }
+   }
+  },
+  {
+   "kind": "kicker",
+   "cfg": {
+    "x": 0,
+    "z": -640,
+    "width": 5,
+    "lipHeight": 2.5,
+    "lipAngle": 0.5235987755982988,
+    "deckLength": 7.066537442255436,
+    "knuckleHeight": 2.5,
+    "sideTaper": 1,
+    "deckWidth": 11,
+    "deckTaper": 4,
+    "landingAngle": 0.5120546729978083,
+    "knuckleRadius": 5.1977600141913305,
+    "runoutRadius": 10.395520028382661,
+    "yaw": 0
+   },
+   "meta": {
+    "type": "kicker",
+    "size": "M",
+    "speed": [
+     9,
+     13
+    ],
+    "lip": 9.330127018922196,
+    "checks": [
+     {
+      "speed": 9,
+      "pop": 1.566,
+      "grade": "clean",
+      "impact": 2.415191311694117,
+      "past": 2.8996702965112853
+     },
+     {
+      "speed": 11,
+      "pop": 3.5235,
+      "grade": "clean",
+      "impact": 10.813488066489905,
+      "past": 9.998801609387678
+     },
+     {
+      "speed": 13,
+      "pop": 3.5235,
+      "grade": "clean",
+      "impact": 11.631509332302263,
+      "past": 15.87882329439814
+     },
+     {
+      "speed": 13,
+      "pop": 5.481,
+      "grade": "sketchy",
+      "impact": 13.00597554038129,
+      "past": 16.864874260107435
+     },
+     {
+      "speed": 9,
+      "pop": 5.481,
+      "grade": "clean",
+      "impact": 7.9712079459390175,
+      "past": 4.900364352471485
+     }
+    ],
+    "design": {
+     "kind": "kicker",
+     "place": {
+      "x": 0,
+      "z": -640,
+      "yaw": 0
+     },
+     "size": "M",
+     "speed": [
+      9,
+      13
+     ],
+     "inputs": {}
+    }
+   }
+  },
+  {
+   "kind": "shape",
+   "cfg": {
+    "kind": "sideHit",
+    "x": 34,
+    "z": -400,
+    "yaw": -0.6981317007977318,
+    "height": 1.5,
+    "angle": 0.4363323129985824,
+    "back": 2,
+    "width": 5,
+    "taper": 1.5
+   },
+   "meta": {
+    "type": "sideHit",
+    "design": {
+     "kind": "sideHit",
+     "place": {
+      "x": 34,
+      "z": -400,
+      "yaw": -0.6981317007977318
+     },
+     "size": "S",
+     "speed": [
+      0,
+      99
+     ],
+     "inputs": {
+      "height": 1.5,
+      "width": 5
+     }
+    },
+    "fill": true
+   }
+  },
+  {
+   "kind": "shape",
+   "cfg": {
+    "kind": "sideHit",
+    "x": -32,
+    "z": -505,
+    "yaw": 0.6981317007977318,
+    "height": 1.5,
+    "angle": 0.4363323129985824,
+    "back": 2,
+    "width": 5,
+    "taper": 1.5
+   },
+   "meta": {
+    "type": "sideHit",
+    "design": {
+     "kind": "sideHit",
+     "place": {
+      "x": -32,
+      "z": -505,
+      "yaw": 0.6981317007977318
+     },
+     "size": "S",
+     "speed": [
+      0,
+      99
+     ],
+     "inputs": {
+      "height": 1.5,
+      "width": 5
+     }
+    },
+    "fill": true
+   }
+  },
+  {
+   "kind": "panel",
+   "cfg": {
+    "x": 30,
+    "z": -430,
+    "yaw": 0.24434609527920614,
+    "length": 18,
+    "height": 3,
+    "lean": 0.20943951023931956,
+    "side": -1,
+    "foot": 0.4,
+    "ramp": {
+     "height": 0.4,
+     "length": 3
+    }
+   },
+   "meta": {
+    "type": "wallRide",
+    "fill": true
+   }
+  },
+  {
+   "kind": "shape",
+   "cfg": {
+    "kind": "sideHit",
+    "x": -9,
+    "z": -60,
+    "yaw": 0.9599310885968813,
+    "height": 1.2,
+    "angle": 0.4363323129985824,
+    "back": 2,
+    "width": 5,
+    "taper": 1.5
+   },
+   "meta": {
+    "type": "sideHit",
+    "design": {
+     "kind": "sideHit",
+     "place": {
+      "x": -9,
+      "z": -60,
+      "yaw": 0.9599310885968813
+     },
+     "size": "S",
+     "speed": [
+      0,
+      99
+     ],
+     "inputs": {
+      "height": 1.2,
+      "width": 5
+     }
+    },
+    "fill": true
+   }
+  },
+  {
+   "kind": "shape",
+   "cfg": {
+    "kind": "sideHit",
+    "x": 9,
+    "z": -118,
+    "yaw": -0.9599310885968813,
+    "height": 1.2,
+    "angle": 0.4363323129985824,
+    "back": 2,
+    "width": 5,
+    "taper": 1.5
+   },
+   "meta": {
+    "type": "sideHit",
+    "design": {
+     "kind": "sideHit",
+     "place": {
+      "x": 9,
+      "z": -118,
+      "yaw": -0.9599310885968813
+     },
+     "size": "S",
+     "speed": [
+      0,
+      99
+     ],
+     "inputs": {
+      "height": 1.2,
+      "width": 5
+     }
+    },
+    "fill": true
+   }
+  },
+  {
+   "kind": "quarter",
+   "cfg": {
+    "x": -46,
+    "z": -752,
+    "yaw": 0,
+    "width": 44,
+    "height": 4,
+    "angle": 1.4486232791552935,
+    "radius": 4.5,
+    "deck": 3,
+    "sideTaper": 3
+   },
+   "meta": {
+    "type": "quarter",
+    "design": {
+     "kind": "quarter",
+     "place": {
+      "x": -46,
+      "z": -752,
+      "yaw": 0
+     },
+     "size": "S",
+     "speed": [
+      0,
+      99
+     ],
+     "inputs": {
+      "width": 44,
+      "height": 4,
+      "radius": 4.5
+     }
+    },
+    "fill": true
+   }
+  },
+  {
+   "kind": "quarter",
+   "cfg": {
+    "width": 16,
+    "height": 4,
+    "angle": 1.4486232791552935,
+    "radius": 4.5,
+    "deck": 3,
+    "sideTaper": 3,
+    "x": -2,
+    "z": -754,
+    "yaw": 0,
+    "joinEnd": 1,
+    "mitre": [
+     6,
+     -754,
+     1.7071067811865475,
+     0.7071067811865475
+    ]
+   },
+   "meta": {
+    "type": "hipQuarter",
+    "design": {
+     "kind": "hipQuarter",
+     "place": {
+      "x": 6,
+      "z": -754,
+      "yaw": 0
+     },
+     "size": "S",
+     "speed": [
+      0,
+      99
+     ],
+     "inputs": {
+      "left": 0,
+      "outside": 0,
+      "width": 16,
+      "angle": 45,
+      "height": 4,
+      "radius": 4.5
+     }
+    },
+    "fill": true,
+    "group": 9
+   }
+  },
+  {
+   "kind": "quarter",
+   "cfg": {
+    "width": 16,
+    "height": 4,
+    "angle": 1.4486232791552935,
+    "radius": 4.5,
+    "deck": 3,
+    "sideTaper": 3,
+    "x": 11.65685424949238,
+    "z": -748.3431457505076,
+    "yaw": 0.7853981633974483,
+    "joinEnd": -1,
+    "mitre": [
+     6,
+     -754,
+     -1.7071067811865475,
+     -0.7071067811865475
+    ]
+   },
+   "meta": {
+    "type": "hipQuarter",
+    "fill": true,
+    "group": 9
+   }
+  },
+  {
+   "kind": "quarter",
+   "cfg": {
+    "x": 48,
+    "z": -752,
+    "yaw": 0,
+    "width": 44,
+    "height": 4.5,
+    "angle": 1.4486232791552935,
+    "radius": 5,
+    "deck": 3,
+    "sideTaper": 3
+   },
+   "meta": {
+    "type": "quarter",
+    "design": {
+     "kind": "quarter",
+     "place": {
+      "x": 48,
+      "z": -752,
+      "yaw": 0
+     },
+     "size": "S",
+     "speed": [
+      0,
+      99
+     ],
+     "inputs": {
+      "width": 44,
+      "height": 4.5,
+      "radius": 5
+     }
+    },
+    "fill": true
+   }
+  }
+ ],
+ "lines": [
+  {
+   "name": "ridge to gully",
+   "features": [
+    0,
+    1,
+    2
+   ],
+   "speed": [
+    12.89,
+    12.49,
+    10.09
+   ]
+  }
+ ],
+ "links": []
+}

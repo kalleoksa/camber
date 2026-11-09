@@ -24,7 +24,8 @@
     "redesign-check": "node scripts/redesign-check.ts",
     "talma": "node scripts/build-talma.ts && node scripts/talma-check.ts",
     "talma-jumps": "node scripts/talma-jumps.ts",
-    "flow": "node scripts/build-flow.ts"
+    "flow": "node scripts/build-flow.ts",
+    "ridge": "node scripts/build-ridge.ts"
   },
   "dependencies": {
     "three": "^0.180.0",
