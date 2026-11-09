@@ -23,7 +23,8 @@
     "hip-quarter": "node scripts/hip-quarter.ts",
     "redesign-check": "node scripts/redesign-check.ts",
     "talma": "node scripts/build-talma.ts && node scripts/talma-check.ts",
-    "talma-jumps": "node scripts/talma-jumps.ts"
+    "talma-jumps": "node scripts/talma-jumps.ts",
+    "flow": "node scripts/build-flow.ts"
   },
   "dependencies": {
     "three": "^0.180.0",

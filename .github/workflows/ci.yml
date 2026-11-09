@@ -16,3 +16,4 @@ jobs:
       - run: npm run typecheck
       - run: npm run check-math
       - run: npm run determinism
+      - run: npm run flow

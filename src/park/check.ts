@@ -73,7 +73,8 @@ export function checkLines(layout: Layout, t: Terrain, params: Params): LineChec
       tick(s, inp, params, t, TICK_DT);
       if (s.mode === 'railed') railed = true;
       if (s.mode === 'airborne' && toGo < 1) flew = true; // only off this feature, not a drop on the way
-      const passed = s.position.z < tg.z - (f.kind === 'rail' ? 14 : 30);
+      // Past it — but a long air (an XL carries more than 30 m) is waited out, so its landing is read.
+      const passed = s.position.z < tg.z - (f.kind === 'rail' ? 14 : 30) && !(flew && s.mode === 'airborne' && f.kind !== 'rail');
       const landed = flew && was === 'airborne' && s.mode !== 'airborne' && f.kind !== 'rail';
       if (passed || landed || s.mode === 'bailed') {
         const design: [number, number] = [f.meta?.speed?.[0] ?? 0, f.meta?.speed?.[1] ?? 99];
