@@ -90,8 +90,10 @@ layout.lines.forEach((line, li) => {
       const top = Math.sqrt((line.speed[fi] ?? 99) ** 2 + 2 * params.world.gravity * lipH);
       // Brake as early as the speed needs: L2 takes ~brakeDecel off, so start that far out plus some.
       const need = (speed * speed - top * top) / (2 * params.ground.brakeDecel) + 15;
-      if (toGo > 0 && toGo < need && speed > top + 0.2) inp.lt = Math.min(1, (speed - top) * 0.8);
-      if (time < 0.25) inp.lt = 0;
+      // The speed check: LT on one stick, the right stick's skid on two (LT does nothing there).
+      const scrub = toGo > 0 && toGo < need && speed > top + 0.2 && time >= 0.25 ? Math.min(1, (speed - top) * 0.8) : 0;
+      if (params.input.scheme > 0) inp.rx = scrub;
+      else inp.lt = scrub;
       if (tg.pop && time < params.pop.chargeTime + 0.05 && time > 0.02) inp.rt = 1;
       if (f.kind === 'rail' && time < 0.3 && time > 0.02) inp.rt = 1;
     }

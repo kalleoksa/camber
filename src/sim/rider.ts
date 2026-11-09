@@ -5,6 +5,7 @@ import { stepAirborne } from './states/airborne.ts';
 import { stepBailed } from './states/bailed.ts';
 import { butterAmount, stepGrounded } from './states/grounded.ts';
 import { stepRailed } from './states/railed.ts';
+import { stepPanel } from './states/walled.ts';
 import type { Terrain } from './terrain.ts';
 import { dampScalar } from './vec3.ts';
 
@@ -92,8 +93,12 @@ export function tick(
   const wasAir = state.mode === 'airborne';
   switch (state.mode) {
     case 'grounded':
-    case 'walled':
       stepGrounded(state, input, params, terrain, dt);
+      break;
+    case 'walled':
+      // A built face (panelIndex), or the snow wall, which is the snow step on a steep surface.
+      if (state.panelIndex >= 0) stepPanel(state, input, params, terrain, dt);
+      else stepGrounded(state, input, params, terrain, dt);
       break;
     case 'airborne':
       stepAirborne(state, input, params, terrain, dt);

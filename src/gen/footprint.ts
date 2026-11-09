@@ -21,6 +21,20 @@ export function footprint(f: FeatureSpec, runIn: number, margin: number): Footpr
     const yaw = dm.atan2(b[0] - a[0], -(b[2] - a[2]));
     return { x: a[0], z: a[2], yaw, s0: -runIn * 0.6 - margin, s1: len + margin + 4, w0: -margin - 1, w1: margin + 1 };
   }
+  // Built solids: their plan from the config (a panel without a ramp raises no snow to measure).
+  if (f.kind === 'panel') {
+    const c = f.cfg;
+    const front = c.ramp?.length ?? 0.3; // the ridden side: its ramp, or a little clear of the face
+    const back = 0.3 + c.height * dm.sin(c.lean); // behind: the slab, leaning back
+    const w0 = c.side > 0 ? -back : -front;
+    const w1 = c.side > 0 ? front : back;
+    return { x: c.x, z: c.z, yaw: c.yaw, s0: -runIn - margin, s1: c.length + margin, w0: w0 - margin, w1: w1 + margin };
+  }
+  if (f.kind === 'block') {
+    const c = f.cfg;
+    const hw = c.width / 2 + (c.ramp ? 2 : 0); // a ramp's sides fall away over 2 m
+    return { x: c.x, z: c.z, yaw: c.yaw, s0: -c.length / 2 - (c.ramp?.length ?? 0) - runIn - margin, s1: c.length / 2 + margin, w0: -hw - margin, w1: hw + margin };
+  }
   const cfg = f.cfg as { x: number; z: number; yaw?: number };
   const yaw = cfg.yaw ?? 0;
   // The feature alone at yaw 0 on flat ground: its extent in its own frame.

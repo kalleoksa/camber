@@ -64,6 +64,21 @@ type Grip = {
   remove?(): void;
 };
 
+/** A point on a rail at `s` along the section, between the two it falls between, at their height. */
+function insertPoint(points: [number, number, number][], s: number, along: (x: number, z: number) => number): void {
+  for (let k = 1; k < points.length; k++) {
+    const a = points[k - 1];
+    const b = points[k];
+    if (!a || !b) continue;
+    const sa = along(a[0], a[2]);
+    const sb = along(b[0], b[2]);
+    if (s <= sa + 0.3 || s >= sb - 0.3) continue;
+    const t = (s - sa) / (sb - sa);
+    points.splice(k, 0, [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t]);
+    return;
+  }
+}
+
 export function createProfile(host: ProfileHost): Profile {
   const canvas = document.createElement('canvas');
   canvas.style.cssText =
@@ -76,7 +91,8 @@ export function createProfile(host: ProfileHost): Profile {
   let visible = false;
   let grips: Grip[] = [];
   let drag: { g: Grip; x: number; y: number; moved: boolean } | undefined;
-  let designLine: [number, number][] = []; // a patch's design line, for taps on it
+  let designLine: [number, number][] = []; // a patch's design line or a rail, for taps on it
+  let addOnLine: ((s: number) => void) | undefined; // double-tap on it: add a point at s
   // Section to canvas: s along the section (m), y height (m).
   let scale = 1;
   let toX = (s: number): number => s;
@@ -211,6 +227,92 @@ export function createProfile(host: ProfileHost): Profile {
     return out;
   };
 
+  /**
+   * Handles on a hand-built rail (each point: height, and along the rail but the first, which the
+   * gizmo moves), block (roof height, length, its ramp's length) and panel (height, length).
+   */
+  const builtGrips = (f: FeatureSpec, height: (s: number) => number, along: (x: number, z: number) => number): Grip[] => {
+    if (f.meta?.design || host.turn() !== 0) return [];
+    // Each handle edits the feature as it was when the drag began.
+    const grip = <C,>(cfg: C, name: string, s: number, y: number, value: () => number, move: (n: C, was: C, ds: number, dy: number) => void, type: (n: C, v: number) => void, remove?: () => void): Grip => {
+      let was = cfg;
+      return {
+        name,
+        s,
+        y,
+        value,
+        begin: () => (was = structuredClone(cfg)),
+        move: (ds, dy) => host.edit((g) => move(g.cfg as C, was, ds, dy), false),
+        done: () => host.edit(() => undefined, true),
+        type: (v) => host.edit((g) => type(g.cfg as C, v), true),
+        ...(remove ? { remove } : {}),
+      };
+    };
+    if (f.kind === 'rail') {
+      const pts = f.cfg.points;
+      const sOf = (p: [number, number, number]): number => along(p[0], p[2]);
+      const dx = Math.sin(originOf(f).yaw);
+      const dz = -Math.cos(originOf(f).yaw);
+      return pts.map((p, k) =>
+        grip(
+          f.cfg,
+          `point ${k + 1} height m`,
+          sOf(p),
+          host.terrain().sample(p[0], p[2], c).height + p[1],
+          () => p[1],
+          (n, was, ds, dy) => {
+            const w = was.points[k];
+            const q = n.points[k];
+            if (!w || !q) return;
+            q[1] = Math.max(0, Math.min(3, w[1] + dy));
+            if (k === 0) return;
+            // Along, kept between its neighbours.
+            const prev = was.points[k - 1];
+            const next = was.points[k + 1];
+            const lo = prev ? sOf(prev) + 0.3 : -Infinity;
+            const hi = next ? sOf(next) - 0.3 : Infinity;
+            const d = Math.max(lo, Math.min(hi, sOf(w) + ds)) - sOf(w);
+            q[0] = w[0] + dx * d;
+            q[2] = w[2] + dz * d;
+          },
+          (n, v) => {
+            const q = n.points[k];
+            if (q) q[1] = Math.max(0, Math.min(3, v));
+          },
+          k > 0 && pts.length > 2 ? () => host.edit((g) => void (g.kind === 'rail' && g.cfg.points.splice(k, 1)), true) : undefined,
+        ),
+      );
+    }
+    if (f.kind === 'block') {
+      const b = f.cfg;
+      const out = [
+        grip(b, 'height m', 0, height(0), () => b.height, (n, was, _ds, dy) => (n.height = Math.max(0.5, Math.min(15, was.height + dy))), (n, v) => (n.height = Math.max(0.5, Math.min(15, v)))),
+        grip(b, 'length m', b.length / 2, height(b.length / 2 - 0.1), () => b.length, (n, was, ds) => (n.length = Math.max(2, was.length + 2 * ds)), (n, v) => (n.length = Math.max(2, v))),
+      ];
+      const r = b.ramp;
+      if (r) {
+        const foot = -b.length / 2 - r.length;
+        out.push(
+          grip(b, 'ramp length m', foot, height(foot), () => r.length, (n, was, ds) => {
+            if (n.ramp && was.ramp) n.ramp.length = Math.max(2, was.ramp.length - ds);
+          }, (n, v) => {
+            if (n.ramp) n.ramp.length = Math.max(2, v);
+          }),
+        );
+      }
+      return out;
+    }
+    if (f.kind === 'panel') {
+      const p = f.cfg;
+      const top = (s: number): number => height(s) + p.foot + p.height * Math.cos(p.lean);
+      return [
+        grip(p, 'height m', p.length / 2, top(p.length / 2), () => p.height, (n, was, _ds, dy) => (n.height = Math.max(0.5, Math.min(6, was.height + dy / Math.cos(was.lean)))), (n, v) => (n.height = Math.max(0.5, Math.min(6, v)))),
+        grip(p, 'length m', p.length, top(p.length), () => p.length, (n, was, ds) => (n.length = Math.max(1, was.length + ds)), (n, v) => (n.length = Math.max(1, v))),
+      ];
+    }
+    return [];
+  };
+
   const drawFeature = (f: FeatureSpec, W: number, H: number): void => {
     const terrain = host.terrain();
     const ground = host.ground();
@@ -231,8 +333,18 @@ export function createProfile(host: ProfileHost): Profile {
     // From before its transition to past where the fastest airs come down: the part worth reading.
     let far = 25;
     for (const a of lands) far = Math.max(far, along(a.flight.x, a.flight.z) + 12);
-    const s0 = t ? -Math.max(12, lipOf(f) + 6) : -15;
-    const s1 = t ? Math.min(far, 120) : 35;
+    let s0 = t ? -Math.max(12, lipOf(f) + 6) : -15;
+    let s1 = t ? Math.min(far, 120) : 35;
+    if (f.kind === 'rail') {
+      const last = f.cfg.points[f.cfg.points.length - 1];
+      s0 = -6;
+      s1 = (last ? along(last[0], last[2]) : 0) + 6;
+    }
+    if (f.kind === 'block') {
+      s0 = -f.cfg.length / 2 - (f.cfg.ramp?.length ?? 0) - 10;
+      s1 = f.cfg.length / 2 + 15;
+    }
+    if (f.kind === 'panel') s1 = Math.max(s1, f.cfg.length + 10);
     const snow: [number, number][] = [];
     const under: [number, number][] = [];
     for (let s = s0; s <= s1; s += 0.25) {
@@ -246,6 +358,14 @@ export function createProfile(host: ProfileHost): Profile {
       y1 = Math.max(y1, y);
     }
     for (const a of airs) for (let i = 1; i < a.flight.points.length; i += 3) y1 = Math.max(y1, a.flight.points[i] ?? y1);
+    // A rail, or a panel's top edge: not part of the snow, drawn over it.
+    const built: [number, number][] = [];
+    if (f.kind === 'rail') for (const [x, y, z] of f.cfg.points) built.push([along(x, z), terrain.sample(x, z, c).height + y]);
+    if (f.kind === 'panel') {
+      const top = f.cfg.foot + f.cfg.height * Math.cos(f.cfg.lean);
+      built.push([0, height(0)], [0, height(0) + top], [f.cfg.length, height(f.cfg.length) + top], [f.cfg.length, height(f.cfg.length)]);
+    }
+    for (const [, y] of built) y1 = Math.max(y1, y);
     fit(W, H, s0, s1, y0, y1);
     grid(W, H, s0, s1);
     snowFill(snow, H);
@@ -274,15 +394,25 @@ export function createProfile(host: ProfileHost): Profile {
       g2.fill();
     });
 
-    if (!drag) grips = featureGrips(f, height, base);
-    if (grips[1] && grips[0]) line([[grips[0].s, grips[0].y], [grips[1].s, grips[1].y]], '#ffd34d', 1);
+    if (built.length) line(built, f.kind === 'rail' ? '#9fb3c8' : '#c79a5b', f.kind === 'rail' ? 3 : 2);
+    designLine = f.kind === 'rail' ? built : [];
+    addOnLine = f.kind === 'rail' && host.turn() === 0 ? (at) => host.edit((g) => g.kind === 'rail' && insertPoint(g.cfg.points, at, along), true) : undefined;
+
+    if (!drag) grips = [...featureGrips(f, height, base), ...builtGrips(f, height, along)];
+    if ((f.kind === 'kicker' || f.kind === 'corner') && grips[1] && grips[0]) line([[grips[0].s, grips[0].y], [grips[1].s, grips[1].y]], '#ffd34d', 1);
     drawGrips();
     const name = f.meta?.design?.kind ?? f.meta?.type ?? f.kind;
     caption(
       W,
       H,
       t ? `${name} · ${t.speed[0]}–${t.speed[1]} m/s · airs: blue slowest (no pop), green middle, red fastest · snow: where airs come down, by impact` : `${name} · section along its axis`,
-      grips.length ? 'drag a handle, or tap it to type' : f.meta?.design ? 'designed: change its inputs in the panel' : '',
+      f.kind === 'rail' && grips.length
+        ? 'drag a point (height, and along it), tap to type its height · double-tap the rail to add a point, a point to remove it'
+        : grips.length
+          ? 'drag a handle, or tap it to type'
+          : f.meta?.design
+            ? 'designed: change its inputs in the panel'
+            : '',
     );
   };
 
@@ -335,6 +465,7 @@ export function createProfile(host: ProfileHost): Profile {
     line(snow, '#e8eef4', 1.5);
     line(design, '#ffd34d', 1.5, [6, 4]);
     designLine = design;
+    addOnLine = (at) => host.editPatch((q) => void splitSegment(q, at), true);
 
     if (!drag) {
       grips = [];
@@ -456,10 +587,9 @@ export function createProfile(host: ProfileHost): Profile {
       g.remove();
       return;
     }
-    if (twice && !g && patch) {
+    if (twice && !g && addOnLine) {
       lastTap = undefined;
-      const s = fromX(x);
-      host.editPatch((q) => void splitSegment(q, s), true);
+      addOnLine(fromX(x));
       return;
     }
     if (!g) return;
@@ -472,7 +602,7 @@ export function createProfile(host: ProfileHost): Profile {
     const p = at(ev);
     const g = grips.find((q) => Math.hypot(toX(q.s) - p.x, toY(q.y) - p.y) < 12);
     if (!g) {
-      if (patch && offLine(p.x, p.y) < 10) tapped(undefined, p.x, p.y);
+      if (addOnLine && offLine(p.x, p.y) < 10) tapped(undefined, p.x, p.y);
       return;
     }
     canvas.setPointerCapture(ev.pointerId);

@@ -1,9 +1,10 @@
 import { normalize, vec3, type Vec3 } from './vec3.ts';
 import * as dm from './dmath.ts';
-import { shapeProfile, turned, type ShapeConfig } from './features.ts';
+import { inFrame, shapeProfile, turned, type ShapeConfig } from './features.ts';
 import { hipProfile, type HipShape } from './hip.ts';
 import { buildField, sampleField, type Field, type FieldConfig, type FieldSample } from './heightfield.ts';
 import { buildRail, type Rail, type RailConfig } from './rails.ts';
+import { blockFaces, blockRamp, buildPanel, panelRamp, type BlockConfig, type Panel, type PanelConfig } from './walls.ts';
 
 export type SurfaceType = 'snow' | 'rail' | 'wall' | 'quarter';
 
@@ -28,6 +29,10 @@ export type Terrain = {
   sample(x: number, z: number, out: Contact): Contact;
   /** Rails in world space, built from the config. Empty when there are none. */
   rails: readonly Rail[];
+  /** Built wallride panels in world space. Empty when there are none. */
+  panels: readonly Panel[];
+  /** The snow alone, without the roofs of blocks — what the terrain mesh draws and features stand on. */
+  snow?(x: number, z: number, out: Contact): Contact;
   /** The baked heightfield, when the config has one: pass it back to `createSlope` to skip the bake. */
   field?: Field;
 };
@@ -43,6 +48,10 @@ export type SlopeConfig = {
   quarters?: QuarterConfig[];
   rails?: RailConfig[];
   walls?: WallConfig[];
+  /** Built wallrides (walls.ts): panels ridden on the base, their snow ramps part of the terrain. */
+  panels?: PanelConfig[];
+  /** Built solids (walls.ts) — buildings, boxes — whose sides are wallride faces. */
+  blocks?: BlockConfig[];
   /**
    * Grade changes down the run. From `z` on downhill the slope falls at `pitch` instead of
    * what it fell at before, the change rounded over `blend` m so there is no kink to launch
@@ -102,6 +111,14 @@ export type QuarterConfig = {
   side?: 1 | -1; // set: faces across the slope, rising toward +X or −X, as one wall of a halfpipe
   backAngle?: number; // rad of the back face; defaults to `angle`, a drop off the deck
   yaw?: number; // rad, turned about (x, z) off the fall line, toward +X as it grows
+  /**
+   * Joined to another section (a hip quarter): the end at this side of the width (+1 toward
+   * +across, −1 the other) doesn't roll off — it runs on until `mitre` cuts it, so the two
+   * sections meet in one wall with a corner instead of two tapered ends with a gap between.
+   */
+  joinEnd?: 1 | -1;
+  /** World line (x, z) and normal (nx, nz): no height where (p − line)·n > 0. The corner's bisector. */
+  mitre?: [number, number, number, number];
 };
 
 export type GradeConfig = {
@@ -210,8 +227,17 @@ export function createSlope(cfg: SlopeConfig, baked?: Field): Terrain {
   const kickers = (cfg.kickers ?? (cfg.kicker ? [cfg.kicker] : [])).map((k) => turned(k.x, k.z, k.yaw, kickerProfile(k)));
   const walls = (cfg.walls ?? []).map((w) => turned(w.x, w.z, w.yaw, wallProfile(w)));
   const corners = (cfg.corners ?? []).map((c) => turned(c.x, c.z, c.yaw, cornerProfile(c)));
-  const quarters = (cfg.quarters ?? []).map((q) => turned(q.x, q.z, q.yaw, quarterProfile(q)));
+  const quarters = (cfg.quarters ?? []).map((q) => mitred(q.mitre, turned(q.x, q.z, q.yaw, quarterProfile(q))));
   const shapes = (cfg.shapes ?? []).map(shapeProfile);
+  const ramps: Profile[] = [];
+  for (const pc of cfg.panels ?? []) {
+    const r = panelRamp(pc);
+    if (r) ramps.push(r);
+  }
+  for (const b of cfg.blocks ?? []) {
+    const r = blockRamp(b);
+    if (r) ramps.push(r);
+  }
   const grades = gradeProfile(cfg.pitch, cfg.grades ?? []);
 
   // Features merge by max, so twin kickers can share a table; each is ≥ 0, so where only
@@ -219,7 +245,7 @@ export function createSlope(cfg: SlopeConfig, baked?: Field): Terrain {
   // changes reshape the slope under all of them, so they add.
   // Max is order-free, so one list does; many features are bucketed so a point only asks the
   // few whose ground it could be on (each exactly 0 outside its extent, so the answer is the same).
-  const all: Profile[] = [...kickers, ...walls, ...corners, ...quarters, ...shapes];
+  const all: Profile[] = [...kickers, ...walls, ...corners, ...quarters, ...shapes, ...ramps];
   const buckets = all.length >= BUCKET_MIN ? bucketProfiles(all, cfg) : undefined;
   const featureHeight = (x: number, z: number): number => {
     let h = 0;
@@ -241,9 +267,25 @@ export function createSlope(cfg: SlopeConfig, baked?: Field): Terrain {
   const groundAt = (x: number, z: number): number => (field ? sampleField(field, x, z, fs).h : z * slope + bank(x));
   const heightAt = (x: number, z: number): number => groundAt(x, z) + featureHeight(x, z);
   const rails = (cfg.rails ?? []).map((r) => buildRail(r, heightAt));
+  const faces = [...(cfg.panels ?? []), ...(cfg.blocks ?? []).flatMap(blockFaces)];
+  const panels = faces.map((pc) => buildPanel(pc, heightAt));
+  // Roofs: a block's top, its height above the snow under it, flat to that snow, a sharp drop at
+  // its edges (no difference across them: the edge is a drop, not a steep slope to ride).
+  const roofs = (cfg.blocks ?? []).map((b) => inFrame(b.x, b.z, b.yaw, (s, w) => (Math.abs(s) <= b.length / 2 && Math.abs(w) <= b.width / 2 ? b.height : 0)));
+  const roofAt = (x: number, z: number): number => {
+    let h = 0;
+    for (let i = 0; i < roofs.length; i++) h = Math.max(h, roofs[i]?.(x, z) ?? 0);
+    return h;
+  };
 
-  return {
+  const terrain: Terrain = {
     rails,
+    panels,
+    snow(x, z, out) {
+      terrain.sample(x, z, out);
+      if (roofs.length > 0) out.height -= Math.max(0, roofAt(x, z) - featureHeight(x, z));
+      return out;
+    },
     ...(field ? { field } : {}),
     sample(x, z, out) {
       const eps = 0.05;
@@ -265,7 +307,11 @@ export function createSlope(cfg: SlopeConfig, baked?: Field): Terrain {
       // Features on top, by central difference — only near one, so the plain slope stays
       // bit-identical to before features existed and old takes keep their hashes.
       const kh = featureHeight(x, z);
-      if (
+      // On a roof the ground is flat to the snow under it: no feature slope (a ramp meets it
+      // flat; anything else under a roof is buried).
+      const roof = roofs.length > 0 ? roofAt(x, z) : 0;
+      if (roof > 0) out.height += Math.max(kh, roof);
+      else if (
         kh !== 0 ||
         featureHeight(x, z + eps) !== 0 ||
         featureHeight(x, z - eps) !== 0 ||
@@ -298,6 +344,7 @@ export function createSlope(cfg: SlopeConfig, baked?: Field): Terrain {
       return out;
     },
   };
+  return terrain;
 }
 
 type Profile = (x: number, z: number) => number;
@@ -321,6 +368,9 @@ function bucketProfiles(all: Profile[], cfg: SlopeConfig): { cellAt(x: number, z
   for (const c of cfg.corners ?? []) origins.push([c.x, c.z]);
   for (const q of cfg.quarters ?? []) origins.push([q.x, q.z]);
   for (const s of cfg.shapes ?? []) origins.push([s.x, s.z]);
+  // Ramps, in the order createSlope adds them: panels' then blocks', only those that have one.
+  for (const p of cfg.panels ?? []) if (p.ramp) origins.push([p.x, p.z]);
+  for (const b of cfg.blocks ?? []) if (b.ramp) origins.push([b.x, b.z]);
   const boxes = all.map((p, i) => {
     const [ox, oz] = origins[i] ?? [0, 0];
     let x0 = Infinity;
@@ -609,6 +659,13 @@ function cornerProfile(c: HipConfig): Profile {
 }
 
 /** Quarter-pipe height above the slope: transition arc, near-vertical face, deck, back drop. */
+/** A profile cut off on the far side of a line — a mitred corner. */
+function mitred(m: [number, number, number, number] | undefined, p: Profile): Profile {
+  if (!m) return p;
+  const [mx, mz, nx, nz] = m;
+  return (x, z) => ((x - mx) * nx + (z - mz) * nz > 0 ? 0 : p(x, z));
+}
+
 function quarterProfile(q: QuarterConfig): Profile {
   const r = q.radius;
   const arcLen = r * dm.sin(q.angle);
@@ -623,7 +680,10 @@ function quarterProfile(q: QuarterConfig): Profile {
     // s runs up the transition; `side` is how far past the pipe's end, along the coping.
     const s = across === 0 ? q.z - z : across * (x - q.x);
     if (s <= 0 || s >= backEnd) return 0;
-    const side = (across === 0 ? Math.abs(x - q.x) : Math.abs(z - q.z)) - q.width * 0.5;
+    const w = across === 0 ? x - q.x : z - q.z;
+    // A joined end runs on a width past the section, for the mitre to cut.
+    const joined = q.joinEnd !== undefined && w * q.joinEnd > 0;
+    const side = joined ? (Math.abs(w) > q.width * 1.5 ? q.sideTaper : 0) : Math.abs(w) - q.width * 0.5;
     if (side >= q.sideTaper) return 0;
     let h: number;
     if (s < arcLen) h = r - Math.sqrt(r * r - s * s);

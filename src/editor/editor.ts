@@ -572,22 +572,65 @@ export function createEditor(host: EditorHost): Editor {
   };
 
   const handPanel = (folder: FolderApi, i: number, f: FeatureSpec): void => {
-    // Top-level numbers of its config, angles in degrees; position and turn go by the gizmo.
+    const change = (mutate: (n: FeatureSpec) => void): void => {
+      const old = rectsOf([i]);
+      const next = structuredClone(layout.features[i] as FeatureSpec);
+      mutate(next);
+      if (next.meta && (next.kind === 'kicker' || next.kind === 'corner')) next.meta.lip = lipOf(next);
+      layout.features[i] = next;
+      rebuild([...old, ...rectsOf([i])]);
+      commit();
+    };
+    // Top-level numbers of its config, and one level down (a ramp's, as `ramp.length`), angles in
+    // degrees; position and turn go by the gizmo.
     const cfg = f.cfg as unknown as Record<string, unknown>;
-    const angle = (k: string): boolean => /angle|yaw|pitch/i.test(k);
+    const angle = (k: string): boolean => /angle|yaw|pitch|lean/i.test(k);
     const values: Record<string, number> = {};
-    for (const [k, v] of Object.entries(cfg)) if (typeof v === 'number' && k !== 'x' && k !== 'z') values[k] = angle(k) ? v * DEG : v;
+    for (const [k, v] of Object.entries(cfg)) {
+      if (typeof v === 'number' && k !== 'x' && k !== 'z') values[k] = angle(k) ? v * DEG : v;
+      else if (v && typeof v === 'object' && !Array.isArray(v)) for (const [k2, v2] of Object.entries(v)) if (typeof v2 === 'number') values[`${k}.${k2}`] = angle(k2) ? v2 * DEG : v2;
+    }
     for (const k of Object.keys(values)) {
       folder.addBinding(values, k, { label: angle(k) ? `${k} °` : k }).on('change', (ev) => {
         if (!ev.last) return;
-        const old = rectsOf([i]);
-        const next = structuredClone(layout.features[i] as FeatureSpec);
-        const n = next.cfg as unknown as Record<string, number>;
-        n[k] = angle(k) ? (values[k] ?? 0) / DEG : (values[k] ?? 0);
-        if (next.meta && (next.kind === 'kicker' || next.kind === 'corner')) next.meta.lip = lipOf(next);
-        layout.features[i] = next;
-        rebuild([...old, ...rectsOf([i])]);
-        commit();
+        change((next) => {
+          const [a, b] = k.split('.');
+          const target = (b ? (next.cfg as unknown as Record<string, Record<string, number>>)[a ?? ''] : next.cfg) as unknown as Record<string, number> | undefined;
+          const leaf = b ?? a ?? '';
+          if (target) target[leaf] = angle(leaf) ? (values[k] ?? 0) / DEG : (values[k] ?? 0);
+        });
+      });
+    }
+    // A built solid's snow ramp: on or off (its numbers above once on).
+    if (f.kind === 'panel' || f.kind === 'block') {
+      const ramp = { ramp: f.cfg.ramp !== undefined };
+      folder.addBinding(ramp, 'ramp', { label: f.kind === 'block' ? 'ramp to the roof' : 'snow ramp' }).on('change', (ev) => {
+        change((next) => {
+          if (next.kind === 'panel') next.cfg.ramp = ev.value ? { height: 0.5, length: 3 } : undefined;
+          if (next.kind === 'block') next.cfg.ramp = ev.value ? { length: Math.round(next.cfg.height * 3.5) } : undefined;
+          if (!ev.value) delete (next.cfg as { ramp?: unknown }).ramp;
+        });
+        buildFeature();
+      });
+    }
+    // A rail: its points are moved in the profile; here, all of them up or down, and box or rail.
+    if (f.kind === 'rail') {
+      const r = { height: f.cfg.points[0]?.[1] ?? 0, box: f.cfg.width !== undefined };
+      folder.addBinding(r, 'height', { label: 'height m (all points, from the first)', min: 0, max: 3, step: 0.05 }).on('change', (ev) => {
+        if (!ev.last) return;
+        change((next) => {
+          if (next.kind !== 'rail') return;
+          const d = r.height - (next.cfg.points[0]?.[1] ?? 0);
+          next.cfg.points = next.cfg.points.map(([x, y, z]) => [x, Math.max(0, y + d), z]);
+        });
+      });
+      folder.addBinding(r, 'box').on('change', (ev) => {
+        change((next) => {
+          if (next.kind !== 'rail') return;
+          if (ev.value) next.cfg.width = 0.4;
+          else delete next.cfg.width;
+        });
+        buildFeature();
       });
     }
     const meta = f.meta;

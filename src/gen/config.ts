@@ -149,7 +149,7 @@ export const GEN = {
   quarter: { height: [3, 4.5], angle: 83, radius: [3.5, 5], width: [12, 20], deck: 3, sideTaper: 3 },
   // Two quarter-pipe sections meeting at an inside corner (the second bent toward the rider): airs
   // along the coping come down on the next section (npm run hip-quarter). Height, face and radius as `quarter`.
-  hipQuarter: { width: [10, 14], angle: [30, 60], end: 0.3 }, // width: m per section; angle: ° between them; end: odds a line ends in one instead of a straight quarter
+  hipQuarter: { width: [10, 14], angle: [30, 60], end: 0.3, outside: 0.4 }, // width: m per section; angle: ° between them; end: odds a line ends in one instead of a straight quarter; outside: odds the corner bends away from the rider (an outside hip) rather than toward
   spine: { height: [2, 3.5], angle: 30, knuckleRadius: 6, footRadius: 10, width: [8, 14], taper: 3 },
   roller: { height: [0.8, 1.6], length: [10, 16], width: [10, 18], taper: 4 },
   sideHit: { height: [0.8, 1.5], angle: 25, back: 2, width: [3, 5], taper: 1.5 },
@@ -178,7 +178,7 @@ export const GEN = {
   // Build step 4: new shapes.
   wedge: { height: [1.5, 3], faceAngle: [20, 25], baseRadius: 4, top4: [3, 6], top2: [1, 2], width: [8, 14], taper: 2, four: 0.6 }, // four: odds of a 4-faced pyramid over a 2-faced ridge
   funBox: { top: [5, 8], box: { height: 0.3, width: 0.5, inset: 0.5 }, rail: 0.4 }, // a pyramid with a box along its deck and a rail down its downhill face; m
-  berm: { radius: [10, 20], sweep: [60, 120], bank: [30, 50], height: [1.5, 3], taper: 4 }, // radius m, sweep and bank °
+  berm: { radius: [10, 20], sweep: [60, 120], bank: [30, 40], height: [1.5, 3], taper: 4 }, // radius m, sweep and bank °. Bank capped at 40°: steeper ones bailed a steered rider off the top or cost speed (ride check 2026-10-07)
   wallRide: { angle: [60, 80], height: [1.5, 4], length: [8, 30], radius: [2, 3], top: 1, taper: 3, offset: 1.5 }, // offset: m from the approach to the foot of its transition
   stepDownHip: { drop: [1, 4] }, // m the lip is built above the deck and knuckle line, in place of the size's own
   jibTable: { lip: 1.5, lipAngle: 23, width: 8, deck: [12, 20], sideTaper: 3, landingAngle: 20, knuckleRadius: 10, runoutRadius: 10, rail: { start: 1, end: 2, length: [6, 12], height: [0.3, 0.5] }, box: 0.5 },

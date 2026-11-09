@@ -216,6 +216,19 @@ shared ride bot. (`meta.group` is done.)
   a segment's end point to remove it (the two either side merge at the grade that drops the
   same height).
 
+**Rails and built features like jumps** (asked for in milestone 6):
+- **Rail:** the profile shows the rail over the snow, a handle on each point: drag for its
+  height above the snow and its place along the rail (between its neighbours; the first point
+  only up and down, the gizmo moves it), tap to type its height. Double-tap the rail to add a
+  point, a point to remove it (two at least). Panel: height of all points (from the first),
+  box on/off.
+- **Block** (a building): handles for roof height, length, and its ramp's length at the ramp
+  foot; panel: its numbers, `ramp.length`, ramp to the roof on/off.
+- **Panel** (wallride): handles for height (top edge) and length; panel: its numbers,
+  `ramp.height` / `ramp.length`, snow ramp on/off.
+- Panels and blocks are picked by their plan from the config, so a panel without a ramp (which
+  raises no snow) can be clicked.
+
 ## Done when
 
 First use: fix the Talma reference park with it and export its JSON for `parks/`.

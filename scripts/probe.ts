@@ -20,6 +20,7 @@ const slope = createSlope({ length: 400, width: 120, pitch: 0.28 });
 const DROP_Z = -40;
 const drop: Terrain = {
   rails: [],
+  panels: [],
   sample(x, z, out) {
     slope.sample(x, z, out);
     if (z < DROP_Z) out.height -= 1.5;

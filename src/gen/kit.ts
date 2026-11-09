@@ -62,6 +62,7 @@ export function groundFrame(world: Terrain, place: Place): Terrain {
   const cs = dm.cos(place.yaw);
   return {
     rails: [],
+    panels: [],
     sample(x, z, out) {
       world.sample(place.x - z * sn + x * cs, place.z + z * cs + x * sn, out);
       const nx = out.normal.x;
@@ -78,6 +79,7 @@ export function stack(ground: Terrain, features: Terrain): Terrain {
   const f = createContact();
   return {
     rails: [],
+    panels: [],
     sample(x, z, out) {
       features.sample(x, z, f);
       ground.sample(x, z, out);
@@ -404,20 +406,42 @@ export function designQuarter(place: Place, d: Draw, cfg: GenConfig): FeatureSpe
  * air along the first one's coping comes down on the second's face. Each section turns about
  * its own origin, so the origins go at the turned offsets and the pair turns as one.
  */
+/**
+ * Two quarter sections meeting at a corner (cx, cz) where their transitions start: the ends
+ * there run on and are cut along the corner's bisector, so they make one wall — a convex
+ * corner (outside hip) has no gap to ride through, a concave one a clean valley.
+ * `aEnd`/`bEnd` are the across-sides (±1) of each section that face the corner.
+ */
+export function joinQuarters(a: QuarterConfig, aEnd: 1 | -1, b: QuarterConfig, bEnd: 1 | -1, cx: number, cz: number): [QuarterConfig, QuarterConfig] {
+  // Into each section from the corner, along its width (across is (cos yaw, sin yaw)).
+  const ya = a.yaw ?? 0;
+  const yb = b.yaw ?? 0;
+  const dax = -aEnd * dm.cos(ya), daz = -aEnd * dm.sin(ya);
+  const dbx = -bEnd * dm.cos(yb), dbz = -bEnd * dm.sin(yb);
+  // Each is cut on the other's side of the bisector.
+  return [
+    { ...a, joinEnd: aEnd, mitre: [cx, cz, dbx - dax, dbz - daz] },
+    { ...b, joinEnd: bEnd, mitre: [cx, cz, dax - dbx, daz - dbz] },
+  ];
+}
+
 export function designHipQuarter(place: Place, d: Draw, cfg: GenConfig): FeatureSpec[] {
   const H = cfg.hipQuarter;
   const q = cfg.quarter;
   const m = chance(d, 'left', 0.5) ? -1 : 1; // which side the first section runs off to
   const W = pick(d, 'width', H.width);
-  const b = pick(d, 'angle', H.angle) * RAD;
+  // Inside (the second section bends toward the rider) or outside (away): joined at the corner,
+  // both transfer — the outside one needs the air over the corner, the inside one is a bowl corner.
+  const b = pick(d, 'angle', H.angle) * RAD * (chance(d, 'outside', H.outside) ? -1 : 1);
   const shape = { width: W, height: pick(d, 'height', q.height), angle: q.angle * RAD, radius: pick(d, 'radius', q.radius), deck: q.deck, sideTaper: q.sideTaper };
   const cs = dm.cos(place.yaw);
   const sn = dm.sin(place.yaw);
   // Offsets in the pair's own frame (x across, z back up the axis), turned with it.
   const at = (x: number, z: number, yaw: number): QuarterConfig => ({ ...shape, x: place.x + x * cs - z * sn, z: place.z + x * sn + z * cs, yaw: place.yaw + yaw });
+  const [a, bq] = joinQuarters(at((-m * W) / 2, 0, 0), m, at((m * W * dm.cos(b)) / 2, (W * dm.sin(b)) / 2, m * b), -m as 1 | -1, place.x, place.z);
   return [
-    { kind: 'quarter', cfg: at((-m * W) / 2, 0, 0), meta: { type: 'hipQuarter' } },
-    { kind: 'quarter', cfg: at((m * W * dm.cos(b)) / 2, (W * dm.sin(b)) / 2, m * b), meta: { type: 'hipQuarter' } },
+    { kind: 'quarter', cfg: a, meta: { type: 'hipQuarter' } },
+    { kind: 'quarter', cfg: bq, meta: { type: 'hipQuarter' } },
   ];
 }
 

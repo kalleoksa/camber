@@ -1,4 +1,5 @@
 import type { RailConfig } from '../sim/rails.ts';
+import type { BlockConfig, PanelConfig } from '../sim/walls.ts';
 import type { ShapeConfig } from '../sim/features.ts';
 import type { FieldConfig } from '../sim/heightfield.ts';
 import type { HipConfig, GradeConfig, KickerConfig, QuarterConfig, SlopeConfig, WallConfig } from '../sim/terrain.ts';
@@ -51,7 +52,9 @@ export type FeatureSpec =
   | { kind: 'quarter'; cfg: QuarterConfig; meta?: FeatureMeta }
   | { kind: 'wall'; cfg: WallConfig; meta?: FeatureMeta }
   | { kind: 'rail'; cfg: RailConfig; meta?: FeatureMeta }
-  | { kind: 'shape'; cfg: ShapeConfig; meta?: FeatureMeta };
+  | { kind: 'shape'; cfg: ShapeConfig; meta?: FeatureMeta }
+  | { kind: 'panel'; cfg: PanelConfig; meta?: FeatureMeta }
+  | { kind: 'block'; cfg: BlockConfig; meta?: FeatureMeta };
 
 /**
  * A line: feature indices in riding order, the speed each is taken at (m/s, at the lip or onto
@@ -77,12 +80,16 @@ export function toSlopeConfig(layout: Layout): SlopeConfig {
   const walls: WallConfig[] = [];
   const rails: RailConfig[] = [];
   const shapes: ShapeConfig[] = [];
+  const panels: PanelConfig[] = [];
+  const blocks: BlockConfig[] = [];
   for (const f of layout.features) {
     if (f.kind === 'kicker') kickers.push(f.cfg);
     else if (f.kind === 'corner') corners.push(f.cfg);
     else if (f.kind === 'quarter') quarters.push(f.cfg);
     else if (f.kind === 'wall') walls.push(f.cfg);
     else if (f.kind === 'shape') shapes.push(f.cfg);
+    else if (f.kind === 'panel') panels.push(f.cfg);
+    else if (f.kind === 'block') blocks.push(f.cfg);
     else rails.push(f.cfg);
   }
   if (kickers.length) cfg.kickers = kickers;
@@ -91,6 +98,8 @@ export function toSlopeConfig(layout: Layout): SlopeConfig {
   if (walls.length) cfg.walls = walls;
   if (rails.length) cfg.rails = rails;
   if (shapes.length) cfg.shapes = shapes;
+  if (panels.length) cfg.panels = panels;
+  if (blocks.length) cfg.blocks = blocks;
   return cfg;
 }
 
@@ -102,6 +111,8 @@ export function layoutFromSlope(name: string, cfg: SlopeConfig, spawn: Layout['s
   for (const q of cfg.quarters ?? []) features.push({ kind: 'quarter', cfg: q });
   for (const w of cfg.walls ?? []) features.push({ kind: 'wall', cfg: w });
   for (const r of cfg.rails ?? []) features.push({ kind: 'rail', cfg: r });
+  for (const pc of cfg.panels ?? []) features.push({ kind: 'panel', cfg: pc });
+  for (const b of cfg.blocks ?? []) features.push({ kind: 'block', cfg: b });
   const ground: Ground = { length: cfg.length, width: cfg.width, pitch: cfg.pitch };
   if (cfg.grades) ground.grades = cfg.grades;
   return { version: 1, name, ground, spawn, features, lines: [], links: [] };

@@ -116,3 +116,47 @@ console.log(`wrote ${take.frames.length} ticks -> takes/two-stick.json`);
   writeFileSync(new URL('../takes/two-stick-rail.json', import.meta.url), JSON.stringify(railTake));
   console.log(`wrote ${railTake.frames.length} ticks -> takes/two-stick-rail.json (${onRail.toFixed(2)} s on the rail, contact up to ${maxContact.toFixed(2)}, spin off ${spinOff.toFixed(2)} rad/s, popped off the ${state.popStance > 0 ? 'nose' : state.popStance < 0 ? 'tail' : '—'})`);
 }
+
+// Built wallrides (docs/walls-plan.md): a plywood panel with a snow ramp, ridden on the base and
+// popped off, then a building's side ridden — so the gate covers capture, the face, the exits and
+// the pop.
+{
+  const two = { ...cloneParams(params), input: { scheme: 1 } };
+  const D = Math.PI / 180;
+  const panelConfig: SlopeConfig = {
+    length: 400,
+    width: 120,
+    pitch: 9 * D,
+    panels: [{ x: 4, z: -50, yaw: 0, length: 24, height: 2.5, lean: 0.1, side: -1, foot: 0.4, ramp: { height: 0.4, length: 3 } }],
+    blocks: [{ x: 12, z: -115, yaw: 0, length: 24, width: 8, height: 6 }],
+  };
+  const panelTerrain = createSlope(panelConfig);
+  const spawn = { position: { x: -6, y: panelTerrain.sample(-6, 0, createContact()).height + 0.2, z: 0 }, heading: Math.PI };
+  const state = createRiderState(spawn);
+  const frames2: InputSnapshot[] = [];
+  let onFace = 0;
+  let faces = 0;
+  for (let i = 0; i < 24 / TICK_DT; i++) {
+    const frame = neutralInput();
+    const err = (target: number): number => Math.max(-1, Math.min(1, -3 * Math.atan2(Math.sin(target - state.heading), Math.cos(target - state.heading))));
+    if (state.mode === 'walled') {
+      onFace += TICK_DT;
+      frame.rt = onFace > 0.2 && onFace < 0.45 ? 1 : 0; // pop off the panel
+    } else if (state.mode === 'grounded') {
+      // Straight down to build speed, then aim at a point on the panel's face, then the building's.
+      const [tx, tz] = state.position.z > -40 ? [-6, -60] : state.position.z > -75 ? [4, -62] : [8, -115];
+      frame.lx = err(Math.atan2(tx - state.position.x, tz - state.position.z));
+    }
+    const was = state.mode;
+    const q = quantizeInput(frame);
+    tick(state, q, two, panelTerrain, TICK_DT);
+    if (state.mode === 'walled' && was !== 'walled') {
+      faces++;
+      onFace = 0;
+    }
+    frames2.push(q);
+  }
+  const take2 = buildTake({ seed: SEED, dt: TICK_DT, spawn, terrain: panelConfig, params: two, frames: frames2 });
+  writeFileSync(new URL('../takes/two-stick-panel.json', import.meta.url), JSON.stringify(take2));
+  console.log(`wrote ${take2.frames.length} ticks -> takes/two-stick-panel.json (${faces} faces ridden)`);
+}

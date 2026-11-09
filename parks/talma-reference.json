@@ -844,6 +844,127 @@
      10
     ]
    }
+  },
+  {
+   "kind": "panel",
+   "cfg": {
+    "x": 0.5,
+    "z": -248,
+    "yaw": 0,
+    "length": 24,
+    "height": 2.5,
+    "lean": 0.13962634015954636,
+    "side": 1,
+    "foot": 0.5,
+    "ramp": {
+     "height": 0.5,
+     "length": 3
+    }
+   },
+   "meta": {
+    "type": "wallRide"
+   }
+  },
+  {
+   "kind": "shape",
+   "cfg": {
+    "kind": "berm",
+    "x": 7.614296600429269,
+    "z": -280,
+    "yaw": 0,
+    "radius": 16,
+    "sweep": 0.6108652381980153,
+    "side": -1,
+    "bank": 0.6632251157578453,
+    "height": 3,
+    "taper": 4
+   },
+   "meta": {
+    "type": "berm"
+   }
+  },
+  {
+   "kind": "shape",
+   "cfg": {
+    "kind": "berm",
+    "x": 1.2792706909468619,
+    "z": -294.0921352473507,
+    "yaw": -0.6108652381980153,
+    "radius": 16,
+    "sweep": 0.6108652381980153,
+    "side": 1,
+    "bank": 0.6632251157578453,
+    "height": 3,
+    "taper": 4
+   },
+   "meta": {
+    "type": "berm"
+   }
+  },
+  {
+   "kind": "quarter",
+   "cfg": {
+    "width": 12,
+    "height": 3.5,
+    "angle": 1.4486232791552935,
+    "radius": 4,
+    "deck": 3,
+    "sideTaper": 3,
+    "x": 0,
+    "z": -342,
+    "yaw": 0,
+    "joinEnd": 1,
+    "mitre": [
+     6,
+     -342,
+     1.7071067811865475,
+     0.7071067811865475
+    ]
+   },
+   "meta": {
+    "type": "hipQuarter"
+   }
+  },
+  {
+   "kind": "quarter",
+   "cfg": {
+    "width": 12,
+    "height": 3.5,
+    "angle": 1.4486232791552935,
+    "radius": 4,
+    "deck": 3,
+    "sideTaper": 3,
+    "x": 10.242640687119286,
+    "z": -337.75735931288074,
+    "yaw": 0.7853981633974483,
+    "joinEnd": -1,
+    "mitre": [
+     6,
+     -342,
+     -1.7071067811865475,
+     -0.7071067811865475
+    ]
+   },
+   "meta": {
+    "type": "hipQuarter"
+   }
+  },
+  {
+   "kind": "block",
+   "cfg": {
+    "x": -16,
+    "z": -318,
+    "length": 16,
+    "width": 6,
+    "height": 4,
+    "ramp": {
+     "length": 14
+    },
+    "yaw": 0
+   },
+   "meta": {
+    "type": "hut"
+   }
   }
  ],
  "lines": [
@@ -881,6 +1002,21 @@
     13
    ],
    "speed": [
+    0,
+    0,
+    0
+   ]
+  },
+  {
+   "name": "wall and bank line",
+   "features": [
+    14,
+    15,
+    16,
+    17
+   ],
+   "speed": [
+    0,
     0,
     0,
     0

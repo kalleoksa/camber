@@ -26,6 +26,44 @@ function world(parts: FeatureSpec[], pitch: number | Ground): Terrain {
   return createSlope(toSlopeConfig({ version: 1, name: '', ground, spawn: { x: 0, z: 0, heading: 0 }, features: parts, lines: [], links: [] }));
 }
 
+/**
+ * Ride a berm at the origin (yaw 0) round its arc, `uT` out from it on the bank, entering at
+ * about `v` m/s. Returns the % of speed kept from the start of the arc to the end of its sweep.
+ */
+function rideBerm(t: Terrain, b: { radius: number; sweep: number; side: number; bank: number; height: number }, v: number): string {
+  const uT = 2 + b.height / Math.tan(b.bank) / 2; // halfway up the bank, past its 2 m foot
+  const rho = b.radius + uT;
+  const cx = b.side * b.radius;
+  const s = createRiderState({ position: { x: -b.side * uT, y: 0, z: 10 }, heading: Math.PI });
+  s.position.y = t.sample(s.position.x, 10, c).height + 0.05;
+  s.mode = 'grounded';
+  s.velocity.z = -(v - 2); // ~2 m/s more by the arc's start, 10 m down the 14° plane
+  let vIn = NaN;
+  for (let k = 0; k < 120 * 12; k++) {
+    const i = neutralInput();
+    const rx = s.position.x - cx;
+    const rz = s.position.z;
+    const dist = Math.hypot(rx, rz);
+    const phi = Math.atan2(-rz, -b.side * rx); // 0 at the arc's start, sweeping round to `sweep`
+    const speed = Math.hypot(s.velocity.x, s.velocity.y, s.velocity.z);
+    if (s.position.z < 0 && Number.isNaN(vIn)) vIn = speed;
+    if (s.position.z < 0 && phi >= b.sweep) return ((speed / vIn) * 100).toFixed(0);
+    if (s.mode === 'bailed') return 'bailed';
+    if (s.position.z < 0) {
+      const nx = rx / dist;
+      const nz = rz / dist;
+      const target = Math.atan2(-b.side * nz, b.side * nx); // the arc's tangent
+      const err = Math.atan2(Math.sin(target - s.heading), Math.cos(target - s.heading));
+      const sp = Math.hypot(s.velocity.x, s.velocity.z);
+      const sf = 1 - Math.exp((-Math.log(5) * sp) / params.ground.speedFactorKnee);
+      // + edge turns toward +X (heading down), so the turn's side sets the sign.
+      i.lx = Math.max(-1, Math.min(1, b.side * (sp / rho / (params.ground.carveYaw * sf) + 0.25 * (dist - rho)) - 1.5 * err));
+    }
+    tick(s, i, params, t, TICK_DT);
+  }
+  return 'never round';
+}
+
 type Run = { at: number; modes: string; landings: string[]; touch: number[]; railTime: number; end: number; airs: number; shortest: number };
 
 /**
@@ -208,6 +246,11 @@ for (const deg of [12, 20]) {
     steepest = Math.max(steepest, Math.acos(bw.sample(b.side * (b.radius - r * Math.cos(mid)), -r * Math.sin(mid), c).normal.y));
   }
   console.log(`berm r ${b.radius.toFixed(0)} m, ${(b.sweep / DEG).toFixed(0)}°, bank ${(b.bank / DEG).toFixed(0)}°: steepest ${(steepest / DEG).toFixed(0)}° from level across it halfway round (ground 14°)`);
+  // Ridden round: a steering bot holds the arc halfway up the bank (feed-forward on the carve's
+  // own turn rate, plus a pull back onto the line). Speed kept over the sweep, against the same
+  // line on bare snow. Done when ≥ 90%.
+  const flat = world([], pitch);
+  for (const v of [10, 13, 16]) console.log(`  in at ${v} m/s: berm keeps ${rideBerm(bw, b, v)}% · same line on bare snow ${rideBerm(flat, b, v)}%`);
   // Wall ride turned 30° off the fall line: ridden in its own frame, drifting into the wall.
   const wplace = { x: 0, z: 0, yaw: 30 * DEG };
   const wr = designWallRide(wplace, draw(15), GEN);
