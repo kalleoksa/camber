@@ -1,5 +1,5 @@
 import { TICK_DT } from '../core/loop.ts';
-import { neutralInput } from '../input/snapshot.ts';
+import { neutralInput, quantizeInput, type InputSnapshot } from '../input/snapshot.ts';
 import * as dm from '../sim/dmath.ts';
 import type { Params } from '../sim/params.ts';
 import { tick } from '../sim/rider.ts';
@@ -29,9 +29,14 @@ function target(f: FeatureSpec): { x: number; z: number } {
 
 /**
  * `brake`: on steep ground, scrub into every feature that has design speeds (not only rails), as a
- * rider would. `cruise`: m/s held between features the same way.
+ * rider would. `cruise`: m/s held between features the same way. `record`: the first line's
+ * inputs are pushed here, one per tick, rounded as a take stores them, and the bot rides on those —
+ * so the run can be saved as a take and watched in the game (scripts/bot-take.ts). `drop`: m above
+ * the snow it starts (the game drops the rider from 1.5). `fromSpawn`: start at the park's spawn,
+ * not above the first feature. `aim`: m before a feature the bot starts lining up on it; until
+ * then it lets the ground carry it (down a ridge or a gully).
  */
-export type CheckOptions = { brake?: boolean; cruise?: number };
+export type CheckOptions = { brake?: boolean; cruise?: number; record?: InputSnapshot[]; drop?: number; fromSpawn?: boolean; aim?: number };
 
 export function checkLines(layout: Layout, t: Terrain, params: Params, opt: CheckOptions = {}): LineCheck[] {
   const c = createContact();
@@ -42,8 +47,8 @@ export function checkLines(layout: Layout, t: Terrain, params: Params, opt: Chec
     const indices = line.features.filter((i) => layout.features[i] !== undefined);
     const feats = indices.map((i) => layout.features[i] as FeatureSpec);
     const targets = feats.map(target);
-    const x0 = targets[0]?.x ?? 0;
-    const s = createRiderState({ position: { x: x0, y: t.sample(x0, layout.spawn.z, c).height + 0.05, z: layout.spawn.z }, heading: Math.PI });
+    const x0 = opt.fromSpawn ? layout.spawn.x : (targets[0]?.x ?? 0);
+    const s = createRiderState({ position: { x: x0, y: t.sample(x0, layout.spawn.z, c).height + (opt.drop ?? 0.05), z: layout.spawn.z }, heading: Math.PI });
     let fi = 0;
     let at = 0; // speed arriving at the current feature
     let railed = false;
@@ -59,7 +64,7 @@ export function checkLines(layout: Layout, t: Terrain, params: Params, opt: Chec
         // Hold the line: aim 10 m ahead on it.
         const want = dm.atan2(tg.x - s.position.x, 10);
         const vh = dm.atan2(s.velocity.x, -s.velocity.z);
-        inp.lx = Math.max(-0.6, Math.min(0.6, (want - vh) * 2));
+        if (opt.aim === undefined || toGo < opt.aim) inp.lx = Math.max(-0.6, Math.min(0.6, (want - vh) * 2));
         const time = toGo / Math.max(1, -s.velocity.z);
         // A rail takes a light ollie (0.1 s of charge) to clear its 0.5 m and come down on it.
         const lead = f.kind === 'rail' ? 0.12 : params.pop.chargeTime + 0.05;
@@ -77,6 +82,10 @@ export function checkLines(layout: Layout, t: Terrain, params: Params, opt: Chec
       }
       if (toGo > 0 && s.mode === 'grounded') at = speed; // run-in speed, not the pop
       const was = s.mode;
+      if (opt.record && out.length === 1) {
+        quantizeInput(inp, inp);
+        opt.record.push(inp);
+      }
       tick(s, inp, params, t, TICK_DT);
       if (s.mode === 'railed') railed = true;
       if (s.mode === 'airborne' && toGo < 1) flew = true; // only off this feature, not a drop on the way

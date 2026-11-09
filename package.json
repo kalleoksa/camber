@@ -25,7 +25,8 @@
     "talma": "node scripts/build-talma.ts && node scripts/talma-check.ts",
     "talma-jumps": "node scripts/talma-jumps.ts",
     "flow": "node scripts/build-flow.ts",
-    "ridge": "node scripts/build-ridge.ts"
+    "ridge": "node scripts/build-ridge.ts",
+    "bot-take": "node scripts/bot-take.ts"
   },
   "dependencies": {
     "three": "^0.180.0",

@@ -11,7 +11,7 @@
  *
  * Every number is in RIDGE below. The hill is too steep to ride without braking, so the check
  * bot (src/park/check.ts) scrubs speed into each feature as a rider would and holds `cruise`
- * between them. It rides one line, straight down the middle; everything off that line is placed,
+ * between them. It rides one line, from the spawn along the ridge and down the gully; everything off that line is placed,
  * not checked.
  */
 import { writeFileSync } from 'node:fs';
@@ -47,6 +47,7 @@ const RIDGE = {
   bowl: { length: 75, pitch: 1 },
   start: -6, // z the rider spawns at, on the ridge
   cruise: 23, // m/s the check bot holds between features (83 km/h)
+  aim: 140, // m before a feature the bot starts lining up on it; until then the ridge and the gully carry it
   // Ridges (+) and gullies (−): [x, z, height m] down each path, held `halfWidth` m either side
   // and falling away over `skirt` m.
   forms: [
@@ -140,7 +141,7 @@ for (const s of RIDGE.spots) {
 }
 
 let failures = 0;
-const got = checkLines(layoutOf(features, [line]), terrainOf(features), params, { brake: true, cruise: RIDGE.cruise })[0]?.features ?? [];
+const got = checkLines(layoutOf(features, [line]), terrainOf(features), params, { brake: true, cruise: RIDGE.cruise, fromSpawn: true, aim: RIDGE.aim })[0]?.features ?? [];
 console.log(line.name);
 got.forEach((c, i) => {
   line.speed[i] = Math.round(c.at * 100) / 100;
