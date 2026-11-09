@@ -2,57 +2,277 @@
  "version": 1,
  "name": "flow",
  "ground": {
-  "length": 620,
-  "width": 200,
-  "pitch": 0.2617993877991494,
+  "length": 640,
+  "width": 250,
+  "pitch": 0.14835298641951802,
   "field": {
-   "pitch": 0.2617993877991494,
-   "width": 200,
-   "length": 620,
+   "pitch": 0.14835298641951802,
+   "width": 250,
+   "length": 640,
    "cell": 1,
-   "bankWidth": 14,
-   "bankHeight": 5,
+   "bankWidth": 62,
+   "bankHeight": 24,
    "noise": {
     "seed": 1,
-    "amp": 0,
-    "wavelength": 50,
-    "octaves": 0
+    "amp": 0.7,
+    "wavelength": 48,
+    "octaves": 2
    },
    "patches": [
     {
      "x": 0,
      "z": 0,
      "yaw": 0,
-     "halfWidth": 200,
+     "halfWidth": 250,
+     "edge": 1,
+     "blend": 8,
+     "segs": [
+      [
+       18,
+       0.2792526803190927
+      ]
+     ]
+    },
+    {
+     "x": -42,
+     "z": -26,
+     "yaw": 0,
+     "halfWidth": 12,
+     "edge": 14,
+     "blend": 5,
+     "segs": [
+      [
+       23.520294955471638,
+       0.05235987755982989
+      ],
+      [
+       4.8010035871231524,
+       0.5585053606381855
+      ],
+      [
+       39.20049159245273,
+       0.05235987755982989
+      ],
+      [
+       8.001672645205254,
+       0.5585053606381855
+      ],
+      [
+       31.36039327396218,
+       0.05235987755982989
+      ],
+      [
+       6.401338116164203,
+       0.5585053606381855
+      ],
+      [
+       54.880688229433815,
+       0.05235987755982989
+      ],
+      [
+       11.202341703287356,
+       0.5585053606381855
+      ],
+      [
+       39.20049159245273,
+       0.05235987755982989
+      ],
+      [
+       8.001672645205254,
+       0.5585053606381855
+      ],
+      [
+       62.72078654792436,
+       0.05235987755982989
+      ],
+      [
+       12.802676232328405,
+       0.5585053606381855
+      ],
+      [
+       47.040589910943275,
+       0.05235987755982989
+      ],
+      [
+       9.602007174246305,
+       0.5585053606381855
+      ],
+      [
+       62.72078654792436,
+       0.05235987755982989
+      ],
+      [
+       12.802676232328405,
+       0.5585053606381855
+      ]
+     ]
+    },
+    {
+     "x": 0,
+     "z": -26,
+     "yaw": 0,
+     "halfWidth": 12,
+     "edge": 14,
+     "blend": 5,
+     "segs": [
+      [
+       23.520294955471638,
+       0.05235987755982989
+      ],
+      [
+       4.8010035871231524,
+       0.5585053606381855
+      ],
+      [
+       31.36039327396218,
+       0.05235987755982989
+      ],
+      [
+       6.401338116164203,
+       0.5585053606381855
+      ],
+      [
+       39.20049159245273,
+       0.05235987755982989
+      ],
+      [
+       8.001672645205254,
+       0.5585053606381855
+      ],
+      [
+       54.880688229433815,
+       0.05235987755982989
+      ],
+      [
+       11.202341703287356,
+       0.5585053606381855
+      ],
+      [
+       54.880688229433815,
+       0.05235987755982989
+      ],
+      [
+       11.202341703287356,
+       0.5585053606381855
+      ],
+      [
+       54.880688229433815,
+       0.05235987755982989
+      ],
+      [
+       11.202341703287356,
+       0.5585053606381855
+      ],
+      [
+       47.040589910943275,
+       0.05235987755982989
+      ],
+      [
+       9.602007174246305,
+       0.5585053606381855
+      ],
+      [
+       54.880688229433815,
+       0.05235987755982989
+      ],
+      [
+       11.202341703287356,
+       0.5585053606381855
+      ],
+      [
+       54.880688229433815,
+       0.05235987755982989
+      ],
+      [
+       11.202341703287356,
+       0.5585053606381855
+      ]
+     ]
+    },
+    {
+     "x": 42,
+     "z": -26,
+     "yaw": 0,
+     "halfWidth": 12,
+     "edge": 14,
+     "blend": 5,
+     "segs": [
+      [
+       23.520294955471638,
+       0.05235987755982989
+      ],
+      [
+       4.8010035871231524,
+       0.5585053606381855
+      ],
+      [
+       31.36039327396218,
+       0.05235987755982989
+      ],
+      [
+       6.401338116164203,
+       0.5585053606381855
+      ],
+      [
+       39.20049159245273,
+       0.05235987755982989
+      ],
+      [
+       8.001672645205254,
+       0.5585053606381855
+      ],
+      [
+       47.040589910943275,
+       0.05235987755982989
+      ],
+      [
+       9.602007174246305,
+       0.5585053606381855
+      ],
+      [
+       54.880688229433815,
+       0.05235987755982989
+      ],
+      [
+       11.202341703287356,
+       0.5585053606381855
+      ],
+      [
+       62.72078654792436,
+       0.05235987755982989
+      ],
+      [
+       12.802676232328405,
+       0.5585053606381855
+      ],
+      [
+       62.72078654792436,
+       0.05235987755982989
+      ],
+      [
+       12.802676232328405,
+       0.5585053606381855
+      ],
+      [
+       62.72078654792436,
+       0.05235987755982989
+      ],
+      [
+       12.802676232328405,
+       0.5585053606381855
+      ]
+     ]
+    },
+    {
+     "x": 0,
+     "z": -554,
+     "yaw": 0,
+     "halfWidth": 250,
      "edge": 1,
      "blend": 14,
      "segs": [
       [
-       14,
-       0.2617993877991494
-      ],
-      [
-       140,
-       0.07853981633974483
-      ],
-      [
-       26,
-       0.2792526803190927
-      ],
-      [
-       160,
-       0.1308996938995747
-      ],
-      [
-       46,
-       0.20943951023931956
-      ],
-      [
-       144,
-       0.14835298641951802
-      ],
-      [
-       90,
+       126,
        0.017453292519943295
       ]
      ]
@@ -67,18 +287,2503 @@
  },
  "features": [
   {
+   "kind": "shape",
+   "cfg": {
+    "kind": "knoll",
+    "x": -26.86,
+    "z": -60,
+    "yaw": 0,
+    "height": 1.7,
+    "radius": 8.19,
+    "back": 7.698599999999999
+   },
+   "meta": {
+    "type": "knoll",
+    "lip": 0,
+    "design": {
+     "kind": "knoll",
+     "place": {
+      "x": -26.86,
+      "z": -60,
+      "yaw": 0
+     },
+     "size": "S",
+     "speed": [
+      0,
+      99
+     ],
+     "inputs": {
+      "height": 1.7,
+      "radius": 8.19,
+      "back": 0.94
+     }
+    },
+    "fill": true
+   }
+  },
+  {
+   "kind": "shape",
+   "cfg": {
+    "kind": "knoll",
+    "x": -20.74,
+    "z": -85.81,
+    "yaw": 0,
+    "height": 2.25,
+    "radius": 9.22,
+    "back": 7.007200000000001
+   },
+   "meta": {
+    "type": "knoll",
+    "lip": 0,
+    "design": {
+     "kind": "knoll",
+     "place": {
+      "x": -20.74,
+      "z": -85.81,
+      "yaw": 0
+     },
+     "size": "S",
+     "speed": [
+      0,
+      99
+     ],
+     "inputs": {
+      "height": 2.25,
+      "radius": 9.22,
+      "back": 0.76
+     }
+    },
+    "fill": true
+   }
+  },
+  {
+   "kind": "shape",
+   "cfg": {
+    "kind": "knoll",
+    "x": -20.36,
+    "z": -102.95,
+    "yaw": 0,
+    "height": 2.77,
+    "radius": 10.19,
+    "back": 7.0310999999999995
+   },
+   "meta": {
+    "type": "knoll",
+    "lip": 0,
+    "design": {
+     "kind": "knoll",
+     "place": {
+      "x": -20.36,
+      "z": -102.95,
+      "yaw": 0
+     },
+     "size": "S",
+     "speed": [
+      0,
+      99
+     ],
+     "inputs": {
+      "height": 2.77,
+      "radius": 10.19,
+      "back": 0.69
+     }
+    },
+    "fill": true
+   }
+  },
+  {
+   "kind": "shape",
+   "cfg": {
+    "kind": "knoll",
+    "x": -17.83,
+    "z": -118.49,
+    "yaw": 0,
+    "height": 2.43,
+    "radius": 9.56,
+    "back": 6.405200000000001
+   },
+   "meta": {
+    "type": "knoll",
+    "lip": 0,
+    "design": {
+     "kind": "knoll",
+     "place": {
+      "x": -17.83,
+      "z": -118.49,
+      "yaw": 0
+     },
+     "size": "S",
+     "speed": [
+      0,
+      99
+     ],
+     "inputs": {
+      "height": 2.43,
+      "radius": 9.56,
+      "back": 0.67
+     }
+    },
+    "fill": true
+   }
+  },
+  {
+   "kind": "shape",
+   "cfg": {
+    "kind": "knoll",
+    "x": -23.48,
+    "z": -138.05,
+    "yaw": 0,
+    "height": 2.46,
+    "radius": 9.6,
+    "back": 6.72
+   },
+   "meta": {
+    "type": "knoll",
+    "lip": 0,
+    "design": {
+     "kind": "knoll",
+     "place": {
+      "x": -23.48,
+      "z": -138.05,
+      "yaw": 0
+     },
+     "size": "S",
+     "speed": [
+      0,
+      99
+     ],
+     "inputs": {
+      "height": 2.46,
+      "radius": 9.6,
+      "back": 0.7
+     }
+    },
+    "fill": true
+   }
+  },
+  {
+   "kind": "shape",
+   "cfg": {
+    "kind": "knoll",
+    "x": -24.03,
+    "z": -169.13,
+    "yaw": 0,
+    "height": 3,
+    "radius": 10.63,
+    "back": 7.1221000000000005
+   },
+   "meta": {
+    "type": "knoll",
+    "lip": 0,
+    "design": {
+     "kind": "knoll",
+     "place": {
+      "x": -24.03,
+      "z": -169.13,
+      "yaw": 0
+     },
+     "size": "S",
+     "speed": [
+      0,
+      99
+     ],
+     "inputs": {
+      "height": 3,
+      "radius": 10.63,
+      "back": 0.67
+     }
+    },
+    "fill": true
+   }
+  },
+  {
+   "kind": "shape",
+   "cfg": {
+    "kind": "knoll",
+    "x": -25.14,
+    "z": -184.45,
+    "yaw": 0,
+    "height": 2.07,
+    "radius": 8.87,
+    "back": 7.0073
+   },
+   "meta": {
+    "type": "knoll",
+    "lip": 0,
+    "design": {
+     "kind": "knoll",
+     "place": {
+      "x": -25.14,
+      "z": -184.45,
+      "yaw": 0
+     },
+     "size": "S",
+     "speed": [
+      0,
+      99
+     ],
+     "inputs": {
+      "height": 2.07,
+      "radius": 8.87,
+      "back": 0.79
+     }
+    },
+    "fill": true
+   }
+  },
+  {
+   "kind": "shape",
+   "cfg": {
+    "kind": "knoll",
+    "x": -26.11,
+    "z": -211.45,
+    "yaw": 0,
+    "height": 3.06,
+    "radius": 10.74,
+    "back": 8.4846
+   },
+   "meta": {
+    "type": "knoll",
+    "lip": 0,
+    "design": {
+     "kind": "knoll",
+     "place": {
+      "x": -26.11,
+      "z": -211.45,
+      "yaw": 0
+     },
+     "size": "S",
+     "speed": [
+      0,
+      99
+     ],
+     "inputs": {
+      "height": 3.06,
+      "radius": 10.74,
+      "back": 0.79
+     }
+    },
+    "fill": true
+   }
+  },
+  {
+   "kind": "shape",
+   "cfg": {
+    "kind": "knoll",
+    "x": -18.84,
+    "z": -235.79,
+    "yaw": 0,
+    "height": 3.15,
+    "radius": 10.9,
+    "back": 8.938
+   },
+   "meta": {
+    "type": "knoll",
+    "lip": 0,
+    "design": {
+     "kind": "knoll",
+     "place": {
+      "x": -18.84,
+      "z": -235.79,
+      "yaw": 0
+     },
+     "size": "S",
+     "speed": [
+      0,
+      99
+     ],
+     "inputs": {
+      "height": 3.15,
+      "radius": 10.9,
+      "back": 0.82
+     }
+    },
+    "fill": true
+   }
+  },
+  {
+   "kind": "shape",
+   "cfg": {
+    "kind": "knoll",
+    "x": -17.07,
+    "z": -265.81,
+    "yaw": 0,
+    "height": 1.66,
+    "radius": 8.12,
+    "back": 5.3591999999999995
+   },
+   "meta": {
+    "type": "knoll",
+    "lip": 0,
+    "design": {
+     "kind": "knoll",
+     "place": {
+      "x": -17.07,
+      "z": -265.81,
+      "yaw": 0
+     },
+     "size": "S",
+     "speed": [
+      0,
+      99
+     ],
+     "inputs": {
+      "height": 1.66,
+      "radius": 8.12,
+      "back": 0.66
+     }
+    },
+    "fill": true
+   }
+  },
+  {
+   "kind": "shape",
+   "cfg": {
+    "kind": "knoll",
+    "x": -21.9,
+    "z": -285.15,
+    "yaw": 0,
+    "height": 1.63,
+    "radius": 8.06,
+    "back": 5.077800000000001
+   },
+   "meta": {
+    "type": "knoll",
+    "lip": 0,
+    "design": {
+     "kind": "knoll",
+     "place": {
+      "x": -21.9,
+      "z": -285.15,
+      "yaw": 0
+     },
+     "size": "S",
+     "speed": [
+      0,
+      99
+     ],
+     "inputs": {
+      "height": 1.63,
+      "radius": 8.06,
+      "back": 0.63
+     }
+    },
+    "fill": true
+   }
+  },
+  {
+   "kind": "shape",
+   "cfg": {
+    "kind": "knoll",
+    "x": -22.57,
+    "z": -312.27,
+    "yaw": 0,
+    "height": 2.28,
+    "radius": 9.28,
+    "back": 7.0527999999999995
+   },
+   "meta": {
+    "type": "knoll",
+    "lip": 0,
+    "design": {
+     "kind": "knoll",
+     "place": {
+      "x": -22.57,
+      "z": -312.27,
+      "yaw": 0
+     },
+     "size": "S",
+     "speed": [
+      0,
+      99
+     ],
+     "inputs": {
+      "height": 2.28,
+      "radius": 9.28,
+      "back": 0.76
+     }
+    },
+    "fill": true
+   }
+  },
+  {
+   "kind": "shape",
+   "cfg": {
+    "kind": "knoll",
+    "x": -18.56,
+    "z": -342.75,
+    "yaw": 0,
+    "height": 2.7,
+    "radius": 10.06,
+    "back": 7.2432
+   },
+   "meta": {
+    "type": "knoll",
+    "lip": 0,
+    "design": {
+     "kind": "knoll",
+     "place": {
+      "x": -18.56,
+      "z": -342.75,
+      "yaw": 0
+     },
+     "size": "S",
+     "speed": [
+      0,
+      99
+     ],
+     "inputs": {
+      "height": 2.7,
+      "radius": 10.06,
+      "back": 0.72
+     }
+    },
+    "fill": true
+   }
+  },
+  {
+   "kind": "shape",
+   "cfg": {
+    "kind": "knoll",
+    "x": -25.33,
+    "z": -362.09,
+    "yaw": 0,
+    "height": 1.81,
+    "radius": 8.4,
+    "back": 7.728000000000001
+   },
+   "meta": {
+    "type": "knoll",
+    "lip": 0,
+    "design": {
+     "kind": "knoll",
+     "place": {
+      "x": -25.33,
+      "z": -362.09,
+      "yaw": 0
+     },
+     "size": "S",
+     "speed": [
+      0,
+      99
+     ],
+     "inputs": {
+      "height": 1.81,
+      "radius": 8.4,
+      "back": 0.92
+     }
+    },
+    "fill": true
+   }
+  },
+  {
+   "kind": "shape",
+   "cfg": {
+    "kind": "knoll",
+    "x": -24.72,
+    "z": -380.78,
+    "yaw": 0,
+    "height": 2.61,
+    "radius": 9.9,
+    "back": 7.128
+   },
+   "meta": {
+    "type": "knoll",
+    "lip": 0,
+    "design": {
+     "kind": "knoll",
+     "place": {
+      "x": -24.72,
+      "z": -380.78,
+      "yaw": 0
+     },
+     "size": "S",
+     "speed": [
+      0,
+      99
+     ],
+     "inputs": {
+      "height": 2.61,
+      "radius": 9.9,
+      "back": 0.72
+     }
+    },
+    "fill": true
+   }
+  },
+  {
+   "kind": "shape",
+   "cfg": {
+    "kind": "knoll",
+    "x": -18.79,
+    "z": -394.2,
+    "yaw": 0,
+    "height": 3.07,
+    "radius": 10.76,
+    "back": 8.5004
+   },
+   "meta": {
+    "type": "knoll",
+    "lip": 0,
+    "design": {
+     "kind": "knoll",
+     "place": {
+      "x": -18.79,
+      "z": -394.2,
+      "yaw": 0
+     },
+     "size": "S",
+     "speed": [
+      0,
+      99
+     ],
+     "inputs": {
+      "height": 3.07,
+      "radius": 10.76,
+      "back": 0.79
+     }
+    },
+    "fill": true
+   }
+  },
+  {
+   "kind": "shape",
+   "cfg": {
+    "kind": "knoll",
+    "x": -19.14,
+    "z": -422.43,
+    "yaw": 0,
+    "height": 3.07,
+    "radius": 10.76,
+    "back": 6.8864
+   },
+   "meta": {
+    "type": "knoll",
+    "lip": 0,
+    "design": {
+     "kind": "knoll",
+     "place": {
+      "x": -19.14,
+      "z": -422.43,
+      "yaw": 0
+     },
+     "size": "S",
+     "speed": [
+      0,
+      99
+     ],
+     "inputs": {
+      "height": 3.07,
+      "radius": 10.76,
+      "back": 0.64
+     }
+    },
+    "fill": true
+   }
+  },
+  {
+   "kind": "shape",
+   "cfg": {
+    "kind": "knoll",
+    "x": -19.21,
+    "z": -445.04,
+    "yaw": 0,
+    "height": 3.03,
+    "radius": 10.67,
+    "back": 10.0298
+   },
+   "meta": {
+    "type": "knoll",
+    "lip": 0,
+    "design": {
+     "kind": "knoll",
+     "place": {
+      "x": -19.21,
+      "z": -445.04,
+      "yaw": 0
+     },
+     "size": "S",
+     "speed": [
+      0,
+      99
+     ],
+     "inputs": {
+      "height": 3.03,
+      "radius": 10.67,
+      "back": 0.94
+     }
+    },
+    "fill": true
+   }
+  },
+  {
+   "kind": "shape",
+   "cfg": {
+    "kind": "knoll",
+    "x": -19.87,
+    "z": -473.48,
+    "yaw": 0,
+    "height": 3.14,
+    "radius": 10.89,
+    "back": 10.2366
+   },
+   "meta": {
+    "type": "knoll",
+    "lip": 0,
+    "design": {
+     "kind": "knoll",
+     "place": {
+      "x": -19.87,
+      "z": -473.48,
+      "yaw": 0
+     },
+     "size": "S",
+     "speed": [
+      0,
+      99
+     ],
+     "inputs": {
+      "height": 3.14,
+      "radius": 10.89,
+      "back": 0.94
+     }
+    },
+    "fill": true
+   }
+  },
+  {
+   "kind": "shape",
+   "cfg": {
+    "kind": "knoll",
+    "x": -17.18,
+    "z": -496.45,
+    "yaw": 0,
+    "height": 1.61,
+    "radius": 8.02,
+    "back": 6.2556
+   },
+   "meta": {
+    "type": "knoll",
+    "lip": 0,
+    "design": {
+     "kind": "knoll",
+     "place": {
+      "x": -17.18,
+      "z": -496.45,
+      "yaw": 0
+     },
+     "size": "S",
+     "speed": [
+      0,
+      99
+     ],
+     "inputs": {
+      "height": 1.61,
+      "radius": 8.02,
+      "back": 0.78
+     }
+    },
+    "fill": true
+   }
+  },
+  {
+   "kind": "shape",
+   "cfg": {
+    "kind": "knoll",
+    "x": -18.31,
+    "z": -515.25,
+    "yaw": 0,
+    "height": 2.48,
+    "radius": 9.65,
+    "back": 8.299
+   },
+   "meta": {
+    "type": "knoll",
+    "lip": 0,
+    "design": {
+     "kind": "knoll",
+     "place": {
+      "x": -18.31,
+      "z": -515.25,
+      "yaw": 0
+     },
+     "size": "S",
+     "speed": [
+      0,
+      99
+     ],
+     "inputs": {
+      "height": 2.48,
+      "radius": 9.65,
+      "back": 0.86
+     }
+    },
+    "fill": true
+   }
+  },
+  {
+   "kind": "shape",
+   "cfg": {
+    "kind": "knoll",
+    "x": 21.69,
+    "z": -70,
+    "yaw": 0,
+    "height": 3.12,
+    "radius": 10.47,
+    "back": 7.852500000000001
+   },
+   "meta": {
+    "type": "knoll",
+    "lip": 0,
+    "design": {
+     "kind": "knoll",
+     "place": {
+      "x": 21.69,
+      "z": -70,
+      "yaw": 0
+     },
+     "size": "S",
+     "speed": [
+      0,
+      99
+     ],
+     "inputs": {
+      "height": 3.12,
+      "radius": 10.47,
+      "back": 0.75
+     }
+    },
+    "fill": true
+   }
+  },
+  {
+   "kind": "shape",
+   "cfg": {
+    "kind": "knoll",
+    "x": 23.86,
+    "z": -97.1,
+    "yaw": 0,
+    "height": 2.68,
+    "radius": 9.66,
+    "back": 6.8586
+   },
+   "meta": {
+    "type": "knoll",
+    "lip": 0,
+    "design": {
+     "kind": "knoll",
+     "place": {
+      "x": 23.86,
+      "z": -97.1,
+      "yaw": 0
+     },
+     "size": "S",
+     "speed": [
+      0,
+      99
+     ],
+     "inputs": {
+      "height": 2.68,
+      "radius": 9.66,
+      "back": 0.71
+     }
+    },
+    "fill": true
+   }
+  },
+  {
+   "kind": "shape",
+   "cfg": {
+    "kind": "knoll",
+    "x": 15.11,
+    "z": -115.8,
+    "yaw": 0,
+    "height": 1.84,
+    "radius": 8.07,
+    "back": 7.5051000000000005
+   },
+   "meta": {
+    "type": "knoll",
+    "lip": 0,
+    "design": {
+     "kind": "knoll",
+     "place": {
+      "x": 15.11,
+      "z": -115.8,
+      "yaw": 0
+     },
+     "size": "S",
+     "speed": [
+      0,
+      99
+     ],
+     "inputs": {
+      "height": 1.84,
+      "radius": 8.07,
+      "back": 0.93
+     }
+    },
+    "fill": true
+   }
+  },
+  {
+   "kind": "shape",
+   "cfg": {
+    "kind": "knoll",
+    "x": 22.57,
+    "z": -146.85,
+    "yaw": 0,
+    "height": 1.82,
+    "radius": 8.04,
+    "back": 6.592799999999999
+   },
+   "meta": {
+    "type": "knoll",
+    "lip": 0,
+    "design": {
+     "kind": "knoll",
+     "place": {
+      "x": 22.57,
+      "z": -146.85,
+      "yaw": 0
+     },
+     "size": "S",
+     "speed": [
+      0,
+      99
+     ],
+     "inputs": {
+      "height": 1.82,
+      "radius": 8.04,
+      "back": 0.82
+     }
+    },
+    "fill": true
+   }
+  },
+  {
+   "kind": "shape",
+   "cfg": {
+    "kind": "knoll",
+    "x": 23.6,
+    "z": -172.96,
+    "yaw": 0,
+    "height": 3.39,
+    "radius": 10.98,
+    "back": 7.686
+   },
+   "meta": {
+    "type": "knoll",
+    "lip": 0,
+    "design": {
+     "kind": "knoll",
+     "place": {
+      "x": 23.6,
+      "z": -172.96,
+      "yaw": 0
+     },
+     "size": "S",
+     "speed": [
+      0,
+      99
+     ],
+     "inputs": {
+      "height": 3.39,
+      "radius": 10.98,
+      "back": 0.7
+     }
+    },
+    "fill": true
+   }
+  },
+  {
+   "kind": "shape",
+   "cfg": {
+    "kind": "knoll",
+    "x": 22.8,
+    "z": -207.18,
+    "yaw": 0,
+    "height": 3.09,
+    "radius": 10.41,
+    "back": 8.5362
+   },
+   "meta": {
+    "type": "knoll",
+    "lip": 0,
+    "design": {
+     "kind": "knoll",
+     "place": {
+      "x": 22.8,
+      "z": -207.18,
+      "yaw": 0
+     },
+     "size": "S",
+     "speed": [
+      0,
+      99
+     ],
+     "inputs": {
+      "height": 3.09,
+      "radius": 10.41,
+      "back": 0.82
+     }
+    },
+    "fill": true
+   }
+  },
+  {
+   "kind": "shape",
+   "cfg": {
+    "kind": "knoll",
+    "x": 16.67,
+    "z": -238.16,
+    "yaw": 0,
+    "height": 3.39,
+    "radius": 10.98,
+    "back": 8.564400000000001
+   },
+   "meta": {
+    "type": "knoll",
+    "lip": 0,
+    "design": {
+     "kind": "knoll",
+     "place": {
+      "x": 16.67,
+      "z": -238.16,
+      "yaw": 0
+     },
+     "size": "S",
+     "speed": [
+      0,
+      99
+     ],
+     "inputs": {
+      "height": 3.39,
+      "radius": 10.98,
+      "back": 0.78
+     }
+    },
+    "fill": true
+   }
+  },
+  {
+   "kind": "shape",
+   "cfg": {
+    "kind": "knoll",
+    "x": 16.93,
+    "z": -263.7,
+    "yaw": 0,
+    "height": 2.43,
+    "radius": 9.19,
+    "back": 6.1573
+   },
+   "meta": {
+    "type": "knoll",
+    "lip": 0,
+    "design": {
+     "kind": "knoll",
+     "place": {
+      "x": 16.93,
+      "z": -263.7,
+      "yaw": 0
+     },
+     "size": "S",
+     "speed": [
+      0,
+      99
+     ],
+     "inputs": {
+      "height": 2.43,
+      "radius": 9.19,
+      "back": 0.67
+     }
+    },
+    "fill": true
+   }
+  },
+  {
+   "kind": "shape",
+   "cfg": {
+    "kind": "knoll",
+    "x": 25.34,
+    "z": -294.34,
+    "yaw": 0,
+    "height": 2.98,
+    "radius": 10.21,
+    "back": 8.4743
+   },
+   "meta": {
+    "type": "knoll",
+    "lip": 0,
+    "design": {
+     "kind": "knoll",
+     "place": {
+      "x": 25.34,
+      "z": -294.34,
+      "yaw": 0
+     },
+     "size": "S",
+     "speed": [
+      0,
+      99
+     ],
+     "inputs": {
+      "height": 2.98,
+      "radius": 10.21,
+      "back": 0.83
+     }
+    },
+    "fill": true
+   }
+  },
+  {
+   "kind": "shape",
+   "cfg": {
+    "kind": "knoll",
+    "x": 22.31,
+    "z": -328.64,
+    "yaw": 0,
+    "height": 2.98,
+    "radius": 10.21,
+    "back": 9.495300000000002
+   },
+   "meta": {
+    "type": "knoll",
+    "lip": 0,
+    "design": {
+     "kind": "knoll",
+     "place": {
+      "x": 22.31,
+      "z": -328.64,
+      "yaw": 0
+     },
+     "size": "S",
+     "speed": [
+      0,
+      99
+     ],
+     "inputs": {
+      "height": 2.98,
+      "radius": 10.21,
+      "back": 0.93
+     }
+    },
+    "fill": true
+   }
+  },
+  {
+   "kind": "shape",
+   "cfg": {
+    "kind": "knoll",
+    "x": 17.76,
+    "z": -352.56,
+    "yaw": 0,
+    "height": 2.73,
+    "radius": 9.75,
+    "back": 8.58
+   },
+   "meta": {
+    "type": "knoll",
+    "lip": 0,
+    "design": {
+     "kind": "knoll",
+     "place": {
+      "x": 17.76,
+      "z": -352.56,
+      "yaw": 0
+     },
+     "size": "S",
+     "speed": [
+      0,
+      99
+     ],
+     "inputs": {
+      "height": 2.73,
+      "radius": 9.75,
+      "back": 0.88
+     }
+    },
+    "fill": true
+   }
+  },
+  {
+   "kind": "shape",
+   "cfg": {
+    "kind": "knoll",
+    "x": 17.28,
+    "z": -384.04,
+    "yaw": 0,
+    "height": 2.69,
+    "radius": 9.66,
+    "back": 7.4382
+   },
+   "meta": {
+    "type": "knoll",
+    "lip": 0,
+    "design": {
+     "kind": "knoll",
+     "place": {
+      "x": 17.28,
+      "z": -384.04,
+      "yaw": 0
+     },
+     "size": "S",
+     "speed": [
+      0,
+      99
+     ],
+     "inputs": {
+      "height": 2.69,
+      "radius": 9.66,
+      "back": 0.77
+     }
+    },
+    "fill": true
+   }
+  },
+  {
+   "kind": "shape",
+   "cfg": {
+    "kind": "knoll",
+    "x": 17.16,
+    "z": -408.72,
+    "yaw": 0,
+    "height": 2.2,
+    "radius": 8.75,
+    "back": 6.5625
+   },
+   "meta": {
+    "type": "knoll",
+    "lip": 0,
+    "design": {
+     "kind": "knoll",
+     "place": {
+      "x": 17.16,
+      "z": -408.72,
+      "yaw": 0
+     },
+     "size": "S",
+     "speed": [
+      0,
+      99
+     ],
+     "inputs": {
+      "height": 2.2,
+      "radius": 8.75,
+      "back": 0.75
+     }
+    },
+    "fill": true
+   }
+  },
+  {
+   "kind": "shape",
+   "cfg": {
+    "kind": "knoll",
+    "x": 17.05,
+    "z": -432.41,
+    "yaw": 0,
+    "height": 1.81,
+    "radius": 8.01,
+    "back": 5.2866
+   },
+   "meta": {
+    "type": "knoll",
+    "lip": 0,
+    "design": {
+     "kind": "knoll",
+     "place": {
+      "x": 17.05,
+      "z": -432.41,
+      "yaw": 0
+     },
+     "size": "S",
+     "speed": [
+      0,
+      99
+     ],
+     "inputs": {
+      "height": 1.81,
+      "radius": 8.01,
+      "back": 0.66
+     }
+    },
+    "fill": true
+   }
+  },
+  {
+   "kind": "shape",
+   "cfg": {
+    "kind": "knoll",
+    "x": 16.29,
+    "z": -446.7,
+    "yaw": 0,
+    "height": 3.2,
+    "radius": 10.63,
+    "back": 9.9922
+   },
+   "meta": {
+    "type": "knoll",
+    "lip": 0,
+    "design": {
+     "kind": "knoll",
+     "place": {
+      "x": 16.29,
+      "z": -446.7,
+      "yaw": 0
+     },
+     "size": "S",
+     "speed": [
+      0,
+      99
+     ],
+     "inputs": {
+      "height": 3.2,
+      "radius": 10.63,
+      "back": 0.94
+     }
+    },
+    "fill": true
+   }
+  },
+  {
+   "kind": "shape",
+   "cfg": {
+    "kind": "knoll",
+    "x": 17.09,
+    "z": -461.75,
+    "yaw": 0,
+    "height": 2.45,
+    "radius": 9.22,
+    "back": 7.099400000000001
+   },
+   "meta": {
+    "type": "knoll",
+    "lip": 0,
+    "design": {
+     "kind": "knoll",
+     "place": {
+      "x": 17.09,
+      "z": -461.75,
+      "yaw": 0
+     },
+     "size": "S",
+     "speed": [
+      0,
+      99
+     ],
+     "inputs": {
+      "height": 2.45,
+      "radius": 9.22,
+      "back": 0.77
+     }
+    },
+    "fill": true
+   }
+  },
+  {
+   "kind": "shape",
+   "cfg": {
+    "kind": "knoll",
+    "x": 19.42,
+    "z": -490.71,
+    "yaw": 0,
+    "height": 2.38,
+    "radius": 9.08,
+    "back": 7.9904
+   },
+   "meta": {
+    "type": "knoll",
+    "lip": 0,
+    "design": {
+     "kind": "knoll",
+     "place": {
+      "x": 19.42,
+      "z": -490.71,
+      "yaw": 0
+     },
+     "size": "S",
+     "speed": [
+      0,
+      99
+     ],
+     "inputs": {
+      "height": 2.38,
+      "radius": 9.08,
+      "back": 0.88
+     }
+    },
+    "fill": true
+   }
+  },
+  {
+   "kind": "shape",
+   "cfg": {
+    "kind": "knoll",
+    "x": 24.6,
+    "z": -519.22,
+    "yaw": 0,
+    "height": 2.65,
+    "radius": 9.59,
+    "back": 8.4392
+   },
+   "meta": {
+    "type": "knoll",
+    "lip": 0,
+    "design": {
+     "kind": "knoll",
+     "place": {
+      "x": 24.6,
+      "z": -519.22,
+      "yaw": 0
+     },
+     "size": "S",
+     "speed": [
+      0,
+      99
+     ],
+     "inputs": {
+      "height": 2.65,
+      "radius": 9.59,
+      "back": 0.88
+     }
+    },
+    "fill": true
+   }
+  },
+  {
+   "kind": "shape",
+   "cfg": {
+    "kind": "knoll",
+    "x": -69.37,
+    "z": -50,
+    "yaw": 0,
+    "height": 2.47,
+    "radius": 8.88,
+    "back": 6.926400000000001
+   },
+   "meta": {
+    "type": "knoll",
+    "lip": 0,
+    "design": {
+     "kind": "knoll",
+     "place": {
+      "x": -69.37,
+      "z": -50,
+      "yaw": 0
+     },
+     "size": "S",
+     "speed": [
+      0,
+      99
+     ],
+     "inputs": {
+      "height": 2.47,
+      "radius": 8.88,
+      "back": 0.78
+     }
+    },
+    "fill": true
+   }
+  },
+  {
+   "kind": "shape",
+   "cfg": {
+    "kind": "knoll",
+    "x": -74.2,
+    "z": -85.07,
+    "yaw": 0,
+    "height": 2.4,
+    "radius": 8.76,
+    "back": 7.7964
+   },
+   "meta": {
+    "type": "knoll",
+    "lip": 0,
+    "design": {
+     "kind": "knoll",
+     "place": {
+      "x": -74.2,
+      "z": -85.07,
+      "yaw": 0
+     },
+     "size": "S",
+     "speed": [
+      0,
+      99
+     ],
+     "inputs": {
+      "height": 2.4,
+      "radius": 8.76,
+      "back": 0.89
+     }
+    },
+    "fill": true
+   }
+  },
+  {
+   "kind": "shape",
+   "cfg": {
+    "kind": "knoll",
+    "x": -67.25,
+    "z": -121.37,
+    "yaw": 0,
+    "height": 2.69,
+    "radius": 9.29,
+    "back": 6.688799999999999
+   },
+   "meta": {
+    "type": "knoll",
+    "lip": 0,
+    "design": {
+     "kind": "knoll",
+     "place": {
+      "x": -67.25,
+      "z": -121.37,
+      "yaw": 0
+     },
+     "size": "S",
+     "speed": [
+      0,
+      99
+     ],
+     "inputs": {
+      "height": 2.69,
+      "radius": 9.29,
+      "back": 0.72
+     }
+    },
+    "fill": true
+   }
+  },
+  {
+   "kind": "shape",
+   "cfg": {
+    "kind": "knoll",
+    "x": -72.49,
+    "z": -159.94,
+    "yaw": 0,
+    "height": 2.58,
+    "radius": 9.08,
+    "back": 6.9916
+   },
+   "meta": {
+    "type": "knoll",
+    "lip": 0,
+    "design": {
+     "kind": "knoll",
+     "place": {
+      "x": -72.49,
+      "z": -159.94,
+      "yaw": 0
+     },
+     "size": "S",
+     "speed": [
+      0,
+      99
+     ],
+     "inputs": {
+      "height": 2.58,
+      "radius": 9.08,
+      "back": 0.77
+     }
+    },
+    "fill": true
+   }
+  },
+  {
+   "kind": "shape",
+   "cfg": {
+    "kind": "knoll",
+    "x": -70.96,
+    "z": -196.31,
+    "yaw": 0,
+    "height": 3.56,
+    "radius": 10.92,
+    "back": 8.626800000000001
+   },
+   "meta": {
+    "type": "knoll",
+    "lip": 0,
+    "design": {
+     "kind": "knoll",
+     "place": {
+      "x": -70.96,
+      "z": -196.31,
+      "yaw": 0
+     },
+     "size": "S",
+     "speed": [
+      0,
+      99
+     ],
+     "inputs": {
+      "height": 3.56,
+      "radius": 10.92,
+      "back": 0.79
+     }
+    },
+    "fill": true
+   }
+  },
+  {
+   "kind": "shape",
+   "cfg": {
+    "kind": "knoll",
+    "x": -71.61,
+    "z": -223.12,
+    "yaw": 0,
+    "height": 2.86,
+    "radius": 9.61,
+    "back": 6.726999999999999
+   },
+   "meta": {
+    "type": "knoll",
+    "lip": 0,
+    "design": {
+     "kind": "knoll",
+     "place": {
+      "x": -71.61,
+      "z": -223.12,
+      "yaw": 0
+     },
+     "size": "S",
+     "speed": [
+      0,
+      99
+     ],
+     "inputs": {
+      "height": 2.86,
+      "radius": 9.61,
+      "back": 0.7
+     }
+    },
+    "fill": true
+   }
+  },
+  {
+   "kind": "shape",
+   "cfg": {
+    "kind": "knoll",
+    "x": -69.28,
+    "z": -260.8,
+    "yaw": 0,
+    "height": 3.58,
+    "radius": 10.96,
+    "back": 9.7544
+   },
+   "meta": {
+    "type": "knoll",
+    "lip": 0,
+    "design": {
+     "kind": "knoll",
+     "place": {
+      "x": -69.28,
+      "z": -260.8,
+      "yaw": 0
+     },
+     "size": "S",
+     "speed": [
+      0,
+      99
+     ],
+     "inputs": {
+      "height": 3.58,
+      "radius": 10.96,
+      "back": 0.89
+     }
+    },
+    "fill": true
+   }
+  },
+  {
+   "kind": "shape",
+   "cfg": {
+    "kind": "knoll",
+    "x": -70.63,
+    "z": -289.05,
+    "yaw": 0,
+    "height": 3.12,
+    "radius": 10.09,
+    "back": 9.383700000000001
+   },
+   "meta": {
+    "type": "knoll",
+    "lip": 0,
+    "design": {
+     "kind": "knoll",
+     "place": {
+      "x": -70.63,
+      "z": -289.05,
+      "yaw": 0
+     },
+     "size": "S",
+     "speed": [
+      0,
+      99
+     ],
+     "inputs": {
+      "height": 3.12,
+      "radius": 10.09,
+      "back": 0.93
+     }
+    },
+    "fill": true
+   }
+  },
+  {
+   "kind": "shape",
+   "cfg": {
+    "kind": "knoll",
+    "x": -68.43,
+    "z": -318.63,
+    "yaw": 0,
+    "height": 2.26,
+    "radius": 8.49,
+    "back": 7.1316
+   },
+   "meta": {
+    "type": "knoll",
+    "lip": 0,
+    "design": {
+     "kind": "knoll",
+     "place": {
+      "x": -68.43,
+      "z": -318.63,
+      "yaw": 0
+     },
+     "size": "S",
+     "speed": [
+      0,
+      99
+     ],
+     "inputs": {
+      "height": 2.26,
+      "radius": 8.49,
+      "back": 0.84
+     }
+    },
+    "fill": true
+   }
+  },
+  {
+   "kind": "shape",
+   "cfg": {
+    "kind": "knoll",
+    "x": -68.9,
+    "z": -344.32,
+    "yaw": 0,
+    "height": 3.37,
+    "radius": 10.57,
+    "back": 7.7161
+   },
+   "meta": {
+    "type": "knoll",
+    "lip": 0,
+    "design": {
+     "kind": "knoll",
+     "place": {
+      "x": -68.9,
+      "z": -344.32,
+      "yaw": 0
+     },
+     "size": "S",
+     "speed": [
+      0,
+      99
+     ],
+     "inputs": {
+      "height": 3.37,
+      "radius": 10.57,
+      "back": 0.73
+     }
+    },
+    "fill": true
+   }
+  },
+  {
+   "kind": "shape",
+   "cfg": {
+    "kind": "knoll",
+    "x": -74.09,
+    "z": -367.7,
+    "yaw": 0,
+    "height": 3.09,
+    "radius": 10.05,
+    "back": 8.643
+   },
+   "meta": {
+    "type": "knoll",
+    "lip": 0,
+    "design": {
+     "kind": "knoll",
+     "place": {
+      "x": -74.09,
+      "z": -367.7,
+      "yaw": 0
+     },
+     "size": "S",
+     "speed": [
+      0,
+      99
+     ],
+     "inputs": {
+      "height": 3.09,
+      "radius": 10.05,
+      "back": 0.86
+     }
+    },
+    "fill": true
+   }
+  },
+  {
+   "kind": "shape",
+   "cfg": {
+    "kind": "knoll",
+    "x": -71.83,
+    "z": -407.34,
+    "yaw": 0,
+    "height": 2.42,
+    "radius": 8.78,
+    "back": 5.4436
+   },
+   "meta": {
+    "type": "knoll",
+    "lip": 0,
+    "design": {
+     "kind": "knoll",
+     "place": {
+      "x": -71.83,
+      "z": -407.34,
+      "yaw": 0
+     },
+     "size": "S",
+     "speed": [
+      0,
+      99
+     ],
+     "inputs": {
+      "height": 2.42,
+      "radius": 8.78,
+      "back": 0.62
+     }
+    },
+    "fill": true
+   }
+  },
+  {
+   "kind": "shape",
+   "cfg": {
+    "kind": "knoll",
+    "x": -65.74,
+    "z": -441.05,
+    "yaw": 0,
+    "height": 3.25,
+    "radius": 10.35,
+    "back": 9.2115
+   },
+   "meta": {
+    "type": "knoll",
+    "lip": 0,
+    "design": {
+     "kind": "knoll",
+     "place": {
+      "x": -65.74,
+      "z": -441.05,
+      "yaw": 0
+     },
+     "size": "S",
+     "speed": [
+      0,
+      99
+     ],
+     "inputs": {
+      "height": 3.25,
+      "radius": 10.35,
+      "back": 0.89
+     }
+    },
+    "fill": true
+   }
+  },
+  {
+   "kind": "shape",
+   "cfg": {
+    "kind": "knoll",
+    "x": -72.73,
+    "z": -480.64,
+    "yaw": 0,
+    "height": 3.57,
+    "radius": 10.94,
+    "back": 7.6579999999999995
+   },
+   "meta": {
+    "type": "knoll",
+    "lip": 0,
+    "design": {
+     "kind": "knoll",
+     "place": {
+      "x": -72.73,
+      "z": -480.64,
+      "yaw": 0
+     },
+     "size": "S",
+     "speed": [
+      0,
+      99
+     ],
+     "inputs": {
+      "height": 3.57,
+      "radius": 10.94,
+      "back": 0.7
+     }
+    },
+    "fill": true
+   }
+  },
+  {
+   "kind": "shape",
+   "cfg": {
+    "kind": "knoll",
+    "x": -71.09,
+    "z": -509.93,
+    "yaw": 0,
+    "height": 3.14,
+    "radius": 10.14,
+    "back": 8.8218
+   },
+   "meta": {
+    "type": "knoll",
+    "lip": 0,
+    "design": {
+     "kind": "knoll",
+     "place": {
+      "x": -71.09,
+      "z": -509.93,
+      "yaw": 0
+     },
+     "size": "S",
+     "speed": [
+      0,
+      99
+     ],
+     "inputs": {
+      "height": 3.14,
+      "radius": 10.14,
+      "back": 0.87
+     }
+    },
+    "fill": true
+   }
+  },
+  {
+   "kind": "shape",
+   "cfg": {
+    "kind": "knoll",
+    "x": 72.26,
+    "z": -62,
+    "yaw": 0,
+    "height": 2.99,
+    "radius": 9.86,
+    "back": 7.9866
+   },
+   "meta": {
+    "type": "knoll",
+    "lip": 0,
+    "design": {
+     "kind": "knoll",
+     "place": {
+      "x": 72.26,
+      "z": -62,
+      "yaw": 0
+     },
+     "size": "S",
+     "speed": [
+      0,
+      99
+     ],
+     "inputs": {
+      "height": 2.99,
+      "radius": 9.86,
+      "back": 0.81
+     }
+    },
+    "fill": true
+   }
+  },
+  {
+   "kind": "shape",
+   "cfg": {
+    "kind": "knoll",
+    "x": 73.32,
+    "z": -86.5,
+    "yaw": 0,
+    "height": 2.77,
+    "radius": 9.45,
+    "back": 6.1425
+   },
+   "meta": {
+    "type": "knoll",
+    "lip": 0,
+    "design": {
+     "kind": "knoll",
+     "place": {
+      "x": 73.32,
+      "z": -86.5,
+      "yaw": 0
+     },
+     "size": "S",
+     "speed": [
+      0,
+      99
+     ],
+     "inputs": {
+      "height": 2.77,
+      "radius": 9.45,
+      "back": 0.65
+     }
+    },
+    "fill": true
+   }
+  },
+  {
+   "kind": "shape",
+   "cfg": {
+    "kind": "knoll",
+    "x": 69.64,
+    "z": -122.76,
+    "yaw": 0,
+    "height": 2.9,
+    "radius": 9.68,
+    "back": 7.6472
+   },
+   "meta": {
+    "type": "knoll",
+    "lip": 0,
+    "design": {
+     "kind": "knoll",
+     "place": {
+      "x": 69.64,
+      "z": -122.76,
+      "yaw": 0
+     },
+     "size": "S",
+     "speed": [
+      0,
+      99
+     ],
+     "inputs": {
+      "height": 2.9,
+      "radius": 9.68,
+      "back": 0.79
+     }
+    },
+    "fill": true
+   }
+  },
+  {
+   "kind": "shape",
+   "cfg": {
+    "kind": "knoll",
+    "x": 74.53,
+    "z": -163.33,
+    "yaw": 0,
+    "height": 2.25,
+    "radius": 8.46,
+    "back": 5.4144000000000005
+   },
+   "meta": {
+    "type": "knoll",
+    "lip": 0,
+    "design": {
+     "kind": "knoll",
+     "place": {
+      "x": 74.53,
+      "z": -163.33,
+      "yaw": 0
+     },
+     "size": "S",
+     "speed": [
+      0,
+      99
+     ],
+     "inputs": {
+      "height": 2.25,
+      "radius": 8.46,
+      "back": 0.64
+     }
+    },
+    "fill": true
+   }
+  },
+  {
+   "kind": "shape",
+   "cfg": {
+    "kind": "knoll",
+    "x": 70.24,
+    "z": -188.22,
+    "yaw": 0,
+    "height": 2.63,
+    "radius": 9.18,
+    "back": 8.4456
+   },
+   "meta": {
+    "type": "knoll",
+    "lip": 0,
+    "design": {
+     "kind": "knoll",
+     "place": {
+      "x": 70.24,
+      "z": -188.22,
+      "yaw": 0
+     },
+     "size": "S",
+     "speed": [
+      0,
+      99
+     ],
+     "inputs": {
+      "height": 2.63,
+      "radius": 9.18,
+      "back": 0.92
+     }
+    },
+    "fill": true
+   }
+  },
+  {
+   "kind": "shape",
+   "cfg": {
+    "kind": "knoll",
+    "x": 70.3,
+    "z": -228,
+    "yaw": 0,
+    "height": 3.45,
+    "radius": 10.72,
+    "back": 7.504
+   },
+   "meta": {
+    "type": "knoll",
+    "lip": 0,
+    "design": {
+     "kind": "knoll",
+     "place": {
+      "x": 70.3,
+      "z": -228,
+      "yaw": 0
+     },
+     "size": "S",
+     "speed": [
+      0,
+      99
+     ],
+     "inputs": {
+      "height": 3.45,
+      "radius": 10.72,
+      "back": 0.7
+     }
+    },
+    "fill": true
+   }
+  },
+  {
+   "kind": "shape",
+   "cfg": {
+    "kind": "knoll",
+    "x": 74.26,
+    "z": -258.27,
+    "yaw": 0,
+    "height": 3.08,
+    "radius": 10.03,
+    "back": 8.8264
+   },
+   "meta": {
+    "type": "knoll",
+    "lip": 0,
+    "design": {
+     "kind": "knoll",
+     "place": {
+      "x": 74.26,
+      "z": -258.27,
+      "yaw": 0
+     },
+     "size": "S",
+     "speed": [
+      0,
+      99
+     ],
+     "inputs": {
+      "height": 3.08,
+      "radius": 10.03,
+      "back": 0.88
+     }
+    },
+    "fill": true
+   }
+  },
+  {
+   "kind": "shape",
+   "cfg": {
+    "kind": "knoll",
+    "x": 74.1,
+    "z": -284.37,
+    "yaw": 0,
+    "height": 3.55,
+    "radius": 10.91,
+    "back": 9.709900000000001
+   },
+   "meta": {
+    "type": "knoll",
+    "lip": 0,
+    "design": {
+     "kind": "knoll",
+     "place": {
+      "x": 74.1,
+      "z": -284.37,
+      "yaw": 0
+     },
+     "size": "S",
+     "speed": [
+      0,
+      99
+     ],
+     "inputs": {
+      "height": 3.55,
+      "radius": 10.91,
+      "back": 0.89
+     }
+    },
+    "fill": true
+   }
+  },
+  {
+   "kind": "shape",
+   "cfg": {
+    "kind": "knoll",
+    "x": 66.67,
+    "z": -301.84,
+    "yaw": 0,
+    "height": 3.2,
+    "radius": 10.26,
+    "back": 6.5664
+   },
+   "meta": {
+    "type": "knoll",
+    "lip": 0,
+    "design": {
+     "kind": "knoll",
+     "place": {
+      "x": 66.67,
+      "z": -301.84,
+      "yaw": 0
+     },
+     "size": "S",
+     "speed": [
+      0,
+      99
+     ],
+     "inputs": {
+      "height": 3.2,
+      "radius": 10.26,
+      "back": 0.64
+     }
+    },
+    "fill": true
+   }
+  },
+  {
+   "kind": "shape",
+   "cfg": {
+    "kind": "knoll",
+    "x": 74.12,
+    "z": -321.4,
+    "yaw": 0,
+    "height": 2.43,
+    "radius": 8.81,
+    "back": 7.136100000000001
+   },
+   "meta": {
+    "type": "knoll",
+    "lip": 0,
+    "design": {
+     "kind": "knoll",
+     "place": {
+      "x": 74.12,
+      "z": -321.4,
+      "yaw": 0
+     },
+     "size": "S",
+     "speed": [
+      0,
+      99
+     ],
+     "inputs": {
+      "height": 2.43,
+      "radius": 8.81,
+      "back": 0.81
+     }
+    },
+    "fill": true
+   }
+  },
+  {
+   "kind": "shape",
+   "cfg": {
+    "kind": "knoll",
+    "x": 72.94,
+    "z": -345.64,
+    "yaw": 0,
+    "height": 3.15,
+    "radius": 10.16,
+    "back": 6.2992
+   },
+   "meta": {
+    "type": "knoll",
+    "lip": 0,
+    "design": {
+     "kind": "knoll",
+     "place": {
+      "x": 72.94,
+      "z": -345.64,
+      "yaw": 0
+     },
+     "size": "S",
+     "speed": [
+      0,
+      99
+     ],
+     "inputs": {
+      "height": 3.15,
+      "radius": 10.16,
+      "back": 0.62
+     }
+    },
+    "fill": true
+   }
+  },
+  {
+   "kind": "shape",
+   "cfg": {
+    "kind": "knoll",
+    "x": 74.8,
+    "z": -374.7,
+    "yaw": 0,
+    "height": 2.13,
+    "radius": 8.25,
+    "back": 5.1975
+   },
+   "meta": {
+    "type": "knoll",
+    "lip": 0,
+    "design": {
+     "kind": "knoll",
+     "place": {
+      "x": 74.8,
+      "z": -374.7,
+      "yaw": 0
+     },
+     "size": "S",
+     "speed": [
+      0,
+      99
+     ],
+     "inputs": {
+      "height": 2.13,
+      "radius": 8.25,
+      "back": 0.63
+     }
+    },
+    "fill": true
+   }
+  },
+  {
+   "kind": "shape",
+   "cfg": {
+    "kind": "knoll",
+    "x": 72.89,
+    "z": -402.05,
+    "yaw": 0,
+    "height": 3.11,
+    "radius": 10.07,
+    "back": 7.0489999999999995
+   },
+   "meta": {
+    "type": "knoll",
+    "lip": 0,
+    "design": {
+     "kind": "knoll",
+     "place": {
+      "x": 72.89,
+      "z": -402.05,
+      "yaw": 0
+     },
+     "size": "S",
+     "speed": [
+      0,
+      99
+     ],
+     "inputs": {
+      "height": 3.11,
+      "radius": 10.07,
+      "back": 0.7
+     }
+    },
+    "fill": true
+   }
+  },
+  {
+   "kind": "shape",
+   "cfg": {
+    "kind": "knoll",
+    "x": 66.06,
+    "z": -432.43,
+    "yaw": 0,
+    "height": 2.77,
+    "radius": 9.45,
+    "back": 7.0874999999999995
+   },
+   "meta": {
+    "type": "knoll",
+    "lip": 0,
+    "design": {
+     "kind": "knoll",
+     "place": {
+      "x": 66.06,
+      "z": -432.43,
+      "yaw": 0
+     },
+     "size": "S",
+     "speed": [
+      0,
+      99
+     ],
+     "inputs": {
+      "height": 2.77,
+      "radius": 9.45,
+      "back": 0.75
+     }
+    },
+    "fill": true
+   }
+  },
+  {
+   "kind": "shape",
+   "cfg": {
+    "kind": "knoll",
+    "x": 66.68,
+    "z": -464.04,
+    "yaw": 0,
+    "height": 3.24,
+    "radius": 10.32,
+    "back": 7.3271999999999995
+   },
+   "meta": {
+    "type": "knoll",
+    "lip": 0,
+    "design": {
+     "kind": "knoll",
+     "place": {
+      "x": 66.68,
+      "z": -464.04,
+      "yaw": 0
+     },
+     "size": "S",
+     "speed": [
+      0,
+      99
+     ],
+     "inputs": {
+      "height": 3.24,
+      "radius": 10.32,
+      "back": 0.71
+     }
+    },
+    "fill": true
+   }
+  },
+  {
+   "kind": "shape",
+   "cfg": {
+    "kind": "knoll",
+    "x": 73.32,
+    "z": -499.49,
+    "yaw": 0,
+    "height": 2.06,
+    "radius": 8.11,
+    "back": 5.3526
+   },
+   "meta": {
+    "type": "knoll",
+    "lip": 0,
+    "design": {
+     "kind": "knoll",
+     "place": {
+      "x": 73.32,
+      "z": -499.49,
+      "yaw": 0
+     },
+     "size": "S",
+     "speed": [
+      0,
+      99
+     ],
+     "inputs": {
+      "height": 2.06,
+      "radius": 8.11,
+      "back": 0.66
+     }
+    },
+    "fill": true
+   }
+  },
+  {
+   "kind": "shape",
+   "cfg": {
+    "kind": "knoll",
+    "x": 73.93,
+    "z": -535.61,
+    "yaw": 0,
+    "height": 2.45,
+    "radius": 8.85,
+    "back": 7.8765
+   },
+   "meta": {
+    "type": "knoll",
+    "lip": 0,
+    "design": {
+     "kind": "knoll",
+     "place": {
+      "x": 73.93,
+      "z": -535.61,
+      "yaw": 0
+     },
+     "size": "S",
+     "speed": [
+      0,
+      99
+     ],
+     "inputs": {
+      "height": 2.45,
+      "radius": 8.85,
+      "back": 0.89
+     }
+    },
+    "fill": true
+   }
+  },
+  {
    "kind": "rail",
    "cfg": {
     "points": [
      [
-      -52,
+      -42,
       0.4,
-      -32
+      -34
      ],
      [
-      -52,
+      -42,
       0.4,
-      -42
+      -44
      ]
     ],
     "width": 0.5
@@ -88,8 +2793,8 @@
     "design": {
      "kind": "rail",
      "place": {
-      "x": -52,
-      "z": -32,
+      "x": -42,
+      "z": -34,
       "yaw": 0
      },
      "size": "S",
@@ -113,8 +2818,8 @@
   {
    "kind": "kicker",
    "cfg": {
-    "x": -52,
-    "z": -62,
+    "x": -42,
+    "z": -60.32,
     "yaw": 0,
     "width": 8,
     "deckWidth": 8,
@@ -136,8 +2841,8 @@
     "design": {
      "kind": "jibTable",
      "place": {
-      "x": -52,
-      "z": -62,
+      "x": -42,
+      "z": -60.32,
       "yaw": 0
      },
      "size": "S",
@@ -152,7 +2857,7 @@
       "railHeight": 0.4
      }
     },
-    "group": 1
+    "group": 72
    }
   },
   {
@@ -160,14 +2865,14 @@
    "cfg": {
     "points": [
      [
-      -52,
+      -42,
       0.4,
-      -70.3727355466068
+      -68.6927355466068
      ],
      [
-      -52,
+      -42,
       0.4,
-      -80.3727355466068
+      -78.6927355466068
      ]
     ]
    },
@@ -177,64 +2882,16 @@
      4,
      10
     ],
-    "group": 1
-   }
-  },
-  {
-   "kind": "rail",
-   "cfg": {
-    "points": [
-     [
-      -52,
-      0.45,
-      -106
-     ],
-     [
-      -52,
-      0.8,
-      -111.4
-     ],
-     [
-      -52,
-      0.45,
-      -118
-     ]
-    ]
-   },
-   "meta": {
-    "type": "rail",
-    "design": {
-     "kind": "rail",
-     "place": {
-      "x": -52,
-      "z": -106,
-      "yaw": 0
-     },
-     "size": "S",
-     "speed": [
-      0,
-      99
-     ],
-     "inputs": {
-      "box": 0,
-      "flatDown": 1,
-      "length": 12,
-      "height": 0.45
-     }
-    },
-    "speed": [
-     4,
-     10
-    ]
+    "group": 72
    }
   },
   {
    "kind": "panel",
    "cfg": {
-    "x": -55,
-    "z": -172,
+    "x": -46,
+    "z": -109.52,
     "yaw": 0,
-    "length": 22,
+    "length": 20,
     "height": 2.8,
     "lean": 0.13962634015954636,
     "side": 1,
@@ -249,44 +2906,220 @@
    }
   },
   {
-   "kind": "corner",
+   "kind": "shape",
    "cfg": {
-    "x": -52,
-    "z": -234,
-    "width": 7,
+    "kind": "roller",
+    "x": -42,
+    "z": -145.29,
+    "yaw": 0,
+    "height": 1.2,
+    "length": 12,
+    "width": 16,
+    "taper": 4
+   },
+   "meta": {
+    "type": "roller",
+    "design": {
+     "kind": "roller",
+     "place": {
+      "x": -42,
+      "z": -145.29,
+      "yaw": 0
+     },
+     "size": "S",
+     "speed": [
+      0,
+      99
+     ],
+     "inputs": {
+      "height": 1.2,
+      "length": 12,
+      "width": 16
+     }
+    }
+   }
+  },
+  {
+   "kind": "kicker",
+   "cfg": {
+    "x": -42,
+    "z": -173.1,
+    "width": 5,
     "lipHeight": 3.5,
-    "lipAngle": 0.4014257279586958,
-    "deckLength": 5,
-    "deckWidth": 7,
-    "sideTaper": 0.5,
-    "deckTaper": 0.5,
-    "landingAngle": 0.17453292519943295,
-    "knuckleRadius": 3.5,
-    "runoutRadius": 10,
-    "hip": {
-     "side": -1,
-     "straightLip": 1.5,
-     "landingStart": 0.17453292519943295,
-     "landingEnd": 0.17453292519943295,
-     "knuckleRadius": 3.5,
-     "bottomRadius": 10,
-     "stepDown": 1.5
-    },
+    "lipAngle": 0.5235987755982988,
+    "deckLength": 19.42849460081331,
+    "knuckleHeight": 3.5,
+    "sideTaper": 1,
+    "deckWidth": 11,
+    "deckTaper": 4,
+    "landingAngle": 0.4088615792504815,
+    "knuckleRadius": 10,
+    "runoutRadius": 20,
     "yaw": 0
    },
    "meta": {
-    "type": "hip left",
+    "type": "stepDown",
+    "size": "L",
+    "speed": [
+     12,
+     15
+    ],
+    "lip": 13.062177826491075,
+    "checks": [
+     {
+      "speed": 12,
+      "pop": 1.566,
+      "grade": "clean",
+      "impact": 10.203460131500897,
+      "past": 1.3072438829339603
+     },
+     {
+      "speed": 13.5,
+      "pop": 3.5235,
+      "grade": "clean",
+      "impact": 12.10343638378881,
+      "past": 8.035609400851229
+     },
+     {
+      "speed": 15,
+      "pop": 3.5235,
+      "grade": "sketchy",
+      "impact": 16.982159871539448,
+      "past": 13.713494664739898
+     },
+     {
+      "speed": 15,
+      "pop": 5.481,
+      "grade": "bail",
+      "impact": 18.39605608404834,
+      "past": 14.26262366106279
+     },
+     {
+      "speed": 12,
+      "pop": 5.481,
+      "grade": "clean",
+      "impact": 12.33110129860959,
+      "past": 2.3542784710135507
+     }
+    ],
+    "design": {
+     "kind": "kicker",
+     "place": {
+      "x": -42,
+      "z": -173.1,
+      "yaw": 0
+     },
+     "size": "L",
+     "speed": [
+      12,
+      15
+     ],
+     "inputs": {}
+    }
+   }
+  },
+  {
+   "kind": "shape",
+   "cfg": {
+    "kind": "roller",
+    "x": -42,
+    "z": -227.37,
+    "yaw": 0,
+    "height": 1.3,
+    "length": 14,
+    "width": 16,
+    "taper": 4
+   },
+   "meta": {
+    "type": "roller",
+    "design": {
+     "kind": "roller",
+     "place": {
+      "x": -42,
+      "z": -227.37,
+      "yaw": 0
+     },
+     "size": "S",
+     "speed": [
+      0,
+      99
+     ],
+     "inputs": {
+      "height": 1.3,
+      "length": 14,
+      "width": 16
+     }
+    }
+   }
+  },
+  {
+   "kind": "kicker",
+   "cfg": {
+    "x": -42,
+    "z": -291.96,
+    "width": 5,
+    "lipHeight": 2.5,
+    "lipAngle": 0.5235987755982988,
+    "deckLength": 6.977555453438788,
+    "knuckleHeight": 2.5,
+    "sideTaper": 1,
+    "deckWidth": 11,
+    "deckTaper": 4,
+    "landingAngle": 0.4598929534190398,
+    "knuckleRadius": 6.416427009046402,
+    "runoutRadius": 12.832854018092805,
+    "yaw": 0
+   },
+   "meta": {
+    "type": "stepDown",
     "size": "M",
     "speed": [
      9,
      13
     ],
-    "lip": 23.07578515535601,
+    "lip": 9.330127018922196,
+    "checks": [
+     {
+      "speed": 9,
+      "pop": 1.566,
+      "grade": "clean",
+      "impact": 3.3697659747686766,
+      "past": 2.2551399015850855
+     },
+     {
+      "speed": 11,
+      "pop": 3.5235,
+      "grade": "clean",
+      "impact": 7.17306647495979,
+      "past": 11.192788540084118
+     },
+     {
+      "speed": 13,
+      "pop": 3.5235,
+      "grade": "clean",
+      "impact": 12.672334591497032,
+      "past": 19.739403972957255
+     },
+     {
+      "speed": 13,
+      "pop": 5.481,
+      "grade": "sketchy",
+      "impact": 14.303883540262314,
+      "past": 20.017360918428203
+     },
+     {
+      "speed": 9,
+      "pop": 5.481,
+      "grade": "clean",
+      "impact": 6.732809134243858,
+      "past": 4.3985389144046465
+     }
+    ],
     "design": {
-     "kind": "hip",
+     "kind": "kicker",
      "place": {
-      "x": -52,
-      "z": -234,
+      "x": -42,
+      "z": -291.96,
       "yaw": 0
      },
      "size": "M",
@@ -294,35 +3127,29 @@
       9,
       13
      ],
-     "inputs": {
-      "single": 1,
-      "left": 1,
-      "table": 5
-     }
+     "inputs": {}
     }
    }
   },
   {
    "kind": "shape",
    "cfg": {
-    "kind": "spine",
-    "x": -52,
-    "z": -302,
+    "kind": "roller",
+    "x": -42,
+    "z": -348.09,
     "yaw": 0,
-    "height": 2.4,
-    "angle": 0.5235987755982988,
-    "knuckleRadius": 5.374153162899185,
-    "footRadius": 8.95692193816531,
-    "width": 12,
-    "taper": 3
+    "height": 1.4,
+    "length": 14,
+    "width": 16,
+    "taper": 4
    },
    "meta": {
-    "type": "spine",
+    "type": "roller",
     "design": {
-     "kind": "spine",
+     "kind": "roller",
      "place": {
-      "x": -52,
-      "z": -302,
+      "x": -42,
+      "z": -348.09,
       "yaw": 0
      },
      "size": "S",
@@ -331,198 +3158,90 @@
       99
      ],
      "inputs": {
-      "height": 2.4,
-      "width": 12
+      "height": 1.4,
+      "length": 14,
+      "width": 16
      }
-    },
-    "lip": 8
+    }
    }
   },
   {
-   "kind": "quarter",
+   "kind": "kicker",
    "cfg": {
-    "x": -54.5,
-    "z": -390,
-    "yaw": 0,
-    "side": -1,
-    "width": 32,
-    "height": 1.8,
-    "angle": 1.1344640137963142,
-    "radius": 2.5,
-    "deck": 1.5,
-    "backAngle": 0.3490658503988659,
-    "sideTaper": 4
+    "x": -42,
+    "z": -432.4,
+    "width": 5,
+    "lipHeight": 3.5,
+    "lipAngle": 0.5235987755982988,
+    "deckLength": 20.683898795433564,
+    "knuckleHeight": 3.5,
+    "sideTaper": 1,
+    "deckWidth": 11,
+    "deckTaper": 4,
+    "landingAngle": 0.21254044063451216,
+    "knuckleRadius": 10,
+    "runoutRadius": 20,
+    "yaw": 0
    },
    "meta": {
-    "type": "miniPipe",
-    "design": {
-     "kind": "miniPipe",
-     "place": {
-      "x": -52,
-      "z": -374,
-      "yaw": 0
-     },
-     "size": "S",
-     "speed": [
-      0,
-      99
-     ],
-     "inputs": {
-      "length": 32,
-      "flat": 5,
-      "height": 1.8,
-      "angle": 65,
-      "radius": 2.5
-     }
-    },
-    "group": 7
-   }
-  },
-  {
-   "kind": "quarter",
-   "cfg": {
-    "x": -49.5,
-    "z": -390,
-    "yaw": 0,
-    "side": 1,
-    "width": 32,
-    "height": 1.8,
-    "angle": 1.1344640137963142,
-    "radius": 2.5,
-    "deck": 1.5,
-    "backAngle": 0.3490658503988659,
-    "sideTaper": 4
-   },
-   "meta": {
-    "type": "miniPipe",
-    "group": 7
-   }
-  },
-  {
-   "kind": "shape",
-   "cfg": {
-    "kind": "spine",
-    "x": -52,
-    "z": -426,
-    "yaw": 0,
-    "height": 3.2,
-    "angle": 0.5235987755982988,
-    "knuckleRadius": 6,
-    "footRadius": 10,
-    "width": 14,
-    "taper": 3
-   },
-   "meta": {
-    "type": "spine",
-    "design": {
-     "kind": "spine",
-     "place": {
-      "x": -52,
-      "z": -426,
-      "yaw": 0
-     },
-     "size": "S",
-     "speed": [
-      0,
-      99
-     ],
-     "inputs": {
-      "height": 3.2,
-      "width": 14
-     }
-    },
-    "lip": 10
-   }
-  },
-  {
-   "kind": "shape",
-   "cfg": {
-    "kind": "wedge",
-    "x": 0,
-    "z": -34,
-    "yaw": 0,
-    "faces": 4,
-    "height": 1.6,
-    "faceAngle": 0.3490658503988659,
-    "baseRadius": 4,
-    "top": 7,
-    "width": 9,
-    "taper": 2
-   },
-   "meta": {
-    "type": "funBox",
-    "lip": 5.101271793961256,
-    "design": {
-     "kind": "funBox",
-     "place": {
-      "x": 0,
-      "z": -34,
-      "yaw": 0
-     },
-     "size": "S",
-     "speed": [
-      0,
-      99
-     ],
-     "inputs": {
-      "top": 7,
-      "height": 1.6,
-      "faceAngle": 20,
-      "width": 9
-     }
-    },
-    "group": 10
-   }
-  },
-  {
-   "kind": "rail",
-   "cfg": {
-    "points": [
-     [
-      0,
-      0.3,
-      -39.60127179396126
-     ],
-     [
-      0,
-      0.3,
-      -45.60127179396126
-     ]
-    ],
-    "width": 0.5
-   },
-   "meta": {
-    "type": "box",
+    "type": "stepDown",
+    "size": "L",
     "speed": [
-     4,
-     10
+     12,
+     15
     ],
-    "group": 10
-   }
-  },
-  {
-   "kind": "rail",
-   "cfg": {
-    "points": [
-     [
-      0,
-      0.4,
-      -46.40127179396126
+    "lip": 13.062177826491075,
+    "checks": [
+     {
+      "speed": 12,
+      "pop": 1.566,
+      "grade": "clean",
+      "impact": 10.462539247067625,
+      "past": 1.7918937432333735
+     },
+     {
+      "speed": 13.5,
+      "pop": 3.5235,
+      "grade": "clean",
+      "impact": 12.54069627595961,
+      "past": 9.23174228687904
+     },
+     {
+      "speed": 15,
+      "pop": 3.5235,
+      "grade": "sketchy",
+      "impact": 13.817619442552399,
+      "past": 15.48263594640914
+     },
+     {
+      "speed": 15,
+      "pop": 5.481,
+      "grade": "sketchy",
+      "impact": 16.576103156513305,
+      "past": 17.221143021378026
+     },
+     {
+      "speed": 12,
+      "pop": 5.481,
+      "grade": "clean",
+      "impact": 12.780794261652513,
+      "past": 4.7095032221179025
+     }
+    ],
+    "design": {
+     "kind": "kicker",
+     "place": {
+      "x": -42,
+      "z": -432.4,
+      "yaw": 0
+     },
+     "size": "L",
+     "speed": [
+      12,
+      15
      ],
-     [
-      0,
-      0.4,
-      -50.70254358792251
-     ]
-    ]
-   },
-   "meta": {
-    "type": "rail",
-    "speed": [
-     4,
-     10
-    ],
-    "group": 10
+     "inputs": {}
+    }
    }
   },
   {
@@ -532,17 +3251,17 @@
      [
       0,
       0.4,
-      -68.7
+      -34
      ],
      [
       0,
       0.75,
-      -74.10000000000001
+      -39.4
      ],
      [
       0,
       0.4,
-      -80.7
+      -46
      ]
     ],
     "width": 0.5
@@ -553,7 +3272,7 @@
      "kind": "rail",
      "place": {
       "x": 0,
-      "z": -68.7,
+      "z": -34,
       "yaw": 0
      },
      "size": "S",
@@ -577,29 +3296,26 @@
   {
    "kind": "shape",
    "cfg": {
-    "kind": "sideHit",
+    "kind": "wedge",
     "x": 0,
-    "z": -98.7,
+    "z": -64.32,
     "yaw": 0,
-    "height": 0.6,
-    "angle": 0.2792526803190927,
-    "back": 1.5,
-    "width": 5,
-    "taper": 1,
-    "paint": true
+    "faces": 4,
+    "height": 1.5,
+    "faceAngle": 0.3490658503988659,
+    "baseRadius": 4,
+    "top": 7,
+    "width": 9,
+    "taper": 2
    },
    "meta": {
-    "type": "mini",
-    "speed": [
-     5,
-     12
-    ],
-    "lip": 4.2692218334305165,
+    "type": "funBox",
+    "lip": 4.8265240520157935,
     "design": {
-     "kind": "mini",
+     "kind": "funBox",
      "place": {
       "x": 0,
-      "z": -98.7,
+      "z": -64.32,
       "yaw": 0
      },
      "size": "S",
@@ -608,11 +3324,64 @@
       99
      ],
      "inputs": {
-      "height": 0.6,
-      "angle": 16,
-      "width": 5
+      "top": 7,
+      "height": 1.5,
+      "faceAngle": 20,
+      "width": 9
      }
-    }
+    },
+    "group": 82
+   }
+  },
+  {
+   "kind": "rail",
+   "cfg": {
+    "points": [
+     [
+      0,
+      0.3,
+      -69.64652405201579
+     ],
+     [
+      0,
+      0.3,
+      -75.64652405201579
+     ]
+    ],
+    "width": 0.5
+   },
+   "meta": {
+    "type": "box",
+    "speed": [
+     4,
+     10
+    ],
+    "group": 82
+   }
+  },
+  {
+   "kind": "rail",
+   "cfg": {
+    "points": [
+     [
+      0,
+      0.4,
+      -76.44652405201579
+     ],
+     [
+      0,
+      0.4,
+      -80.47304810403158
+     ]
+    ]
+   },
+   "meta": {
+    "type": "rail",
+    "speed": [
+     4,
+     10
+    ],
+    "group": 82
    }
   },
   {
@@ -620,7 +3389,7 @@
    "cfg": {
     "kind": "roller",
     "x": 0,
-    "z": -150.7,
+    "z": -98.08,
     "yaw": 0,
     "height": 1,
     "length": 12,
@@ -633,7 +3402,7 @@
      "kind": "roller",
      "place": {
       "x": 0,
-      "z": -150.7,
+      "z": -98.08,
       "yaw": 0
      },
      "size": "S",
@@ -654,7 +3423,7 @@
    "cfg": {
     "kind": "roller",
     "x": 0,
-    "z": -170.7,
+    "z": -114.08,
     "yaw": 0,
     "height": 1.2,
     "length": 12,
@@ -667,7 +3436,7 @@
      "kind": "roller",
      "place": {
       "x": 0,
-      "z": -170.7,
+      "z": -114.08,
       "yaw": 0
      },
      "size": "S",
@@ -684,173 +3453,107 @@
    }
   },
   {
-   "kind": "corner",
+   "kind": "shape",
+   "cfg": {
+    "kind": "roller",
+    "x": 0,
+    "z": -147.29,
+    "yaw": 0,
+    "height": 1.2,
+    "length": 12,
+    "width": 16,
+    "taper": 4
+   },
+   "meta": {
+    "type": "roller",
+    "design": {
+     "kind": "roller",
+     "place": {
+      "x": 0,
+      "z": -147.29,
+      "yaw": 0
+     },
+     "size": "S",
+     "speed": [
+      0,
+      99
+     ],
+     "inputs": {
+      "height": 1.2,
+      "length": 12,
+      "width": 16
+     }
+    }
+   }
+  },
+  {
+   "kind": "kicker",
    "cfg": {
     "x": 0,
-    "z": -194.7,
-    "width": 7,
+    "z": -163.1,
+    "width": 5,
     "lipHeight": 3.5,
-    "lipAngle": 0.4014257279586958,
-    "deckLength": 5,
-    "deckWidth": 7,
-    "sideTaper": 0.5,
-    "deckTaper": 0.5,
-    "landingAngle": 0.17453292519943295,
-    "knuckleRadius": 3.5,
-    "runoutRadius": 10,
-    "hip": {
-     "side": 0,
-     "straightLip": 1.5,
-     "landingStart": 0.17453292519943295,
-     "landingEnd": 0.17453292519943295,
-     "knuckleRadius": 3.5,
-     "bottomRadius": 10,
-     "stepDown": 1.5
-    },
+    "lipAngle": 0.5235987755982988,
+    "deckLength": 12.940480393243257,
+    "knuckleHeight": 3.5,
+    "sideTaper": 1,
+    "deckWidth": 11,
+    "deckTaper": 4,
+    "landingAngle": 0.5500327969526106,
+    "knuckleRadius": 6.328000189697542,
+    "runoutRadius": 12.656000379395085,
     "yaw": 0
    },
    "meta": {
-    "type": "double hip",
-    "size": "M",
-    "speed": [
-     9,
-     13
-    ],
-    "lip": 23.07578515535601,
-    "design": {
-     "kind": "hip",
-     "place": {
-      "x": 0,
-      "z": -194.7,
-      "yaw": 0
-     },
-     "size": "M",
-     "speed": [
-      9,
-      13
-     ],
-     "inputs": {
-      "single": 0,
-      "table": 5
-     }
-    }
-   }
-  },
-  {
-   "kind": "shape",
-   "cfg": {
-    "kind": "spine",
-    "x": 0,
-    "z": -262.7,
-    "yaw": 0,
-    "height": 3,
-    "angle": 0.5235987755982988,
-    "knuckleRadius": 6,
-    "footRadius": 10,
-    "width": 14,
-    "taper": 3
-   },
-   "meta": {
-    "type": "spine",
-    "design": {
-     "kind": "spine",
-     "place": {
-      "x": 0,
-      "z": -262.7,
-      "yaw": 0
-     },
-     "size": "S",
-     "speed": [
-      0,
-      99
-     ],
-     "inputs": {
-      "height": 3,
-      "width": 14
-     }
-    },
-    "lip": 9
-   }
-  },
-  {
-   "kind": "shape",
-   "cfg": {
-    "kind": "wedge",
-    "x": 0,
-    "z": -298.7,
-    "yaw": 0,
-    "faces": 4,
-    "height": 2.4,
-    "faceAngle": 0.3839724354387525,
-    "baseRadius": 4,
-    "top": 5,
-    "width": 12,
-    "taper": 2
-   },
-   "meta": {
-    "type": "pyramid",
-    "lip": 6.717729684749982,
-    "design": {
-     "kind": "wedge",
-     "place": {
-      "x": 0,
-      "z": -298.7,
-      "yaw": 0
-     },
-     "size": "S",
-     "speed": [
-      0,
-      99
-     ],
-     "inputs": {
-      "four": 1,
-      "top": 5,
-      "height": 2.4,
-      "faceAngle": 22,
-      "width": 12
-     }
-    }
-   }
-  },
-  {
-   "kind": "corner",
-   "cfg": {
-    "x": 0,
-    "z": -354.7,
-    "width": 9,
-    "lipHeight": 4.5,
-    "lipAngle": 0.4537856055185257,
-    "deckLength": 7.5,
-    "deckWidth": 9,
-    "sideTaper": 0.5,
-    "deckTaper": 0.5,
-    "landingAngle": 0.17453292519943295,
-    "knuckleRadius": 4,
-    "runoutRadius": 10,
-    "hip": {
-     "side": 0,
-     "straightLip": 2,
-     "landingStart": 0.17453292519943295,
-     "landingEnd": 0.17453292519943295,
-     "knuckleRadius": 4,
-     "bottomRadius": 10,
-     "stepDown": 2.2
-    },
-    "yaw": 0
-   },
-   "meta": {
-    "type": "double hip",
+    "type": "kicker",
     "size": "L",
     "speed": [
      12,
      15
     ],
-    "lip": 27.020888357703857,
+    "lip": 13.062177826491075,
+    "checks": [
+     {
+      "speed": 12,
+      "pop": 1.566,
+      "grade": "clean",
+      "impact": 1.0356394843182253,
+      "past": 3.9651069413190836
+     },
+     {
+      "speed": 13.5,
+      "pop": 3.5235,
+      "grade": "clean",
+      "impact": 11.547422035761802,
+      "past": 14.85013191288906
+     },
+     {
+      "speed": 15,
+      "pop": 3.5235,
+      "grade": "bail",
+      "impact": 17.531011888644706,
+      "past": 20.37616553169186
+     },
+     {
+      "speed": 15,
+      "pop": 5.481,
+      "grade": "bail",
+      "impact": 18.656386571015478,
+      "past": 20.976524814510235
+     },
+     {
+      "speed": 12,
+      "pop": 5.481,
+      "grade": "clean",
+      "impact": 6.87312325251534,
+      "past": 8.395502944729271
+     }
+    ],
     "design": {
-     "kind": "hip",
+     "kind": "kicker",
      "place": {
       "x": 0,
-      "z": -354.7,
+      "z": -163.1,
       "yaw": 0
      },
      "size": "L",
@@ -858,34 +3561,29 @@
       12,
       15
      ],
-     "inputs": {
-      "single": 0,
-      "table": 7.5
-     }
+     "inputs": {}
     }
    }
   },
   {
    "kind": "shape",
    "cfg": {
-    "kind": "spine",
+    "kind": "roller",
     "x": 0,
-    "z": -436.7,
+    "z": -227.37,
     "yaw": 0,
-    "height": 3.4,
-    "angle": 0.5235987755982988,
-    "knuckleRadius": 6,
-    "footRadius": 10,
-    "width": 14,
-    "taper": 3
+    "height": 1.4,
+    "length": 14,
+    "width": 16,
+    "taper": 4
    },
    "meta": {
-    "type": "spine",
+    "type": "roller",
     "design": {
-     "kind": "spine",
+     "kind": "roller",
      "place": {
       "x": 0,
-      "z": -436.7,
+      "z": -227.37,
       "yaw": 0
      },
      "size": "S",
@@ -894,36 +3592,32 @@
       99
      ],
      "inputs": {
-      "height": 3.4,
-      "width": 14
+      "height": 1.4,
+      "length": 14,
+      "width": 16
      }
-    },
-    "lip": 10
+    }
    }
   },
   {
    "kind": "shape",
    "cfg": {
-    "kind": "wedge",
+    "kind": "roller",
     "x": 0,
-    "z": -472.7,
+    "z": -243.37,
     "yaw": 0,
-    "faces": 2,
-    "height": 2.6,
-    "faceAngle": 0.3839724354387525,
-    "baseRadius": 4,
-    "top": 1.5,
-    "width": 14,
-    "taper": 2
+    "height": 1.4,
+    "length": 14,
+    "width": 16,
+    "taper": 4
    },
    "meta": {
-    "type": "wedge",
-    "lip": 7.212747055433241,
+    "type": "roller",
     "design": {
-     "kind": "wedge",
+     "kind": "roller",
      "place": {
       "x": 0,
-      "z": -472.7,
+      "z": -243.37,
       "yaw": 0
      },
      "size": "S",
@@ -932,41 +3626,190 @@
       99
      ],
      "inputs": {
-      "four": 0,
-      "top": 1.5,
-      "height": 2.6,
-      "faceAngle": 22,
-      "width": 14
+      "height": 1.4,
+      "length": 14,
+      "width": 16
      }
     }
    }
   },
   {
-   "kind": "shape",
+   "kind": "kicker",
    "cfg": {
-    "kind": "sideHit",
-    "x": 52,
-    "z": -52,
-    "yaw": 0,
-    "height": 0.8,
-    "angle": 0.3839724354387525,
-    "back": 1.5,
-    "width": 3,
-    "taper": 1,
-    "paint": true
+    "x": 0,
+    "z": -291.27,
+    "width": 5,
+    "lipHeight": 3.5,
+    "lipAngle": 0.5235987755982988,
+    "deckLength": 13.521572314678023,
+    "knuckleHeight": 3.5,
+    "sideTaper": 1,
+    "deckWidth": 11,
+    "deckTaper": 4,
+    "landingAngle": 0.5331923284367484,
+    "knuckleRadius": 6.723763346499871,
+    "runoutRadius": 13.447526692999743,
+    "yaw": 0
    },
    "meta": {
-    "type": "gapToRail",
+    "type": "stepDown",
+    "size": "L",
     "speed": [
-     6,
-     8
+     12,
+     15
     ],
-    "lip": 4.115643212776243,
+    "lip": 13.062177826491075,
+    "checks": [
+     {
+      "speed": 12,
+      "pop": 1.566,
+      "grade": "clean",
+      "impact": 2.937038138711154,
+      "past": 3.0273573977093466
+     },
+     {
+      "speed": 13.5,
+      "pop": 3.5235,
+      "grade": "clean",
+      "impact": 7.906104174844335,
+      "past": 13.261487839166778
+     },
+     {
+      "speed": 15,
+      "pop": 3.5235,
+      "grade": "sketchy",
+      "impact": 14.81230064656303,
+      "past": 20.621221342189656
+     },
+     {
+      "speed": 15,
+      "pop": 5.481,
+      "grade": "sketchy",
+      "impact": 16.5984881897121,
+      "past": 21.138256362952674
+     },
+     {
+      "speed": 12,
+      "pop": 5.481,
+      "grade": "clean",
+      "impact": 7.923971028678509,
+      "past": 6.93778756333886
+     }
+    ],
     "design": {
-     "kind": "gapToRail",
+     "kind": "kicker",
      "place": {
-      "x": 52,
-      "z": -52,
+      "x": 0,
+      "z": -291.27,
+      "yaw": 0
+     },
+     "size": "L",
+     "speed": [
+      12,
+      15
+     ],
+     "inputs": {}
+    }
+   }
+  },
+  {
+   "kind": "kicker",
+   "cfg": {
+    "x": 0,
+    "z": -353.24,
+    "width": 5,
+    "lipHeight": 2.5,
+    "lipAngle": 0.5235987755982988,
+    "deckLength": 6.471558682195406,
+    "knuckleHeight": 2.5,
+    "sideTaper": 1,
+    "deckWidth": 11,
+    "deckTaper": 4,
+    "landingAngle": 0.5933897358110987,
+    "knuckleRadius": 3.899775579266927,
+    "runoutRadius": 7.799551158533854,
+    "yaw": 0
+   },
+   "meta": {
+    "type": "kicker",
+    "size": "M",
+    "speed": [
+     9,
+     13
+    ],
+    "lip": 9.330127018922196,
+    "checks": [
+     {
+      "speed": 9,
+      "pop": 1.566,
+      "grade": "clean",
+      "impact": 3.142159396369933,
+      "past": 3.386226879717249
+     },
+     {
+      "speed": 11,
+      "pop": 3.5235,
+      "grade": "clean",
+      "impact": 10.786537397122629,
+      "past": 9.28390518352342
+     },
+     {
+      "speed": 13,
+      "pop": 3.5235,
+      "grade": "clean",
+      "impact": 9.39842362832461,
+      "past": 14.946981199670924
+     },
+     {
+      "speed": 13,
+      "pop": 5.481,
+      "grade": "clean",
+      "impact": 10.259424139420837,
+      "past": 15.719347363764237
+     },
+     {
+      "speed": 9,
+      "pop": 5.481,
+      "grade": "clean",
+      "impact": 8.118669496319994,
+      "past": 4.334158174936977
+     }
+    ],
+    "design": {
+     "kind": "kicker",
+     "place": {
+      "x": 0,
+      "z": -353.24,
+      "yaw": 0
+     },
+     "size": "M",
+     "speed": [
+      9,
+      13
+     ],
+     "inputs": {}
+    }
+   }
+  },
+  {
+   "kind": "shape",
+   "cfg": {
+    "kind": "roller",
+    "x": 0,
+    "z": -424.18,
+    "yaw": 0,
+    "height": 1.4,
+    "length": 14,
+    "width": 16,
+    "taper": 4
+   },
+   "meta": {
+    "type": "roller",
+    "design": {
+     "kind": "roller",
+     "place": {
+      "x": 0,
+      "z": -424.18,
       "yaw": 0
      },
      "size": "S",
@@ -975,11 +3818,90 @@
       99
      ],
      "inputs": {
-      "height": 0.8,
-      "railLength": 6
+      "height": 1.4,
+      "length": 14,
+      "width": 16
      }
-    },
-    "group": 23
+    }
+   }
+  },
+  {
+   "kind": "kicker",
+   "cfg": {
+    "x": 0,
+    "z": -500.08,
+    "width": 5,
+    "lipHeight": 3.5,
+    "lipAngle": 0.5235987755982988,
+    "deckLength": 19.844424883398077,
+    "knuckleHeight": 3.5,
+    "sideTaper": 1,
+    "deckWidth": 11,
+    "deckTaper": 4,
+    "landingAngle": 0.27191564193531953,
+    "knuckleRadius": 10,
+    "runoutRadius": 20,
+    "yaw": 0
+   },
+   "meta": {
+    "type": "stepDown",
+    "size": "L",
+    "speed": [
+     12,
+     15
+    ],
+    "lip": 13.062177826491075,
+    "checks": [
+     {
+      "speed": 12,
+      "pop": 1.566,
+      "grade": "clean",
+      "impact": 10.252991886265267,
+      "past": 1.5347066014690682
+     },
+     {
+      "speed": 13.5,
+      "pop": 3.5235,
+      "grade": "clean",
+      "impact": 11.318210598576215,
+      "past": 8.882516949501557
+     },
+     {
+      "speed": 15,
+      "pop": 3.5235,
+      "grade": "sketchy",
+      "impact": 15.940678028588785,
+      "past": 15.153608218250973
+     },
+     {
+      "speed": 15,
+      "pop": 5.481,
+      "grade": "bail",
+      "impact": 18.02837936661573,
+      "past": 16.20752207271287
+     },
+     {
+      "speed": 12,
+      "pop": 5.481,
+      "grade": "clean",
+      "impact": 11.467733156440858,
+      "past": 3.5161134051214944
+     }
+    ],
+    "design": {
+     "kind": "kicker",
+     "place": {
+      "x": 0,
+      "z": -500.08,
+      "yaw": 0
+     },
+     "size": "L",
+     "speed": [
+      12,
+      15
+     ],
+     "inputs": {}
+    }
    }
   },
   {
@@ -987,24 +3909,43 @@
    "cfg": {
     "points": [
      [
-      52,
-      2.4883572651994674,
-      -60.34250239908728
+      42,
+      0.4,
+      -34
      ],
      [
-      52,
-      0.5,
-      -66.34250239908728
+      42,
+      0.4,
+      -44
      ]
-    ]
+    ],
+    "width": 0.5
    },
    "meta": {
-    "type": "gapToRail",
+    "type": "box",
+    "design": {
+     "kind": "rail",
+     "place": {
+      "x": 42,
+      "z": -34,
+      "yaw": 0
+     },
+     "size": "S",
+     "speed": [
+      0,
+      99
+     ],
+     "inputs": {
+      "box": 1,
+      "flatDown": 0,
+      "length": 10,
+      "height": 0.4
+     }
+    },
     "speed": [
      4,
      10
-    ],
-    "group": 23
+    ]
    }
   },
   {
@@ -1012,14 +3953,14 @@
    "cfg": {
     "points": [
      [
-      52,
+      42,
       0.45,
-      -86.34
+      -66.32
      ],
      [
-      52,
+      42,
       0.45,
-      -96.34
+      -76.32
      ]
     ]
    },
@@ -1028,8 +3969,8 @@
     "design": {
      "kind": "rail",
      "place": {
-      "x": 52,
-      "z": -86.34,
+      "x": 42,
+      "z": -66.32,
       "yaw": 0
      },
      "size": "S",
@@ -1051,84 +3992,25 @@
    }
   },
   {
-   "kind": "rail",
-   "cfg": {
-    "points": [
-     [
-      52,
-      0.4,
-      -116.34
-     ],
-     [
-      52,
-      0.4,
-      -122.34
-     ]
-    ]
-   },
-   "meta": {
-    "type": "log",
-    "design": {
-     "kind": "log",
-     "place": {
-      "x": 52,
-      "z": -116.34,
-      "yaw": 0
-     },
-     "size": "S",
-     "speed": [
-      0,
-      99
-     ],
-     "inputs": {
-      "length": 6,
-      "height": 0.4
-     }
-    },
-    "speed": [
-     4,
-     10
-    ],
-    "group": 26
-   }
-  },
-  {
-   "kind": "shape",
-   "cfg": {
-    "kind": "roller",
-    "x": 50,
-    "z": -119.34,
-    "yaw": 1.5707963267948966,
-    "height": 0.3,
-    "length": 4,
-    "width": 6,
-    "taper": 1.5
-   },
-   "meta": {
-    "type": "log",
-    "group": 26
-   }
-  },
-  {
    "kind": "kicker",
    "cfg": {
-    "x": 52,
-    "z": -188.34,
+    "x": 42,
+    "z": -119.95,
     "width": 5,
     "lipHeight": 2.5,
     "lipAngle": 0.5235987755982988,
-    "deckLength": 7.5860816486123515,
+    "deckLength": 11.275601171646136,
     "knuckleHeight": 2.5,
     "sideTaper": 1,
     "deckWidth": 11,
     "deckTaper": 4,
-    "landingAngle": 0.4799655442984429,
-    "knuckleRadius": 5.9002706668172635,
-    "runoutRadius": 11.800541333634527,
+    "landingAngle": 0.308141701899599,
+    "knuckleRadius": 10,
+    "runoutRadius": 20,
     "yaw": 0
    },
    "meta": {
-    "type": "kicker",
+    "type": "stepDown",
     "size": "M",
     "speed": [
      9,
@@ -1140,43 +4022,43 @@
       "speed": 9,
       "pop": 1.566,
       "grade": "clean",
-      "impact": 3.092758472605906,
-      "past": 2.2007628543546325
+      "impact": 8.737786534152544,
+      "past": 1.3445329492594844
      },
      {
       "speed": 11,
       "pop": 3.5235,
       "grade": "clean",
-      "impact": 11.028804755028608,
-      "past": 10.015012216163951
+      "impact": 11.539233091223652,
+      "past": 8.368432304745655
      },
      {
       "speed": 13,
       "pop": 3.5235,
-      "grade": "clean",
-      "impact": 11.867202126662802,
-      "past": 15.752912881931712
+      "grade": "sketchy",
+      "impact": 14.617829304513549,
+      "past": 14.168796130824598
      },
      {
       "speed": 13,
       "pop": 5.481,
       "grade": "sketchy",
-      "impact": 13.266693522922811,
-      "past": 17.123944636021584
+      "impact": 15.67337799039493,
+      "past": 15.453190323558056
      },
      {
       "speed": 9,
       "pop": 5.481,
       "grade": "clean",
-      "impact": 7.887030157517958,
-      "past": 5.080621347253146
+      "impact": 10.367844318057783,
+      "past": 2.9405343265087716
      }
     ],
     "design": {
      "kind": "kicker",
      "place": {
-      "x": 52,
-      "z": -188.34,
+      "x": 42,
+      "z": -119.95,
       "yaw": 0
      },
      "size": "M",
@@ -1191,35 +4073,71 @@
   {
    "kind": "kicker",
    "cfg": {
-    "x": 52,
-    "z": -232.34,
-    "yaw": 0,
+    "x": 42,
+    "z": -175,
     "width": 5,
     "lipHeight": 2.5,
     "lipAngle": 0.5235987755982988,
-    "deckLength": 6.476250817988449,
-    "knuckleHeight": 4.5,
-    "topLength": 17.45105763034457,
+    "deckLength": 11.344964983535425,
+    "knuckleHeight": 2.5,
     "sideTaper": 1,
     "deckWidth": 11,
     "deckTaper": 4,
-    "landingAngle": 0.4188790204786346,
+    "landingAngle": 0.2660860280423104,
     "knuckleRadius": 10,
-    "runoutRadius": 20
+    "runoutRadius": 20,
+    "yaw": 0
    },
    "meta": {
-    "type": "stepUp",
+    "type": "stepDown",
     "size": "M",
     "speed": [
      9,
      13
     ],
     "lip": 9.330127018922196,
+    "checks": [
+     {
+      "speed": 9,
+      "pop": 1.566,
+      "grade": "clean",
+      "impact": 8.343690098106762,
+      "past": 1.8615086824660416
+     },
+     {
+      "speed": 11,
+      "pop": 3.5235,
+      "grade": "clean",
+      "impact": 11.74909583983598,
+      "past": 8.806118220012587
+     },
+     {
+      "speed": 13,
+      "pop": 3.5235,
+      "grade": "sketchy",
+      "impact": 15.123579680842498,
+      "past": 14.707732319616428
+     },
+     {
+      "speed": 13,
+      "pop": 5.481,
+      "grade": "sketchy",
+      "impact": 16.221770544085683,
+      "past": 16.022062138931894
+     },
+     {
+      "speed": 9,
+      "pop": 5.481,
+      "grade": "clean",
+      "impact": 10.901475586644146,
+      "past": 3.4014650804105564
+     }
+    ],
     "design": {
-     "kind": "stepUp",
+     "kind": "kicker",
      "place": {
-      "x": 52,
-      "z": -232.34,
+      "x": 42,
+      "z": -175,
       "yaw": 0
      },
      "size": "M",
@@ -1227,32 +4145,109 @@
       9,
       13
      ],
-     "inputs": {
-      "rise": 2
-     }
+     "inputs": {}
     }
    }
   },
   {
    "kind": "kicker",
    "cfg": {
-    "x": 52,
-    "z": -300.34,
+    "x": 42,
+    "z": -233.48,
+    "width": 5,
+    "lipHeight": 2.5,
+    "lipAngle": 0.5235987755982988,
+    "deckLength": 8.056708840449977,
+    "knuckleHeight": 2.5,
+    "sideTaper": 1,
+    "deckWidth": 11,
+    "deckTaper": 4,
+    "landingAngle": 0.3094314248355819,
+    "knuckleRadius": 10,
+    "runoutRadius": 20,
+    "yaw": 0
+   },
+   "meta": {
+    "type": "stepDown",
+    "size": "M",
+    "speed": [
+     9,
+     13
+    ],
+    "lip": 9.330127018922196,
+    "checks": [
+     {
+      "speed": 9,
+      "pop": 1.566,
+      "grade": "clean",
+      "impact": 2.4342119348895936,
+      "past": 2.1832515540144435
+     },
+     {
+      "speed": 11,
+      "pop": 3.5235,
+      "grade": "clean",
+      "impact": 12.661473990308306,
+      "past": 11.93350324767996
+     },
+     {
+      "speed": 13,
+      "pop": 3.5235,
+      "grade": "sketchy",
+      "impact": 16.075683753342762,
+      "past": 18.113484554096203
+     },
+     {
+      "speed": 13,
+      "pop": 5.481,
+      "grade": "bail",
+      "impact": 17.16448875509764,
+      "past": 18.318214587384645
+     },
+     {
+      "speed": 9,
+      "pop": 5.481,
+      "grade": "clean",
+      "impact": 5.2689091027996025,
+      "past": 3.688042098003777
+     }
+    ],
+    "design": {
+     "kind": "kicker",
+     "place": {
+      "x": 42,
+      "z": -233.48,
+      "yaw": 0
+     },
+     "size": "M",
+     "speed": [
+      9,
+      13
+     ],
+     "inputs": {}
+    }
+   }
+  },
+  {
+   "kind": "kicker",
+   "cfg": {
+    "x": 42,
+    "z": -306.67,
     "width": 5,
     "lipHeight": 3.5,
     "lipAngle": 0.5235987755982988,
-    "deckLength": 13.76315857485221,
+    "deckLength": 19.98874367106867,
     "knuckleHeight": 3.5,
     "sideTaper": 1,
     "deckWidth": 11,
     "deckTaper": 4,
-    "landingAngle": 0.4799609958811219,
-    "knuckleRadius": 8.260532478390495,
-    "runoutRadius": 16.52106495678099,
+    "landingAngle": 0.3298456459408088,
+    "knuckleRadius": 10,
+    "runoutRadius": 20,
     "yaw": 0
    },
    "meta": {
-    "type": "kicker",
+    "type": "stepDown",
     "size": "L",
     "speed": [
      12,
@@ -1264,43 +4259,43 @@
       "speed": 12,
       "pop": 1.566,
       "grade": "clean",
-      "impact": 3.774381559828516,
-      "past": 2.903816136892562
+      "impact": 11.6491932962085,
+      "past": 1.7506292859321704
      },
      {
       "speed": 13.5,
       "pop": 3.5235,
       "grade": "clean",
-      "impact": 12.068451219820439,
-      "past": 12.175514232222628
+      "impact": 12.292167123214906,
+      "past": 8.076847268163107
      },
      {
       "speed": 15,
       "pop": 3.5235,
-      "grade": "clean",
-      "impact": 12.905435179290293,
-      "past": 17.384346917544764
+      "grade": "bail",
+      "impact": 17.162812458169345,
+      "past": 14.021036260750684
      },
      {
       "speed": 15,
       "pop": 5.481,
-      "grade": "sketchy",
-      "impact": 14.262112838418314,
-      "past": 19.0710136487446
+      "grade": "bail",
+      "impact": 18.40524517700128,
+      "past": 14.303748111973206
      },
      {
       "speed": 12,
       "pop": 5.481,
-      "grade": "clean",
-      "impact": 9.421576828553551,
-      "past": 7.95152712491706
+      "grade": "sketchy",
+      "impact": 13.572697948864466,
+      "past": 2.244678274680169
      }
     ],
     "design": {
      "kind": "kicker",
      "place": {
-      "x": 52,
-      "z": -300.34,
+      "x": 42,
+      "z": -306.67,
       "yaw": 0
      },
      "size": "L",
@@ -1315,124 +4310,230 @@
   {
    "kind": "kicker",
    "cfg": {
-    "x": 52,
-    "z": -366.34,
+    "x": 42,
+    "z": -376.19,
     "width": 5,
-    "lipHeight": 5,
+    "lipHeight": 3.5,
     "lipAngle": 0.5235987755982988,
-    "deckLength": 21.335075732454083,
-    "knuckleHeight": 5,
+    "deckLength": 17.044020566592415,
+    "knuckleHeight": 3.5,
     "sideTaper": 1,
     "deckWidth": 11,
     "deckTaper": 4,
-    "landingAngle": 0.42487908503117366,
-    "knuckleRadius": 10,
-    "runoutRadius": 20,
+    "landingAngle": 0.5086056504253703,
+    "knuckleRadius": 7.37371938604626,
+    "runoutRadius": 14.74743877209252,
     "yaw": 0
    },
    "meta": {
-    "type": "kicker",
-    "size": "XL",
+    "type": "stepDown",
+    "size": "L",
     "speed": [
-     15,
-     18
+     12,
+     15
     ],
-    "lip": 18.660254037844393,
+    "lip": 13.062177826491075,
     "checks": [
      {
-      "speed": 15,
+      "speed": 12,
       "pop": 1.566,
       "grade": "clean",
-      "impact": 3.5179634796868093,
-      "past": 4.726775504826648
+      "impact": 2.188215917787959,
+      "past": 4.268146552858511
      },
      {
-      "speed": 16.5,
+      "speed": 13.5,
       "pop": 3.5235,
       "grade": "sketchy",
-      "impact": 14.389172754500379,
-      "past": 16.791054901351092
+      "impact": 16.9832072849959,
+      "past": 11.768161051960277
      },
      {
-      "speed": 18,
+      "speed": 15,
       "pop": 3.5235,
-      "grade": "sketchy",
-      "impact": 15.539468529094162,
-      "past": 22.640349720261415
-     },
-     {
-      "speed": 18,
-      "pop": 5.481,
-      "grade": "sketchy",
-      "impact": 16.82865281292465,
-      "past": 25.215985533334464
+      "grade": "bail",
+      "impact": 17.691712809819734,
+      "past": 16.936123618711164
      },
      {
       "speed": 15,
       "pop": 5.481,
+      "grade": "bail",
+      "impact": 18.809837065455234,
+      "past": 17.299750825388045
+     },
+     {
+      "speed": 12,
+      "pop": 5.481,
       "grade": "clean",
-      "impact": 11.627154342837748,
-      "past": 12.714280310421547
+      "impact": 6.3276320267841175,
+      "past": 5.3619626920636065
      }
     ],
     "design": {
      "kind": "kicker",
      "place": {
-      "x": 52,
-      "z": -366.34,
+      "x": 42,
+      "z": -376.19,
       "yaw": 0
      },
-     "size": "XL",
+     "size": "L",
      "speed": [
-      15,
-      18
+      12,
+      15
      ],
      "inputs": {}
     }
    }
   },
   {
-   "kind": "shape",
+   "kind": "kicker",
    "cfg": {
-    "kind": "spine",
-    "x": 52,
-    "z": -446.34,
-    "yaw": 0,
-    "height": 3.4,
-    "angle": 0.5235987755982988,
-    "knuckleRadius": 6,
-    "footRadius": 10,
-    "width": 14,
-    "taper": 3
+    "x": 42,
+    "z": -460.72,
+    "width": 5,
+    "lipHeight": 3.5,
+    "lipAngle": 0.5235987755982988,
+    "deckLength": 20.57205132263224,
+    "knuckleHeight": 3.5,
+    "sideTaper": 1,
+    "deckWidth": 11,
+    "deckTaper": 4,
+    "landingAngle": 0.23046560908133767,
+    "knuckleRadius": 10,
+    "runoutRadius": 20,
+    "yaw": 0
    },
    "meta": {
-    "type": "spine",
+    "type": "stepDown",
+    "size": "L",
+    "speed": [
+     12,
+     15
+    ],
+    "lip": 13.062177826491075,
+    "checks": [
+     {
+      "speed": 12,
+      "pop": 1.566,
+      "grade": "clean",
+      "impact": 10.744390680466784,
+      "past": 1.6003592675705889
+     },
+     {
+      "speed": 13.5,
+      "pop": 3.5235,
+      "grade": "clean",
+      "impact": 11.943066717487755,
+      "past": 8.997729509104623
+     },
+     {
+      "speed": 15,
+      "pop": 3.5235,
+      "grade": "sketchy",
+      "impact": 14.675053683709093,
+      "past": 15.508885368983819
+     },
+     {
+      "speed": 15,
+      "pop": 5.481,
+      "grade": "bail",
+      "impact": 17.094625988449028,
+      "past": 16.910074275586325
+     },
+     {
+      "speed": 12,
+      "pop": 5.481,
+      "grade": "clean",
+      "impact": 12.46695963280142,
+      "past": 4.18002943135307
+     }
+    ],
     "design": {
-     "kind": "spine",
+     "kind": "kicker",
      "place": {
-      "x": 52,
-      "z": -446.34,
+      "x": 42,
+      "z": -460.72,
       "yaw": 0
      },
-     "size": "S",
+     "size": "L",
      "speed": [
-      0,
-      99
+      12,
+      15
      ],
-     "inputs": {
-      "height": 3.4,
-      "width": 14
-     }
-    },
-    "lip": 10
+     "inputs": {}
+    }
+   }
+  },
+  {
+   "kind": "panel",
+   "cfg": {
+    "x": -78,
+    "z": -150,
+    "yaw": 0.3490658503988659,
+    "length": 16,
+    "height": 3,
+    "lean": 0.20943951023931956,
+    "side": 1,
+    "foot": 0.4,
+    "ramp": {
+     "height": 0.4,
+     "length": 3
+    }
+   },
+   "meta": {
+    "type": "wallRide",
+    "fill": true
+   }
+  },
+  {
+   "kind": "panel",
+   "cfg": {
+    "x": 80,
+    "z": -250,
+    "yaw": -0.3490658503988659,
+    "length": 16,
+    "height": 3,
+    "lean": 0.20943951023931956,
+    "side": -1,
+    "foot": 0.4,
+    "ramp": {
+     "height": 0.4,
+     "length": 3
+    }
+   },
+   "meta": {
+    "type": "wallRide",
+    "fill": true
+   }
+  },
+  {
+   "kind": "panel",
+   "cfg": {
+    "x": -80,
+    "z": -380,
+    "yaw": 0.4363323129985824,
+    "length": 18,
+    "height": 3.2,
+    "lean": 0.20943951023931956,
+    "side": 1,
+    "foot": 0.4,
+    "ramp": {
+     "height": 0.4,
+     "length": 3
+    }
+   },
+   "meta": {
+    "type": "wallRide",
+    "fill": true
    }
   },
   {
    "kind": "block",
    "cfg": {
-    "x": 28,
-    "z": -275,
-    "yaw": 0,
+    "x": 21,
+    "z": -215,
+    "yaw": 0.20943951023931956,
     "length": 14,
     "width": 6,
     "height": 3.5,
@@ -1446,26 +4547,26 @@
    }
   },
   {
-   "kind": "shape",
+   "kind": "quarter",
    "cfg": {
-    "kind": "sideHit",
-    "x": -28,
-    "z": -262,
-    "yaw": 0.6108652381980153,
-    "height": 1.2,
-    "angle": 0.4363323129985824,
-    "back": 2,
-    "width": 5,
-    "taper": 1.5
+    "x": -74,
+    "z": -470,
+    "yaw": -1.3089969389957472,
+    "width": 26,
+    "height": 3.5,
+    "angle": 1.4486232791552935,
+    "radius": 4,
+    "deck": 3,
+    "sideTaper": 3
    },
    "meta": {
-    "type": "sideHit",
+    "type": "quarter",
     "design": {
-     "kind": "sideHit",
+     "kind": "quarter",
      "place": {
-      "x": -28,
-      "z": -262,
-      "yaw": 0.6108652381980153
+      "x": -74,
+      "z": -470,
+      "yaw": -1.3089969389957472
      },
      "size": "S",
      "speed": [
@@ -1473,148 +4574,9 @@
       99
      ],
      "inputs": {
-      "height": 1.2,
-      "width": 5
-     }
-    },
-    "fill": true
-   }
-  },
-  {
-   "kind": "shape",
-   "cfg": {
-    "kind": "knoll",
-    "x": 28,
-    "z": -305,
-    "yaw": 0,
-    "height": 2,
-    "radius": 8,
-    "back": 5.6
-   },
-   "meta": {
-    "type": "knoll",
-    "lip": 0,
-    "design": {
-     "kind": "knoll",
-     "place": {
-      "x": 28,
-      "z": -305,
-      "yaw": 0
-     },
-     "size": "S",
-     "speed": [
-      0,
-      99
-     ],
-     "inputs": {
-      "height": 2,
-      "radius": 8,
-      "back": 0.7
-     }
-    },
-    "fill": true
-   }
-  },
-  {
-   "kind": "shape",
-   "cfg": {
-    "kind": "sideHit",
-    "x": -28,
-    "z": -300,
-    "yaw": -0.6108652381980153,
-    "height": 1.3,
-    "angle": 0.4363323129985824,
-    "back": 2,
-    "width": 5,
-    "taper": 1.5
-   },
-   "meta": {
-    "type": "sideHit",
-    "design": {
-     "kind": "sideHit",
-     "place": {
-      "x": -28,
-      "z": -300,
-      "yaw": -0.6108652381980153
-     },
-     "size": "S",
-     "speed": [
-      0,
-      99
-     ],
-     "inputs": {
-      "height": 1.3,
-      "width": 5
-     }
-    },
-    "fill": true
-   }
-  },
-  {
-   "kind": "shape",
-   "cfg": {
-    "kind": "knoll",
-    "x": -26,
-    "z": -440,
-    "yaw": 0,
-    "height": 2.5,
-    "radius": 9,
-    "back": 6.3
-   },
-   "meta": {
-    "type": "knoll",
-    "lip": 0,
-    "design": {
-     "kind": "knoll",
-     "place": {
-      "x": -26,
-      "z": -440,
-      "yaw": 0
-     },
-     "size": "S",
-     "speed": [
-      0,
-      99
-     ],
-     "inputs": {
-      "height": 2.5,
-      "radius": 9,
-      "back": 0.7
-     }
-    },
-    "fill": true
-   }
-  },
-  {
-   "kind": "shape",
-   "cfg": {
-    "kind": "sideHit",
-    "x": 26,
-    "z": -430,
-    "yaw": -0.5235987755982988,
-    "height": 1.4,
-    "angle": 0.4363323129985824,
-    "back": 2,
-    "width": 5,
-    "taper": 1.5
-   },
-   "meta": {
-    "type": "sideHit",
-    "design": {
-     "kind": "sideHit",
-     "place": {
-      "x": 26,
-      "z": -430,
-      "yaw": -0.5235987755982988
-     },
-     "size": "S",
-     "speed": [
-      0,
-      99
-     ],
-     "inputs": {
-      "height": 1.4,
-      "width": 5
+      "width": 26,
+      "height": 3.5,
+      "radius": 4
      }
     },
     "fill": true
@@ -1623,10 +4585,46 @@
   {
    "kind": "quarter",
    "cfg": {
-    "x": -52,
-    "z": -572,
+    "x": 74,
+    "z": -430,
+    "yaw": 1.3089969389957472,
+    "width": 26,
+    "height": 3.5,
+    "angle": 1.4486232791552935,
+    "radius": 4,
+    "deck": 3,
+    "sideTaper": 3
+   },
+   "meta": {
+    "type": "quarter",
+    "design": {
+     "kind": "quarter",
+     "place": {
+      "x": 74,
+      "z": -430,
+      "yaw": 1.3089969389957472
+     },
+     "size": "S",
+     "speed": [
+      0,
+      99
+     ],
+     "inputs": {
+      "width": 26,
+      "height": 3.5,
+      "radius": 4
+     }
+    },
+    "fill": true
+   }
+  },
+  {
+   "kind": "quarter",
+   "cfg": {
+    "x": -46,
+    "z": -596,
     "yaw": 0,
-    "width": 40,
+    "width": 44,
     "height": 4,
     "angle": 1.4486232791552935,
     "radius": 4.5,
@@ -1638,8 +4636,8 @@
     "design": {
      "kind": "quarter",
      "place": {
-      "x": -52,
-      "z": -572,
+      "x": -46,
+      "z": -596,
       "yaw": 0
      },
      "size": "S",
@@ -1648,7 +4646,7 @@
       99
      ],
      "inputs": {
-      "width": 40,
+      "width": 44,
       "height": 4,
       "radius": 4.5
      }
@@ -1659,19 +4657,19 @@
   {
    "kind": "quarter",
    "cfg": {
-    "width": 14,
+    "width": 16,
     "height": 4,
     "angle": 1.4486232791552935,
     "radius": 4.5,
     "deck": 3,
     "sideTaper": 3,
-    "x": -1,
-    "z": -574,
+    "x": -2,
+    "z": -598,
     "yaw": 0,
     "joinEnd": 1,
     "mitre": [
      6,
-     -574,
+     -598,
      1.7071067811865475,
      0.7071067811865475
     ]
@@ -1682,7 +4680,7 @@
      "kind": "hipQuarter",
      "place": {
       "x": 6,
-      "z": -574,
+      "z": -598,
       "yaw": 0
      },
      "size": "S",
@@ -1693,32 +4691,32 @@
      "inputs": {
       "left": 0,
       "outside": 0,
-      "width": 14,
+      "width": 16,
       "angle": 45,
       "height": 4,
       "radius": 4.5
      }
     },
     "fill": true,
-    "group": 40
+    "group": 110
    }
   },
   {
    "kind": "quarter",
    "cfg": {
-    "width": 14,
+    "width": 16,
     "height": 4,
     "angle": 1.4486232791552935,
     "radius": 4.5,
     "deck": 3,
     "sideTaper": 3,
-    "x": 10.949747468305834,
-    "z": -569.0502525316941,
+    "x": 11.65685424949238,
+    "z": -592.3431457505076,
     "yaw": 0.7853981633974483,
     "joinEnd": -1,
     "mitre": [
      6,
-     -574,
+     -598,
      -1.7071067811865475,
      -0.7071067811865475
     ]
@@ -1726,16 +4724,16 @@
    "meta": {
     "type": "hipQuarter",
     "fill": true,
-    "group": 40
+    "group": 110
    }
   },
   {
    "kind": "quarter",
    "cfg": {
-    "x": 52,
-    "z": -572,
+    "x": 48,
+    "z": -596,
     "yaw": 0,
-    "width": 40,
+    "width": 44,
     "height": 4.5,
     "angle": 1.4486232791552935,
     "radius": 5,
@@ -1747,8 +4745,8 @@
     "design": {
      "kind": "quarter",
      "place": {
-      "x": 52,
-      "z": -572,
+      "x": 48,
+      "z": -596,
       "yaw": 0
      },
      "size": "S",
@@ -1757,81 +4755,9 @@
       99
      ],
      "inputs": {
-      "width": 40,
+      "width": 44,
       "height": 4.5,
       "radius": 5
-     }
-    },
-    "fill": true
-   }
-  },
-  {
-   "kind": "quarter",
-   "cfg": {
-    "x": -84,
-    "z": -290,
-    "yaw": -1.5707963267948966,
-    "width": 26,
-    "height": 3.5,
-    "angle": 1.4486232791552935,
-    "radius": 4,
-    "deck": 3,
-    "sideTaper": 3
-   },
-   "meta": {
-    "type": "quarter",
-    "design": {
-     "kind": "quarter",
-     "place": {
-      "x": -84,
-      "z": -290,
-      "yaw": -1.5707963267948966
-     },
-     "size": "S",
-     "speed": [
-      0,
-      99
-     ],
-     "inputs": {
-      "width": 26,
-      "height": 3.5,
-      "radius": 4
-     }
-    },
-    "fill": true
-   }
-  },
-  {
-   "kind": "quarter",
-   "cfg": {
-    "x": 84,
-    "z": -350,
-    "yaw": 1.5707963267948966,
-    "width": 26,
-    "height": 3.5,
-    "angle": 1.4486232791552935,
-    "radius": 4,
-    "deck": 3,
-    "sideTaper": 3
-   },
-   "meta": {
-    "type": "quarter",
-    "design": {
-     "kind": "quarter",
-     "place": {
-      "x": 84,
-      "z": -350,
-      "yaw": 1.5707963267948966
-     },
-     "size": "S",
-     "speed": [
-      0,
-      99
-     ],
-     "inputs": {
-      "width": 26,
-      "height": 3.5,
-      "radius": 4
      }
     },
     "fill": true
@@ -1842,76 +4768,80 @@
   {
    "name": "wall line",
    "features": [
-    0,
-    1,
-    3,
-    4,
-    5,
-    6,
-    7,
-    9
+    71,
+    72,
+    74,
+    75,
+    76,
+    77,
+    78,
+    79,
+    80
    ],
    "speed": [
-    6.71,
-    4.56,
-    7.98,
-    11.77,
-    9.07,
-    11.28,
-    16.44,
-    16.96
+    8.74,
+    8.48,
+    12.61,
+    15.12,
+    13.05,
+    15.5,
+    12.46,
+    16.31,
+    14.74
    ]
   },
   {
    "name": "transition line",
    "features": [
-    10,
-    13,
-    14,
-    15,
-    16,
-    17,
-    18,
-    19,
-    20,
-    21,
-    22
+    81,
+    82,
+    85,
+    86,
+    87,
+    88,
+    89,
+    90,
+    91,
+    92,
+    93,
+    94
    ],
    "speed": [
-    4,
-    6.86,
-    6.38,
-    7.05,
-    12.35,
-    12.26,
-    12.47,
-    12.64,
-    12.04,
-    14.73,
-    15.46
+    6.68,
+    7.39,
+    12.4,
+    12.82,
+    15.69,
+    13.31,
+    15.63,
+    15.63,
+    14.92,
+    9.18,
+    13.01,
+    12.86
    ]
   },
   {
    "name": "jump line",
    "features": [
-    23,
-    25,
-    26,
-    28,
-    29,
-    30,
-    31,
-    32
+    95,
+    96,
+    97,
+    98,
+    99,
+    100,
+    101,
+    102
    ],
    "speed": [
-    6.07,
-    7.96,
-    7.73,
-    12.11,
-    9.65,
-    12.11,
-    15.07,
-    16.98
+    8.05,
+    9.96,
+    9.98,
+    10.17,
+    9.03,
+    12.53,
+    12.03,
+    13.62
    ]
   }
  ],
