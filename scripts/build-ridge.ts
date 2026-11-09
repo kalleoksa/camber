@@ -60,6 +60,10 @@ const RIDGE = {
     // Humps across it: ride up one side, land down the other.
     { halfWidth: 3, skirt: 18, points: [[-22, -366, 4], [14, -370, 7], [48, -366, 4]] },
     { halfWidth: 3, skirt: 18, points: [[-46, -462, 4], [-8, -466, 7], [26, -462, 4]] },
+    // Banks either side of the big kicker, from the gully's mouth down past its landing: the
+    // gully's walls carried on, so the kicker stands in a dip between them and not on an open deck.
+    { halfWidth: 4, skirt: 18, points: [[-30, -565, 0], [-34, -610, 6], [-34, -680, 8], [-37, -745, 7], [-40, -805, 0]] },
+    { halfWidth: 4, skirt: 18, points: [[30, -565, 0], [34, -610, 6], [34, -680, 8], [37, -745, 7], [40, -805, 0]] },
   ] as FormConfig[],
   spots: [
     // On the line the bot rides: a kicker up each hump, then the big one.
